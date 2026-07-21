@@ -39,6 +39,16 @@ func mapResponsesEffort(v string) string {
 	}
 }
 
+// realOpenAICloud reports whether `base` targets OpenAI's hosted API — either the
+// pre-default empty credential URL OR the defaulted openaiBaseURL the openai adapter
+// rewrites it to before streaming. A custom base_url (LM Studio, vLLM, a self-hosted
+// OpenAI-compatible server) is a DIFFERENT backend and is NOT matched, so its
+// reasoning-control fields are preserved.
+func realOpenAICloud(base string) bool {
+	b := strings.TrimRight(base, "/")
+	return b == "" || b == openaiBaseURL
+}
+
 // responsesDefaultMaxOutput — the bounded output ceiling applied to a stateful
 // /v1/responses turn when the caller supplied no max_tokens. Prevents an always-reasoning
 // local model from looping unbounded (the thinking-off controls don't work on this API).
@@ -288,10 +298,13 @@ func streamViaResponses(ctx context.Context, client *http.Client, base, secret, 
 	// models (gpt-4o/gpt-4o-mini) — HTTP 400 `reasoning.effort unsupported_parameter`. This
 	// is the /responses twin of stripDefaultOpenAIUnsupportedFields (which strips the FLAT
 	// reasoning_effort on the /chat/completions path): the gate never reached the nested
-	// field, so every gpt-* stateful turn 400'd. Strip it ONLY for the default OpenAI
-	// endpoint + a non-reasoning model; a custom base_url (LM Studio) HONORS reasoning.effort
-	// for thinking control, so keep it there.
-	if strings.TrimRight(base, "/") == "" && !openaiIsReasoningModel(modelName) {
+	// field, so every gpt-* stateful turn 400'd. Strip it ONLY for real OpenAI cloud + a
+	// non-reasoning model; a custom base_url (LM Studio) HONORS reasoning.effort for thinking
+	// control, so keep it there. NOTE: `base` here is the ADAPTER-DEFAULTED value — the openai
+	// adapter rewrites an empty credential URL to openaiBaseURL BEFORE calling us (adapters.go
+	// Stream), so the check must match openaiBaseURL, not "". Testing base=="" only (the first
+	// pass at this fix) never fired for real OpenAI and the 400 persisted.
+	if realOpenAICloud(base) && !openaiIsReasoningModel(modelName) {
 		delete(body, "reasoning")
 	}
 	resp, err := openResponsesStream(ctx, client, strings.TrimRight(base, "/"), secret, body)
