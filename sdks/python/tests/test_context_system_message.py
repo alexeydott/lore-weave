@@ -57,14 +57,30 @@ def test_cache_stable_only():
 def test_cache_full_order_and_flags():
     out = _cache(kctx_stable="S", kctx_volatile="V", wm_pinned="WM",
                  system_prompt="SYS", tail_blocks=TAIL)
-    assert out[0] == {"type": "text", "text": "S", "cache_control": {"type": "ephemeral"}}
+    assert out[0] == {"type": "text", "text": "S", "cache_control": {"type": "ephemeral"}}  # BP1
     assert out[1] == {"type": "text", "text": "V"}            # volatile: uncached
     assert out[2] == {"type": "text", "text": "WM"}           # wm_pinned: uncached, verbatim
-    assert out[3] == {"type": "text", "text": "SYS", "cache_control": {"type": "ephemeral"}}
-    # every tail block is cacheable, in order
-    assert [p["text"] for p in out[4:]] == TAIL
-    assert all(p["cache_control"] == {"type": "ephemeral"} for p in out[4:])
+    assert out[3] == {"type": "text", "text": "SYS"}          # system_prompt: NOT its own breakpoint
+    # order preserved verbatim (system_prompt + every tail block), all middle blocks uncached
+    assert [p["text"] for p in out[3:]] == ["SYS", *TAIL]
     assert len(out) == 4 + len(TAIL)
+    # exactly ONE breakpoint at the END of the stable tail — Anthropic caches the cumulative
+    # prefix, so the last block's marker caches the whole persona+skills region.
+    assert out[-1] == {"type": "text", "text": TAIL[-1], "cache_control": {"type": "ephemeral"}}
+    # D-ANTHROPIC-CACHE-4BP: exactly 2 breakpoints (stable-memory + end-of-tail), NEVER the
+    # 11 the old per-block ladder emitted (which 400'd on Anthropic's 4-block cap).
+    n_markers = sum(1 for p in out if "cache_control" in p)
+    assert n_markers == 2, f"expected 2 breakpoints, got {n_markers}"
+
+
+def test_cache_never_exceeds_anthropic_4_breakpoints():
+    # Anthropic HARD-caps cache_control at 4 blocks (400 otherwise). A large book-scoped tail
+    # must still emit ≤4 markers — this is the regression the whole fix exists for.
+    big_tail = [f"block{i}" for i in range(20)]
+    out = _cache(kctx_stable="S", kctx_volatile="V", wm_pinned="WM",
+                 system_prompt="SYS", tail_blocks=big_tail)
+    n_markers = sum(1 for p in out if "cache_control" in p)
+    assert n_markers <= 4, f"exceeds Anthropic's 4-breakpoint max: {n_markers}"
 
 
 def test_cache_omits_empty_volatile_and_falsy():

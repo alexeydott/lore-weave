@@ -4081,17 +4081,18 @@ async def stream_response(
     #
     # K18.9 + T2-polish-3 (D-K18.9-01): when the provider is Anthropic
     # AND the memory block came back pre-split by knowledge-service,
-    # emit structured system content with `cache_control` markers on
-    # BOTH the stable-memory prefix AND the session-level system_prompt.
-    # Anthropic allows up to 4 cache breakpoints per request; we use 2:
-    #   parts[0]: stable memory (L0 + project + Mode-2/3 prefix up to </project>)
+    # emit structured system content with `cache_control` markers. Anthropic
+    # HARD-caps cache_control at 4 breakpoints (400 otherwise) and caches the
+    # CUMULATIVE prefix up to each, so build_system_message uses exactly 2:
+    #   BP1 — stable memory prefix (L0 + project + Mode-2/3 prefix up to </project>)
     #     → cached; changes only when L0 / project summary / memory-mode flip
-    #   parts[1]: volatile memory (Mode-2/3 glossary + facts + passages)
+    #   (then) volatile memory (Mode-2/3 glossary + facts + passages) + wm_pinned
     #     → NOT cached; changes per-message by intent
-    #   parts[2]: session system_prompt (persona / tone / instructions)
-    #     → cached; stable per-session, doesn't change between turns
-    # Non-Anthropic providers and the degraded / unsplit fallback take
-    # the plain-string path.
+    #   BP2 — the LAST block of the persona+tail region (system_prompt + skills +
+    #     steering + workflow + book note); one marker there caches the whole region.
+    # D-ANTHROPIC-CACHE-4BP: the old renderer marked EVERY tail block, emitting
+    # ~11 breakpoints on a book-scoped turn → Anthropic 400. Non-Anthropic providers
+    # (auto-cache) and the degraded / unsplit fallback take the plain-string path.
     # Glossary-assistant P5 + story 04 skill registry: inject selected or
     # surface-default system skills (static + cacheable).
     from app.services.skill_registry import (
