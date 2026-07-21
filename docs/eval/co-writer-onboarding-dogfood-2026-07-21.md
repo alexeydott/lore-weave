@@ -113,6 +113,23 @@ set (not all 44 → 8.1K), lazy-skill-bodies should keep skill L2 out until `loa
 injected), and `plan_nudge` (2.2K) should not inject on a non-plan question. Trimming the prefix is the
 lever; caching already covers the rest.
 
+**Transport confirmed via an LM Studio `/v1/responses` capture (user-supplied):** the co-writer already
+runs STATEFUL — `"store": true` + `"previous_response_id"` chain the message history server-side (so
+history, ~1.4K here, is NOT re-sent). But the SAME request still ships the full `instructions` (all 6
+skill bodies + the entire `vision-to-book` recipe) AND the complete `tools` array (44 schemas) — the
+~13K static prefix is re-sent every turn because `tools`/`instructions` are request-level params (no
+"register once" in the Responses/Completions API; the deprecated Assistants API had it). Auto-prefix KV
+caching mitigates it (hit_rate 0.66) but the TOKENS are still sent. Two extra levers this exposes:
+(a) **all 6 skill bodies are inlined** even on a trivial turn — lazy-skill-bodies (L1 index + `load_skill`)
+is not trimming on the book/studio surface; (b) the instructions embed a **volatile per-turn "WHERE THE
+BOOK ACTUALLY IS" status** inside the otherwise-stable prefix, which breaks prefix-cache reuse partway
+(a cause of the 66%-not-95% hit rate) — move per-turn state OUT of the cached prefix (CLAUDE.md "split
+context by update frequency"). Net: the transport is correct; the fix is a smaller, cache-stable prefix.
+
+**Related billing refinement (ties F11→F12):** since ~66% of each pass is a cache-read of the re-sent
+prefix, the per-pass billing should price cached-input at the cache-read rate (~0.1×), not full input —
+`caching_monitor.py` already computes the split; provider-registry billing should consume it.
+
 ### F4 — Stuck agent-runtime status badge
 After `glossary_adopt_standards` minted its confirm card (turn ended, awaiting the human), the runtime
 badge stayed **"Running tool · glossary_adopt_standards"** for the whole wait — looks hung/working when
