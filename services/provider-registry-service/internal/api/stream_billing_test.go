@@ -405,6 +405,83 @@ func TestStreamGuard_Settle_RecordUsage_RecordsWithTallyWhenNoUsageChunk(t *test
 	}
 }
 
+// TestStreamGuard_Settle_ZeroBillOnPreflightProviderError. D-BILL-NO-USAGE-ON-PREFLIGHT-ERROR:
+// a chat provider_error that produced NEITHER a usage chunk NOR any output delta is a
+// pre-processing rejection (the provider — e.g. real OpenAI returning a 400 for an
+// unsupported param — billed us nothing). settle MUST still write the audit row (for
+// error observability) but with 0 input/output tokens + $0 cost, NEVER the up-front
+// input-token ESTIMATE, which would fabricate spend the user never incurred and inflate
+// the user-facing spend summary.
+func TestStreamGuard_Settle_ZeroBillOnPreflightProviderError(t *testing.T) {
+	srv, cap := newUsageStub(t)
+	gc := billing.NewGuardrailClient(srv.URL, "tok", nil)
+
+	g := &streamGuard{
+		guardrail: gc, reservationID: uuid.New(),
+		jobID: uuid.New(), ownerUserID: uuid.New(),
+		modelSource: "user_model", modelRef: uuid.New(),
+		op:      "chat",
+		pricing: billing.Pricing{InputPerMTok: ptr(2), OutputPerMTok: ptr(10)},
+		// Repro: preflight stamped the estimate, but the provider 400'd before
+		// streaming — no usage chunk, no output delta.
+		inputCostUSD:  0.001923,
+		inputTokens:   12820,
+		outChars:      0,
+		requestStatus: "provider_error",
+		// finalUsage intentionally nil
+	}
+	g.settle(context.Background())
+
+	if cap.reconcileCount != 1 {
+		t.Fatalf("expected 1 reconcile (always runs), got %d", cap.reconcileCount)
+	}
+	if cap.recordCount != 1 {
+		t.Fatalf("a rejected turn MUST still record an audit row (observability), got %d", cap.recordCount)
+	}
+	if in, _ := cap.recordBody["input_tokens"].(float64); int(in) != 0 {
+		t.Errorf("input_tokens: got %v want 0 — the provider consumed no prefill, must NOT bill the estimate", cap.recordBody["input_tokens"])
+	}
+	if out, _ := cap.recordBody["output_tokens"].(float64); int(out) != 0 {
+		t.Errorf("output_tokens: got %v want 0", cap.recordBody["output_tokens"])
+	}
+	if cost, ok := cap.recordBody["total_cost_usd"].(float64); !ok || cost != 0 {
+		t.Errorf("total_cost_usd: got %v want 0 (a rejected request bills nothing)", cap.recordBody["total_cost_usd"])
+	}
+	if cap.recordBody["request_status"] != "provider_error" {
+		t.Errorf("request_status: got %v want provider_error", cap.recordBody["request_status"])
+	}
+}
+
+// TestStreamGuard_Settle_MidStreamProviderErrorStillBills. The scope guard for the fix
+// above: a provider_error that arrived AFTER real output already streamed (outChars>0)
+// DID spend tokens — it must bill the delta tally, NOT be refunded. This is what keeps
+// the zero-bill narrowly targeted at pre-processing rejections.
+func TestStreamGuard_Settle_MidStreamProviderErrorStillBills(t *testing.T) {
+	srv, cap := newUsageStub(t)
+	gc := billing.NewGuardrailClient(srv.URL, "tok", nil)
+
+	g := &streamGuard{
+		guardrail: gc, reservationID: uuid.New(),
+		jobID: uuid.New(), ownerUserID: uuid.New(),
+		modelSource: "user_model", modelRef: uuid.New(),
+		op:            "chat",
+		pricing:       billing.Pricing{OutputPerMTok: ptr(10)},
+		inputCostUSD:  0.005,
+		inputTokens:   42,
+		outChars:      350, // real output streamed before the error → 100 tokens
+		requestStatus: "provider_error",
+		// finalUsage nil (errored before the usage chunk) but output DID stream
+	}
+	g.settle(context.Background())
+
+	if in, _ := cap.recordBody["input_tokens"].(float64); int(in) != 42 {
+		t.Errorf("input_tokens: got %v want 42 — real mid-stream usage stays billed", cap.recordBody["input_tokens"])
+	}
+	if out, _ := cap.recordBody["output_tokens"].(float64); int(out) != 100 {
+		t.Errorf("output_tokens: got %v want 100 (tally)", cap.recordBody["output_tokens"])
+	}
+}
+
 // TestStreamGuard_Settle_RecordUsage_LogsPayloads. P0-2 (B1): a completed chat
 // stream MUST record a non-empty request payload (the assembled messages) + response
 // payload (the accumulated completion) so the highest-volume path is auditable.
