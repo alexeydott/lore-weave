@@ -59,6 +59,21 @@ detail — the user approves blind. The card should surface the proposed kinds (
 item, power_system, terminology, …) so the user can evaluate the proposal, which is what "propose"
 means.
 
+### F10 — The per-turn token counter ("↑550,704") is misleading (cumulative-across-passes, ignores caching)
+The UI's per-turn "↑N tokens" is the **SUM of `promptTokens` across every tool-loop pass**, not the
+model's work or the context size. The runaway turn (F1) showed **↑550,704** — but:
+- Our own preflight metric (`2d1b4197c`) shows each pass was **~32–35K** input; **~16 passes × ~34K ≈ 550K**.
+- **LM Studio ground truth** (`lms log stream --stats`) for a single pass: `promptTokensCount: 12,414`,
+  `timeToFirstTokenSec: 1.78`, `tokensPerSecond: 119` — i.e. one pass is ~12–35K, never 550K.
+- **Context was 17% of the 200K window at peak** (`pct_used: 16–17`, `headroom ~165K`) — NOT bloated,
+  NOT near overflow. The ~34K is re-sent 16× with **KV-cache reuse** (near-free re-prefill), which is
+  how a single RTX-4090 does it in 35s (Gemma-4 26B-A4B is a MoE, ~4B active params, ~7K tok/s prefill).
+
+**Fix direction:** the per-turn chip should show **peak per-pass context** (the real load, e.g. "35K /
+200K") — the honest number is already in the `chat context preflight` log. If a cumulative figure is
+kept, label it "cumulative across N passes" so it isn't read as context size or GPU work. (Same root
+as the earlier "245K for a one-line request" scare — it was always the cross-pass sum.)
+
 ### F4 — Stuck agent-runtime status badge
 After `glossary_adopt_standards` minted its confirm card (turn ended, awaiting the human), the runtime
 badge stayed **"Running tool · glossary_adopt_standards"** for the whole wait — looks hung/working when
