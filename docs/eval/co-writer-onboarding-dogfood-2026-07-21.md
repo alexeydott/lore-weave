@@ -141,6 +141,19 @@ Persisted `context_breakdown` for a trivial "what's the central magic?" turn (~1
 `frontend_tool_schemas 1,478` = **~14.9K fixed overhead**; history was 1,424, the question ~10 tokens.
 Prompt caching helps *compute* (auto-prefix, hit_rate 0.66, ~33% saved) but does NOT reduce the tokens
 **sent** — the stateless API ships all ~18K every request (this is the large prompt seen in LM Studio).
+**POC RESULTS (2026-07-21, env-tunable A/B harness `LW_HOT_SEED_TOKEN_BUDGET` + `LW_LAZY_ALL_SKILLS`):**
+Both levers measured on the real Gemma studio co-writer, quality-gated end-to-end:
+| Arm | tools | skills | quality gate |
+|---|---|---|---|
+| baseline | 8134 | 5117 | — |
+| tools index-only (budget=0) | **4842 (−40%)** | 5117 | description edit → `book_update_details` ✅ |
+| skills lazy (`LAZY_ALL_SKILLS`) | 8134 | **433 (−92%)** | "add a character" → Gemma `load_skill` on demand → `glossary_propose_entities` → **Captain Vale persisted** ✅ |
+| **combined** | ~4842 | ~433 | **prefix 13.3K → ~5.3K (~60% cut)** |
+Both viable, no quality loss (Gemma reliably runs the load_skill/tool_load discovery — the "weak model
+skips it" fear is disproven). **Trade-off:** lazy adds `load_skill`/`tool_list` discovery passes
+(latency); the NET cost is the OpenAI $/turn A/B (smaller per-pass prefix × more passes) — the last
+F12 measurement. Harness ships default-off (opt-in) pending that cost A/B.
+
 **Fix direction (optimization, not a defect):** the hot-set/lazy-discovery should advertise a SMALL tool
 set (not all 44 → 8.1K), lazy-skill-bodies should keep skill L2 out until `load_skill` (not 5.1K
 injected), and `plan_nudge` (2.2K) should not inject on a non-plan question. Trimming the prefix is the
