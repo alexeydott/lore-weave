@@ -9,6 +9,28 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// normalizeKindSynonym maps the natural-language kind words an LLM emits ("place",
+// "person") to their canonical system-kind code, as a FALLBACK when the raw code misses.
+// Ambiguous words (faction) are deliberately NOT mapped; canonical/unknown codes pass
+// through unchanged so a book's own custom kind is never mis-routed.
+func TestNormalizeKindSynonym(t *testing.T) {
+	cases := map[string]string{
+		"place": "location", "Place": "location", " places ": "location",
+		"setting": "location", "region": "location", "locale": "location",
+		"person": "character", "people": "character", "npc": "character", "cast": "character",
+		"thing": "item", "object": "item", "artifact": "item",
+		"concept": "terminology", "term": "terminology",
+		// pass-throughs: already canonical, ambiguous, or a custom kind → unchanged
+		"location": "location", "character": "character", "org": "org",
+		"faction": "faction", "power_system": "power_system", "my_custom_kind": "my_custom_kind",
+	}
+	for in, want := range cases {
+		if got := normalizeKindSynonym(in); got != want {
+			t.Errorf("normalizeKindSynonym(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 // ── glossary_propose_entities (§3.3 resolved 2026-07-06) ──────────────────────
 
 func TestProposeEntities_BatchCreate_MixedNewAndExisting(t *testing.T) {

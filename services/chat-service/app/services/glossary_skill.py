@@ -73,6 +73,12 @@ the change was saved on `applied_saved`.
 - Add one or more new entities: `glossary_propose_entities` (pass 1+ items in one \
 call, even for a single entity) — each lands as a draft in the review inbox for the \
 user to approve, independently. Call `glossary_search` first to avoid duplicates.
+- **Kind must exist first, and use its canonical code.** Prefer the canonical code \
+over a synonym — `location` for a place, `character` for a person, `item` for a thing. \
+If a propose returns `unknown kind: X`, that category is not in THIS book's ontology \
+yet: adopt it with `glossary_adopt_standards` (X is a system kind), then RETRY the same \
+propose. Do NOT re-send the failing kind unchanged, and do NOT give up — one adopt then \
+one retry fixes it. (The most common cause of a "place"/"faction" not saving.)
 - Add a new kind or attribute (schema-level, high-impact): \
 `glossary_propose_new_kind` / `glossary_propose_new_attribute` return a \
 `confirm_token` + `descriptor`; pass them to `glossary_confirm_action`, which asks \

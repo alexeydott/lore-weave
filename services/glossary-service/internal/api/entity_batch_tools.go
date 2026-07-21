@@ -207,6 +207,27 @@ func allFailuresAreUnknownKind(results []proposeEntityItemResult) bool {
 	return sawFailure
 }
 
+// normalizeKindSynonym maps a natural-language kind word an LLM commonly emits to its
+// canonical system-kind code, so "add a place" (kind:"place") resolves to "location".
+// ONLY common, unambiguous synonyms whose target is one of the 12 seeded system kinds —
+// ambiguous ones (e.g. faction → org vs organization) are deliberately left out so we
+// never silently mis-route. Used strictly as a FALLBACK (the raw code is tried first),
+// so a book's own custom kind of the same name is never overridden.
+func normalizeKindSynonym(code string) string {
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "place", "places", "setting", "settings", "region", "area", "locale":
+		return "location"
+	case "person", "people", "char", "cast", "npc":
+		return "character"
+	case "thing", "object", "artifact", "artefact":
+		return "item"
+	case "concept", "term", "terms", "jargon_term":
+		return "terminology"
+	default:
+		return code
+	}
+}
+
 // proposeOneEntity resolves one item's kind then delegates to proposeNewEntity
 // (mcp_server.go) -- the EXACT core glossary_propose_new_entity calls, so a
 // batch-created entity is indistinguishable from a singly-created one.
@@ -223,6 +244,19 @@ func (s *Server) proposeOneEntity(ctx context.Context, bookID uuid.UUID, kindMap
 		return res
 	}
 	kindID, ok := kindMap[kind]
+	if !ok {
+		// (b) Synonym fallback — an LLM naturally emits "place"/"person" for a
+		// location/character (the dominant "unknown kind" cause). Map common,
+		// unambiguous synonyms to their canonical system-kind code and retry. A
+		// FALLBACK only (the raw code was tried first), so a book's OWN custom kind
+		// of the same name always wins. Adopt `kind` to the canonical either way so
+		// a still-unadopted miss reports "unknown kind: location" (a real, adoptable
+		// system kind) not "place" — this is what lets the adopt→retry guidance work.
+		if canon := normalizeKindSynonym(kind); canon != kind {
+			kind = canon
+			kindID, ok = kindMap[kind]
+		}
+	}
 	if !ok {
 		res.Status, res.Error = "error", "unknown kind: "+kind
 		return res
