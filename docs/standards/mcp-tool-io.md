@@ -96,6 +96,16 @@ Before merging two tools, check whether they differ in whether they mint a confi
 An array-input tool takes **1..N** items — a single item is just a 1-element array; there is no separate "singular" arg shape to design or maintain. `items` declares `minItems`/`maxItems` in the schema (IN-4). The result is a **per-item** status list (`{code, status, error?}` per item), never an opaque all-or-nothing success — this extends OUT-5 (no silent truncation/failure) to the batch case: a batch call that fails item 7 of 10 must say so, not discard the other 9 successes or fail the whole call.
 
 ### CAT-4 · Tool visibility: `_meta.visibility` gates discovery, not existence
+
+> **DRIFT NOTE (2026-07-22): `find_tools` is DEPRECATED — F17 (`f30dc77e5`), "hide find_tools
+> from the LLM; `tool_list`/`tool_load` are the sole discovery path."** The mentions of
+> `find_tools`/`search_catalog`/"fuzzy-search result" in this section and older specs
+> (`2026-07-06-tool-catalog-simplification.md`) predate that deprecation. The legacy-exclusion
+> rule below is UNCHANGED — it now applies to the current discovery surface (`tool_list` +
+> `tool_load`, deterministic category listing → load-by-name), not to fuzzy `find_tools`.
+> Do NOT reach for `find_tools`/`search_catalog` in new work; its ranking is unreliable and it
+> is no longer model-facing.
+
 A consolidated or superseded tool is **not deleted** — existing callers (older FE builds, tests, other services) keep working. Instead it's tagged `_meta.visibility: "legacy"` (default, when absent: `"discoverable"`). `find_tools`/`search_catalog` (both the chat-service and ai-gateway implementations — they must stay in lockstep per their own header comment) and any domain hot-seed **exclude `legacy`-tagged tools entirely** — a legacy tool never appears in a fuzzy-search result and is never hot-seeded, no matter how well its description matches an intent. The **only** path to activating a legacy tool for a session is an explicit, user-initiated pin — a **Settings & Configuration Boundary**-governed per-session choice (SET-1: this is a user setting, not a global unlock), never a blanket "show me everything" mode.
 
 ## Part 5 — The durable human gate (ext-tasks) — the KIND-C confirm mechanism
