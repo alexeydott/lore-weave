@@ -14,6 +14,34 @@ controlled step-by-step flow could not be exercised. This is the wall.
 
 ## 🔴 HIGH
 
+### F11 — BILLING double-charge + inflated + 20× mispriced (real money, not the display)
+**Distinct from F10** (F10 is the UI counter; this is the **billed `usage_logs` ledger**). The runaway
+turn was recorded by **TWO independent writers**, both billed:
+
+| Writer | request_id | records | input_tok | cost |
+|---|---|---|---|---|
+| provider-registry per-pass (`stream_billing.go:306`) | uuidv7 (`019f84ea…`) | 14 | 498,158 | **$0.0506** |
+| chat-service turn roll-up (`billing_client.py:69` → `/internal/model-billing/record`) | random v4 (`2fbc0a85…`) | 1 | **550,704** | **$1.1056** |
+
+**One "set up the world" turn → ≈ $1.16 billed, on the user's OWN local 4090.** Four compounding bugs:
+1. **Double-write** — provider-registry (per pass) AND chat-service (per turn) both write `usage_logs`
+   for the same LLM calls. The turn is billed ~twice.
+2. **Roll-up bills the cross-pass SUM (550,704)** — the F10 misleading number, charged as real tokens;
+   the true unique context was ~35K. ~14× inflation on top of the double-write.
+3. **20× price disagreement** — same 12,414-token turn: per-pass writer $0.0012574 ($0.10/1M) vs
+   roll-up writer $0.024908 ($2.006/1M). The two cost paths don't agree.
+4. **Local/BYOK model billed non-zero** — Gemma runs on the user's GPU; cost should be ~$0 (or an
+   untracked "self-hosted" lane), not ~$0.10–2/1M. And **no prompt-cache discount** is applied even on
+   the per-pass path (each pass bills its full re-sent ~35K input; cache-read should be ~0.1× or free —
+   `caching_monitor.py` already models this but billing doesn't consume it here).
+
+**Fix direction:** ONE authoritative usage writer per LLM call (pick provider-registry per-pass; drop
+the chat-service turn roll-up, or make it audit-only/never-billed); never bill the cross-pass sum;
+apply the cache-read discount to re-sent context; **local/self-hosted models = $0** (or an explicit
+untracked lane). This is the answer to "a few chat lines cost that much?" — **yes, and it's a bug.**
+Verify the balance/spend calc sums `usage_logs` (if it dedups by request_id the double-charge may be
+partially mitigated — but the 550K roll-up + 20× price + non-zero-local remain).
+
 ### F1 — Runaway over-automation (THE headline bug)
 On a single **"set up the world for this story"** request, the agent chained the **entire** workflow
 in one 35.6s / **↑550,704-token** turn:
