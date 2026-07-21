@@ -12,6 +12,39 @@ controlled step-by-step flow could not be exercised. This is the wall.
 
 ---
 
+## 💰 COST-FEASIBILITY POC (2026-07-21) — measured, not asserted
+
+**Question (user):** "no one pays for 20K+ mandatory tokens per prompt just to add a few chat lines —
+if we can't optimize cost the app is useless." Verified on **real OpenAI gpt-4o-mini** (spend: **$0.0008**).
+
+**Measured (controlled ~6K static prefix, cold then warm, via `loreweave_llm.Client`):**
+```
+COLD  input=3387  cache_read=0     out=1
+WARM  input=3387  cache_read=3328  out=1   ← 98% of the prefix AUTO-cached (no previous_response_id needed)
+cold $0.000509 · warm-with-cache $0.000259 (49% off) · warm-NO-cache $0.000509 (what we bill today)
+```
+1. OpenAI prompt caching is automatic + near-total (98% hit) and `input_tokens` stays the FULL volume
+   — caching cuts **cost** (cheaper cache-read rate), NOT token count. 2. Cached input = **50% off**
+   gpt-4o-mini / **90% off** GPT-5.x / Claude. 3. **We capture `cached_tokens` (responses/anthropic
+   streamers) but the pricing JSONB has NO cached rate → we bill cached at full = ~2× overcharge.**
+
+**20-turn session cost model (measured 98% hit + published rates, our real 13K prefix):**
+| model | A: today (13K, no discount) | B: +cache discount | C: progressive 2K + discount |
+|---|---|---|---|
+| gpt-4o-mini | $0.040 | $0.022 | $0.004 |
+| gpt-4o | **$0.66** | $0.36 | $0.068 |
+| GPT-5.x | $0.33 | $0.060 | $0.015 |
+| Claude Sonnet | **$0.80** | $0.14 | $0.037 |
+(agentic multi-pass turns multiply per-turn by pass count → column A hits DOLLARS/session on premium
+models; caching helps most there since every re-sent pass hits the cached prefix.)
+
+**VERDICT: viable, but ONLY with two fixes — they are load-bearing, not polish.**
+- **(1) apply the cache-read discount in billing** (data already captured; add `cached_input_per_mtok`
+  to pricing + consume `cache_read_tok`) → −45-82%.
+- **(2) progressive tool loading** (F12: 13K→~2K prefix) → another −90%.
+Combined, even premium models are **cents/session**. Without them, column A confirms the user's "useless"
+fear for cloud at scale. Local (LM Studio) is $0 real cost regardless (F11 only inflates the ledger).
+
 ## 🔴 HIGH
 
 ### F11 — BILLING double-charge + inflated + 20× mispriced (real money, not the display)
