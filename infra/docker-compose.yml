@@ -978,6 +978,9 @@ services:
       # surface, tool decisions) — the monitor for "why did the agent do/refuse X" bugs.
       # Override to WARNING for a quiet prod deploy.
       LOG_LEVEL: "${CHAT_LOG_LEVEL:-INFO}"
+      # F12 A/B (progressive tool loading) — hot-seed token budget. 0 restores the ORIGINAL
+      # index-only tool_list/tool_load design (no domain hot-seed; core+always-hot-writes only).
+      LW_HOT_SEED_TOKEN_BUDGET: "${LW_HOT_SEED_TOKEN_BUDGET:-4000}"
       T5_INTENT_GATE_ENABLED: "${T5_INTENT_GATE_ENABLED:-false}"
       # Context Budget Law T4 (story_state Core Memory Block) + T6/D13a (reversible
       # dup-read collapse). Default OFF; flip on (with T5) for the compaction A/B —

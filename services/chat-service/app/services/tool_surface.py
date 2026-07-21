@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 
 from app.services.token_budget import estimate_tokens, scale_by_window
@@ -35,7 +36,9 @@ ACTIVATED_TOOLS_CAP = 64
 # them for a caller that resolves the session model's real (larger) context_length,
 # instead of every model, including a 1M-context one, being capped at the same flat
 # number (the exact bug class the Context Budget Law's `budget.py` fix addressed).
-HOT_SEED_TOKEN_BUDGET = 4000        # ~8-12 tools stay hot; rest lazy via find_tools
+# F12 A/B — env-tunable so we can measure the ORIGINAL index-only design (tool_list/tool_load
+# only, budget≈0) against the current hot-seed. Default 4000 = today's shipped behavior.
+HOT_SEED_TOKEN_BUDGET = int(os.environ.get("LW_HOT_SEED_TOKEN_BUDGET", "4000"))  # ~8-12 tools hot; rest lazy
 ACTIVATED_TOOLS_TOKEN_BUDGET = 6000  # cap the find_tools-accumulated set by tokens
 
 # Read/query verbs → the tools safe to keep hot (writes/proposes are discovered on
