@@ -6092,25 +6092,17 @@ async def _emit_chat_turn(
         # awaited (a single indexed UPDATE at turn-end); persist swallows its own errors.
         await persist_capture_status(pool, session_id, _capture_decision)
 
-        # Log usage async (non-blocking)
-        if post_finish_state["last_usage"]:
-            asyncio.create_task(
-                billing.log_usage(
-                    user_id=user_id,
-                    model_source=model_source,
-                    model_ref=model_ref,
-                    provider_kind=creds.provider_kind,
-                    input_tokens=post_finish_state["input_tok"] or 0,
-                    output_tokens=post_finish_state["output_tok"] or 0,
-                    session_id=session_id,
-                    message_id=msg_id,
-                    input_payload={"messages": messages},
-                    output_payload={
-                        "content": post_finish_state["final_text"],
-                        "reasoning": post_finish_state["final_reasoning"] or None,
-                    },
-                )
-            )
+        # BILLING — do NOT record chat usage here (F11, 2026-07-21). provider-registry's
+        # stream billing (`stream_billing.go` → RecordUsage, TotalCostUSD: actual) is the
+        # SOLE authoritative biller: it records EACH tool-loop pass at the model's real
+        # per-mtok price ("matches reconcile"). This turn-level log_usage was a redundant
+        # SECOND writer that (a) summed input across every re-sent pass (input_tok is the
+        # tool-loop SUM — 550,704 for a 16-pass turn vs a real ~34K context), and (b) sent
+        # NO cost, so usage-billing's token fallback re-priced it at ~$2/1M instead of the
+        # model's $0.10 — a double-charge at ~20× on the summed tokens (spend =
+        # SUM(total_cost_usd) FROM usage_logs, so both writers counted). Voice STT/TTS still
+        # bills via billing.log_usage from voice.py (its own per-second/char cost, a lane
+        # provider-registry does not meter). See docs/eval/co-writer-onboarding-dogfood-2026-07-21.md F11.
 
     for line in emitter.done():
         yield line

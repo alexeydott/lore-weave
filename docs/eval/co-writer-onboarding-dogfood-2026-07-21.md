@@ -102,6 +102,17 @@ model's work or the context size. The runaway turn (F1) showed **↑550,704** �
 kept, label it "cumulative across N passes" so it isn't read as context size or GPU work. (Same root
 as the earlier "245K for a one-line request" scare — it was always the cross-pass sum.)
 
+### F12 — ~15K fixed agent-surface overhead on EVERY turn (even a 1-line question)
+Persisted `context_breakdown` for a trivial "what's the central magic?" turn (~17.9K context):
+`mcp_tool_schemas 8,134` (all 44 tools) + `skills 5,117` (8–10 bodies) + `plan_nudge 2,190` +
+`frontend_tool_schemas 1,478` = **~14.9K fixed overhead**; history was 1,424, the question ~10 tokens.
+Prompt caching helps *compute* (auto-prefix, hit_rate 0.66, ~33% saved) but does NOT reduce the tokens
+**sent** — the stateless API ships all ~18K every request (this is the large prompt seen in LM Studio).
+**Fix direction (optimization, not a defect):** the hot-set/lazy-discovery should advertise a SMALL tool
+set (not all 44 → 8.1K), lazy-skill-bodies should keep skill L2 out until `load_skill` (not 5.1K
+injected), and `plan_nudge` (2.2K) should not inject on a non-plan question. Trimming the prefix is the
+lever; caching already covers the rest.
+
 ### F4 — Stuck agent-runtime status badge
 After `glossary_adopt_standards` minted its confirm card (turn ended, awaiting the human), the runtime
 badge stayed **"Running tool · glossary_adopt_standards"** for the whole wait — looks hung/working when
