@@ -284,6 +284,16 @@ func isChainNotFound(err error) bool {
 // the chain from DB truth — E1) rather than surfacing an opaque 400.
 func streamViaResponses(ctx context.Context, client *http.Client, base, secret, modelName string, input map[string]any, emit EmitFn) error {
 	body := buildResponsesBody(modelName, input)
+	// Real OpenAI's /v1/responses REJECTS the nested `reasoning` object on NON-o-series
+	// models (gpt-4o/gpt-4o-mini) — HTTP 400 `reasoning.effort unsupported_parameter`. This
+	// is the /responses twin of stripDefaultOpenAIUnsupportedFields (which strips the FLAT
+	// reasoning_effort on the /chat/completions path): the gate never reached the nested
+	// field, so every gpt-* stateful turn 400'd. Strip it ONLY for the default OpenAI
+	// endpoint + a non-reasoning model; a custom base_url (LM Studio) HONORS reasoning.effort
+	// for thinking control, so keep it there.
+	if strings.TrimRight(base, "/") == "" && !openaiIsReasoningModel(modelName) {
+		delete(body, "reasoning")
+	}
 	resp, err := openResponsesStream(ctx, client, strings.TrimRight(base, "/"), secret, body)
 	if err != nil {
 		if isChainNotFound(err) {
