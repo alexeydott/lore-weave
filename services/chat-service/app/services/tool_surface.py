@@ -36,9 +36,16 @@ ACTIVATED_TOOLS_CAP = 64
 # them for a caller that resolves the session model's real (larger) context_length,
 # instead of every model, including a 1M-context one, being capped at the same flat
 # number (the exact bug class the Context Budget Law's `budget.py` fix addressed).
-# F12 A/B — env-tunable so we can measure the ORIGINAL index-only design (tool_list/tool_load
-# only, budget≈0) against the current hot-seed. Default 4000 = today's shipped behavior.
-HOT_SEED_TOKEN_BUDGET = int(os.environ.get("LW_HOT_SEED_TOKEN_BUDGET", "4000"))  # ~8-12 tools hot; rest lazy
+# F12 (measured 2026-07-21, warm-cache A/B on gpt-4o-mini): env-tunable hot-seed budget.
+# LOWERED 4000→2000 as the default. Isolated A/B (skills left on their designed lazy path —
+# lazy_skill_bodies stays ON; NOT the blunt LW_LAZY_ALL_SKILLS test knob): 2000 cut the
+# assembled prefix ~17-24% per turn on a warm 4-turn book session with NO extra discovery
+# passes and NO quality loss (all adds persisted), and the smaller prefix still cache-hits
+# (warm passes ~0.1 $/Mtok = fully cached). 2000 keeps ~4-6 common tools hot (robust for
+# non-glossary tasks that budget=0 would push into pure discovery); the long tail stays lazy
+# via find_tools. Set LW_HOT_SEED_TOKEN_BUDGET=0 for the original pure-index design, or 4000
+# to restore the prior default.
+HOT_SEED_TOKEN_BUDGET = int(os.environ.get("LW_HOT_SEED_TOKEN_BUDGET", "2000"))  # ~4-6 tools hot; rest lazy
 ACTIVATED_TOOLS_TOKEN_BUDGET = 6000  # cap the find_tools-accumulated set by tokens
 
 # Read/query verbs → the tools safe to keep hot (writes/proposes are discovered on

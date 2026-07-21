@@ -978,9 +978,10 @@ services:
       # surface, tool decisions) — the monitor for "why did the agent do/refuse X" bugs.
       # Override to WARNING for a quiet prod deploy.
       LOG_LEVEL: "${CHAT_LOG_LEVEL:-INFO}"
-      # F12 A/B (progressive tool loading) — hot-seed token budget. 0 restores the ORIGINAL
-      # index-only tool_list/tool_load design (no domain hot-seed; core+always-hot-writes only).
-      LW_HOT_SEED_TOKEN_BUDGET: "${LW_HOT_SEED_TOKEN_BUDGET:-4000}"
+      # F12 (measured 2026-07-21) — hot-seed token budget. LOWERED 4000→2000: warm-cache A/B
+      # showed ~17-24% smaller prefix/turn, no extra discovery passes, no quality loss, still
+      # fully cache-hitting. 0 restores the ORIGINAL index-only design; 4000 the prior default.
+      LW_HOT_SEED_TOKEN_BUDGET: "${LW_HOT_SEED_TOKEN_BUDGET:-2000}"
       # F12 A/B (lazy skills) — on ⇒ NO full L2 skill bodies (surface/router/workflow-binding);
       # model uses the L1 index + load_skill. Measures the ~5-12K skills-lever cut.
       LW_LAZY_ALL_SKILLS: "${LW_LAZY_ALL_SKILLS:-off}"
