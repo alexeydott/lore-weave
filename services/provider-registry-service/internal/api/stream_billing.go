@@ -346,7 +346,32 @@ func (g *streamGuard) usageCostUSD(u provider.StreamChunk) float64 {
 	if u.ReasoningTokens != nil {
 		out += *u.ReasoningTokens
 	}
-	return float64(u.InputTokens)/1e6*inPerMTok + float64(out)/1e6*outPerMTok
+	// Prompt-cache-aware INPUT pricing (2026 standard; the LiteLLM #19681 bug class:
+	// billing cached tokens at the full rate over-charges up to ~11× on a mostly-cached
+	// prompt). InputTokens is the FULL billed volume; the provider-normalized split lets us
+	// price each part correctly:
+	//   cache READ  (served from cache) → discounted (default 0.5×; GPT-5.x/Anthropic ~0.1×
+	//               via the configured CachedInputPerMTok),
+	//   cache WRITE (Anthropic cache_creation) → 1.25× premium,
+	//   UNCACHED    → full input rate.
+	// Providers reporting no cache activity (LM Studio) have read=creation=0, so this
+	// reduces EXACTLY to InputTokens×inPerMTok — zero behavior change on the local path.
+	read, creation := 0, 0
+	if u.CacheReadTokens != nil {
+		read = *u.CacheReadTokens
+	}
+	if u.CacheCreationTokens != nil {
+		creation = *u.CacheCreationTokens
+	}
+	uncached := max(0, u.InputTokens-read-creation)
+	cachedPerMTok := inPerMTok * 0.5 // conservative default (OpenAI floor; never over-discounts)
+	if g.pricing.CachedInputPerMTok != nil {
+		cachedPerMTok = *g.pricing.CachedInputPerMTok
+	}
+	inputCost := (float64(uncached)*inPerMTok +
+		float64(read)*cachedPerMTok +
+		float64(creation)*inPerMTok*1.25) / 1e6
+	return inputCost + float64(out)/1e6*outPerMTok
 }
 
 // minFloat returns the smaller of two float64s.

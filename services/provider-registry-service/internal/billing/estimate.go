@@ -30,9 +30,17 @@ var ErrUnpriced = errors.New("model pricing not configured")
 type Pricing struct {
 	InputPerMTok  *float64 `json:"input_per_mtok,omitempty"`
 	OutputPerMTok *float64 `json:"output_per_mtok,omitempty"`
-	PerImage      *float64 `json:"per_image,omitempty"`
-	PerSecond     *float64 `json:"per_second,omitempty"`
-	PerKChar      *float64 `json:"per_kchar,omitempty"`
+	// CachedInputPerMTok — the rate for input tokens SERVED FROM the provider's prompt
+	// cache (OpenAI cached_tokens / Anthropic cache_read). Every major 2026 provider
+	// discounts these 50–90%; billing them at the full InputPerMTok is a real overcharge
+	// (LiteLLM #19681: 10.9× on a 91%-cached prompt). Optional — when nil, billing applies
+	// a conservative DEFAULT of 0.5×InputPerMTok (the OpenAI floor; GPT-5.x/Anthropic are
+	// 0.1× so this never OVER-discounts). Cache WRITES (Anthropic cache_creation) bill at a
+	// 1.25× premium of InputPerMTok, applied in usageCostUSD.
+	CachedInputPerMTok *float64 `json:"cached_input_per_mtok,omitempty"`
+	PerImage           *float64 `json:"per_image,omitempty"`
+	PerSecond          *float64 `json:"per_second,omitempty"`
+	PerKChar           *float64 `json:"per_kchar,omitempty"`
 }
 
 // Estimator computes a worst-case USD upper bound for a job. The three int

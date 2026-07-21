@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -111,6 +112,45 @@ func TestStreamGuard_UsageCostUSD(t *testing.T) {
 	// 1000/1e6·2 + (500+100)/1e6·10 = 0.002 + 0.006 = 0.008.
 	if got := g.usageCostUSD(u); got != 0.008 {
 		t.Fatalf("usageCostUSD: got %v want 0.008", got)
+	}
+}
+
+// Cache-read tokens must bill at the DISCOUNT, not the full input rate (the LiteLLM
+// #19681 overcharge class; validated against OpenAI's own dashboard: cached input is a
+// separate, cheaper line). Default cached rate = 0.5×input when unset.
+func TestStreamGuard_UsageCostUSD_CacheReadDiscount(t *testing.T) {
+	g := &streamGuard{pricing: billing.Pricing{InputPerMTok: ptr(2), OutputPerMTok: ptr(10)}}
+	read, creation := 3000, 0
+	u := provider.StreamChunk{
+		Kind: provider.StreamChunkUsage, InputTokens: 4000, OutputTokens: 100,
+		CacheReadTokens: &read, CacheCreationTokens: &creation,
+	}
+	// uncached=1000@2 + read=3000@1(=2·0.5) + out=100@10 = 0.002+0.003+0.001 = 0.006
+	if got := g.usageCostUSD(u); math.Abs(got-0.006) > 1e-9 {
+		t.Fatalf("cache-read discount: got %v want 0.006", got)
+	}
+	fullRate := 4000.0/1e6*2 + 100.0/1e6*10 // 0.009 — the pre-fix overcharge
+	if g.usageCostUSD(u) >= fullRate {
+		t.Fatalf("cached turn must be cheaper than full-rate %v", fullRate)
+	}
+	// no cache activity (LM Studio) → reduces exactly to full input rate (no regression)
+	if got := g.usageCostUSD(provider.StreamChunk{Kind: provider.StreamChunkUsage, InputTokens: 4000, OutputTokens: 100}); math.Abs(got-fullRate) > 1e-9 {
+		t.Fatalf("no-cache path must equal full rate %v, got %v", fullRate, got)
+	}
+}
+
+// Anthropic cache WRITES bill at the 1.25× premium; an explicit CachedInputPerMTok wins.
+func TestStreamGuard_UsageCostUSD_CacheWritePremium_And_Override(t *testing.T) {
+	g := &streamGuard{pricing: billing.Pricing{InputPerMTok: ptr(2), OutputPerMTok: ptr(10), CachedInputPerMTok: ptr(0.2)}}
+	read, creation := 1000, 400
+	u := provider.StreamChunk{
+		Kind: provider.StreamChunkUsage, InputTokens: 2000, OutputTokens: 0,
+		CacheReadTokens: &read, CacheCreationTokens: &creation,
+	}
+	// uncached=600@2 + read=1000@0.2(override) + creation=400@2.5(=2·1.25)
+	// = 0.0012 + 0.0002 + 0.001 = 0.0024
+	if got := g.usageCostUSD(u); got != 0.0024 {
+		t.Fatalf("cache-write premium + override: got %v want 0.0024", got)
 	}
 }
 
