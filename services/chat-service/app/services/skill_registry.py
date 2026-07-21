@@ -11,6 +11,7 @@ on top of this exact same structural result — see its own docstring.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import Callable
 
@@ -600,6 +601,12 @@ async def resolve_skills_to_inject_async(
     so an existing caller that doesn't pass it behaves identically to calling
     the sync function.
     """
+    # F12 A/B POC — force ALL skills lazy (no full L2 from surface-default, router, OR the
+    # workflow mode-binding); the model relies on the always-present L1 index + load_skill.
+    # Measures the max prefix cut + whether a weak model still acts (or stalls without a body).
+    # admin stays (not lazy-loadable). Default off ⇒ unchanged shipped behavior.
+    if os.environ.get("LW_LAZY_ALL_SKILLS", "").strip().lower() in ("1", "true", "on"):
+        return ["admin"] if admin else []
     base = resolve_skills_to_inject(
         enabled_skills=enabled_skills,
         stream_format=stream_format,
