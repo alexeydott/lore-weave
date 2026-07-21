@@ -150,6 +150,23 @@ prefix, the per-pass billing should price cached-input at the cache-read rate (~
 Sources: Anthropic code-execution-with-MCP (progressive loading); usewire.io progressive-tool-loading;
 digitalapplied/agentbrisk prompt-caching-2026; lmstudio-ai/lmstudio-bug-tracker#1563.
 
+**POC (LM Studio runtime log, `google/gemma-4-26b-a4b-qat`) — tools ARE cached; caching does NOT shrink
+the payload.** Three identical-prefix requests (system + 8 verbose tool schemas ≈ 3763 tok):
+| req | prompt_tokens SENT | tokens RE-PREFILLED |
+|---|---|---|
+| A cold | 3763 | 3763 (755 ms) |
+| B identical | 3763 | **1** (28 ms) |
+| C last-word-changed | 3763 | **6** (55 ms) |
+⇒ (1) the 8 tool schemas WERE reused from KV cache (1 token prefilled on B) — "tools can't be cached"
+is FALSE; (2) `prompt_tokens` stayed 3763 every request — **caching cuts COMPUTE, not payload**; (3)
+LM Studio `usage` reports NO `cached_tokens` (`cached=n/a`) — our `caching_monitor` "hit_rate 0.66" is
+an ESTIMATE, not a measured backend value (label it as such). **Correction to an earlier note in this
+doc:** the take that re-sending tools is "inherent / caching covers it" was API-centric and imprecise —
+caching makes the re-send cheap in compute but the ~13K is still SENT (payload, context-window,
+latency, long-session scaling all still pay). The architectural fix (progressive tool loading + lazy
+skill bodies + dynamic-at-end) stands; caching is a discount on bad architecture, not a substitute for
+fixing it.
+
 ### F4 — Stuck agent-runtime status badge
 After `glossary_adopt_standards` minted its confirm card (turn ended, awaiting the human), the runtime
 badge stayed **"Running tool · glossary_adopt_standards"** for the whole wait — looks hung/working when
