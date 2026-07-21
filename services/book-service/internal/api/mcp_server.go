@@ -63,36 +63,49 @@ func (s *Server) newMCPServer() *mcp.Server {
 	srv := mcp.NewServer(&mcp.Implementation{Name: "book", Version: "0.1.0"}, nil)
 
 	// ── Tier R (reads, auto; scope=book; View grant) ──────────────────────────
+	// book_list — the unified "ls": list REFERENCES only (never bodies), paged, self-terminating
+	// (docs/specs/2026-07-22-book-tools-redesign.md Part C/D). `kind` selects the set; default
+	// "books" keeps the prior behavior backward-compatible (.books + .total still present).
+	// Supersedes book_list_chapters / book_list_revisions / book_scene_list (now legacy).
 	addTool(srv, "book_list",
-		"List the caller's books (owned + shared). Returns id, title, language, "+
-			"chapter count, and lifecycle. Use to find a book before acting on it.",
-		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"books", "my library", "novels"}),
-		s.toolBookList)
+		"List REFERENCES only (the 'ls') — never bodies. `kind` selects what: books (default; the "+
+			"caller's library), chapters (needs book_id), revisions (needs book_id + chapter_id), or "+
+			"scenes (needs book_id). Paged via limit/offset; every result carries page.is_complete + a "+
+			"`guidance` line telling you when to STOP paging. To read one item's content use book_read "+
+			"(cat); to find one by text use book_search (grep) — don't page a whole list to reach one item.",
+		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{
+			"books", "my library", "novels", "list chapters", "table of contents", "toc",
+			"list revisions", "list scenes", "ls"}),
+		s.toolBookListUnified)
 
 	addTool(srv, "book_get",
 		"Fetch one book's full detail (title, description, language, summary, "+
-			"genre tags, chapter count, lifecycle) by id.",
-		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"book detail", "open book", "show book"}),
+			"genre tags, chapter count, lifecycle) by id. "+
+			"DEPRECATED: use book_read with book_id alone — the one 'cat' tool for book/chapter/scene.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"book detail", "open book", "show book"}), lwmcp.VisibilityLegacy),
 		s.toolBookGet)
 
 	addTool(srv, "book_list_chapters",
 		"List a book's chapters (title, sort order, language, editorial status, "+
-			"draft revision count, lifecycle). Use to see a book's structure.",
-		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"chapters", "table of contents", "toc"}),
+			"draft revision count, lifecycle). Use to see a book's structure. "+
+			"DEPRECATED: use book_list with kind=chapters — the one 'ls' tool, paged + self-terminating.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"chapters", "table of contents", "toc"}), lwmcp.VisibilityLegacy),
 		s.toolBookListChapters)
 
 	addTool(srv, "book_get_chapter",
 		"[Saved book] Fetch one chapter by book_id + chapter_id: metadata (title, language, sort "+
 			"order, editorial status, published revision) always, plus the chapter's "+
 			"full plain-text prose in `body` when include_body=true (use that to READ a "+
-			"chapter after story_search locates it; the body can be large).",
-		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"chapter detail", "open chapter", "read chapter text"}),
+			"chapter after story_search locates it; the body can be large). "+
+			"DEPRECATED: use book_read with book_id + chapter_id — the one 'cat' tool, same block-paging.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"chapter detail", "open chapter", "read chapter text"}), lwmcp.VisibilityLegacy),
 		s.toolBookGetChapter)
 
 	addTool(srv, "book_list_revisions",
 		"List a chapter's saved draft revisions (id, created_at, author, message, "+
-			"body size), newest first. Use before restoring a revision.",
-		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"revisions", "history", "versions"}),
+			"body size), newest first. Use before restoring a revision. "+
+			"DEPRECATED: use book_list with kind=revisions.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"revisions", "history", "versions"}), lwmcp.VisibilityLegacy),
 		s.toolBookListRevisions)
 
 	addTool(srv, "book_scene_list",
@@ -100,15 +113,17 @@ func (s *Server) newMCPServer() *mcp.Server {
 			"order, heading, and source_scene_id (the spec back-link). Filter by "+
 			"chapter_id, source_scene_id (resolve a spec scene → its prose index row for "+
 			"go-to-prose), or q (heading/prose substring). Read-only: authoring writes go "+
-			"to the composition outline, not here.",
-		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"scenes", "scene index", "go to prose"}),
+			"to the composition outline, not here. "+
+			"DEPRECATED: use book_list with kind=scenes.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"scenes", "scene index", "go to prose"}), lwmcp.VisibilityLegacy),
 		s.toolBookSceneList)
 
 	addTool(srv, "book_scene_get",
 		"Fetch one scene index row by book_id + scene_id: heading, path, prose "+
 			"(leaf_text), content hash, and source_scene_id (the composition spec "+
-			"back-link). Read-only.",
-		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"scene detail", "open scene", "read scene"}),
+			"back-link). Read-only. "+
+			"DEPRECATED: use book_read with book_id + scene_id.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"scene detail", "open scene", "read scene"}), lwmcp.VisibilityLegacy),
 		s.toolBookSceneGet)
 
 	addTool(srv, "book_steering_list",
@@ -128,6 +143,21 @@ func (s *Server) newMCPServer() *mcp.Server {
 			"instead — this one only finds the exact characters you pass.",
 		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"grep", "find text", "exact phrase", "literal search", "where in the book does it say"}),
 		s.toolBookSearch)
+
+	// book_read — the unified "cat": read the full content of ONE addressed item
+	// (docs/specs/2026-07-22-book-tools-redesign.md Part C/D). Supersedes book_get +
+	// book_get_chapter + book_scene_get (now legacy). Deepest id wins (scene > chapter > book).
+	addTool(srv, "book_read",
+		"Read the full content of ONE item — the 'cat'. Pass book_id alone for the book's own "+
+			"detail; add chapter_id for that chapter's metadata + prose (large bodies are block-paged "+
+			"via offset/limit); add scene_id for one scene's prose. The DEEPEST id present wins. To "+
+			"FIND an item first, use book_search (grep); to LIST items, use book_list (ls) — don't page "+
+			"a whole list to reach one item. Every result carries page.is_complete + a `guidance` line "+
+			"telling you exactly when to stop.",
+		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{
+			"read", "open", "cat", "read chapter", "open chapter", "read the chapter text",
+			"open scene", "read scene", "show the book", "read the book"}),
+		s.toolBookRead)
 
 	// ── Tier A (auto-write + Undo; scope=book; Edit grant) ────────────────────
 	// Every Tier-A result carries _meta.undo_hint = {tool, args} naming the

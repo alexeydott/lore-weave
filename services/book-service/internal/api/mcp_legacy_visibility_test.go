@@ -19,15 +19,21 @@ import (
 )
 
 var deprecatedBookTools = []string{
+	// Part A — lifecycle / destructive / priced (agent must not create/delete/publish/bill).
 	"book_create", "book_purge", "book_chapter_purge", "book_chapter_delete",
 	"book_chapter_publish", "book_chapter_unpublish",
 	"book_set_cover", "book_media_generate", "book_audio_generate",
+	// Part C/D — reads superseded by the unified book_read (cat) + book_list (ls).
+	"book_get", "book_get_chapter", "book_scene_get",
+	"book_list_chapters", "book_list_revisions", "book_scene_list",
 }
 
 // keptContentTools — a spot-check that the redesign did NOT accidentally hide a tool the
-// agent still needs (over-tagging is as much a bug as under-tagging).
+// agent still needs (over-tagging is as much a bug as under-tagging). Includes the new
+// unified reads (book_read = cat, book_list = ls) which MUST stay discoverable.
 var keptContentTools = []string{
-	"book_chapter_save_draft", "book_chapter_create", "book_update_details", "book_search",
+	"book_read", "book_list", "book_search",
+	"book_chapter_save_draft", "book_chapter_create", "book_update_details",
 }
 
 func listBookToolMetas(t *testing.T) map[string]map[string]any {
