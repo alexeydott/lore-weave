@@ -132,9 +132,13 @@ func (s *Server) newMCPServer() *mcp.Server {
 	// ── Tier A (auto-write + Undo; scope=book; Edit grant) ────────────────────
 	// Every Tier-A result carries _meta.undo_hint = {tool, args} naming the
 	// verified reverse op (book uses trash/restore; draft ops → restore_revision).
+	// DEPRECATED 2026-07-22 (docs/specs/2026-07-22-book-tools-redesign.md): creating a book is a
+	// MANUAL user action (UI "New Book") — the agent works WITHIN an already-opened book. Tagged
+	// legacy (CAT-4): endpoint + UI keep working, agent can't discover.
 	addTool(srv, "book_create",
-		"Create a new (empty) book owned by the caller. Returns the new book_id.",
-		lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{"new book", "add book", "start a novel"}),
+		"Create a new (empty) book owned by the caller. Returns the new book_id. "+
+			"DEPRECATED: creating a book is a MANUAL UI action — the agent works within an opened book.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{"new book", "add book", "start a novel"}), lwmcp.VisibilityLegacy),
 		s.toolBookCreate)
 
 	addTool(srv, "book_update_details",

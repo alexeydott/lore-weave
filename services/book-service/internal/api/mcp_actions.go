@@ -141,17 +141,22 @@ func (s *Server) registerActionProposeTools(srv *mcp.Server) {
 		descBookPublish: s.resolveBookAction,
 	})
 
+	// DEPRECATED 2026-07-22 (docs/specs/2026-07-22-book-tools-redesign.md): publishing is a
+	// MANUAL editorial decision the human makes in the UI — not an agent co-write step. Tagged
+	// _meta.visibility:"legacy" (CAT-4): endpoint + UI button keep working, agent can't discover.
 	addTool(srv, "book_chapter_publish",
 		"Propose PUBLISHING a chapter (snapshot the draft as canon). High-impact: "+
 			"returns a confirm_token + card a human must confirm — it does NOT publish. "+
-			"Pass the confirm_token to confirm_action (domain=book).",
-		lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"publish", "canonize", "make canon"}),
+			"Pass the confirm_token to confirm_action (domain=book). "+
+			"DEPRECATED: publishing is a MANUAL UI action — the agent does not publish.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"publish", "canonize", "make canon"}), lwmcp.VisibilityLegacy),
 		s.toolProposePublishGated(actionTasks))
 
 	addTool(srv, "book_chapter_unpublish",
 		"Propose UNPUBLISHING a chapter (revert canon → draft). Returns a "+
-			"confirm_token + card a human must confirm via confirm_action (domain=book).",
-		lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"unpublish", "revert canon", "withdraw"}),
+			"confirm_token + card a human must confirm via confirm_action (domain=book). "+
+			"DEPRECATED: unpublishing is a MANUAL UI action — the agent does not unpublish.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"unpublish", "revert canon", "withdraw"}), lwmcp.VisibilityLegacy),
 		s.toolProposeUnpublishGated(actionTasks))
 
 	// book_delete (agent-proposed book trash) REMOVED 2026-07-19 — deleting a whole
@@ -159,40 +164,50 @@ func (s *Server) registerActionProposeTools(srv *mcp.Server) {
 	// GUI (DELETE /v1/books/{id}); the agent has no path to it. The confirm-side
 	// `delete_book` op remains defensively unreachable (no tool mints its token).
 
+	// DEPRECATED 2026-07-22: chapter deletion + irreversible purge are MANUAL UI actions
+	// (destructive; the human owns them). Tagged legacy (CAT-4) — endpoint/UI keep working.
 	addTool(srv, "book_chapter_delete",
 		"Propose DELETING a chapter (move to trash; recoverable until purge). "+
-			"Returns a confirm_token + card a human must confirm via confirm_action.",
-		lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"delete chapter", "trash chapter", "remove chapter"}),
+			"Returns a confirm_token + card a human must confirm via confirm_action. "+
+			"DEPRECATED: deleting a chapter is a MANUAL UI action — the agent does not delete content.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"delete chapter", "trash chapter", "remove chapter"}), lwmcp.VisibilityLegacy),
 		s.toolProposeChapterDelete(actionTasks))
 
 	addTool(srv, "book_purge",
 		"Propose PERMANENTLY purging a trashed book (irreversible). Returns a "+
-			"confirm_token + card a human must explicitly confirm via confirm_action.",
-		lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"purge book", "permanently delete book"}),
+			"confirm_token + card a human must explicitly confirm via confirm_action. "+
+			"DEPRECATED: irreversible book purge is a MANUAL UI action — never the agent.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"purge book", "permanently delete book"}), lwmcp.VisibilityLegacy),
 		s.toolProposeBookPurgeGated(actionTasks))
 
 	addTool(srv, "book_chapter_purge",
 		"Propose PERMANENTLY purging a trashed chapter (irreversible). Returns a "+
-			"confirm_token + card a human must explicitly confirm via confirm_action.",
-		lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"purge chapter", "permanently delete chapter"}),
+			"confirm_token + card a human must explicitly confirm via confirm_action. "+
+			"DEPRECATED: irreversible chapter purge is a MANUAL UI action — never the agent.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"purge chapter", "permanently delete chapter"}), lwmcp.VisibilityLegacy),
 		s.toolProposeChapterPurgeGated(actionTasks))
 
+	// DEPRECATED 2026-07-22: PRICED media generation is user-initiated spend — a MANUAL UI
+	// action, not an agent decision. Tagged legacy (CAT-4).
 	addTool(srv, "book_set_cover",
 		"Propose generating/replacing a book cover image (priced). Returns a "+
-			"confirm_token + cost estimate a human must confirm via confirm_action.",
-		lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"cover", "book cover", "cover art"}),
+			"confirm_token + cost estimate a human must confirm via confirm_action. "+
+			"DEPRECATED: spending money on a cover is a MANUAL UI action — the agent does not bill.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"cover", "book cover", "cover art"}), lwmcp.VisibilityLegacy),
 		s.toolProposeSetCover)
 
 	addTool(srv, "book_media_generate",
 		"Propose generating chapter media/illustration (priced). Returns a "+
-			"confirm_token + cost estimate a human must confirm via confirm_action.",
-		lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"illustration", "generate image", "art"}),
+			"confirm_token + cost estimate a human must confirm via confirm_action. "+
+			"DEPRECATED: spending money on media is a MANUAL UI action — the agent does not bill.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"illustration", "generate image", "art"}), lwmcp.VisibilityLegacy),
 		s.toolProposeMediaGenerate)
 
 	addTool(srv, "book_audio_generate",
 		"Propose generating chapter audio narration (priced). Returns a "+
-			"confirm_token + cost estimate a human must confirm via confirm_action.",
-		lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"audio", "narration", "tts", "read aloud"}),
+			"confirm_token + cost estimate a human must confirm via confirm_action. "+
+			"DEPRECATED: spending money on narration is a MANUAL UI action — the agent does not bill.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, []string{"audio", "narration", "tts", "read aloud"}), lwmcp.VisibilityLegacy),
 		s.toolProposeAudioGenerate)
 
 	// The input step for the durable gate (book_chapter_delete on a tasks-capable
