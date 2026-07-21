@@ -130,6 +130,26 @@ context by update frequency"). Net: the transport is correct; the fix is a small
 prefix, the per-pass billing should price cached-input at the cache-read rate (~0.1×), not full input —
 `caching_monitor.py` already computes the split; provider-registry billing should consume it.
 
+**2026 web research — CORRECTS the earlier "caching covers it; re-send is inherent" take (it does NOT):**
+- **Progressive/lazy tool loading is the 2026 standard and we are NOT doing it.** Anthropic's Apr-2026
+  benchmark: a task needing ~150,000 tokens with all tools preloaded dropped to ~2,000 with schemas
+  loaded only when used — a **98.7% reduction**. Pattern = a tiny INDEX (name + 1-line desc, ~10-30
+  tok/tool) + lazy full-schema fetch on call. Our `tool_list`/`tool_load` IS this pattern, but the
+  hot-set overrides it by advertising all 44 FULL schemas (8.1K) every turn. **Highest-ROI fix.**
+- **Cache hygiene: dynamic-at-the-end.** Rule is most-stable-first (tools → system → history → dynamic
+  → query); any change invalidates that block + everything after. Our volatile per-turn book-status is
+  embedded in the prefix → breaks reuse (our 0.66, not ~0.95). ProjectDiscovery moved dynamic working-
+  memory to a trailing user message: cache hits **7%→84%, cost −59%**.
+- **Local cache is NOT broken for us (empirically verified).** LM Studio bug #1563 silently disables KV
+  reuse for some A3B/A4B MoE models (full recompute every turn) — but a 2-request test on
+  `google/gemma-4-26b-a4b-qat` showed reuse WORKING (`n_past=1651`, `prompt eval = 1 token`,
+  `graphs reused=3169`). So our Gemma is fine; do NOT chase the LM Studio cache bug. The lever is our
+  own prefix (progressive tools + dynamic-at-end), not the backend.
+- Cache-read discount (10% of input on OpenAI GPT-5.x / Anthropic) is the single highest-ROI cost
+  intervention in 2026; our full-rate per-pass billing forgoes it.
+Sources: Anthropic code-execution-with-MCP (progressive loading); usewire.io progressive-tool-loading;
+digitalapplied/agentbrisk prompt-caching-2026; lmstudio-ai/lmstudio-bug-tracker#1563.
+
 ### F4 — Stuck agent-runtime status badge
 After `glossary_adopt_standards` minted its confirm card (turn ended, awaiting the human), the runtime
 badge stayed **"Running tool · glossary_adopt_standards"** for the whole wait — looks hung/working when
