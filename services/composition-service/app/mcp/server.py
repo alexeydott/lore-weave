@@ -336,6 +336,27 @@ def _ctx(ctx: MCPContext) -> ToolContext:
     return build_tool_context(ctx, settings.internal_service_token)
 
 
+def _resolve_bid(tc: ToolContext, book_id: str | None) -> UUID:
+    """Studio context binding — resolve a book-scoped tool's book_id from the arg OR the ambient
+    X-Book-Id (tc.book_id). A 1-line drop-in for UUID(book_id); the caller grant-checks it as usual."""
+    scope = resolve_book_scope(book_id, tc)
+    if scope is None:
+        raise ValueError("book_id is required")
+    return scope.id
+
+
+def _resolve_pid(tc: ToolContext, project_id: str | None) -> UUID:
+    """Studio context binding (spec 2026-07-22) — resolve a project-scoped tool's project_id from the
+    arg OR the ambient X-Project-Id (tc.project_id, which chat-service derives book->Work->project_id
+    and forwards). A 1-line drop-in for UUID(args.project_id). The resolved project is grant-checked by
+    the caller (via _book_or_deny) exactly like an explicit arg — the ambient is a scope hint, not authz.
+    Only use it on a tool tagged ambient_project (its project_id arg must be Optional)."""
+    scope = resolve_project_scope(project_id, tc)
+    if scope is None:
+        raise ValueError("project_id is required")
+    return scope.id
+
+
 def _grant_resolver() -> GrantResolver:
     """Adapt composition's GrantClient to the kit's GrantResolver shape
     (`(book_id, user_id) -> int`). The client is fail-closed (a book-service
@@ -959,7 +980,8 @@ async def composition_create_work(
 
 
 class _NodeCreateArgs(ForbidExtra):
-    project_id: str
+    # project_id OPTIONAL (ambient_project) — omitted inside a studio, resolves from X-Project-Id.
+    project_id: str | None = None
     # BPS-4 (F6): outline_node is now CHAPTER/SCENE only — arcs live on
     # structure_node (composition_arc_create), beats are verified-dead. A closed
     # Literal turns a mid-tier model's `kind:"Arc"` into a clean 422 at the schema
@@ -997,13 +1019,14 @@ class _NodeCreateArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["add scene", "add chapter", "create outline node", "add outline chapter"],
+        ambient_project=True,
         tool_name="composition_outline_node_create",
     ),
 )
 async def composition_outline_node_create(ctx: MCPContext, args: _NodeCreateArgs) -> dict:
     tc = _ctx(ctx)
     works = WorksRepo(get_pool())
-    pid = UUID(args.project_id)
+    pid = _resolve_pid(tc, args.project_id)
     await _book_or_deny(works, tc, pid, GrantLevel.EDIT)
     outline = OutlineRepo(get_pool())
     try:
@@ -5168,16 +5191,17 @@ def _arc_conflict(exc: StructureConflictError) -> dict[str, Any]:
         "R", "book",
         synonyms=["list arcs", "arc tree", "story structure", "sagas", "book architecture",
                   "spec tree", "arc grouping"],
+        ambient_book=True,
         tool_name="composition_arc_list",
     ),
 )
 async def composition_arc_list(
     ctx: MCPContext,
-    book_id: Annotated[str, "The book whose spec tree to list (you need VIEW on it)."],
+    book_id: Annotated[str | None, "The book whose spec tree to list. Omit inside a book studio — the current book is used."] = None,
     include_archived: Annotated[bool, "Include soft-archived arcs."] = False,
 ) -> dict:
     tc = _ctx(ctx)
-    bid = UUID(book_id)
+    bid = _resolve_bid(tc, book_id)
     await _gate(tc, bid, GrantLevel.VIEW)
     structures = StructureRepo(get_pool())
     nodes = await structures.list_tree(bid, include_archived=include_archived)
