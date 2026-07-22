@@ -108,7 +108,10 @@ func (s *Server) mcpHandler() http.Handler {
 	s.RegisterPipelineWriteTools(srv)
 	// Pipeline M2: class-C propose tools for destructive curation (status / restore /
 	// reassign-kind / merge) — mint a confirm card, never write directly.
+	// NOTE: all 4 are now legacy — superseded by glossary_propose_curation (Part C below).
 	s.RegisterPipelineProposeTools(srv)
+	// Part C: glossary_propose_curation — the unified curation propose (op enum over the 4 legacy tools).
+	s.RegisterCurationProposeTools(srv)
 	// Pipeline M4: entity-translation tool (class-W; draft, never overwrites verified).
 	s.RegisterPipelineTranslateTools(srv)
 	// S5: web-search deep-research tool (class-C; paid outward call → confirm-gated).
