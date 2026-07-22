@@ -34,6 +34,14 @@ var (
 	errMissingIdentity      = errors.New("missing caller identity")
 	errBookNotAccessible    = errors.New("book not accessible")
 	errBookCheckUnavailable = errors.New("book ownership check unavailable, try again")
+	// errChapterNotInBook is the EXPLICIT error for "the book is accessible, but chapter_id
+	// names no active chapter of it" — returned ONLY after the book grant has already passed.
+	// It is safe to be specific here (no H13 oracle leak): a caller who cleared the book grant
+	// can already enumerate the book's chapters via book_list, so naming a bad chapter_id reveals
+	// nothing new — and a uniform "book not accessible" here actively MISLEADS the caller/agent
+	// into thinking they lost book access (the observed failure: a mistranscribed chapter_id read
+	// as "no book access", so the agent gave up instead of fixing the id).
+	errChapterNotInBook = errors.New("no active chapter with that chapter_id in this book — check the chapter_id (call book_list kind=chapters for valid ids)")
 )
 
 // mcpUserID lifts the caller's user id from the kit identity context (set by

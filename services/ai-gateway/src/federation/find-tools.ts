@@ -422,8 +422,9 @@ export const TOOL_LIST_TOOL = {
       },
       include_deprecated: {
         type: 'boolean',
-        description: 'Include deprecated tools (shown labeled). Default true.',
-        default: true,
+        description: 'Include deprecated tools (shown labeled with their replacement). Default false — ' +
+          'omit to see only the CURRENT tools; set true only when migrating off an old tool name.',
+        default: false,
       },
     },
     additionalProperties: false,
@@ -466,7 +467,7 @@ export const TOOL_LOAD_TOOL = {
 export function toolListResult(
   catalog: McpTool[],
   category?: string | null,
-  includeDeprecated = true,
+  includeDeprecated = false,
   exclude: ReadonlySet<string> = new Set(),
 ): { payload: Record<string, unknown> } {
   if (category == null || category === 'all') {

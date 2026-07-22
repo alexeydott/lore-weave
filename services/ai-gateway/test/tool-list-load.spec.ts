@@ -60,12 +60,23 @@ describe('toolListResult (C2)', () => {
     expect(payload.reason).toBeDefined();
   });
 
-  it('omitted/"all" groups by category', () => {
+  it('omitted/"all" HIDES deprecated by default (2026-07-22 review)', () => {
+    // Default includeDeprecated=false: the browsing surface is CURRENT tools only, so the legacy
+    // glossary_propose_new_entity is excluded (glossary: propose_entities + lore_enrichment = 2).
     const { payload } = toolListResult(CAT);
-    expect(payload.count).toBe(4);
+    expect(payload.count).toBe(3);
     const categories = payload.categories as Record<string, unknown[]>;
     expect(Object.keys(categories).sort()).toEqual(['book', 'glossary']);
-    expect(categories.glossary).toHaveLength(3);
+    expect(categories.glossary).toHaveLength(2);
+    expect((categories.glossary as { name: string }[]).map((t) => t.name)).not.toContain(
+      'glossary_propose_new_entity',
+    );
+  });
+
+  it('include_deprecated=true still shows the legacy tools (opt-in redirect)', () => {
+    const { payload } = toolListResult(CAT, undefined, true);
+    expect(payload.count).toBe(4);
+    expect((payload.categories as Record<string, unknown[]>).glossary).toHaveLength(3);
   });
 });
 

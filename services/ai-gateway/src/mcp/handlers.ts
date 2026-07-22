@@ -220,7 +220,11 @@ export async function handleToolList(
   headers?: Headers,
 ): Promise<any> {
   const category = typeof args?.category === 'string' ? args.category : undefined;
-  const includeDeprecated = typeof args?.include_deprecated === 'boolean' ? args.include_deprecated : true;
+  // Default HIDE deprecated (spec 2026-07-22 review): a browsing agent should see the CURRENT
+  // surface, not the shrunk-away legacy tools as noise (the book catalog was 16 active + 19
+  // deprecated). Deprecated tools stay reachable — pass include_deprecated:true, or tool_load(name)
+  // (which still redirects via superseded_by).
+  const includeDeprecated = typeof args?.include_deprecated === 'boolean' ? args.include_deprecated : false;
   const overlay = await federation.overlayTools(extractEnvelope(headers));
   const { payload } = toolListResult([...federation.catalog(), ...overlay], category, includeDeprecated);
   return { content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload };

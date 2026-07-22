@@ -479,7 +479,8 @@ SELECT b.lifecycle_state,c.lifecycle_state,c.title,c.sort_order,c.original_langu
 FROM books b JOIN chapters c ON c.book_id=b.id WHERE b.id=$1 AND c.id=$2`, bookID, chID).
 		Scan(&bState, &cState, &pTitle, &pSort, &pLang); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, chapterUpdateMetaOut{}, errBookNotAccessible
+			// Grant passed above → the book is fine; chapter_id names no chapter of it. Be explicit.
+			return nil, chapterUpdateMetaOut{}, errChapterNotInBook
 		}
 		return nil, chapterUpdateMetaOut{}, errors.New("failed to load chapter")
 	}
@@ -705,7 +706,9 @@ func (s *Server) toolChapterSaveDraft(ctx context.Context, _ *mcp.CallToolReques
 SELECT d.draft_version FROM chapter_drafts d JOIN chapters c ON c.id=d.chapter_id
 WHERE d.chapter_id=$1 AND c.book_id=$2 AND c.lifecycle_state='active'`, chID, bookID).Scan(&curr); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, saveDraftOut{}, errBookNotAccessible
+			// Book grant already passed above — so this is a CHAPTER problem, not book access. Be
+			// explicit (safe: an EDIT-granted caller can already list the book's chapters).
+			return nil, saveDraftOut{}, errChapterNotInBook
 		}
 		return nil, saveDraftOut{}, errors.New("failed to save draft")
 	}
