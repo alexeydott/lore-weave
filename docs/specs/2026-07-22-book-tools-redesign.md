@@ -1,6 +1,11 @@
 # Spec: Book MCP Tool Redesign — deprecate lifecycle, unify content, design the OUTPUT
 
-**Status:** APPROVED for BUILD (PO signed off §3/§11 on 2026-07-22) · **Date:** 2026-07-22 · **Size:** L (single service, contract-shape change on one domain)
+**Status:** Part A + Part C/D **SHIPPED + live-verified** (`adec30a4b`, `656f6c105`); Part B (write-merge) **deferred — delicate, marginal** (see §4 Part B). · **Date:** 2026-07-22 · **Size:** L (single service, contract-shape change on one domain)
+
+> **Progress 2026-07-22.** Book 31 → **~15 visible tools**, ~6.8K → ~3.5K schema tokens.
+> - **Part A DONE** (`adec30a4b`): 9 lifecycle/destructive/priced tools → `_meta.visibility:"legacy"`. Live-verified: all 9 excluded from discovery (the agent can't create/delete/purge/publish/bill).
+> - **Part C/D DONE** (`656f6c105`): `book_read` (cat) + `book_list` (ls) + the **output contract** (reference-first, `page` envelope with `is_complete`, prose `guidance` stop-signal). Live-verified by effect: complete/partial/miss guidance all correct, chapter body block-paged, reference-first (no bodies in a set), backward-compatible `book_list` default. 6 old reads → legacy.
+> - **Part B DEFERRED** — see the finding in §4 Part B: the write-merge is more delicate than it looked (absent-vs-`null` `part_id` semantics, an internal composition validation call, per-setter undo, CAT-2 on `set_kg_exclude`) for a marginal −2-tool gain. Do it as a focused follow-up, not rushed.
 **Origin:** Tool-catalog analysis 2026-07-22 (book = 31 tools / 6.8K schema tokens). The catalog-wide anti-pattern (one tool per entity-type × CRUD-verb, plus lifecycle/destructive ops the agent should never own) is worst-per-token in `composition`/`glossary`, but `book` is the right **second pilot** after glossary: small, self-contained, and the surface every co-writer turn touches.
 **Builds on (do NOT re-derive):** `docs/specs/2026-07-06-tool-catalog-simplification.md` (the glossary pilot — proved CAT-4 legacy-visibility, `pinned_legacy_tools` escape hatch, upsert-via-implicit-discriminator, `items[]` batch) and `docs/standards/mcp-tool-io.md` (IN-1..8, OUT-1..6, CAT-1..4). This spec **reuses** that machinery; it does not reinvent it.
 **Related:** [[context-budget-law-and-kernel]], `docs/FEATURE_INDEX.md` (book routes → book-service).
@@ -83,7 +88,13 @@ Merge the three per-chapter **field setters** into one (CAT-1 — same resource,
       "kg_exclude": {"type":"boolean"}, "language": {"type":"string"} },
     "required": ["book_id","chapter_id"], "additionalProperties": false } }
 ```
-`book_chapter_create` absorbs `book_chapter_bulk_create` via `items[]` 1..N (CAT-3), matching `glossary_propose_entities` — a single chapter is a 1-element array; per-item results.
+**⚠ BUILD FINDING (2026-07-22) — DEFERRED.** Reading the real handlers, the write-merge is more delicate than the read-merge, for a marginal (−2 tools) gain:
+- **`set_kg_exclude` must NOT fold in (CAT-2).** `kg_exclude=true` **retracts already-extracted facts/passages** — a destructive side-effect a plain title/sort edit doesn't have. Merging it behind a field hides that. Keep `book_chapter_set_kg_exclude` a separate, discoverable tool.
+- **`part_id` needs absent-vs-`null`-vs-value semantics.** In `book_chapter_update`, *absent* `part_id` = leave the chapter's part alone; `null` = un-home; a value = re-home. A plain `*string` (Go JSON) collapses *absent* and `null` to the same `nil` — so the merge needs a presence-aware wrapper type, not a bare pointer.
+- **`set_part` does an internal composition validation call** (`validatePartTargetInternal`) + each setter mints its own `undo_hint`; a merged tool must combine them into one reversible `book_chapter_update` undo.
+None of this is blocked — it's buildable — but it's **delicate for a −2-tool gain** and should be a focused follow-up (own design of the presence-aware type + CAT-2 branch + combined undo + per-branch tests), not rushed. `book_chapter_update_meta` already does title/sort/language cleanly today; `set_part`/`set_kg_exclude` work individually.
+
+`book_chapter_create` would absorb `book_chapter_bulk_create` via `items[]` 1..N (CAT-3), matching `glossary_propose_entities` — clean (create-only, no side-effect, no absent-vs-null); the one Part-B slice with no delicacy, if a follow-up wants a safe start.
 
 **Kept as-is** (already correct, single-purpose): `book_chapter_save_draft` (prose write), `book_chapter_restore_revision` (safe undo), `book_chapter_reorder` (book-level bulk order — a genuinely different shape from a per-chapter field set; NOT merged into `book_chapter_update`), `book_index_chapter`, `book_update_details` (edit book meta — NOT create), `book_steering_{set,list,delete}`, `book_task_provide_input`.
 
