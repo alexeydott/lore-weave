@@ -118,6 +118,14 @@ PROPOSE_EDIT_TOOL: dict = {
 }
 
 
+# Id-shaped frontend-tool args are UUIDs by contract. Without a pattern they accept ANY
+# string, so a model that doesn't have a real id sends a placeholder and the call sails
+# through to a suspend that can never do anything — the silent no-op the Frontend-Tool-
+# Contract forbids. Measured 2026-07-22 (S00b real-stack E2E): 13 identical calls carrying
+# entity_id="new_entity_id_placeholder", effectful_tool_calls=0, book unchanged. The pattern
+# makes `validate_frontend_tool_args` reject it BEFORE the suspend, with an explicit error.
+_UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+
 # OpenAI function-calling schema for the glossary edit-existing write-back tool
 # (ARCH glossary-assistant P3). Like propose_edit it SUSPENDS the run and is
 # executed in the browser, but its "execution" is the user reviewing a diff card
@@ -142,18 +150,29 @@ GLOSSARY_PROPOSE_EDIT_TOOL: dict = {
             "`applied_saved` (the edit was saved), `applied_conflict` (the entity changed "
             "since you read it — call glossary_get_entity again and propose afresh), "
             "`applied_error` (the save failed), or `dismissed` (the user declined). State "
-            "that the change was made ONLY when the outcome is `applied_saved`."
+            "that the change was made ONLY when the outcome is `applied_saved`. "
+            # Measured 2026-07-22 (S00b real-stack E2E): asked to "Add a character called X",
+            # gemma called THIS tool 13× with entity_id="new_entity_id_placeholder" — an EDIT
+            # tool has no target for a CREATE. Say so where the model is actually looking.
+            "This tool ONLY EDITS an entity that ALREADY EXISTS. To CREATE a new entity that "
+            "does not exist yet, call `tool_load(name='glossary_propose_entities')` and use "
+            "that instead — do NOT call this with a made-up or placeholder entity_id."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "book_id": {
                     "type": "string",
+                    "pattern": _UUID_PATTERN,
                     "description": "The book the entity belongs to (UUID).",
                 },
                 "entity_id": {
                     "type": "string",
-                    "description": "The entity to edit (UUID).",
+                    "pattern": _UUID_PATTERN,
+                    "description": (
+                        "The entity to edit (UUID, from glossary_get_entity/glossary_search). "
+                        "MUST be a real existing entity's id — never a placeholder."
+                    ),
                 },
                 "base_version": {
                     "type": "string",
@@ -765,6 +784,23 @@ def validate_frontend_tool_args(
     extra = next((e for e in errors if e.validator == "additionalProperties"), None)
     if extra is not None:
         parts.append(extra.message)
+    # A `pattern` failure on an id arg is ALWAYS a placeholder/made-up id (measured: 13×
+    # entity_id="new_entity_id_placeholder"). The raw jsonschema message is a regex dump the
+    # model can't act on — say what is wrong and what to do instead, so the call is repaired
+    # (or re-routed) on the NEXT attempt instead of repeated verbatim.
+    if not parts:
+        for pat in (e for e in errors if e.validator == "pattern"):
+            loc = "/".join(str(p) for p in pat.absolute_path) or "(root)"
+            got = pat.instance if isinstance(pat.instance, str) else ""
+            hint = ""
+            if loc.endswith("entity_id"):
+                # The re-route must be ACTIONABLE: glossary_propose_entities is a LAZY tool, so
+                # naming it alone leaves the model unable to act (measured: it retried the edit
+                # 3× then gave up). Name the discovery hop too — tool_load is proven reliable.
+                hint = (" — this tool only EDITS an entity that ALREADY EXISTS. To CREATE a new "
+                        "one, call tool_load(name='glossary_propose_entities') and then call "
+                        "glossary_propose_entities. Do NOT retry this edit tool.")
+            parts.append(f"{loc} must be a real UUID, got {got!r}{hint}")
     if not parts:
         e0 = errors[0]
         loc = "/".join(str(p) for p in e0.absolute_path) or "(root)"

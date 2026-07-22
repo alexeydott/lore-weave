@@ -12,7 +12,9 @@ _REFERENCED_TOOLS = [
     "memory_search", "memory_recall_entity", "memory_timeline", "memory_remember",
     "kg_graph_query", "kg_entity_edge_timeline", "kg_schema_read",
     "kg_propose_fact", "kg_propose_edge",
-    "kg_adopt_template", "kg_schema_edit", "kg_sync_apply",
+    # catalog-unification 2026-07-22: kg_adopt_template / kg_schema_edit / kg_sync_apply
+    # were folded into ONE op-dispatch tool (they stay registered visibility:legacy).
+    "kg_ontology_propose",
     "kg_triage_list", "kg_triage_resolve",
 ]
 
