@@ -1,5 +1,33 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## 🗂️ UNIFIED MANUSCRIPT-STRUCTURE MCP TOOL (2026-07-22, HEAD b1eb36225 — spec `6bec67ac6`)
+Follow-on to the book-tools redesign: merge the fragmented part/chapter STRUCTURE ops into one surface.
+Full design + measurement, all committed + live-verified + measured on gemma-4.
+- **Verified capability GAP closed:** no MCP tool could create a manuscript `part` (composition_arc_create is
+  `Literal["saga","arc"]`; part CRUD was bearer-only HTTP in `arc.py`). An agent could file a chapter into a
+  part it could not create.
+- **The real graph (was mis-summarized before):** two composition node trees — `structure_node` (saga/arc/**part**,
+  `models.py:225`) + `outline_node` (chapter/scene) — plus book `chapters` (prose) linking via
+  `chapters.structure_node_id`. "part"≠outline; "chapter" is BOTH a book row and an outline_node kind.
+- **Built (`b1eb36225`):** composition 4 internal part-write routes (`internal_structure_state.py`: create/rename/
+  reorder/archive; X-Internal-Token + caller_user_id, resolve_owner-first, reuse the public StructureRepo methods,
+  reorder fails-closed 409). book-service `book_structure_read` (graph L1 skeleton via `buildBookStructure` +
+  L2 paged chapters with is_complete/guidance) + `book_structure_edit` (closed op set create_part/rename_part/
+  reorder_parts/home_chapter/reorder_chapters, per-op Undo, full-prior-order snapshot for reorders) +
+  `book_structure_part_archive` (visibility:legacy, CAT-2 destructive split, soft-delete). **PO decision: folded in**
+  `book_chapter_set_part`+`book_chapter_reorder` → visibility:legacy (one name per concept). Tests: composition 20,
+  book-service structure/visibility green.
+- **VERIFY:** live cross-service smoke (book MCP → composition internal → both DBs), DB-verified each mutation,
+  state restored.
+- **MEASURED (gemma-4, DB-verified — `docs/eval/tool-liveness/manuscript-structure/RESULTS.md`):** A/B fragmented
+  4/6 vs unified 5/6; the 2 previously-impossible part-authoring ops 0/2→2/2; reliability **15/15** across N=5
+  (create+move, reorder, create+rename) — the weak model chains create→home on the returned id in 2 decisive
+  calls. Answer to "does the agent understand the graph + work effectively?" → **yes, reliably.**
+- **NEXT / follow-ons:** (1) FE: the studio structure rail can now offer create/rename/reorder-part affordances
+  (backend is live); (2) hot-set: confirm `book_structure_*` seed on the book surface via the real `tool_list`
+  path; (3) the `trap_nest` eval verify is a keyword heuristic — if a refusal metric is wanted, use an LLM-judge,
+  not regex; (4) same unification pattern is a candidate for composition's arc/outline tools if they fragment.
+
 ## 🔧 BOOK-TOOLS REDESIGN + CACHING/BUG FIXES (2026-07-22, HEAD 9b68e74b4)
 Long session. All below committed + live-verified.
 - **Bug fixes:** reasoning.effort 400 (`a53321821` — gpt-* `/responses` was FULLY broken; my first fix `0b34dc05a` checked `base==""` but the openai adapter defaults it to `openaiBaseURL`, so it never fired — the real fix matches the defaulted base); billing-on-error (`8e2e10058` — a pre-processing provider_error no longer records the estimated input cost; live-proven $0); Anthropic `cache_control` ≤4 breakpoints (`655fa1293` — the SDK marked EVERY tail block, ~11 on a book turn > Anthropic's max 4 → 400; latent, no Claude model on the test acct); F12 `HOT_SEED_TOKEN_BUDGET` 4000→2000 (`a603e80ad` — clean warm-cache A/B: −24%, no extra passes, quality-safe; skills stayed on the DESIGNED lazy path, NOT the blunt `LW_LAZY_ALL_SKILLS` test knob); kind-synonym place→location (`eef2db9d2` — "add a place" was silently failing on `unknown kind: place`; the book HAD `location` all along).

@@ -2,7 +2,7 @@
 
 - **Date:** 2026-07-22
 - **Branch:** `feat/frontend-tools-mcp-migration`
-- **Status:** DESIGN (checkpoint) — build deferred until this is approved
+- **Status:** BUILT + VERIFIED + MEASURED (commit `b1eb36225`). Results: [`docs/eval/tool-liveness/manuscript-structure/RESULTS.md`](../eval/tool-liveness/manuscript-structure/RESULTS.md) — gemma-4 A/B fragmented 4/6 vs unified 5/6; the 2 previously-impossible part-authoring ops went 0/2→2/2 (10/10 across N=5 repeats, DB-verified). The design below is as-shipped.
 - **Size:** XL (cross-service: book-service ↔ composition-service; new internal routes; new MCP surface)
 - **Follows:** [`2026-07-22-book-tools-redesign.md`](2026-07-22-book-tools-redesign.md) (the book-tools content/lifecycle split). This is the *structure-graph* follow-on the redesign flagged.
 - **Governs (standards):** [`docs/standards/mcp-tool-io.md`](../standards/mcp-tool-io.md) (IN-1..8 / OUT-1..6 / CAT-1..4), MCP-first invariant, Provider-gateway (N/A here), User Boundaries & Tenancy, Gateway invariant.
