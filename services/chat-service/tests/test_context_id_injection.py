@@ -41,6 +41,19 @@ def test_ambient_book_tool_STILL_backfills_project_id():
     assert args["project_id"] == "P1"
 
 
+def test_ambient_project_tool_does_NOT_backfill_project_id():
+    # composition: an ambient_project tool resolves project_id from the envelope (X-Project-Id).
+    td = _tool(
+        "composition_arc_get",
+        {"project_id": {"type": "string"}, "arc_id": {"type": "string"}},
+        meta={"tier": "R", "scope": "project", "ambient_project": True},
+    )
+    args: dict = {"arc_id": "A1"}
+    ss._inject_context_ids(args, td, book_id="B1", chapter_id=None, project_id="P1")
+    assert "project_id" not in args  # left for the envelope to resolve
+    # book_id still backfills unless ALSO ambient_book (it's not declared here anyway)
+
+
 def test_non_ambient_tool_still_backfills_book_id():
     # A tool WITHOUT the flag keeps the S02 behavior (book_id backfilled).
     td = _tool("book_chapter_save_draft", {"book_id": {"type": "string"}}, meta={"tier": "A", "scope": "book"})

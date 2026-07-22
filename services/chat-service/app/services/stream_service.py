@@ -1227,9 +1227,13 @@ def _inject_context_ids(
     # envelope (X-Book-Id) server-side. Do NOT backfill book_id as an arg for it — that would pre-empt
     # the envelope (the effect would read scope_source="arg", and book_id could never be dropped from
     # the schema). chapter_id/project_id still backfill (not ambient); non-ambient tools still get book_id.
-    ambient_book = bool((fn.get("_meta") or {}).get("ambient_book"))
+    _meta = fn.get("_meta") or {}
+    ambient_book = bool(_meta.get("ambient_book"))
+    ambient_project = bool(_meta.get("ambient_project"))  # composition: resolve project_id from X-Project-Id
     for key, val in (("book_id", book_id), ("chapter_id", chapter_id), ("project_id", project_id)):
         if key == "book_id" and ambient_book:
+            continue
+        if key == "project_id" and ambient_project:
             continue
         if not val or key not in props:
             continue

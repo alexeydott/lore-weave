@@ -39,6 +39,9 @@ __all__ = [
     "make_stateless_fastmcp",
     "is_owner_only",
     "apply_public_key_attribution_headers",
+    "Scope",
+    "resolve_book_scope",
+    "resolve_project_scope",
 ]
 
 
@@ -53,6 +56,12 @@ class ToolContext:
     user_id: UUID
     session_id: str
     project_id: UUID | None = None
+    # Studio context binding (spec 2026-07-22) — the ambient BOOK (X-Book-Id) of a
+    # book-bound studio/editor surface, so an ambient tool resolves book_id when the
+    # model omits it. A scope HINT, never authz (the tool still grant-checks it). None
+    # off a bound surface. (project_id above is the analogous ambient for project-scoped
+    # tools — composition — and is already lifted from X-Project-Id.)
+    book_id: UUID | None = None
     trace_id: str | None = None
     # The public MCP API key id (X-Mcp-Key-Id) when the call originated at the
     # public edge (mcp-public-gateway); None for first-party traffic. Carrier for
@@ -141,6 +150,14 @@ def build_tool_context(ctx: MCPContext, internal_token: str) -> ToolContext:
         except ValueError:
             raise ValueError(f"x-project-id is not a valid UUID: {raw_project_id!r}")
 
+    raw_book_id = _optional_header(ctx, "x-book-id")
+    book_id: UUID | None = None
+    if raw_book_id:
+        try:
+            book_id = UUID(raw_book_id)
+        except ValueError:
+            raise ValueError(f"x-book-id is not a valid UUID: {raw_book_id!r}")
+
     session_id = _require_header(ctx, "x-session-id")
     trace_id = _optional_header(ctx, "x-trace-id")
     mcp_key_id = _optional_header(ctx, "x-mcp-key-id")
@@ -160,6 +177,7 @@ def build_tool_context(ctx: MCPContext, internal_token: str) -> ToolContext:
         user_id=user_id,
         session_id=session_id,
         project_id=project_id,
+        book_id=book_id,
         trace_id=trace_id,
         mcp_key_id=mcp_key_id,
         spend_cap_usd=spend_cap_usd,
@@ -203,6 +221,55 @@ def apply_public_key_attribution_headers(
         return
     key = mcp_key_id or None
     _set_llm_attribution(key, _parse_spend_cap(spend_cap_raw))
+
+
+@dataclass(frozen=True)
+class Scope:
+    """A resolved scope id + how it was resolved (spec 2026-07-22-studio-context-binding).
+    `source` is "arg" | "envelope"; `cross` is True iff a valid explicit arg DIFFERS from
+    the ambient (bound) id — a WRITE tool pre-confirms that, a READ notes it."""
+
+    id: UUID
+    source: str
+    cross: bool = False
+
+
+def _resolve_scope(arg: str | None, ambient: UUID | None) -> Scope | None:
+    """The fail-closed cascade shared by resolve_book_scope / resolve_project_scope:
+      valid-UUID arg   -> {arg,     "arg",      cross: arg!=ambient}
+      malformed + amb. -> {ambient, "envelope"}   (silent repair of a mistranscription)
+      omitted + amb.   -> {ambient, "envelope"}   (the studio binding)
+      neither          -> None                     (caller emits its required/invalid error)
+    The ambient id is NEVER authz — the caller still grant-checks the returned id."""
+    a = (arg or "").strip()
+    if a:
+        try:
+            aid = UUID(a)
+        except ValueError:
+            aid = None
+        if aid is not None:
+            return Scope(aid, "arg", ambient is not None and aid != ambient)
+        if ambient is not None:  # malformed arg -> repair from the ambient id
+            return Scope(ambient, "envelope")
+        return None
+    if ambient is not None:  # omitted on a bound surface -> the studio's id
+        return Scope(ambient, "envelope")
+    return None
+
+
+def resolve_book_scope(arg_book_id: str | None, tc: object) -> Scope | None:
+    """Resolve a tool's BOOK from its arg or the ambient X-Book-Id (tc.book_id). None when
+    neither is present — the caller returns its own 'book_id required' error. Duck-typed on
+    a `book_id` attribute so a service's richer context works too."""
+    return _resolve_scope(arg_book_id, getattr(tc, "book_id", None))
+
+
+def resolve_project_scope(arg_project_id: str | None, tc: object) -> Scope | None:
+    """Resolve a tool's PROJECT (the Work partition — composition) from its arg or the
+    ambient X-Project-Id (tc.project_id, already lifted). The studio binds a book;
+    chat-service derives book->Work->project_id and forwards it as X-Project-Id, so a
+    project-scoped tool needn't be handed the project id. None when neither is present."""
+    return _resolve_scope(arg_project_id, getattr(tc, "project_id", None))
 
 
 def is_owner_only(ctx: object) -> bool:

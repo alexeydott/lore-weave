@@ -59,6 +59,8 @@ from loreweave_mcp import (
     require_book_owner,
     require_meta,
     require_user_scope,
+    resolve_book_scope,
+    resolve_project_scope,
     uniform_not_accessible,
 )
 
@@ -490,6 +492,8 @@ def _mine_estimate(*, scope: str) -> dict[str, Any]:
             "composition work", "authoring context", "get work",
             "resolve project id", "the book's authoring workspace",
         ],
+        ambient_book=True,
+        ambient_project=True,
         tool_name="composition_get_work",
     ),
 )
@@ -500,6 +504,17 @@ async def composition_get_work(
 ) -> dict:
     tc = _ctx(ctx)
     works = WorksRepo(get_pool())
+    # Ambient (studio context binding, spec 2026-07-22): when the model passes NEITHER id, fall
+    # back to the envelope — X-Project-Id first (the bound book's Work), else X-Book-Id. So a
+    # studio agent needn't hand over any id. Grant-checked below exactly like an explicit arg.
+    if not project_id and not book_id:
+        pscope = resolve_project_scope(None, tc)
+        if pscope is not None:
+            project_id = str(pscope.id)
+        else:
+            bscope = resolve_book_scope(None, tc)
+            if bscope is not None:
+                book_id = str(bscope.id)
     if project_id:
         pid = UUID(project_id)
         await _book_or_deny(works, tc, pid, GrantLevel.VIEW)
