@@ -20,11 +20,19 @@ an adversarial edge-case pass (3 mechanism fixes); book-first pilot BUILT + MEAS
   baseline "create a part" — **book_id emitted 0/5 vs 5/5**, tokens **−25% in / −46% out**. Transcription
   burden eliminated at the source. Honest caveat: gemma survived the single-UUID isolate 0 errors, so the
   win is tokens + removed error-class, not a pass-rate delta (mistranscription failures need longer sessions).
-- **NEXT / follow-ons:** (1) a REAL studio-chat turn E2E (every hop is proven/unit-tested, but the
-  chat→gateway hop in a live LLM turn isn't E2E'd — nice-to-have); (2) fan out ambient_book to glossary/
-  composition/kg tools (same `WithAmbientBook` + `ResolveBookScope`); (3) derive+forward `X-Chapter-Id`
-  (editor open-chapter, the next ambient) + `project_id` derivation on the resume path; (4) optionally
-  re-require book_id on EXTERNAL advertised surfaces (the §2.4 deviation).
+- **WIN REALIZED LIVE (`575ad5f38`):** the studio-chat E2E now creates a part with gemma emitting **no
+  book_id** and **`scope_source=envelope`** (DB-verified). Three changes: prose-note shrink (drop the UUID),
+  `_inject_context_ids` skips book_id for `ambient_book` tools, and — the root-cause — **`book_id` was
+  missing from BOTH `chat_sessions` SELECTs** (first-pass 3794 + the approve→**resume** path 6217 where the
+  tool actually executes). Found by a rigorous live in/out trace (the naive change silently failed).
+- **Review fixes (`81a6d5571`):** (a) explicit `errChapterNotInBook` on grant-passed chapter lookups (was
+  a misleading "book not accessible" that made the agent give up); (b) `tool_list` hides deprecated by
+  default (book catalog 35→16; `include_deprecated:true` opt-in).
+- **NEXT / follow-ons:** (1) **fan out** `ambient_book` to glossary/composition/kg tools (same
+  `WithAmbientBook` + `ResolveBookScope`); (2) the co-writer tool-DISCOVERY gap (gemma won't `tool_load` a
+  lazy structure tool — the E2E needed the tool pinned; separate from X-Book-Id); (3) `X-Chapter-Id`
+  (editor open-chapter) — user's call: NOT ambient (many chapters), instead let tools take chapter
+  **name/number** not the UUID; (4) optionally re-require book_id on EXTERNAL advertised surfaces (§2.4).
 
 ## 🗂️ UNIFIED MANUSCRIPT-STRUCTURE MCP TOOL (2026-07-22, HEAD b1eb36225 — spec `6bec67ac6`)
 Follow-on to the book-tools redesign: merge the fragmented part/chapter STRUCTURE ops into one surface.
