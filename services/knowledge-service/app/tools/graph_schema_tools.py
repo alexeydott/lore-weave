@@ -1173,7 +1173,8 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
     # kg_schema_edit + kg_adopt_template + kg_sync_apply (which stay for existing callers).
     _tool(
         "kg_ontology_propose",
-        "Propose a change to THIS project's ontology — high-impact, so it does NOT apply "
+        "Change THIS project's ontology — ADD or DEPRECATE an edge/fact type, ADOPT a "
+        "template, or SYNC upstream template changes. High-impact, so it does NOT apply "
         "immediately: it returns a confirm_token + summary and a human confirms on the review "
         "surface. Pick op: 'schema_edit' = add/deprecate an edge_type or fact_type (needs verb, "
         "level, code); 'adopt_template' = copy a system/user ontology template down (needs "

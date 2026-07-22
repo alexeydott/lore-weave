@@ -1,5 +1,29 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## 🧹 KG (knowledge-service) MCP CATALOG UNIFICATION (2026-07-22) — DONE + LIVE-VERIFIED
+Spec `docs/specs/2026-07-22-kg-catalog-unification.md`; results `docs/eval/tool-liveness/kg-unification/`.
+**Live-counted: 37 → 26 default-visible (~30%); 41 registered, 15 legacy.**
+- **KG has a DUAL MCP+bespoke tool surface** (`app/mcp/server.py` ↔ `app/tools/definitions.py`), locked in
+  lockstep by the exact-name (`tools/list == TOOL_DEFINITIONS`) + schema-parity tests, and the bespoke
+  `/internal/tools/execute` path is LIVE. So each MERGE is a **3-layer** change (bespoke schema + MCP tool +
+  a unified **executor handler** that DELEGATES to the same legacy cores) — no logic moved. Python
+  `require_meta(visibility="legacy")` supported.
+- **lore_* (4) legacy'd** (`48788c862`) — reader-audience surface (spoiler-safe), VERIFIED to reach + hot-seed
+  on the author book/editor surfaces via the lore_→glossary alias, so a real removal. VERIFIED: no unified
+  cross-store search exists (the user's belief was wrong) — lore_* retired on AUDIENCE grounds.
+- **5 merges** (all committed, each: 3 layers + delegation tests + parity/exact-name/count green):
+  `kg_build` target=graph|wiki (`98e06a211`); `kg_graph_query` scope=project|world|multi enhanced-in-place
+  (`03d145dd0`); `kg_ontology_propose` op=schema_edit|adopt_template|sync_apply (`742af383b`); `kg_view_edit`
+  op + `kg_add_nodes` mode (`1eef40ac0`). 10 singles legacy'd behind them.
+- **Kept separate (discoverability/safety):** 3 ontology READS (schema_read/list_templates/sync_available);
+  triage_resolve(A) vs triage_schema_write(W) — CAT-2 boundary; memory/search reads.
+- **Discoverability (gemma-4-12b, ~8/11 stable):** graph_query scope 3/3, view_edit 2/2, add_nodes 2/2 all
+  reliable; enum discriminator ALWAYS right when picked. Misses are read-then-act (onto add→schema_read;
+  adopt→list_templates, which is CORRECT — adopt needs the template id first) + a gemma-12b build/list quirk.
+  Drove a fix: front-load kg_build's "Build the GRAPH, or generate the WIKI" (front-load-action-verb lesson).
+- **DEFERRED:** survivor `ambient_project` tagging (parked long-tail); a real unified cross-store search
+  (separate feature, noted not built).
+
 ## 🧹 GLOSSARY MCP CATALOG UNIFICATION (2026-07-22, HEAD 40bc8113b) — DONE + LIVE-VERIFIED
 Shrink the glossary co-writer catalog the way the book catalog was shrunk. Spec:
 `docs/specs/2026-07-22-glossary-catalog-unification.md` (governing tension documented: **shrink vs

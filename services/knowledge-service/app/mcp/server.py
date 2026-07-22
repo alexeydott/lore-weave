@@ -1376,7 +1376,8 @@ async def kg_triage_resolve(
 @mcp_server.tool(
     name="kg_ontology_propose",
     description=(
-        "Propose a change to THIS project's ontology — high-impact, so it does NOT apply "
+        "Change THIS project's ontology — ADD or DEPRECATE an edge/fact type, ADOPT a "
+        "template, or SYNC upstream template changes. High-impact, so it does NOT apply "
         "immediately: it returns a confirm_token + summary and a human confirms on the review "
         "surface. Pick op: 'schema_edit' = add/deprecate an edge_type or fact_type (needs verb, "
         "level, code); 'adopt_template' = copy a system/user ontology template down (needs "
@@ -1635,13 +1636,14 @@ async def kg_triage_schema_write(
 @mcp_server.tool(
     name="kg_build",
     description=(
-        "Build the current project's knowledge — an EXPENSIVE job that does NOT run "
-        "immediately: it returns a confirm_token + summary and a human confirms on the "
-        "review surface (which shows the cost). Pick target: 'graph' = extract the KG from "
-        "the book's chapters (needs llm_model); 'wiki' = generate wiki articles for the "
-        "book's entities (needs model_ref; omit entity_ids for all). target=graph requires "
-        "an embedding model configured — if missing, call kg_project_set_embedding_model "
-        "then kg_run_benchmark first. Pick models from settings_list_models."
+        "Build the knowledge GRAPH, or generate the WIKI, for the current project — an "
+        "EXPENSIVE job that does NOT run immediately: it returns a confirm_token + summary "
+        "and a human confirms on the review surface (which shows the cost). Pick target: "
+        "'graph' = extract the KG from the book's chapters (needs llm_model); 'wiki' = "
+        "generate wiki articles for the book's entities (needs model_ref; omit entity_ids "
+        "for all). target=graph requires an embedding model configured — if missing, call "
+        "kg_project_set_embedding_model then kg_run_benchmark first. Pick models from "
+        "settings_list_models."
     ),
     meta=require_meta(
         "W", "project",

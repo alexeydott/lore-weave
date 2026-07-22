@@ -494,13 +494,14 @@ TOOL_DEFINITIONS: list[dict] = [
     # supersedes kg_build_graph + kg_build_wiki (which stay for existing callers).
     _tool(
         "kg_build",
-        "Build the current project's knowledge — an EXPENSIVE job that does NOT run "
-        "immediately: it returns a confirm_token + summary and a human confirms on the review "
-        "surface (which shows the cost). Pick target: 'graph' = extract the KG from the book's "
-        "chapters (needs llm_model); 'wiki' = generate wiki articles for the book's entities "
-        "(needs model_ref; omit entity_ids for all). target=graph requires an embedding model "
-        "configured — if missing, call kg_project_set_embedding_model then kg_run_benchmark "
-        "first. Pick models from settings_list_models.",
+        "Build the knowledge GRAPH, or generate the WIKI, for the current project — an "
+        "EXPENSIVE job that does NOT run immediately: it returns a confirm_token + summary and "
+        "a human confirms on the review surface (which shows the cost). Pick target: 'graph' = "
+        "extract the KG from the book's chapters (needs llm_model); 'wiki' = generate wiki "
+        "articles for the book's entities (needs model_ref; omit entity_ids for all). "
+        "target=graph requires an embedding model configured — if missing, call "
+        "kg_project_set_embedding_model then kg_run_benchmark first. Pick models from "
+        "settings_list_models.",
         {
             "target": {
                 "type": "string",
