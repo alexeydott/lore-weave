@@ -43,8 +43,18 @@ an adversarial edge-case pass (3 mechanism fixes); book-first pilot BUILT + MEAS
   LANGUAGES. Remaining = mechanical replication: ~89 composition project tools + ~27 kg tools (per tool:
   id optional in the Pydantic/Annotated arg + `resolve_project_scope`/`resolve_book_scope` fallback +
   `ambient_project`/`ambient_book` meta). Book WRITE tools' cross-book is handled by their confirm cards.
-- **NEXT / follow-ons:** (1) bulk-convert the composition + kg tool bodies (mechanical, pattern proven);
-  (2) glossary WRITE envelope-tags (mechanical); (3) co-writer
+- **FAN-OUT COVERAGE — ALL FOUR DOMAINS, BOTH LANGUAGES (verified per domain):**
+  **book** (Go) fully ambient, envelope live-proven in the real co-writer; **glossary** (Go) functionally
+  ambient domain-wide, reads envelope-verified; **composition** (Python) core tools ambient — `get_work`
+  (`c6368b884`), `arc_list`(book)+`outline_node_create`(project write) (`2173f6d86`), both scope types
+  live-verified; **kg** (Python) was ALREADY functionally ambient (backend resolves project from
+  X-Project-Id — verified live), core tools tagged `ambient_project` (`764f4a370`). Composition tools are a
+  MIX (book_id / project_id / node_id-scoped); node_id/entity_id ones are NOT ambient (specific
+  sub-resources, like chapter_id).
+- **REMAINING = mechanical long-tail tagging** (all functionally-ambient-already via injection/backend):
+  the rest of composition's book/project tools + glossary WRITE envelope-tags + kg's other project tools —
+  each the same one-line recipe. Low value (scope_source arg→envelope cosmetics; the token win is universal).
+- **NEXT / follow-ons:** (1) the long-tail tagging above (optional, mechanical); (2) co-writer
   tool-DISCOVERY gap (gemma won't `tool_load` a lazy tool — needed pinning; separate from X-Book-Id, higher
   user-impact); (4) `X-Chapter-Id` — user's call: NOT ambient (many chapters), instead let tools take
   chapter **name/number** not the UUID; (5) optionally re-require book_id on EXTERNAL surfaces (§2.4).
