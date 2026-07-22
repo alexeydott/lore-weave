@@ -1,5 +1,34 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## 🧹 GLOSSARY MCP CATALOG UNIFICATION (2026-07-22, HEAD 40bc8113b) — DONE + LIVE-VERIFIED
+Shrink the glossary co-writer catalog the way the book catalog was shrunk. Spec:
+`docs/specs/2026-07-22-glossary-catalog-unification.md` (governing tension documented: **shrink vs
+weak-model discoverability** — merge near-identical shapes, but KEEP a "duplicate" that earns its place as
+a discovery affordance, e.g. `entity_rename` is an intentional alias of `entity_set_attributes`).
+- **Result (LIVE-COUNTED on the running container):** default-visible **~42 → 25** (~40% shrink); **29
+  legacy/hidden** (20 newly-tagged this effort, all confirmed off the hot-set). **16 old tools → 4 unified.**
+- **Parts (all committed, each: build + contract/visibility tests + full api suite green):**
+  - **A** (`5189eb3e5`) legacy-tag 6 covered/lifecycle/GUI tools: `propose_new_kind|kinds|new_attribute`
+    (→ `propose_batch`), `book_revert`, `user_standards_read|restore` (user-tier = GUI concern).
+  - **B1** (`78315e5fb`) NEW **`glossary_curation_list`** (`view` enum: merge_candidates|unknowns|
+    ai_suggestions) ← 3 inbox reads. + NEW `bookToolAuthAmbient` helper (reused by C/D).
+  - **B2** (`6082dbee3`) fold 4 entity-detail reads into **`glossary_get_entity.include`**
+    (chapter_links|revisions|evidence|genres; base read unchanged when omitted).
+  - **C** (`2f0278bde`) NEW **`glossary_propose_curation`** (`op` enum) ← 4 curation proposes. Legacy
+    handlers refactored to thin wrappers over shared `curation*Core` funcs (no divergence, §6).
+  - **D** (`40bc8113b`) NEW **`glossary_set_genres`** (`target` enum) ← 3 genre-matrix setters (verified
+    NOT redundant with ontology_upsert/adopt — nothing else wires the matrix). Shared `set*GenresCore`.
+- **Live-verified:** tools/list on `:8211` → 25 visible + 4 unified surfaces present; `curation_list`
+  called with **no `book_id` arg** + `X-Book-Id` header → resolved via envelope, `isError:false` (the new
+  tools are born `WithAmbientBook`). glossary-service image rebuilt + ai-gateway restarted (re-federated).
+- **Discoverability note (unproven-live):** the enum-discriminator design mirrors what already works
+  (`propose_batch.op`, book_read/book_list). A **gemma-through-gateway smoke** (can a weak model PICK the
+  unified tools?) is the one remaining gold-standard check — not yet run.
+- **DEFERRED (round-2, in spec §7):** D3 localization/annotate merges; D4 server-auto-gated ontology write
+  (collapse upsert+batch). **Survivor envelope-tagging** (spec §5: the ~17 book-scoped WRITE survivors →
+  `WithAmbientBook`) is the SAME parked long-tail (functionally-ambient-already via injection;
+  scope_source arg→envelope cosmetics) — do at schema-drop time.
+
 ## 🧭 STUDIO CONTEXT BINDING — ambient book scope (2026-07-22, HEAD e3af56d9b)
 The agent inside the writing studio no longer transcribes the book UUID. Spec SEALED (`f783c63f7`) after
 an adversarial edge-case pass (3 mechanism fixes); book-first pilot BUILT + MEASURED + live-proven.
