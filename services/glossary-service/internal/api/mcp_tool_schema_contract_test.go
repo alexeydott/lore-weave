@@ -45,6 +45,7 @@ var closedSetArgs = map[string][]string{
 	"glossary_propose_status_change": {"status"},
 	"glossary_list_merge_candidates": {"status"},
 	"glossary_propose_curation":      {"op", "status"},
+	"glossary_set_genres":            {"target"},
 	"glossary_curation_list":         {"view", "status"},
 	"glossary_get_entity":            {"include[]"},
 	"glossary_create_chapter_link":   {"relevance"},
@@ -78,6 +79,8 @@ var legacyTaggedTools = []string{
 	// catalog-unification 2026-07-22 Part C — the 4 curation proposes → glossary_propose_curation:
 	"glossary_propose_status_change", "glossary_propose_restore_revision",
 	"glossary_propose_reassign_kind", "glossary_propose_merge",
+	// catalog-unification 2026-07-22 Part D — the 3 genre setters → glossary_set_genres:
+	"glossary_book_set_active_genres", "glossary_book_set_kind_genres", "glossary_entity_set_genres",
 }
 
 // closedSetAdminArgs — same rule for the SEPARATE admin server (/mcp/admin).

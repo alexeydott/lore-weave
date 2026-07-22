@@ -102,16 +102,20 @@ func (s *Server) RegisterBookTools(srv *mcp.Server) {
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_book_set_active_genres",
 		Description: "Turn book genres on/off as active matrix columns by DELTA — `add` and/or `remove` " +
-			"lists of genre codes. (Delta, not replace, so you never silently drop a column you didn't mention.)",
+			"lists of genre codes. (Delta, not replace, so you never silently drop a column you didn't mention.) " +
+			"NOTE: superseded by glossary_set_genres (target=book_active) — kept for existing callers only.",
 		// Direct, reversible delta write (INSERT/DELETE active-genre rows) ⇒ Tier A.
-		Meta: lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, nil),
+		// LEGACY (catalog-unification 2026-07-22 Part D): superseded by glossary_set_genres.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolBookSetActiveGenres)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_book_set_kind_genres",
 		Description: "Wire a kind's genre links (matrix row) by DELTA — kind_code + `add`/`remove` lists " +
-			"of genre codes. Adds or removes which genres' attributes apply to that kind.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, nil),
+			"of genre codes. Adds or removes which genres' attributes apply to that kind. " +
+			"NOTE: superseded by glossary_set_genres (target=kind) — kept for existing callers only.",
+		// LEGACY (catalog-unification 2026-07-22 Part D): superseded by glossary_set_genres.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolBookSetKindGenres)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
@@ -126,9 +130,11 @@ func (s *Server) RegisterBookTools(srv *mcp.Server) {
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_entity_set_genres",
 		Description: "Set one entity's genre override by CODE list (replaces the override; `universal` is " +
-			"always included; an empty list clears back to the book default). Every code must be a live book genre.",
+			"always included; an empty list clears back to the book default). Every code must be a live book genre. " +
+			"NOTE: superseded by glossary_set_genres (target=entity) — kept for existing callers only.",
 		// Direct, reversible write (replaces the entity's genre override) ⇒ Tier A.
-		Meta: lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, nil),
+		// LEGACY (catalog-unification 2026-07-22 Part D): superseded by glossary_set_genres.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolEntitySetGenres)
 }
 
@@ -552,34 +558,45 @@ type activeGenresToolOut struct {
 	ActiveCodes []string `json:"active_codes"`
 }
 
+// toolBookSetActiveGenres is the LEGACY thin wrapper — glossary_set_genres target=book_active
+// is the unified entry; both share setActiveGenresCore.
 func (s *Server) toolBookSetActiveGenres(ctx context.Context, _ *mcp.CallToolRequest, in setActiveGenresToolIn) (*mcp.CallToolResult, activeGenresToolOut, error) {
 	_, bookID, err := s.bookToolAuth(ctx, in.BookID, grantclient.GrantManage)
 	if err != nil {
 		return nil, activeGenresToolOut{}, err
 	}
-	addIDs, err := s.resolveGenreCodes(ctx, bookID, in.Add)
+	out, err := s.setActiveGenresCore(ctx, bookID, in.Add, in.Remove)
 	if err != nil {
 		return nil, activeGenresToolOut{}, err
 	}
-	remIDs, err := s.resolveGenreCodes(ctx, bookID, in.Remove)
+	return nil, out, nil
+}
+
+// setActiveGenresCore — shared post-grant core (caller resolved bookID + Manage grant).
+func (s *Server) setActiveGenresCore(ctx context.Context, bookID uuid.UUID, add, remove []string) (activeGenresToolOut, error) {
+	addIDs, err := s.resolveGenreCodes(ctx, bookID, add)
 	if err != nil {
-		return nil, activeGenresToolOut{}, err
+		return activeGenresToolOut{}, err
+	}
+	remIDs, err := s.resolveGenreCodes(ctx, bookID, remove)
+	if err != nil {
+		return activeGenresToolOut{}, err
 	}
 	for _, gid := range addIDs {
 		if _, err := s.pool.Exec(ctx, `INSERT INTO book_active_genres (book_id, genre_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, bookID, gid); err != nil {
-			return nil, activeGenresToolOut{}, errors.New("activate failed")
+			return activeGenresToolOut{}, errors.New("activate failed")
 		}
 	}
 	for _, gid := range remIDs {
 		if _, err := s.pool.Exec(ctx, `DELETE FROM book_active_genres WHERE book_id=$1 AND genre_id=$2`, bookID, gid); err != nil {
-			return nil, activeGenresToolOut{}, errors.New("deactivate failed")
+			return activeGenresToolOut{}, errors.New("deactivate failed")
 		}
 	}
 	codes, err := s.activeGenreCodes(ctx, bookID)
 	if err != nil {
-		return nil, activeGenresToolOut{}, errors.New("reload failed")
+		return activeGenresToolOut{}, errors.New("reload failed")
 	}
-	return nil, activeGenresToolOut{ActiveCodes: codes}, nil
+	return activeGenresToolOut{ActiveCodes: codes}, nil
 }
 
 type setKindGenresToolIn struct {
@@ -592,40 +609,51 @@ type kindGenresToolOut struct {
 	GenreCodes []string `json:"genre_codes"`
 }
 
+// toolBookSetKindGenres is the LEGACY thin wrapper — glossary_set_genres target=kind is the
+// unified entry; both share setKindGenresCore.
 func (s *Server) toolBookSetKindGenres(ctx context.Context, _ *mcp.CallToolRequest, in setKindGenresToolIn) (*mcp.CallToolResult, kindGenresToolOut, error) {
 	_, bookID, err := s.bookToolAuth(ctx, in.BookID, grantclient.GrantManage)
 	if err != nil {
 		return nil, kindGenresToolOut{}, err
 	}
-	kindID, kerr := s.resolveBookKindID(ctx, bookID, strings.TrimSpace(in.KindCode))
+	out, err := s.setKindGenresCore(ctx, bookID, in.KindCode, in.Add, in.Remove)
+	if err != nil {
+		return nil, kindGenresToolOut{}, err
+	}
+	return nil, out, nil
+}
+
+// setKindGenresCore — shared post-grant core (caller resolved bookID + Manage grant).
+func (s *Server) setKindGenresCore(ctx context.Context, bookID uuid.UUID, kindCodeRaw string, add, remove []string) (kindGenresToolOut, error) {
+	kindID, kerr := s.resolveBookKindID(ctx, bookID, strings.TrimSpace(kindCodeRaw))
 	if isNoRows(kerr) {
-		return nil, kindGenresToolOut{}, errors.New("no live kind with that kind_code in this book")
+		return kindGenresToolOut{}, errors.New("no live kind with that kind_code in this book")
 	} else if kerr != nil {
-		return nil, kindGenresToolOut{}, errors.New("failed to resolve kind_code")
+		return kindGenresToolOut{}, errors.New("failed to resolve kind_code")
 	}
-	addIDs, err := s.resolveGenreCodes(ctx, bookID, in.Add)
+	addIDs, err := s.resolveGenreCodes(ctx, bookID, add)
 	if err != nil {
-		return nil, kindGenresToolOut{}, err
+		return kindGenresToolOut{}, err
 	}
-	remIDs, err := s.resolveGenreCodes(ctx, bookID, in.Remove)
+	remIDs, err := s.resolveGenreCodes(ctx, bookID, remove)
 	if err != nil {
-		return nil, kindGenresToolOut{}, err
+		return kindGenresToolOut{}, err
 	}
 	for _, gid := range addIDs {
 		if _, err := s.pool.Exec(ctx, `INSERT INTO book_kind_genres (book_id, kind_id, genre_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, bookID, kindID, gid); err != nil {
-			return nil, kindGenresToolOut{}, errors.New("link failed")
+			return kindGenresToolOut{}, errors.New("link failed")
 		}
 	}
 	for _, gid := range remIDs {
 		if _, err := s.pool.Exec(ctx, `DELETE FROM book_kind_genres WHERE book_id=$1 AND kind_id=$2 AND genre_id=$3`, bookID, kindID, gid); err != nil {
-			return nil, kindGenresToolOut{}, errors.New("unlink failed")
+			return kindGenresToolOut{}, errors.New("unlink failed")
 		}
 	}
 	codes, err := s.kindGenreCodes(ctx, bookID, kindID)
 	if err != nil {
-		return nil, kindGenresToolOut{}, errors.New("reload failed")
+		return kindGenresToolOut{}, errors.New("reload failed")
 	}
-	return nil, kindGenresToolOut{GenreCodes: codes}, nil
+	return kindGenresToolOut{GenreCodes: codes}, nil
 }
 
 // ── entity-genres (R / W) ─────────────────────────────────────────────────────
@@ -666,32 +694,46 @@ type entityGenresSetToolIn struct {
 	GenreCodes []string `json:"genre_codes,omitempty" jsonschema:"genre codes for the override; empty clears to book default"`
 }
 
+// toolEntitySetGenres is the LEGACY thin wrapper — glossary_set_genres target=entity is the
+// unified entry; both share setEntityGenresToolCore.
 func (s *Server) toolEntitySetGenres(ctx context.Context, _ *mcp.CallToolRequest, in entityGenresSetToolIn) (*mcp.CallToolResult, entityGenresToolOut, error) {
 	_, bookID, err := s.bookToolAuth(ctx, in.BookID, grantclient.GrantEdit)
 	if err != nil {
 		return nil, entityGenresToolOut{}, err
 	}
-	entityID, err := uuid.Parse(in.EntityID)
-	if err != nil {
-		return nil, entityGenresToolOut{}, errors.New("entity_id must be a UUID")
-	}
-	if ok, err := s.entityExistsInBook(ctx, entityID, bookID); err != nil {
-		return nil, entityGenresToolOut{}, errors.New("lookup failed")
-	} else if !ok {
-		return nil, entityGenresToolOut{}, errors.New("entity not found in this book")
-	}
-	want, err := s.resolveGenreCodes(ctx, bookID, in.GenreCodes)
+	out, err := s.setEntityGenresToolCore(ctx, bookID, in.EntityID, in.GenreCodes)
 	if err != nil {
 		return nil, entityGenresToolOut{}, err
+	}
+	return nil, out, nil
+}
+
+// setEntityGenresToolCore — shared post-grant core (caller resolved bookID + Edit grant). It
+// wraps setEntityGenresCore (the id-level replace) with the entity-in-book guard + code→id
+// resolution the tool needs. Named *ToolCore to avoid colliding with the existing
+// setEntityGenresCore(bookID, entityID, wantIDs).
+func (s *Server) setEntityGenresToolCore(ctx context.Context, bookID uuid.UUID, entityIDRaw string, genreCodes []string) (entityGenresToolOut, error) {
+	entityID, err := uuid.Parse(entityIDRaw)
+	if err != nil {
+		return entityGenresToolOut{}, errors.New("entity_id must be a UUID")
+	}
+	if ok, err := s.entityExistsInBook(ctx, entityID, bookID); err != nil {
+		return entityGenresToolOut{}, errors.New("lookup failed")
+	} else if !ok {
+		return entityGenresToolOut{}, errors.New("entity not found in this book")
+	}
+	want, err := s.resolveGenreCodes(ctx, bookID, genreCodes)
+	if err != nil {
+		return entityGenresToolOut{}, err
 	}
 	resp, err := s.setEntityGenresCore(ctx, bookID, entityID, want)
 	if err != nil {
 		if errors.Is(err, errEntityGenreInvalid) || errors.Is(err, errBookNoUniversal) {
-			return nil, entityGenresToolOut{}, err
+			return entityGenresToolOut{}, err
 		}
-		return nil, entityGenresToolOut{}, errors.New("set genres failed")
+		return entityGenresToolOut{}, errors.New("set genres failed")
 	}
-	return nil, entityGenresToolOut{GenreIDs: resp.GenreIDs, UsesBookDefault: resp.UsesBookDefault}, nil
+	return entityGenresToolOut{GenreIDs: resp.GenreIDs, UsesBookDefault: resp.UsesBookDefault}, nil
 }
 
 // ── shared helpers ────────────────────────────────────────────────────────────

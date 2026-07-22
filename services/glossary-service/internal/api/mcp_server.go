@@ -112,6 +112,8 @@ func (s *Server) mcpHandler() http.Handler {
 	s.RegisterPipelineProposeTools(srv)
 	// Part C: glossary_propose_curation — the unified curation propose (op enum over the 4 legacy tools).
 	s.RegisterCurationProposeTools(srv)
+	// Part D: glossary_set_genres — the unified genre-matrix setter (target enum over the 3 legacy setters).
+	s.RegisterSetGenresTool(srv)
 	// Pipeline M4: entity-translation tool (class-W; draft, never overwrites verified).
 	s.RegisterPipelineTranslateTools(srv)
 	// S5: web-search deep-research tool (class-C; paid outward call → confirm-gated).
