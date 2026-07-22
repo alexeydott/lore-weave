@@ -64,7 +64,7 @@ type deepResearchParams struct {
 }
 
 type deepResearchToolIn struct {
-	BookID   string `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID   string `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	EntityID string `json:"entity_id" jsonschema:"the entity to research (UUID)"`
 	Query    string `json:"query" jsonschema:"what to look up on the web"`
 	// `,omitempty` keeps max_results OPTIONAL in the generated MCP arg schema —
@@ -80,7 +80,7 @@ func (s *Server) toolDeepResearch(ctx context.Context, req *mcp.CallToolRequest,
 	if !ok {
 		return nil, confirmCardOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
+	bookID, err := resolveBookScope(ctx, in.BookID) // ambient: X-Book-Id when omitted
 	if err != nil {
 		return nil, confirmCardOut{}, errors.New("book_id must be a UUID")
 	}

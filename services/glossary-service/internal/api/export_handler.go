@@ -53,7 +53,7 @@ type ragEntityExport struct {
 }
 
 type ragExportResp struct {
-	BookID      string            `json:"book_id"`
+	BookID      string            `json:"book_id,omitempty"`
 	ExportedAt  time.Time         `json:"exported_at"`
 	ChapterID   *string           `json:"chapter_id,omitempty"`
 	EntityCount int               `json:"entity_count"`

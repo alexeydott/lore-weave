@@ -51,7 +51,7 @@ const entityUpdatedEvent = "glossary.entity_updated"
 const entityMergedEvent = "glossary.entity_merged"
 
 type entityMergedPayload struct {
-	BookID         string `json:"book_id"`
+	BookID         string `json:"book_id,omitempty"`
 	WinnerEntityID string `json:"winner_glossary_id"`
 	LoserEntityID  string `json:"loser_glossary_id"`
 	Op             string `json:"op"` // "merged" | "unmerged"
@@ -103,7 +103,7 @@ func insertMergedOutboxEvent(
 const wikiDeletedEvent = "wiki.deleted"
 
 type wikiDeletedPayload struct {
-	BookID    string `json:"book_id"`
+	BookID    string `json:"book_id,omitempty"`
 	ArticleID string `json:"article_id"`
 	EntityID  string `json:"entity_id"`
 	Reason    string `json:"reason"` // "user_deleted" | "kind_deleted"
@@ -140,7 +140,7 @@ func insertWikiDeletedOutboxEvent(
 const wikiGeneratedEvent = "wiki.generated"
 
 type wikiGeneratedPayload struct {
-	BookID           string `json:"book_id"`
+	BookID           string `json:"book_id,omitempty"`
 	ArticleID        string `json:"article_id"`
 	EntityID         string `json:"entity_id"`
 	Action           string `json:"action"`            // "written" | "suggestion"
@@ -183,7 +183,7 @@ const wikiCorrectedEvent = "wiki.corrected"
 // human-edit) gold PAIR lives in `wiki_revisions`; this event is the pointer +
 // the AI quality at correction time so the consumer can grade the correction.
 type wikiCorrectedPayload struct {
-	BookID                string `json:"book_id"`
+	BookID                string `json:"book_id,omitempty"`
 	ArticleID             string `json:"article_id"`
 	EntityID              string `json:"entity_id"`
 	UserID                string `json:"user_id"` // the owner who edited (learning's correction owner)
@@ -217,7 +217,7 @@ const wikiSuggestionReviewedEvent = "wiki.suggestion_reviewed"
 // suggestion. `WasAIGenerated` lets the consumer weight a correction-of-AI vs a
 // correction-of-human article differently.
 type wikiSuggestionReviewedPayload struct {
-	BookID         string `json:"book_id"`
+	BookID         string `json:"book_id,omitempty"`
 	ArticleID      string `json:"article_id"`
 	SuggestionID   string `json:"suggestion_id"`
 	UserID         string `json:"user_id"` // the owner who reviewed (learning's score owner)
@@ -254,7 +254,7 @@ func insertWikiSuggestionReviewedOutboxEvent(
 // glossary_entity_id let the consumer resolve user_id/project_id via its
 // own knowledge_projects table (mirrors the chapter.saved handler).
 type entityEventPayload struct {
-	BookID           string   `json:"book_id"`
+	BookID           string   `json:"book_id,omitempty"`
 	GlossaryEntityID string   `json:"glossary_entity_id"`
 	Name             string   `json:"name"`
 	Kind             string   `json:"kind"`
@@ -535,7 +535,7 @@ const nameConfirmedEvent = "glossary.name_confirmed"
 // rendering — learning-service persists it as a source='human' signal. Distinct
 // from glossary.entity_updated (which drives staleness + is actor='pipeline').
 type nameConfirmedPayload struct {
-	BookID           string `json:"book_id"`
+	BookID           string `json:"book_id,omitempty"`
 	GlossaryEntityID string `json:"glossary_entity_id"`
 	SourceName       string `json:"source_name"` // the entity's authored name (source side)
 	Kind             string `json:"kind"`

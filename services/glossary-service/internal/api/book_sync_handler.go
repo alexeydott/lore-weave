@@ -57,7 +57,7 @@ type syncUpdateItem struct {
 }
 
 type syncAvailableResp struct {
-	BookID  string           `json:"book_id"`
+	BookID  string           `json:"book_id,omitempty"`
 	Updates []syncUpdateItem `json:"updates"`
 }
 

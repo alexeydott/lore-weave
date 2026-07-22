@@ -27,7 +27,7 @@ type wikiSettingsProjection struct {
 }
 
 type bookProjection struct {
-	BookID       uuid.UUID               `json:"book_id"`
+	BookID       uuid.UUID               `json:"book_id,omitempty"`
 	OwnerUserID  uuid.UUID               `json:"owner_user_id"`
 	// PP-2 (WS-1.2 / spec 08 R5) — "the diary taint" the book projection emits so consumers can guard
 	// on it. Every wiki/enrichment/community reader resolves the book through fetchBookProjection, so

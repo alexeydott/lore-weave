@@ -137,7 +137,7 @@ const (
 // ── adopt (C) ─────────────────────────────────────────────────────────────────
 
 type adoptToolIn struct {
-	BookID string   `json:"book_id" jsonschema:"the book to scaffold (UUID)"`
+	BookID string   `json:"book_id,omitempty" jsonschema:"the book to scaffold (UUID)"`
 	Genres []string `json:"genres,omitempty" jsonschema:"system genre codes to adopt (universal is always added)"`
 	Kinds  []string `json:"kinds,omitempty" jsonschema:"system kind codes to adopt (unknown is always added)"`
 }
@@ -171,7 +171,7 @@ func (s *Server) toolAdoptStandards(ctx context.Context, req *mcp.CallToolReques
 // ── create (W) ────────────────────────────────────────────────────────────────
 
 type bookCreateToolIn struct {
-	BookID          string   `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID          string   `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	Level           string   `json:"level" jsonschema:"REQUIRED discriminator — what to create: 'genre' | 'kind' | 'attribute'. Always set this first."`
 	Code            string   `json:"code,omitempty" jsonschema:"machine code (derived from name if omitted)"`
 	Name            string   `json:"name" jsonschema:"display name"`
@@ -259,7 +259,7 @@ func bookCreateToolErr(err error, code string) error {
 // ── patch (W, base-version) ───────────────────────────────────────────────────
 
 type bookPatchToolIn struct {
-	BookID          string    `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID          string    `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	Level           string    `json:"level" jsonschema:"REQUIRED discriminator — what to edit: 'genre' | 'kind' | 'attribute'. Always set this first."`
 	Code            string    `json:"code" jsonschema:"the row's code"`
 	KindCode        string    `json:"kind_code,omitempty" jsonschema:"attribute only"`
@@ -540,7 +540,7 @@ func (s *Server) bookRowVersions(ctx context.Context, table, idCol string, bookI
 // ── set-active-genres / set-kind-genres (W, delta) ────────────────────────────
 
 type setActiveGenresToolIn struct {
-	BookID string   `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID string   `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	Add    []string `json:"add,omitempty" jsonschema:"genre codes to activate"`
 	Remove []string `json:"remove,omitempty" jsonschema:"genre codes to deactivate"`
 }
@@ -579,7 +579,7 @@ func (s *Server) toolBookSetActiveGenres(ctx context.Context, _ *mcp.CallToolReq
 }
 
 type setKindGenresToolIn struct {
-	BookID   string   `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID   string   `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	KindCode string   `json:"kind_code" jsonschema:"the kind whose genre links to change"`
 	Add      []string `json:"add,omitempty" jsonschema:"genre codes to link"`
 	Remove   []string `json:"remove,omitempty" jsonschema:"genre codes to unlink"`
@@ -627,7 +627,7 @@ func (s *Server) toolBookSetKindGenres(ctx context.Context, _ *mcp.CallToolReque
 // ── entity-genres (R / W) ─────────────────────────────────────────────────────
 
 type entityGenresGetToolIn struct {
-	BookID   string `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID   string `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	EntityID string `json:"entity_id" jsonschema:"the entity (UUID)"`
 }
 type entityGenresToolOut struct {
@@ -657,7 +657,7 @@ func (s *Server) toolEntityGetGenres(ctx context.Context, _ *mcp.CallToolRequest
 }
 
 type entityGenresSetToolIn struct {
-	BookID     string   `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID     string   `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	EntityID   string   `json:"entity_id" jsonschema:"the entity (UUID)"`
 	GenreCodes []string `json:"genre_codes,omitempty" jsonschema:"genre codes for the override; empty clears to book default"`
 }

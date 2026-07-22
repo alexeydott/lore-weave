@@ -103,7 +103,7 @@ type attrValueResp struct {
 
 type entityListItem struct {
 	EntityID               string       `json:"entity_id"`
-	BookID                 string       `json:"book_id"`
+	BookID                 string       `json:"book_id,omitempty"`
 	KindID                 string       `json:"kind_id"`
 	Kind                   kindSummary  `json:"kind"`
 	DisplayName            string       `json:"display_name"`

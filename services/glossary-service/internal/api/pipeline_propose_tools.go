@@ -67,7 +67,7 @@ func (s *Server) RegisterPipelineProposeTools(srv *mcp.Server) {
 // proposeStatusChangeToolIn is named (not inline) so the registration can build
 // its closed-set schema from the same type the handler decodes (W0 #2).
 type proposeStatusChangeToolIn struct {
-	BookID    string   `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID    string   `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	Status    string   `json:"status" jsonschema:"active | inactive | draft"`
 	EntityIDs []string `json:"entity_ids" jsonschema:"the entities to change (UUIDs)"`
 }
@@ -77,7 +77,7 @@ func (s *Server) toolProposeStatusChange(ctx context.Context, req *mcp.CallToolR
 	if !ok {
 		return nil, confirmCardOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
+	bookID, err := resolveBookScope(ctx, in.BookID) // ambient: X-Book-Id when omitted
 	if err != nil {
 		return nil, confirmCardOut{}, errors.New("book_id must be a UUID")
 	}
@@ -122,7 +122,7 @@ func (s *Server) toolProposeStatusChange(ctx context.Context, req *mcp.CallToolR
 }
 
 func (s *Server) toolProposeRestoreRevision(ctx context.Context, req *mcp.CallToolRequest, in struct {
-	BookID     string `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID     string `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	EntityID   string `json:"entity_id" jsonschema:"the entity (UUID)"`
 	RevisionID string `json:"revision_id" jsonschema:"the revision to restore to (UUID; see glossary_list_entity_revisions)"`
 }) (*mcp.CallToolResult, any, error) {
@@ -130,7 +130,7 @@ func (s *Server) toolProposeRestoreRevision(ctx context.Context, req *mcp.CallTo
 	if !ok {
 		return nil, confirmCardOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
+	bookID, err := resolveBookScope(ctx, in.BookID) // ambient: X-Book-Id when omitted
 	if err != nil {
 		return nil, confirmCardOut{}, errors.New("book_id must be a UUID")
 	}
@@ -174,7 +174,7 @@ func (s *Server) toolProposeRestoreRevision(ctx context.Context, req *mcp.CallTo
 }
 
 func (s *Server) toolProposeReassignKind(ctx context.Context, req *mcp.CallToolRequest, in struct {
-	BookID   string `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID   string `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	EntityID string `json:"entity_id" jsonschema:"the entity to move (UUID)"`
 	KindCode string `json:"kind_code" jsonschema:"the target kind's code (see glossary_book_ontology_read)"`
 }) (*mcp.CallToolResult, any, error) {
@@ -182,7 +182,7 @@ func (s *Server) toolProposeReassignKind(ctx context.Context, req *mcp.CallToolR
 	if !ok {
 		return nil, confirmCardOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
+	bookID, err := resolveBookScope(ctx, in.BookID) // ambient: X-Book-Id when omitted
 	if err != nil {
 		return nil, confirmCardOut{}, errors.New("book_id must be a UUID")
 	}
@@ -242,7 +242,7 @@ func (s *Server) toolProposeReassignKind(ctx context.Context, req *mcp.CallToolR
 }
 
 func (s *Server) toolProposeMerge(ctx context.Context, req *mcp.CallToolRequest, in struct {
-	BookID   string   `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID   string   `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	WinnerID string   `json:"winner_id" jsonschema:"the entity to KEEP (UUID)"`
 	LoserIDs []string `json:"loser_ids" jsonschema:"the entities to merge away (UUIDs; same kind as the winner)"`
 }) (*mcp.CallToolResult, any, error) {
@@ -250,7 +250,7 @@ func (s *Server) toolProposeMerge(ctx context.Context, req *mcp.CallToolRequest,
 	if !ok {
 		return nil, confirmCardOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
+	bookID, err := resolveBookScope(ctx, in.BookID) // ambient: X-Book-Id when omitted
 	if err != nil {
 		return nil, confirmCardOut{}, errors.New("book_id must be a UUID")
 	}

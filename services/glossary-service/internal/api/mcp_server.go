@@ -303,6 +303,19 @@ func userIDFromCtx(ctx context.Context) (uuid.UUID, bool) {
 	return id, true
 }
 
+// resolveBookScope resolves a tool's book from its arg OR the ambient book (X-Book-Id) when the model
+// omits it (studio context binding, spec 2026-07-22) — one line per handler, same shape as the old
+// uuid.Parse(in.BookID). The resolved book is grant-checked by the caller EXACTLY like an explicit arg
+// (the ambient book is a scope HINT, never authz). Fail-closed when neither an arg nor an ambient book
+// is present. Only use it on a tool tagged WithAmbientBook (its schema must make book_id optional).
+func resolveBookScope(ctx context.Context, argBookID string) (uuid.UUID, error) {
+	scope, ok := lwmcp.ResolveBookScope(ctx, argBookID)
+	if !ok {
+		return uuid.Nil, errors.New("book_id is required (a UUID)")
+	}
+	return scope.BookID, nil
+}
+
 // uniformOwnershipError maps the ownership sentinels to caller-visible messages.
 // Not-found and not-owner collapse to the SAME "not accessible" (H13) so a tool
 // can't be used as an existence oracle; book-service-down is distinct so the
@@ -520,7 +533,7 @@ func (s *Server) toolListKinds(ctx context.Context, _ *mcp.CallToolRequest, _ li
 const tagAssistant = "assistant"
 
 type proposeEntityToolIn struct {
-	BookID     string         `json:"book_id" jsonschema:"the book to add the entity to (UUID)"`
+	BookID     string         `json:"book_id,omitempty" jsonschema:"the book to add the entity to (UUID)"`
 	Kind       string         `json:"kind" jsonschema:"the entity kind code (e.g. character, place) — see glossary_book_ontology_read"`
 	Name       string         `json:"name" jsonschema:"the entity's name"`
 	Attributes map[string]any `json:"attributes,omitempty" jsonschema:"optional attribute code → value map"`
@@ -547,7 +560,7 @@ func (s *Server) toolProposeNewEntity(ctx context.Context, _ *mcp.CallToolReques
 	if !ok {
 		return nil, proposeEntityToolOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
+	bookID, err := resolveBookScope(ctx, in.BookID) // ambient: X-Book-Id when omitted
 	if err != nil {
 		return nil, proposeEntityToolOut{}, errors.New("book_id must be a UUID")
 	}
