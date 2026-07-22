@@ -60,8 +60,20 @@ func (s *Server) mcpHandler() http.Handler {
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_get_entity",
 		Description: "Fetch one glossary entity's full detail (attributes, aliases, kind, " +
-			"counts) by id, within a book. Use after glossary_search to read an entity in depth.",
-		Meta: lwmcp.WithAmbientBook(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil)),
+			"counts) by id, within a book. Use after glossary_search to read an entity in depth. " +
+			"Optionally expand related detail via `include`: chapter_links (chapters the entity " +
+			"appears in), revisions (edit history — find a revision to restore), evidence (the " +
+			"excerpts supporting each attribute value), genres (the entity's genre override). Omit " +
+			"`include` for just the entity.",
+		// Part B2 (catalog-unification 2026-07-22): the entity-addressed detail reads
+		// (chapter_links / revisions / evidence / genres) fold into this tool via `include`,
+		// so 4 legacy list tools leave the default catalog. Closed-set item enum.
+		InputSchema: closedSetSchemaFor[getEntityToolIn](map[string][]any{
+			"include[]": {"chapter_links", "revisions", "evidence", "genres"},
+		}),
+		Meta: lwmcp.WithAmbientBook(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{
+			"entity chapter links", "entity revision history", "entity evidence", "entity genres",
+		})),
 	}, s.toolGetEntity)
 
 	// F2 (§12.3): retarget of the old glossary_list_kinds → the "what CAN I adopt"
@@ -361,11 +373,19 @@ type searchToolOut struct {
 
 type getEntityToolIn struct {
 	// book_id OPTIONAL (ambient_book) — omitted inside a book studio, it resolves from the envelope.
-	BookID   string `json:"book_id,omitempty" jsonschema:"the book the entity belongs to (UUID). Omit inside a book studio — the current book is used."`
-	EntityID string `json:"entity_id" jsonschema:"the entity to fetch (UUID)"`
+	BookID   string   `json:"book_id,omitempty" jsonschema:"the book the entity belongs to (UUID). Omit inside a book studio — the current book is used."`
+	EntityID string   `json:"entity_id" jsonschema:"the entity to fetch (UUID)"`
+	Include  []string `json:"include,omitempty" jsonschema:"optional related-detail sections to expand: chapter_links | revisions | evidence | genres. Omit for just the entity."`
 }
 type getEntityToolOut struct {
 	Entity *entityDetailResp `json:"entity"`
+	// Part B2 — the `include` expansions (populated only when requested, so the base read stays small).
+	ChapterLinks []chapterLinkResp       `json:"chapter_links,omitempty"`
+	Revisions    []entityRevisionSummary `json:"revisions,omitempty"`
+	Evidence     []entityEvidenceItem    `json:"evidence,omitempty"`
+	Genres       *entityGenresToolOut    `json:"genres,omitempty"`
+	// Truncated names the include sections capped at the read limit (no silent cap).
+	Truncated []string `json:"truncated,omitempty"`
 }
 
 type listKindsToolIn struct{}
@@ -465,7 +485,48 @@ func (s *Server) toolGetEntity(ctx context.Context, _ *mcp.CallToolRequest, in g
 		}
 		return nil, getEntityToolOut{}, errors.New("entity not accessible")
 	}
-	return nil, getEntityToolOut{Entity: detail}, nil
+	out := getEntityToolOut{Entity: detail}
+	// Part B2 (catalog-unification 2026-07-22): expand the requested detail sections
+	// (folded from the legacy list_chapter_links / list_entity_revisions /
+	// get_entity_evidence / entity_get_genres tools — SAME cores). include[] is enum-
+	// validated by the SDK, so an unknown section can't reach here.
+	for _, sec := range in.Include {
+		switch sec {
+		case "chapter_links":
+			links, err := s.queryChapterLinks(ctx, entityID)
+			if err != nil {
+				return nil, getEntityToolOut{}, errors.New("failed to load chapter links")
+			}
+			if len(links) > pipelineReadCap {
+				links = links[:pipelineReadCap]
+				out.Truncated = append(out.Truncated, "chapter_links")
+			}
+			out.ChapterLinks = links
+		case "revisions":
+			revs, err := s.queryEntityRevisions(ctx, entityID) // core self-caps at entityRevisionsListCap
+			if err != nil {
+				return nil, getEntityToolOut{}, errors.New("failed to load revisions")
+			}
+			out.Revisions = revs
+		case "evidence":
+			items, err := s.queryEntityEvidences(ctx, entityID, pipelineReadCap+1) // +1 to detect truncation
+			if err != nil {
+				return nil, getEntityToolOut{}, errors.New("failed to load evidence")
+			}
+			if len(items) > pipelineReadCap {
+				items = items[:pipelineReadCap]
+				out.Truncated = append(out.Truncated, "evidence")
+			}
+			out.Evidence = items
+		case "genres":
+			ids, err := s.getEntityGenreIDs(ctx, entityID)
+			if err != nil {
+				return nil, getEntityToolOut{}, errors.New("failed to load entity genres")
+			}
+			out.Genres = &entityGenresToolOut{GenreIDs: ids, UsesBookDefault: len(ids) == 0}
+		}
+	}
+	return nil, out, nil
 }
 
 type bookOntologyReadToolIn struct {

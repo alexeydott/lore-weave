@@ -42,15 +42,19 @@ func (s *Server) RegisterPipelineReadTools(srv *mcp.Server) {
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_list_chapter_links",
 		Description: "List the chapters an entity is linked to (where it appears / is relevant), with " +
-			"relevance + notes. book_id + entity_id.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+			"relevance + notes. book_id + entity_id. " +
+			"NOTE: superseded by glossary_get_entity (include=chapter_links) — kept for existing callers only.",
+		// LEGACY (catalog-unification 2026-07-22 Part B2): folded into glossary_get_entity.include.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolListChapterLinks)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_list_entity_revisions",
 		Description: "List an entity's revision history (who changed what, when) newest-first. " +
-			"book_id + entity_id. Use to find a revision to restore.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+			"book_id + entity_id. Use to find a revision to restore. " +
+			"NOTE: superseded by glossary_get_entity (include=revisions) — kept for existing callers only.",
+		// LEGACY (catalog-unification 2026-07-22 Part B2): folded into glossary_get_entity.include.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolListEntityRevisions)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
@@ -71,8 +75,10 @@ func (s *Server) RegisterPipelineReadTools(srv *mcp.Server) {
 		Name: "glossary_get_entity_evidence",
 		Description: "Get the evidence excerpts (quotes / summaries / references) attached to an entity's " +
 			"attributes — what supports each value. book_id + entity_id. Read before judging or editing an " +
-			"attribute, or before adding evidence with glossary_create_evidence.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+			"attribute, or before adding evidence with glossary_create_evidence. " +
+			"NOTE: superseded by glossary_get_entity (include=evidence) — kept for existing callers only.",
+		// LEGACY (catalog-unification 2026-07-22 Part B2): folded into glossary_get_entity.include.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolGetEntityEvidence)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{

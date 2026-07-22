@@ -117,8 +117,10 @@ func (s *Server) RegisterBookTools(srv *mcp.Server) {
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_entity_get_genres",
 		Description: "Read one entity's genre override (which genres' attributes apply to it). Empty ⇒ the " +
-			"entity follows the book's active genres.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+			"entity follows the book's active genres. " +
+			"NOTE: superseded by glossary_get_entity (include=genres) — kept for existing callers only.",
+		// LEGACY (catalog-unification 2026-07-22 Part B2): folded into glossary_get_entity.include.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolEntityGetGenres)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
