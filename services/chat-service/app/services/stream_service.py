@@ -1218,11 +1218,19 @@ def _inject_context_ids(
     call, and this must not silently redirect it."""
     if not isinstance(args_obj, dict) or not tool_def:
         return args_obj
-    params = tool_def.get("function", {}).get("parameters", {})
+    fn = tool_def.get("function", {}) if isinstance(tool_def, dict) else {}
+    params = fn.get("parameters", {})
     props = params.get("properties", {}) if isinstance(params, dict) else {}
     if not props:
         return args_obj
+    # Studio context binding (spec 2026-07-22): an `ambient_book` tool resolves book_id from the
+    # envelope (X-Book-Id) server-side. Do NOT backfill book_id as an arg for it — that would pre-empt
+    # the envelope (the effect would read scope_source="arg", and book_id could never be dropped from
+    # the schema). chapter_id/project_id still backfill (not ambient); non-ambient tools still get book_id.
+    ambient_book = bool((fn.get("_meta") or {}).get("ambient_book"))
     for key, val in (("book_id", book_id), ("chapter_id", chapter_id), ("project_id", project_id)):
+        if key == "book_id" and ambient_book:
+            continue
         if not val or key not in props:
             continue
         supplied = args_obj.get(key)
@@ -3781,7 +3789,8 @@ async def stream_response(
     session_row = await pool.fetchrow(
         "SELECT system_prompt, generation_params, project_id, project_ids, composer_model_source, composer_model_ref, "
         "planner_model_ref, working_memory_seed, enabled_tools, enabled_skills, activated_tools, "
-        "compact_summary, compacted_before_seq, message_count, created_at "  # A4 (RV-M5): anchor progress + wrap
+        "compact_summary, compacted_before_seq, message_count, created_at, "  # A4 (RV-M5): anchor progress + wrap
+        "book_id "  # studio context binding — the session's bound book, so _ctx_book_id can fall back to it (X-Book-Id)
         "FROM chat_sessions WHERE session_id = $1",
         session_id,
     )
@@ -4119,6 +4128,10 @@ async def stream_response(
         (editor_context or {}).get("book_id")
         or (book_context or {}).get("book_id")
         or (studio_context or {}).get("book_id")
+        # Fall back to the SESSION's bound book (chat_sessions.book_id) — a studio/editor session is
+        # book-bound at the row even when the per-turn request contexts omit book_id. Without this the
+        # ambient scope (X-Book-Id) is never set for such a session and an ambient tool fail-closes.
+        or (str(session_row["book_id"]) if session_row and session_row.get("book_id") else None)
     )
 
     # WS-2b — fetch the curated workflows visible this turn (System + user + book), and
@@ -4260,7 +4273,15 @@ async def stream_response(
     _ctx_project_id = (studio_context or {}).get("project_id")
     book_context_note: str | None = None
     if _ctx_book_id:
-        book_context_note = f"You are working inside book_id={_ctx_book_id}."
+        # Studio context binding (spec 2026-07-22) — do NOT hand the model the book_id UUID. The
+        # ambient book rides the envelope (X-Book-Id); tools resolve it (or the server backfills it),
+        # so the model transcribing a 36-char UUID is pure token cost + an error surface. Telling it
+        # explicitly NOT to pass book_id also stops it inventing a wrong (well-formed) one that the
+        # server-side repair can't catch. chapter_id + project_id are NOT ambient — keep giving those.
+        book_context_note = (
+            "You are working in the CURRENT book. Do NOT pass a book_id to any tool — the system"
+            " applies the current book automatically; never ask the user for it and never invent one."
+        )
         if _ctx_chapter_id:
             book_context_note += f" The active chapter is chapter_id={_ctx_chapter_id}."
         if _ctx_project_id:
@@ -4269,10 +4290,10 @@ async def stream_response(
                 " — pass it verbatim to any tool that requires a project_id"
                 " (a book_id is NOT a project_id)."
             )
-        book_context_note += (
-            " Use these exact ids for any tool that requires a book_id or chapter_id."
-            " Never ask the user for the book_id and never pass a placeholder."
-        )
+        if _ctx_chapter_id:
+            book_context_note += (
+                " For a tool that requires chapter_id, use the exact id above; never pass a placeholder."
+            )
         book_context_note += _ORIENTATION_SCENT  # 28 AN-9 / AN-C2 — the discovery scent
 
     # ── RAID C1 (DR-C1) — per-book steering ─────────────────────────────────
@@ -6194,7 +6215,8 @@ async def resume_stream_response(
     # Re-derive session gen_params + tool defs for the 2nd pass.
     session_row = await pool.fetchrow(
         "SELECT generation_params, project_id, system_prompt, composer_model_source, composer_model_ref, "
-        "planner_model_ref, enabled_tools, enabled_skills, activated_tools "
+        "planner_model_ref, enabled_tools, enabled_skills, activated_tools, "
+        "book_id "  # studio context binding — a confirm-RESUMED ambient tool needs the session's book (X-Book-Id)
         "FROM chat_sessions WHERE session_id = $1",
         session_id,
     )
@@ -6365,8 +6387,8 @@ async def resume_stream_response(
                 user_id=user_id, session_id=session_id,
                 project_id=str(project_id) if project_id else None,
                 # Studio context binding — a confirm-replayed book tool that resolved book_id
-                # from the envelope on pass 1 must still get the ambient book here.
-                book_id=(session_row.get("book_id") if session_row else None),
+                # from the envelope on pass 1 must still get the ambient book here (as a str).
+                book_id=(str(session_row["book_id"]) if session_row and session_row.get("book_id") else None),
                 tool_name=_tool_name, tool_args=_tool_args,
                 admin_token=admin_token,
             )

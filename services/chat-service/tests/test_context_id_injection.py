@@ -8,8 +8,45 @@ server knows the id; `_inject_context_ids` supplies it. Pure helper, no DB.
 import app.services.stream_service as ss
 
 
-def _tool(name, props):
-    return {"function": {"name": name, "parameters": {"type": "object", "properties": props}}}
+def _tool(name, props, meta=None):
+    fn = {"name": name, "parameters": {"type": "object", "properties": props}}
+    if meta is not None:
+        fn["_meta"] = meta
+    return {"function": fn}
+
+
+def test_ambient_book_tool_does_NOT_backfill_book_id():
+    # Studio context binding (2026-07-22): an ambient_book tool resolves book_id from the envelope
+    # (X-Book-Id) server-side, so injection must NOT fill it as an arg (else scope_source reads "arg").
+    td = _tool(
+        "book_structure_edit",
+        {"book_id": {"type": "string"}, "op": {"type": "string"}},
+        meta={"tier": "A", "scope": "book", "ambient_book": True},
+    )
+    args: dict = {"op": "create_part"}
+    ss._inject_context_ids(args, td, book_id="B1", chapter_id="C1", project_id="P1")
+    assert "book_id" not in args  # left for the envelope to resolve
+
+
+def test_ambient_book_tool_STILL_backfills_project_id():
+    # Only book_id is ambient; chapter_id/project_id still backfill as before.
+    td = _tool(
+        "book_structure_edit",
+        {"book_id": {"type": "string"}, "project_id": {"type": "string"}},
+        meta={"ambient_book": True},
+    )
+    args: dict = {}
+    ss._inject_context_ids(args, td, book_id="B1", chapter_id=None, project_id="P1")
+    assert "book_id" not in args
+    assert args["project_id"] == "P1"
+
+
+def test_non_ambient_tool_still_backfills_book_id():
+    # A tool WITHOUT the flag keeps the S02 behavior (book_id backfilled).
+    td = _tool("book_chapter_save_draft", {"book_id": {"type": "string"}}, meta={"tier": "A", "scope": "book"})
+    args: dict = {}
+    ss._inject_context_ids(args, td, book_id="B1", chapter_id=None, project_id=None)
+    assert args["book_id"] == "B1"
 
 
 def test_fills_missing_book_id():
