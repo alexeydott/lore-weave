@@ -33,8 +33,9 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.db.repositories.structure import StructureConflictError
 from app.deps import get_grant_client_dep, get_structure_repo
 from app.middleware.internal_auth import require_internal_token
 
@@ -99,13 +100,119 @@ async def get_book_parts_internal(
     if structure is None:
         raise HTTPException(status_code=503, detail="structure repo unavailable")
     nodes = await structure.list_tree(book_id, kinds=("part",))
-    items = [
-        {
-            "part_id": str(n.id),
-            "title": n.title or "",
-            "sort_order": int(n.rank) if (n.rank or "").isdigit() else 0,
-            "lifecycle_state": "active",
-        }
-        for n in nodes
-    ]
+    items = [_part_json_internal(n) for n in nodes]
     return {"items": items}
+
+
+# ── Internal part-WRITE routes (manuscript-structure MCP tool, spec 2026-07-22) ────────────────────
+# The public part routes (arc.py create_part/rename_part/reorder_parts) are BEARER-gated. The MCP agent
+# write path (book_structure_edit in book-service) has only X-Internal-Token + the acting user_id — no
+# user JWT — so it cannot reach them. These internal counterparts mirror the internal /parts GET above:
+# the token authenticates the SERVICE, a real E0 book grant on `caller_user_id` is still required
+# (resolve_owner FIRST → uniform 404, no owner oracle). They REUSE the same StructureRepo methods the
+# public routes call, so the semantics (flat integer rank, LWW, exact-set reorder) stay identical.
+
+
+def _part_json_internal(n) -> dict:
+    """Same {part_id,title,sort_order,lifecycle_state} contract the internal GET returns, so book-service
+    parses ONE shape for read and write."""
+    return {
+        "part_id": str(n.id),
+        "title": n.title or "",
+        "sort_order": int(n.rank) if (n.rank or "").isdigit() else 0,
+        "lifecycle_state": "trashed" if getattr(n, "is_archived", False) else "active",
+    }
+
+
+class _PartCreateBody(BaseModel):
+    title: str = Field(default="", max_length=500)
+
+
+class _PartRenameBody(BaseModel):
+    title: str = Field(default="", max_length=500)
+
+
+class _PartReorderBody(BaseModel):
+    ordered_ids: list[UUID]
+
+
+@router.post("/books/{book_id}/parts", status_code=201)
+async def create_part_internal(
+    book_id: UUID,
+    body: _PartCreateBody,
+    caller_user_id: UUID = Query(...),
+    structure=Depends(get_structure_repo),
+    grant=Depends(get_grant_client_dep),
+) -> dict:
+    """Create a manuscript 'part' (depth-0 grouping) for the agent write path. EDIT grant required."""
+    if await grant.resolve_owner(book_id, caller_user_id) is None:
+        raise HTTPException(status_code=404, detail="book not found or no access")
+    if structure is None:
+        raise HTTPException(status_code=503, detail="structure repo unavailable")
+    node = await structure.create_part(book_id, created_by=caller_user_id, title=body.title.strip())
+    return _part_json_internal(node)
+
+
+@router.patch("/parts/{node_id}")
+async def rename_part_internal(
+    node_id: UUID,
+    body: _PartRenameBody,
+    caller_user_id: UUID = Query(...),
+    structure=Depends(get_structure_repo),
+    grant=Depends(get_grant_client_dep),
+) -> dict:
+    """Rename a 'part'. Resolve the node FIRST, 404 unless it's a live 'part' (a parts route must never
+    touch an arc — mirrors public `_gate_part`), then gate the OWNING book on caller_user_id."""
+    if structure is None:
+        raise HTTPException(status_code=503, detail="structure repo unavailable")
+    node = await structure.get(node_id)
+    if node is None or node.kind != "part":
+        raise HTTPException(status_code=404, detail="part not found or no access")
+    if await grant.resolve_owner(node.book_id, caller_user_id) is None:
+        raise HTTPException(status_code=404, detail="part not found or no access")
+    updated = await structure.update(node_id, {"title": body.title.strip()}, expected_version=None)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="part not found or no access")
+    return _part_json_internal(updated)
+
+
+@router.post("/books/{book_id}/parts/reorder")
+async def reorder_parts_internal(
+    book_id: UUID,
+    body: _PartReorderBody,
+    caller_user_id: UUID = Query(...),
+    structure=Depends(get_structure_repo),
+    grant=Depends(get_grant_client_dep),
+) -> dict:
+    """Rewrite the book's active-part order. `ordered_ids` must be EXACTLY the active parts — a
+    subset/superset/foreign id fails the WHOLE op (StructureConflictError → 409), never a silent drop."""
+    if await grant.resolve_owner(book_id, caller_user_id) is None:
+        raise HTTPException(status_code=404, detail="book not found or no access")
+    if structure is None:
+        raise HTTPException(status_code=503, detail="structure repo unavailable")
+    try:
+        nodes = await structure.reorder_parts(book_id, body.ordered_ids)
+    except StructureConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc) or "part reorder conflict") from exc
+    return {"items": [_part_json_internal(n) for n in nodes]}
+
+
+@router.delete("/parts/{node_id}", status_code=204)
+async def archive_part_internal(
+    node_id: UUID,
+    caller_user_id: UUID = Query(...),
+    structure=Depends(get_structure_repo),
+    grant=Depends(get_grant_client_dep),
+) -> None:
+    """Archive (SOFT-delete / trash) a 'part' for the agent write path — reversible via the public
+    restore. Chapters keep their structure_node_id; the grouping read excludes an archived part, so its
+    chapters fall to Unassigned (same as the public DELETE). 404 unless it's a live 'part' of a book the
+    caller may EDIT."""
+    if structure is None:
+        raise HTTPException(status_code=503, detail="structure repo unavailable")
+    node = await structure.get(node_id)
+    if node is None or node.kind != "part":
+        raise HTTPException(status_code=404, detail="part not found or no access")
+    if await grant.resolve_owner(node.book_id, caller_user_id) is None:
+        raise HTTPException(status_code=404, detail="part not found or no access")
+    await structure.archive(node_id)

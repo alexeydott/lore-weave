@@ -211,19 +211,57 @@ func (s *Server) newMCPServer() *mcp.Server {
 	// trash an act and move a chapter between acts. All Tier-A, scope=book, EDIT grant.
 	// C-merge C4 — part CRUD tools (book_part_*) moved to composition (structure_node kind='part').
 	// Only the chapter→part ASSIGNMENT stays here (it writes chapters.structure_node_id).
+	// ── Unified manuscript-structure tools (docs/specs/2026-07-22-manuscript-structure-tool.md) ──
+	// book_structure_read = the manuscript GRAPH (parts → chapters → unassigned), reference-first + paged.
+	// book_structure_edit = ONE write over create/rename/reorder parts + home/reorder chapters. These
+	// SUPERSEDE the two standalones below (set_part / reorder → now visibility:legacy, folded into the
+	// edit op set) AND close the gap that no MCP tool could create a manuscript part (part CRUD was
+	// bearer-only HTTP in composition; the edit tool orchestrates it over the new internal routes).
+	addTool(srv, "book_structure_read",
+		"Read the manuscript STRUCTURE (its part/chapter graph). With book_id alone: the overview — every "+
+			"part with its chapter_count, plus unassigned_count (the whole tree in one call). With "+
+			"part_id=<id> (or part_id=\"unassigned\"): that group's chapters, paged — every result carries "+
+			"page.is_complete + a `guidance` line telling you when to STOP. Use this to see where chapters "+
+			"live before reorganizing with book_structure_edit.",
+		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"manuscript structure", "parts overview", "table of contents", "where do chapters live", "book outline"}),
+		s.toolBookStructureRead)
+
+	addTool(srv, "book_structure_edit",
+		"Reorganize the manuscript STRUCTURE. `op` selects the operation: create_part (title) · rename_part "+
+			"(part_id, title) · reorder_parts (ordered_part_ids — the full active set, each once) · "+
+			"home_chapter (chapter_id + part_id, or part_id=\"unassigned\" to un-home) · reorder_chapters "+
+			"(chapter_ids — the complete new order for one language track). Every op is reversible (Undo). "+
+			"To DELETE a part, that is the separate lifecycle tool book_structure_part_archive.",
+		lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{
+			"create part", "add act", "add volume", "rename part", "reorder parts",
+			"move chapter to act", "put chapter in volume", "home chapter", "reorder chapters", "change reading order",
+		}),
+		s.toolBookStructureEdit)
+
+	// The destructive part-archive is a SEPARATE legacy/lifecycle tool (CAT-2 split — human owns
+	// destructive; the auto-write surface above is reversible-only). Soft-delete (trash), restorable.
+	addTool(srv, "book_structure_part_archive",
+		"Archive (trash) a manuscript part. Its chapters keep their text and fall to Unassigned; restore "+
+			"from the trash if needed. Lifecycle op — normally a human action.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{"delete part", "archive part", "trash act", "remove volume"}), lwmcp.VisibilityLegacy),
+		s.toolBookStructurePartArchive)
+
+	// C-merge C4 — the chapter→part ASSIGNMENT + reorder engines. FOLDED into book_structure_edit
+	// (home_chapter / reorder_chapters ops); kept registered so the Undo hints + any pinned callers
+	// still resolve, but visibility:legacy hides them from discovery (one name per concept).
 	addTool(srv, "book_chapter_set_part",
-		"Move a chapter into / out of / between manuscript parts. part_id = the target part (a "+
-			"structure_node id from the book's parts list), or null to un-home it into the flat "+
-			"manuscript. Reverse: book_chapter_set_part with the chapter's prior part_id.",
-		lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{"move chapter to act", "put chapter in volume", "home chapter", "un-home chapter"}),
+		"DEPRECATED: use book_structure_edit op=home_chapter. Move a chapter into / out of / between "+
+			"manuscript parts. part_id = the target part, or null to un-home it into the flat manuscript. "+
+			"Reverse: book_chapter_set_part with the chapter's prior part_id.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{"move chapter to act", "put chapter in volume", "home chapter", "un-home chapter"}), lwmcp.VisibilityLegacy),
 		s.toolChapterSetPart)
 
 	// S-07 §3 — reorder was REST-only; this gives the agent reading-order parity with the human.
 	addTool(srv, "book_chapter_reorder",
-		"Set the reading order of a book's chapters. Pass chapter_ids as the COMPLETE list of the "+
-			"book's active chapters (one language track) in the new order — each exactly once. "+
-			"Reverse: book_chapter_reorder with the prior order.",
-		lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{"reorder chapters", "reorder manuscript", "change reading order", "move chapter"}),
+		"DEPRECATED: use book_structure_edit op=reorder_chapters. Set the reading order of a book's "+
+			"chapters. Pass chapter_ids as the COMPLETE list of the book's active chapters (one language "+
+			"track) in the new order — each exactly once. Reverse: book_chapter_reorder with the prior order.",
+		lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{"reorder chapters", "reorder manuscript", "change reading order", "move chapter"}), lwmcp.VisibilityLegacy),
 		s.toolChapterReorder)
 
 	addTool(srv, "book_chapter_restore_revision",

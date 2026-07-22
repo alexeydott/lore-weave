@@ -26,6 +26,9 @@ var deprecatedBookTools = []string{
 	// Part C/D — reads superseded by the unified book_read (cat) + book_list (ls).
 	"book_get", "book_get_chapter", "book_scene_get",
 	"book_list_chapters", "book_list_revisions", "book_scene_list",
+	// Manuscript-structure tool (docs/specs/2026-07-22-manuscript-structure-tool.md) — the chapter
+	// structure standalones folded into book_structure_edit, + the destructive part-archive (CAT-2).
+	"book_chapter_set_part", "book_chapter_reorder", "book_structure_part_archive",
 }
 
 // keptContentTools — a spot-check that the redesign did NOT accidentally hide a tool the
@@ -34,6 +37,8 @@ var deprecatedBookTools = []string{
 var keptContentTools = []string{
 	"book_read", "book_list", "book_search",
 	"book_chapter_save_draft", "book_chapter_create", "book_update_details",
+	// The unified structure surface MUST stay discoverable (it replaces the folded standalones).
+	"book_structure_read", "book_structure_edit",
 }
 
 func listBookToolMetas(t *testing.T) map[string]map[string]any {
