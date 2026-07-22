@@ -395,6 +395,7 @@ async def _dispatch(ctx: MCPContext, tool_name: str, tool_args: dict) -> dict:
     ),
     meta=require_meta(
         "R", "project",
+        ambient_project=True,  # resolves project from X-Project-Id when omitted (already backend-resolved)
         tool_name="story_search",
     ),
 )
@@ -446,6 +447,7 @@ async def story_search(
     ),
     meta=require_meta(
         "R", "project",
+        ambient_project=True,  # resolves project from X-Project-Id when omitted (already backend-resolved)
         tool_name="memory_search",
     ),
 )
