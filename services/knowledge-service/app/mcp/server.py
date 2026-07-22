@@ -1117,6 +1117,52 @@ async def kg_propose_edge(
     return await _dispatch(ctx, "kg_propose_edge", args)
 
 
+# kg_add_nodes (mode=manual|from_glossary) supersedes kg_create_node +
+# kg_project_entities_to_nodes (kept below, visibility:legacy). Catalog-unification 2026-07-22.
+@mcp_server.tool(
+    name="kg_add_nodes",
+    description=(
+        "Add entity node(s) to the current project's knowledge graph. Pick mode: 'manual' = "
+        "create ONE node (needs name + kind) — use this BEFORE kg_propose_edge when a "
+        "relationship's endpoint isn't in the graph yet; 'from_glossary' = project the book's "
+        "recorded glossary entities into the graph as nodes (optional entity_ids; omit for the "
+        "whole active glossary). Both are idempotent (re-running adds no duplicates)."
+    ),
+    meta=require_meta(
+        "A", "project",
+        tool_name="kg_add_nodes",
+    ),
+)
+async def kg_add_nodes(
+    ctx: MCPContext,
+    mode: Annotated[
+        Literal["manual", "from_glossary"],
+        "manual = create one node (name+kind); from_glossary = project the book's glossary "
+        "entities into the graph.",
+    ],
+    name: Annotated[str | None, "mode=manual: the entity's name."] = None,
+    kind: Annotated[
+        AuthorableKind | None, "mode=manual: the entity kind (closed set)."
+    ] = None,
+    entity_ids: Annotated[
+        list[str] | None,
+        "mode=from_glossary: optional specific glossary entity ids; omit for the whole "
+        "active glossary.",
+    ] = None,
+    project_id: _PROJECT_ID_ARG = None,
+) -> dict:
+    args: dict[str, Any] = {"mode": mode}
+    if name is not None:
+        args["name"] = name
+    if kind is not None:
+        args["kind"] = kind
+    if entity_ids is not None:
+        args["entity_ids"] = entity_ids
+    if project_id is not None:
+        args["project_id"] = project_id
+    return await _dispatch(ctx, "kg_add_nodes", args)
+
+
 @mcp_server.tool(
     name="kg_project_entities_to_nodes",
     description=(
@@ -1128,8 +1174,10 @@ async def kg_propose_edge(
         "proposing edges between entities (an edge needs both endpoints to be "
         "nodes first)."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_add_nodes (mode=from_glossary).
     meta=require_meta(
         "A", "project",
+        visibility="legacy",
         tool_name="kg_project_entities_to_nodes",
     ),
 )
@@ -1159,7 +1207,8 @@ async def kg_project_entities_to_nodes(
         "parked and later fails. Idempotent: the same name+kind returns the existing "
         "node. Returns the entity_id to use as an edge endpoint."
     ),
-    meta=require_meta("A", "project", tool_name="kg_create_node"),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_add_nodes (mode=manual).
+    meta=require_meta("A", "project", visibility="legacy", tool_name="kg_create_node"),
 )
 async def kg_create_node(
     ctx: MCPContext,
@@ -1176,6 +1225,52 @@ async def kg_create_node(
     return await _dispatch(ctx, "kg_create_node", args)
 
 
+# kg_view_edit (op=upsert|delete) supersedes kg_view_upsert + kg_view_delete (kept below,
+# visibility:legacy). Catalog-unification 2026-07-22.
+@mcp_server.tool(
+    name="kg_view_edit",
+    description=(
+        "Create, replace, or delete one of YOUR saved views (a named lens of edge-type + "
+        "node-kind codes) for the current project. Owner-scoped (only ever your own view). "
+        "op=upsert creates/replaces it (needs code + name; optional description/edge_type_codes/"
+        "node_kind_codes); op=delete removes it (needs code; reversible — recreate with upsert)."
+    ),
+    meta=require_meta(
+        "A", "user",
+        tool_name="kg_view_edit",
+    ),
+)
+async def kg_view_edit(
+    ctx: MCPContext,
+    op: Annotated[
+        Literal["upsert", "delete"],
+        "upsert = create/replace the view; delete = remove it.",
+    ],
+    code: Annotated[str, "The view's stable code (slug)."],
+    name: Annotated[str | None, "op=upsert: a human-readable view name."] = None,
+    description: Annotated[str | None, "op=upsert: optional description."] = None,
+    edge_type_codes: Annotated[
+        list[str] | None, "op=upsert: edge-type codes the view includes (empty = all)."
+    ] = None,
+    node_kind_codes: Annotated[
+        list[str] | None, "op=upsert: node-kind codes the view includes (empty = all)."
+    ] = None,
+    project_id: _PROJECT_ID_ARG = None,
+) -> dict:
+    args: dict[str, Any] = {"op": op, "code": code}
+    if name is not None:
+        args["name"] = name
+    if description is not None:
+        args["description"] = description
+    if edge_type_codes is not None:
+        args["edge_type_codes"] = edge_type_codes
+    if node_kind_codes is not None:
+        args["node_kind_codes"] = node_kind_codes
+    if project_id is not None:
+        args["project_id"] = project_id
+    return await _dispatch(ctx, "kg_view_edit", args)
+
+
 @mcp_server.tool(
     name="kg_view_upsert",
     description=(
@@ -1183,8 +1278,10 @@ async def kg_create_node(
         "edge-type + node-kind codes) for the current project. Owner-scoped: "
         "only ever touches your own view."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_view_edit (op=upsert).
     meta=require_meta(
         "A", "user",
+        visibility="legacy",
         tool_name="kg_view_upsert",
     ),
 )
@@ -1219,8 +1316,10 @@ async def kg_view_upsert(
         "Delete one of the caller's saved views by code for the current "
         "project. Owner-scoped and reversible (recreate with kg_view_upsert)."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_view_edit (op=delete).
     meta=require_meta(
         "A", "user",
+        visibility="legacy",
         tool_name="kg_view_delete",
     ),
 )

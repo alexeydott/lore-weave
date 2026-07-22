@@ -73,6 +73,9 @@ _LANE_LF_TOOLS = {
     "kg_view_upsert",
     "kg_view_delete",
     "kg_triage_resolve",
+    # catalog-unification 2026-07-22 unified tools (fold in the singles above, which stay legacy)
+    "kg_view_edit",   # op=upsert|delete
+    "kg_add_nodes",   # mode=manual|from_glossary
 }
 
 # KM6 live class-C tools — registered, but each MINTS a confirm-token (no write); the
@@ -114,12 +117,12 @@ def test_total_tool_count_is_memory_plus_lane_lf():
     agent) + 2 cost-gated (kg_build_graph, kg_build_wiki) + 1 kg_run_benchmark (R4)
     + 4 W11-M2 reader tools (lore_ask/lore_browse_entities/lore_entity/lore_timeline)
     + 1 W10-M1 kg_create_node (manual single-node create)
-    + 2 catalog-unification (kg_build [target=graph|wiki] + kg_ontology_propose
-      [op=schema_edit|adopt_template|sync_apply]; the folded-in singles stay registered
-      visibility:legacy)
-    = 39."""
+    + 4 catalog-unification (kg_build [target] + kg_ontology_propose [op] + kg_view_edit
+      [op=upsert|delete] + kg_add_nodes [mode=manual|from_glossary]; the folded-in singles
+      stay registered visibility:legacy)
+    = 41."""
     schema_names = {d["function"]["name"] for d in TOOL_DEFINITIONS}
-    assert len(TOOL_DEFINITIONS) == 39
+    assert len(TOOL_DEFINITIONS) == 41
     assert set(TOOL_NAMES) == set(ARG_MODELS) == schema_names
     assert len(set(TOOL_NAMES)) == len(TOOL_NAMES)  # no dupes
     assert {"kg_project_create", "kg_project_list", "kg_project_set_embedding_model",
@@ -1727,3 +1730,89 @@ async def test_kg_ontology_propose_schema_edit_missing_fields_is_tool_error():
     res = await execute_tool(_ctx(), "kg_ontology_propose", {"op": "schema_edit", "verb": "add"})
     assert not res.success
     assert "code" in (res.error or "")
+
+
+# ── kg_view_edit + kg_add_nodes unified dispatch (catalog-unification 2026-07-22) ──
+
+
+@pytest.mark.asyncio
+async def test_kg_view_edit_upsert_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen.update(code=args.code, name=args.name)
+        return {"op": "upsert"}
+
+    monkeypatch.setattr(gst, "_handle_kg_view_upsert", _fake)
+    res = await execute_tool(_ctx(), "kg_view_edit", {"op": "upsert", "code": "v1", "name": "View 1"})
+    assert res.success, res.error
+    assert seen == {"code": "v1", "name": "View 1"}
+
+
+@pytest.mark.asyncio
+async def test_kg_view_edit_delete_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen["code"] = args.code
+        return {"op": "delete"}
+
+    monkeypatch.setattr(gst, "_handle_kg_view_delete", _fake)
+    res = await execute_tool(_ctx(), "kg_view_edit", {"op": "delete", "code": "v1"})
+    assert res.success, res.error
+    assert seen["code"] == "v1"
+
+
+@pytest.mark.asyncio
+async def test_kg_view_edit_upsert_without_name_is_tool_error():
+    res = await execute_tool(_ctx(), "kg_view_edit", {"op": "upsert", "code": "v1"})
+    assert not res.success
+    assert "name" in (res.error or "")
+
+
+@pytest.mark.asyncio
+async def test_kg_add_nodes_manual_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen.update(name=args.name, kind=args.kind)
+        return {"mode": "manual"}
+
+    monkeypatch.setattr(gst, "_handle_kg_create_node", _fake)
+    res = await execute_tool(_ctx(), "kg_add_nodes",
+                             {"mode": "manual", "name": "Kai", "kind": "character"})
+    assert res.success, res.error
+    assert seen == {"name": "Kai", "kind": "character"}
+
+
+@pytest.mark.asyncio
+async def test_kg_add_nodes_from_glossary_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen["entity_ids"] = args.entity_ids
+        return {"mode": "from_glossary"}
+
+    monkeypatch.setattr(gst, "_handle_kg_project_entities_to_nodes", _fake)
+    res = await execute_tool(_ctx(), "kg_add_nodes",
+                             {"mode": "from_glossary", "entity_ids": ["e1", "e2"]})
+    assert res.success, res.error
+    assert seen["entity_ids"] == ["e1", "e2"]
+
+
+@pytest.mark.asyncio
+async def test_kg_add_nodes_manual_without_kind_is_tool_error():
+    res = await execute_tool(_ctx(), "kg_add_nodes", {"mode": "manual", "name": "Kai"})
+    assert not res.success
+
+
+@pytest.mark.asyncio
+async def test_kg_add_nodes_manual_bad_kind_is_tool_error():
+    res = await execute_tool(_ctx(), "kg_add_nodes",
+                             {"mode": "manual", "name": "Kai", "kind": "banana"})
+    assert not res.success
+    assert "kind" in (res.error or "")

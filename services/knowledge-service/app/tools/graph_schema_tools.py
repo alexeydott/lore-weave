@@ -363,6 +363,39 @@ class KgViewDeleteArgs(ProjectScopedArgs):
     code: str = Field(min_length=1, max_length=_CODE_MAX)
 
 
+class KgViewEditArgs(ProjectScopedArgs):
+    """`kg_view_edit` — UNIFIED per-user view CRUD (catalog-unification 2026-07-22).
+    op=upsert creates/replaces a view (code+name, optional description/edge/node codes);
+    op=delete removes it (code). Delegates to the same _handle_kg_view_upsert /
+    _handle_kg_view_delete cores (both Tier-A, reversible)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    op: Literal["upsert", "delete"]
+    code: str = Field(min_length=1, max_length=_CODE_MAX)  # required for both ops
+    name: str | None = Field(default=None, max_length=_NAME_MAX)  # op=upsert (required)
+    description: str | None = Field(default=None, max_length=2000)
+    edge_type_codes: list[str] | None = Field(default=None, max_length=200)
+    node_kind_codes: list[str] | None = Field(default=None, max_length=200)
+
+
+async def _handle_kg_view_edit(ctx: "ToolContext", args: KgViewEditArgs) -> dict:
+    """Unified view CRUD dispatch — delegates to the SAME cores (no logic moved)."""
+    from app.tools.executor import ToolExecutionError
+
+    if args.op == "upsert":
+        if not args.name:
+            raise ToolExecutionError("op=upsert requires name")
+        return await _handle_kg_view_upsert(ctx, KgViewUpsertArgs(
+            project_id=args.project_id, code=args.code, name=args.name,
+            description=args.description or "",
+            edge_type_codes=args.edge_type_codes or [],
+            node_kind_codes=args.node_kind_codes or []))
+    # op == "delete"
+    return await _handle_kg_view_delete(ctx, KgViewDeleteArgs(
+        project_id=args.project_id, code=args.code))
+
+
 class KgTriageResolveArgs(ProjectScopedArgs):
     """`kg_triage_resolve` — resolve a triage signature with a KG-LOCAL action.
 
@@ -538,6 +571,46 @@ class KgCreateNodeArgs(ProjectScopedArgs):
         return self
 
 
+class KgAddNodesArgs(ProjectScopedArgs):
+    """`kg_add_nodes` — UNIFIED node creation (catalog-unification 2026-07-22).
+    mode=manual creates ONE node (name+kind); mode=from_glossary projects the book's
+    glossary entities into the graph as nodes (optional entity_ids; omit for all).
+    Delegates to the same _handle_kg_create_node / _handle_kg_project_entities_to_nodes
+    cores (both Tier-A, idempotent, reversible)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["manual", "from_glossary"]
+    # mode=manual
+    name: str | None = Field(default=None, max_length=200)
+    kind: str | None = Field(default=None, max_length=100)
+    # mode=from_glossary
+    entity_ids: list[str] | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def _gate_manual_kind(self) -> "KgAddNodesArgs":
+        # mode=manual mirrors kg_create_node's closed-set kind gate (ONE home:
+        # neo4j_repos.entities.AUTHORABLE_KINDS, lazily imported). from_glossary needs no kind.
+        if self.mode == "manual":
+            if not self.name or not self.kind:
+                raise ValueError("mode=manual requires name and kind")
+            from app.db.neo4j_repos.entities import AUTHORABLE_KINDS
+            if self.kind.strip() not in AUTHORABLE_KINDS:
+                raise ValueError(f"kind must be one of {sorted(AUTHORABLE_KINDS)}")
+        return self
+
+
+async def _handle_kg_add_nodes(ctx: "ToolContext", args: KgAddNodesArgs) -> dict:
+    """Unified node-creation dispatch — delegates to the SAME cores (no logic moved)."""
+    if args.mode == "manual":
+        # name+kind presence + kind validity already enforced by the model validator.
+        return await _handle_kg_create_node(ctx, KgCreateNodeArgs(
+            project_id=args.project_id, name=args.name, kind=args.kind))
+    # mode == "from_glossary"
+    return await _handle_kg_project_entities_to_nodes(ctx, KgProjectEntitiesToNodesArgs(
+        project_id=args.project_id, entity_ids=args.entity_ids))
+
+
 GRAPH_SCHEMA_ARG_MODELS: dict[str, type[BaseModel]] = {
     # ── R (read) ──────────────────────────────────────────────────────
     "kg_graph_query": KgGraphQueryArgs,
@@ -552,10 +625,12 @@ GRAPH_SCHEMA_ARG_MODELS: dict[str, type[BaseModel]] = {
     # ── W (low-impact, reversible, owner/grant-gated) ─────────────────
     "kg_propose_fact": KgProposeFactArgs,
     "kg_propose_edge": KgProposeEdgeArgs,
-    "kg_project_entities_to_nodes": KgProjectEntitiesToNodesArgs,  # WS-4B: A, deterministic projection
-    "kg_create_node": KgCreateNodeArgs,  # W10-M1: A, manual single-node create (unblocks kg_propose_edge)
-    "kg_view_upsert": KgViewUpsertArgs,
-    "kg_view_delete": KgViewDeleteArgs,
+    "kg_add_nodes": KgAddNodesArgs,  # unified (2026-07-22): mode=manual|from_glossary
+    "kg_project_entities_to_nodes": KgProjectEntitiesToNodesArgs,  # LEGACY → kg_add_nodes (from_glossary)
+    "kg_create_node": KgCreateNodeArgs,  # LEGACY → kg_add_nodes (manual)
+    "kg_view_edit": KgViewEditArgs,  # unified (2026-07-22): op=upsert|delete
+    "kg_view_upsert": KgViewUpsertArgs,  # LEGACY → kg_view_edit (upsert)
+    "kg_view_delete": KgViewDeleteArgs,  # LEGACY → kg_view_edit (delete)
     "kg_triage_resolve": KgTriageResolveArgs,
     # ── C (confirm-token) — KM6 confirm machinery ─────────────────────
     "kg_ontology_propose": KgOntologyProposeArgs,  # unified (2026-07-22): op=schema_edit|adopt_template|sync_apply
@@ -898,6 +973,43 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
         },
         ["source_entity_id", "target_entity_id", "edge_type"],
     ),
+    # UNIFIED node creation (catalog-unification 2026-07-22): mode supersedes kg_create_node
+    # + kg_project_entities_to_nodes (which stay for existing callers).
+    _tool(
+        "kg_add_nodes",
+        "Add entity node(s) to the current project's knowledge graph. Pick mode: 'manual' = "
+        "create ONE node (needs name + kind) — use this BEFORE kg_propose_edge when a "
+        "relationship's endpoint isn't in the graph yet; 'from_glossary' = project the book's "
+        "recorded glossary entities into the graph as nodes (optional entity_ids; omit for the "
+        "whole active glossary) — the structured, prose-less way to seed the graph. Both are "
+        "idempotent (re-running adds no duplicates).",
+        {
+            "mode": {
+                "type": "string",
+                "enum": ["manual", "from_glossary"],
+                "description": "manual = create one node (name+kind); from_glossary = project "
+                               "the book's glossary entities into the graph.",
+            },
+            "name": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "mode=manual: the entity's name.",
+            },
+            "kind": {
+                "type": "string",
+                "enum": ["character", "location", "organization", "concept", "item"],
+                "description": "mode=manual: the entity kind (closed set).",
+            },
+            "entity_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "mode=from_glossary: optional specific glossary entity ids; omit "
+                               "to project the book's whole active glossary.",
+            },
+            "project_id": _PROJECT_ID_PROP,
+        },
+        ["mode"],
+    ),
     _tool(
         "kg_project_entities_to_nodes",
         "Project this book's recorded glossary entities into the knowledge "
@@ -942,6 +1054,49 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
             "project_id": _PROJECT_ID_PROP,
         },
         ["name", "kind"],
+    ),
+    # UNIFIED view CRUD (catalog-unification 2026-07-22): op supersedes kg_view_upsert +
+    # kg_view_delete (which stay for existing callers).
+    _tool(
+        "kg_view_edit",
+        "Create, replace, or delete one of YOUR saved views (a named lens of edge-type + "
+        "node-kind codes) for the current project. Owner-scoped (only ever your own view). "
+        "op=upsert creates/replaces it (needs code + name; optional description/edge_type_codes/"
+        "node_kind_codes); op=delete removes it (needs code; reversible — recreate with upsert).",
+        {
+            "op": {
+                "type": "string",
+                "enum": ["upsert", "delete"],
+                "description": "upsert = create/replace the view; delete = remove it.",
+            },
+            "code": {
+                "type": "string",
+                "maxLength": _CODE_MAX,
+                "description": "The view's stable code (slug).",
+            },
+            "name": {
+                "type": "string",
+                "maxLength": _NAME_MAX,
+                "description": "op=upsert: a human-readable view name.",
+            },
+            "description": {
+                "type": "string",
+                "maxLength": 2000,
+                "description": "op=upsert: optional description.",
+            },
+            "edge_type_codes": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "op=upsert: edge-type codes the view includes (empty = all).",
+            },
+            "node_kind_codes": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "op=upsert: node-kind codes the view includes (empty = all).",
+            },
+            "project_id": _PROJECT_ID_PROP,
+        },
+        ["op", "code"],
     ),
     _tool(
         "kg_view_upsert",
@@ -2280,6 +2435,8 @@ GRAPH_SCHEMA_HANDLERS = {
     "kg_propose_edge": _handle_kg_propose_edge,
     "kg_project_entities_to_nodes": _handle_kg_project_entities_to_nodes,
     "kg_create_node": _handle_kg_create_node,
+    "kg_add_nodes": _handle_kg_add_nodes,  # unified (delegates to create_node / entities_to_nodes)
+    "kg_view_edit": _handle_kg_view_edit,  # unified (delegates to view_upsert / view_delete)
     "kg_view_upsert": _handle_kg_view_upsert,
     "kg_view_delete": _handle_kg_view_delete,
     "kg_triage_resolve": _handle_kg_triage_resolve,
