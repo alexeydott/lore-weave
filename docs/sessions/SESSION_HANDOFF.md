@@ -115,10 +115,14 @@ an adversarial edge-case pass (3 mechanism fixes); book-first pilot BUILT + MEAS
 - **REMAINING = mechanical long-tail tagging** (all functionally-ambient-already via injection/backend):
   the rest of composition's book/project tools + glossary WRITE envelope-tags + kg's other project tools —
   each the same one-line recipe. Low value (scope_source arg→envelope cosmetics; the token win is universal).
-- **NEXT / follow-ons:** (1) the long-tail tagging above (optional, mechanical); (2) co-writer
-  tool-DISCOVERY gap (gemma won't `tool_load` a lazy tool — needed pinning; separate from X-Book-Id, higher
-  user-impact); (4) `X-Chapter-Id` — user's call: NOT ambient (many chapters), instead let tools take
-  chapter **name/number** not the UUID; (5) optionally re-require book_id on EXTERNAL surfaces (§2.4).
+- **NEXT / follow-ons:** (1) the long-tail tagging above (optional, mechanical); (2) ~~co-writer
+  tool-DISCOVERY gap~~ **RESOLVED/STALE (2026-07-22, `docs/eval/tool-liveness/discovery-gap/`)** — the
+  "gemma won't `tool_load` a lazy tool" claim is FALSE post-F17: verified live, gemma reliably
+  `tool_list`→`tool_load`→calls a lazy read. The residual "loop" is read-then-act (reads the ontology
+  before a structured write) — which RECOVERS, and is already loop-broken by F18 (`TOOL_LIST_CATEGORY_CAP`
+  auto-load+steer). Hot-set/lazy-tail catalog-shrink strategy VALIDATED. (4) `X-Chapter-Id` — user's call:
+  NOT ambient (many chapters), instead let tools take chapter **name/number** not the UUID; (5) optionally
+  re-require book_id on EXTERNAL surfaces (§2.4).
 - **KEY FINDING:** the token win (model omits book_id) is ALREADY UNIVERSAL via the prose-shrink +
   session-SELECT fix + injection-backfill (`575ad5f38`). The fan-out now buys `scope_source=envelope` +
   schema-drop-readiness (clean architecture), NOT a functional unlock.
