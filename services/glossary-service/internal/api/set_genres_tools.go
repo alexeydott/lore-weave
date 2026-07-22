@@ -28,9 +28,11 @@ import (
 func (s *Server) RegisterSetGenresTool(srv *mcp.Server) {
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_set_genres",
-		Description: "Wire the book's genre MATRIX — which genres' attributes apply where. Pick a `target`:\n" +
-			"  • book_active — turn the book's genres on/off (the active matrix columns) by DELTA. Uses " +
-			"add[] and/or remove[] genre codes (delta, so you never drop a column you didn't mention).\n" +
+		Description: "Turn a book's genres ON or OFF, wire a kind's genres, or override an entity's genres — " +
+			"the genre MATRIX (which genres' attributes apply where). Use this to ACTIVATE or DEACTIVATE a genre. " +
+			"Pick a `target`:\n" +
+			"  • book_active — turn the book's genres ON/OFF (activate/deactivate the active matrix columns) by " +
+			"DELTA. Uses add[] and/or remove[] genre codes (delta, so you never drop a column you didn't mention).\n" +
 			"  • kind — wire a KIND's genre links (matrix row) by DELTA. Needs kind_code + add[]/remove[].\n" +
 			"  • entity — set one ENTITY's genre override by REPLACE. Needs entity_id + genre_codes[] " +
 			"(the full list; `universal` is always kept; an empty list clears back to the book default).\n" +
@@ -56,19 +58,45 @@ type setGenresToolIn struct {
 	Add        []string `json:"add,omitempty" jsonschema:"for book_active or kind — genre codes to add (delta)"`
 	Remove     []string `json:"remove,omitempty" jsonschema:"for book_active or kind — genre codes to remove (delta)"`
 	GenreCodes []string `json:"genre_codes,omitempty" jsonschema:"for entity — the full genre-code list for the override (replace; empty clears to the book default)"`
+	// AllowCrossBook confirms a WRITE to a book DIFFERENT from the ambient studio (studio context
+	// binding §2.2). Normally omit — the current book is used. A Tier-A write to another book is
+	// soft-blocked until this is set (book-service parity; /review-impl MED fix 2026-07-22).
+	AllowCrossBook bool `json:"allow_cross_book,omitempty" jsonschema:"set true ONLY to confirm editing a book different from the studio you're in (normally omit — the current book is used)"`
 }
 
-// setGenresToolOut is a discriminated union keyed by `target`.
+// setGenresToolOut is a discriminated union keyed by `target`. (Total/UsesBookDefault-style
+// omitempty is intentional for the union — a false/zero on a branch that doesn't own the field
+// would be misleading noise, unlike the single-purpose legacy tools that always owned it.)
 type setGenresToolOut struct {
 	Target          string   `json:"target"`
-	ActiveCodes     []string `json:"active_codes,omitempty"`     // target=book_active
-	GenreCodes      []string `json:"genre_codes,omitempty"`      // target=kind
-	GenreIDs        []string `json:"genre_ids,omitempty"`        // target=entity
+	ActiveCodes     []string `json:"active_codes,omitempty"`      // target=book_active
+	GenreCodes      []string `json:"genre_codes,omitempty"`       // target=kind
+	GenreIDs        []string `json:"genre_ids,omitempty"`         // target=entity
 	UsesBookDefault bool     `json:"uses_book_default,omitempty"` // target=entity
+	// Cross-book WRITE pre-confirm (§2.2): set (to the book_id) when a cross-book write was NOT
+	// applied because allow_cross_book was absent. ScopeSource = "arg" | "envelope".
+	CrossBookConfirmTarget string `json:"cross_book_confirm_required,omitempty"`
+	ScopeSource            string `json:"scope_source,omitempty"`
+	Guidance               string `json:"guidance,omitempty"`
 }
 
 func (s *Server) toolSetGenres(ctx context.Context, _ *mcp.CallToolRequest, in setGenresToolIn) (*mcp.CallToolResult, setGenresToolOut, error) {
-	switch strings.TrimSpace(in.Target) {
+	target := strings.TrimSpace(in.Target)
+	// Cross-book WRITE pre-confirm (book-service parity, /review-impl MED 2026-07-22): set_genres is
+	// a Tier-A IMMEDIATE write, so a write to a book OTHER than the ambient studio book must be
+	// confirmed FIRST — never silently mutate the wrong book. Gate before the per-target grant so
+	// nothing is applied without allow_cross_book. (Grant on the target book is still checked below.)
+	if scope, ok := lwmcp.ResolveBookScope(ctx, in.BookID); ok && scope.CrossBook && !in.AllowCrossBook {
+		return nil, setGenresToolOut{
+			Target:                 target,
+			CrossBookConfirmTarget: scope.BookID.String(),
+			ScopeSource:            scope.Source,
+			Guidance: "NOT APPLIED — this would edit genres on a DIFFERENT book (book_id=" +
+				scope.BookID.String() + ") than the studio you're in. If that is intended, re-issue " +
+				"the SAME call with allow_cross_book=true.",
+		}, nil
+	}
+	switch target {
 	case "book_active":
 		_, bookID, err := s.bookToolAuthAmbient(ctx, in.BookID, grantclient.GrantManage)
 		if err != nil {

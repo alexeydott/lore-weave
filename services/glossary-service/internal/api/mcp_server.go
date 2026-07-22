@@ -529,6 +529,13 @@ func (s *Server) toolGetEntity(ctx context.Context, _ *mcp.CallToolRequest, in g
 				return nil, getEntityToolOut{}, errors.New("failed to load entity genres")
 			}
 			out.Genres = &entityGenresToolOut{GenreIDs: ids, UsesBookDefault: len(ids) == 0}
+		default:
+			// Unreachable via the include[] item enum (SDK-validated), but never silently
+			// no-op an unknown section — consistent with curation_list/propose_curation/
+			// set_genres, which all return an explicit error on an unknown discriminator
+			// (/review-impl LOW fix 2026-07-22).
+			return nil, getEntityToolOut{}, errors.New("unknown include section: " + sec +
+				" (valid: chapter_links, revisions, evidence, genres)")
 		}
 	}
 	return nil, out, nil
