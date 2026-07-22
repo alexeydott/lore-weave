@@ -1,7 +1,7 @@
 # Spec — Studio Context Binding (ambient book/project scope for in-system agents)
 
 - **Date:** 2026-07-22
-- **Status:** **SEALED** (2026-07-22) — Q1–Q4 decided (§5), edge cases resolved (§4), adversarial seal pass done. Ready to build book-first pilot.
+- **Status:** **BUILT (book-first pilot) + MEASURED** (2026-07-22) — SEALED design realized in commits `263fcd483` (SDK + book_*) + `e3af56d9b` (gateway forward + chat-service + A/B). Live-proven through ai-gateway; ambient vs baseline −25%/−46% tokens, book_id 0/5 emitted ([AMBIENT_RESULTS.md](../eval/tool-liveness/manuscript-structure/AMBIENT_RESULTS.md)). Fan-out to other domains (glossary/composition/kg) is the remaining work. One deviation from §2.4: book_id was made optional in the tool's OWN schema (auto-propagates through federation) rather than dropped only on the bound surface — simpler, and external callers fail-closed in the handler; re-requiring book_id on external surfaces is a follow-on if wanted.
 - **Size:** L (cross-cutting: chat-service envelope + `loreweave_mcp` SDK identity + every domain tool's id-resolution; no DB migration)
 - **Governs:** MCP-tool-io (IN-*), User Boundaries & Tenancy (the scoping cascade), SEC-1 (identity from envelope, never a tool arg), settings-and-config (SET resolution cascade — same shape).
 

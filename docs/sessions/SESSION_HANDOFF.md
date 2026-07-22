@@ -1,5 +1,31 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## 🧭 STUDIO CONTEXT BINDING — ambient book scope (2026-07-22, HEAD e3af56d9b)
+The agent inside the writing studio no longer transcribes the book UUID. Spec SEALED (`f783c63f7`) after
+an adversarial edge-case pass (3 mechanism fixes); book-first pilot BUILT + MEASURED + live-proven.
+- **Design:** `X-Book-Id` rides the MCP envelope like `X-User-Id` (SEC-1). A tool resolves `book_id` from
+  it when the model omits it; the ambient book is **grant-checked like an arg — NEVER authz**. Cross-book
+  READ = advisory; cross-book WRITE = pre-confirm (`cross_book_confirm_required` → `allow_cross_book:true`).
+  `project_id`/`work_id` derive from the book. Fail-closed if neither arg nor envelope. Soft, not a sandbox
+  (the Cursor/CC lesson). Spec: `docs/specs/2026-07-22-studio-context-binding.md`.
+- **Built:** (`263fcd483`) SDK `HeaderBookID`+`BookIDFromCtx`+`ResolveBookScope`(7 subtests)+`WithAmbientBook`;
+  book_structure_read/edit resolve via it, `book_id` made OPTIONAL in the tool's own schema (the go-sdk
+  schema-required gate otherwise 400s the omitted id BEFORE the handler — caught by live smoke), scope_source
+  exposed, cross-book pre-confirm + `allow_cross_book`. (`e3af56d9b`) ai-gateway forwards `X-Book-Id`
+  (mirrors X-Project-Id); chat-service `mcp_execute_tool` sets it from the turn's `context_ids.book_id`.
+- **Live-proven:** book_structure_read through **ai-gateway :8218** with `X-Book-Id` + no `book_id` →
+  resolved, `scope_source=envelope`; cross-book write pre-confirm + allow override; external fail-closed
+  (all DB-verified). chat-service header-set unit-tested (+2).
+- **Measured (gemma-4 N=5, `docs/eval/tool-liveness/manuscript-structure/AMBIENT_RESULTS.md`):** ambient vs
+  baseline "create a part" — **book_id emitted 0/5 vs 5/5**, tokens **−25% in / −46% out**. Transcription
+  burden eliminated at the source. Honest caveat: gemma survived the single-UUID isolate 0 errors, so the
+  win is tokens + removed error-class, not a pass-rate delta (mistranscription failures need longer sessions).
+- **NEXT / follow-ons:** (1) a REAL studio-chat turn E2E (every hop is proven/unit-tested, but the
+  chat→gateway hop in a live LLM turn isn't E2E'd — nice-to-have); (2) fan out ambient_book to glossary/
+  composition/kg tools (same `WithAmbientBook` + `ResolveBookScope`); (3) derive+forward `X-Chapter-Id`
+  (editor open-chapter, the next ambient) + `project_id` derivation on the resume path; (4) optionally
+  re-require book_id on EXTERNAL advertised surfaces (the §2.4 deviation).
+
 ## 🗂️ UNIFIED MANUSCRIPT-STRUCTURE MCP TOOL (2026-07-22, HEAD b1eb36225 — spec `6bec67ac6`)
 Follow-on to the book-tools redesign: merge the fragmented part/chapter STRUCTURE ops into one surface.
 Full design + measurement, all committed + live-verified + measured on gemma-4.
