@@ -28,11 +28,21 @@ an adversarial edge-case pass (3 mechanism fixes); book-first pilot BUILT + MEAS
 - **Review fixes (`81a6d5571`):** (a) explicit `errChapterNotInBook` on grant-passed chapter lookups (was
   a misleading "book not accessible" that made the agent give up); (b) `tool_list` hides deprecated by
   default (book catalog 35→16; `include_deprecated:true` opt-in).
-- **NEXT / follow-ons:** (1) **fan out** `ambient_book` to glossary/composition/kg tools (same
-  `WithAmbientBook` + `ResolveBookScope`); (2) the co-writer tool-DISCOVERY gap (gemma won't `tool_load` a
-  lazy structure tool — the E2E needed the tool pinned; separate from X-Book-Id); (3) `X-Chapter-Id`
-  (editor open-chapter) — user's call: NOT ambient (many chapters), instead let tools take chapter
-  **name/number** not the UUID; (4) optionally re-require book_id on EXTERNAL advertised surfaces (§2.4).
+- **FAN-OUT PROGRESS:** **book** ✓ (envelope, live-proven). **glossary** ✓ functionally domain-wide
+  (`4528febf5`/`f22ed014a`/`daebdb6be`): `resolveBookScope` helper + `book_id` OPTIONAL across all book
+  tools + all handlers swapped; the 3 core READS (search/get_entity/book_ontology_read) carry
+  `WithAmbientBook` and are live-verified `scope_source=envelope` via the gateway. Glossary WRITES resolve
+  ambiently TODAY via injection-backfill (`scope_source=arg`); tagging them `WithAmbientBook` (→ envelope)
+  is a mechanical long-tail. Glossary's MCP middleware lifts `X-Book-Id` (`ContextWithBookID`).
+- **NEXT / follow-ons:** (1) **composition + kg (Python)** — need the **Python SDK equivalents first**
+  (`X-Book-Id` ctx-lift, `BookIDFromCtx`, `ResolveBookScope`, `ambient_book` meta) before any tool converts
+  — a fresh sub-build, NOT mechanical; (2) glossary WRITE envelope-tags (mechanical); (3) co-writer
+  tool-DISCOVERY gap (gemma won't `tool_load` a lazy tool — needed pinning; separate from X-Book-Id, higher
+  user-impact); (4) `X-Chapter-Id` — user's call: NOT ambient (many chapters), instead let tools take
+  chapter **name/number** not the UUID; (5) optionally re-require book_id on EXTERNAL surfaces (§2.4).
+- **KEY FINDING:** the token win (model omits book_id) is ALREADY UNIVERSAL via the prose-shrink +
+  session-SELECT fix + injection-backfill (`575ad5f38`). The fan-out now buys `scope_source=envelope` +
+  schema-drop-readiness (clean architecture), NOT a functional unlock.
 
 ## 🗂️ UNIFIED MANUSCRIPT-STRUCTURE MCP TOOL (2026-07-22, HEAD b1eb36225 — spec `6bec67ac6`)
 Follow-on to the book-tools redesign: merge the fragmented part/chapter STRUCTURE ops into one surface.
