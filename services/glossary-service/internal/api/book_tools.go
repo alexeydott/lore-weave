@@ -93,8 +93,10 @@ func (s *Server) RegisterBookTools(srv *mcp.Server) {
 			"confirms via glossary_confirm_action. Only works on adopted rows (not book-native ones). Address by " +
 			"code: level=genre|kind|attribute + code (for attribute also kind_code + genre_code).",
 		InputSchema: closedSetSchemaFor[bookRevertToolIn](map[string][]any{"level": enumLevels}),
-		// Mints a grant confirm_token (no direct write) ⇒ Tier W.
-		Meta: lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil),
+		// Mints a grant confirm_token (no direct write) ⇒ Tier W. LEGACY (catalog-unification
+		// 2026-07-22): lifecycle/recovery op off the default co-writer catalog — hidden from the
+		// hot-set, still loadable when a revert is genuinely needed.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolBookRevert)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{

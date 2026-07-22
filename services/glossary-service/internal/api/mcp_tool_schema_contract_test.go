@@ -50,19 +50,23 @@ var closedSetArgs = map[string][]string{
 	"glossary_ontology_delete":       {"scope", "items[].level"},
 }
 
-// legacyTaggedTools — CAT-4 (mcp-tool-io.md Part 4): the 6 tools superseded by
-// glossary_ontology_upsert/delete MUST carry `_meta.visibility:"legacy"` so both
-// federation surfaces (chat-service tool_discovery.py / ai-gateway find-tools.ts)
-// exclude them from find_tools/hot-seeding. This is the Go-side half of the drift
-// lock those consumer-side tests already prove for their OWN filtering logic —
-// this test instead guards the SOURCE data those filters read: a future edit that
-// drops the WithVisibility(...) wrapper on any of these 6 (e.g. an accidental
-// copy-paste during a refactor) would silently un-hide a superseded tool, and
+// legacyTaggedTools — CAT-4 (mcp-tool-io.md Part 4): every superseded/deprecated tool
+// MUST carry `_meta.visibility:"legacy"` so both federation surfaces (chat-service
+// tool_discovery.py / ai-gateway find-tools.ts) exclude them from find_tools/hot-seeding.
+// This is the Go-side half of the drift lock those consumer-side tests already prove for
+// their OWN filtering logic — this test instead guards the SOURCE data those filters read:
+// a future edit that drops the WithVisibility(...) wrapper on any of these (e.g. an
+// accidental copy-paste during a refactor) would silently un-hide a superseded tool, and
 // nothing else in this repo's Go suite would catch it.
 var legacyTaggedTools = []string{
+	// superseded by glossary_ontology_upsert/delete (2026-07-06 tool-catalog-simplification)
 	"glossary_book_create", "glossary_book_patch", "glossary_book_delete",
 	"glossary_user_create", "glossary_user_patch", "glossary_user_delete",
 	"glossary_propose_new_entity", // superseded by glossary_propose_entities (§3.3)
+	// catalog-unification 2026-07-22 Part A — covered/lifecycle/GUI-tier tools:
+	"glossary_propose_new_kind", "glossary_propose_kinds", "glossary_propose_new_attribute", // → glossary_propose_batch
+	"glossary_book_revert",                                    // lifecycle/recovery off the default catalog
+	"glossary_user_standards_read", "glossary_user_restore", // user-tier standards managed by the user in the GUI
 }
 
 // closedSetAdminArgs — same rule for the SEPARATE admin server (/mcp/admin).

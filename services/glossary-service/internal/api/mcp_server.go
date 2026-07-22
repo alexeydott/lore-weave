@@ -150,12 +150,15 @@ func (s *Server) mcpHandler() http.Handler {
 			"kind with no attributes can't describe anything. This is high-impact — it does NOT create " +
 			"anything; it returns a confirm_token + preview that a human must explicitly confirm. Pass the " +
 			"confirm_token to glossary_confirm_action. Use sparingly, only when no existing kind " +
-			"(glossary_book_ontology_read) fits.",
+			"(glossary_book_ontology_read) fits. " +
+			"NOTE: superseded by glossary_propose_batch (op create_kinds) — kept for existing callers only.",
 		InputSchema: closedSetSchemaFor[proposeKindToolIn](map[string][]any{
 			"attributes[].field_type": enumFieldTypes,
 		}),
-		// Mints a grant confirm_token (no direct write) ⇒ Tier W.
-		Meta: lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil),
+		// Mints a grant confirm_token (no direct write) ⇒ Tier W. LEGACY (catalog-unification
+		// 2026-07-22): superseded by glossary_propose_batch's create_kinds op — hidden from the
+		// hot-set, still loadable for existing callers.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolProposeNewKind)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
@@ -166,11 +169,13 @@ func (s *Server) mcpHandler() http.Handler {
 			"defining `attributes`, each with a clear `description` — extraction uses it as the per-attribute " +
 			"instruction). Returns ONE confirm_token + a preview listing all kinds; the human confirms once via " +
 			"glossary_confirm_action and they are all created (idempotent — an existing kind is skipped). High-impact; " +
-			"creates nothing until confirmed.",
+			"creates nothing until confirmed. " +
+			"NOTE: superseded by glossary_propose_batch (op create_kinds) — kept for existing callers only.",
 		InputSchema: closedSetSchemaFor[proposeKindsToolIn](map[string][]any{
 			"kinds[].attributes[].field_type": enumFieldTypes,
 		}),
-		Meta: lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil),
+		// LEGACY (catalog-unification 2026-07-22): superseded by glossary_propose_batch's create_kinds op.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolProposeKinds)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
@@ -233,11 +238,13 @@ func (s *Server) mcpHandler() http.Handler {
 		Description: "Propose a NEW attribute on an existing kind (e.g. add 'cultivation_realm' to the " +
 			"character kind). Schema-level and high-impact — it does NOT write; it returns a confirm_token + " +
 			"preview a human must confirm via glossary_confirm_action. Call glossary_book_ontology_read first to pick " +
-			"the kind_code and avoid duplicating an existing attribute.",
+			"the kind_code and avoid duplicating an existing attribute. " +
+			"NOTE: superseded by glossary_propose_batch (op add_attributes) — kept for existing callers only.",
 		InputSchema: closedSetSchemaFor[proposeAttrToolIn](map[string][]any{
 			"field_type": enumFieldTypes,
 		}),
-		Meta: lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil),
+		// LEGACY (catalog-unification 2026-07-22): superseded by glossary_propose_batch's add_attributes op.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolProposeNewAttribute)
 	// glossary_book_delete + glossary_book_* tools are registered in RegisterBookTools (T1).
 
