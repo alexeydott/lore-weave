@@ -1419,9 +1419,83 @@ async def kg_triage_schema_write(
 
 
 # ── Cost-gated job triggers (KM6) — PROPOSE only ──────────────────────
-# kg_build_graph mints a confirm-token carrying a cost estimate; the human
-# confirms via /v1/kg/actions/confirm and the extraction job starts there
-# (D-KG-LF-BUILDKG-MCP). Nothing is spent at mint time.
+# kg_build (target=graph|wiki) mints a confirm-token carrying a cost estimate; the
+# human confirms via /v1/kg/actions/confirm and the job starts there. Nothing is spent
+# at mint time. Catalog-unification 2026-07-22: kg_build supersedes the two legacy
+# kg_build_graph / kg_build_wiki tools (which stay registered, visibility:legacy).
+
+
+@mcp_server.tool(
+    name="kg_build",
+    description=(
+        "Build the current project's knowledge — an EXPENSIVE job that does NOT run "
+        "immediately: it returns a confirm_token + summary and a human confirms on the "
+        "review surface (which shows the cost). Pick target: 'graph' = extract the KG from "
+        "the book's chapters (needs llm_model); 'wiki' = generate wiki articles for the "
+        "book's entities (needs model_ref; omit entity_ids for all). target=graph requires "
+        "an embedding model configured — if missing, call kg_project_set_embedding_model "
+        "then kg_run_benchmark first. Pick models from settings_list_models."
+    ),
+    meta=require_meta(
+        "W", "project",
+        async_job=True,
+        tool_name="kg_build",
+    ),
+)
+async def kg_build(
+    ctx: MCPContext,
+    target: Annotated[
+        Literal["graph", "wiki"],
+        "graph = extract the KG from the book's chapters; wiki = generate wiki articles.",
+    ],
+    llm_model: Annotated[
+        str | None, "target=graph: the extraction LLM model ref (required for graph)."
+    ] = None,
+    scope: Annotated[
+        Literal["all", "chapters", "chat", "glossary_sync"] | None,
+        "target=graph: what to extract (default 'all').",
+    ] = None,
+    chapter_from: Annotated[
+        int | None, Field(ge=0), "target=graph: optional inclusive lower chapter ordinal."
+    ] = None,
+    chapter_to: Annotated[
+        int | None, Field(ge=0), "target=graph: optional inclusive upper chapter ordinal."
+    ] = None,
+    model_ref: Annotated[
+        str | None, "target=wiki: the wiki-generation LLM model ref (required for wiki)."
+    ] = None,
+    model_source: Annotated[
+        str | None, "target=wiki: model source (default 'user_model')."
+    ] = None,
+    entity_ids: Annotated[
+        list[str] | None,
+        "target=wiki: optional explicit entity ids; omit to generate for ALL book entities.",
+    ] = None,
+    reasoning_effort: Annotated[
+        Literal["none", "low", "medium", "high"],
+        "Model reasoning effort (default 'none'; clamped to your grant — Edit caps at "
+        "medium, Manage/owner at high).",
+    ] = "none",
+    project_id: _PROJECT_ID_ARG = None,
+) -> dict:
+    args: dict[str, Any] = {"target": target, "reasoning_effort": reasoning_effort}
+    if llm_model is not None:
+        args["llm_model"] = llm_model
+    if scope is not None:
+        args["scope"] = scope
+    if chapter_from is not None:
+        args["chapter_from"] = chapter_from
+    if chapter_to is not None:
+        args["chapter_to"] = chapter_to
+    if model_ref is not None:
+        args["model_ref"] = model_ref
+    if model_source is not None:
+        args["model_source"] = model_source
+    if entity_ids is not None:
+        args["entity_ids"] = entity_ids
+    if project_id is not None:
+        args["project_id"] = project_id
+    return await _dispatch(ctx, "kg_build", args)
 
 
 @mcp_server.tool(
@@ -1435,9 +1509,12 @@ async def kg_triage_schema_write(
         "then kg_run_benchmark first, rather than sending the user to the UI. Pick "
         "the extraction llm_model from settings_list_models."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_build (target=graph). Kept
+    # registered (visibility:legacy) for existing callers; still declares async (job-starter).
     meta=require_meta(
         "W", "project",
         async_job=True,
+        visibility="legacy",
         tool_name="kg_build_graph",
     ),
 )
@@ -1489,9 +1566,12 @@ async def kg_build_graph(
         "book's glossary entities (extract the glossary first); pick the model_ref from "
         "settings_list_models."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_build (target=wiki). Kept
+    # registered (visibility:legacy) for existing callers; still declares async (job-starter).
     meta=require_meta(
         "W", "project",
         async_job=True,
+        visibility="legacy",
         tool_name="kg_build_wiki",
     ),
 )

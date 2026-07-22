@@ -490,7 +490,69 @@ TOOL_DEFINITIONS: list[dict] = [
         },
         ["embedding_model"],
     ),
-    # Cost-gated job trigger — build the knowledge graph (propose→confirm).
+    # Cost-gated job trigger — UNIFIED build (catalog-unification 2026-07-22): target=graph|wiki
+    # supersedes kg_build_graph + kg_build_wiki (which stay for existing callers).
+    _tool(
+        "kg_build",
+        "Build the current project's knowledge — an EXPENSIVE job that does NOT run "
+        "immediately: it returns a confirm_token + summary and a human confirms on the review "
+        "surface (which shows the cost). Pick target: 'graph' = extract the KG from the book's "
+        "chapters (needs llm_model); 'wiki' = generate wiki articles for the book's entities "
+        "(needs model_ref; omit entity_ids for all). target=graph requires an embedding model "
+        "configured — if missing, call kg_project_set_embedding_model then kg_run_benchmark "
+        "first. Pick models from settings_list_models.",
+        {
+            "target": {
+                "type": "string",
+                "enum": ["graph", "wiki"],
+                "description": "graph = extract the KG from chapters; wiki = generate wiki articles.",
+            },
+            "llm_model": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "target=graph: extraction LLM model ref (required for graph).",
+            },
+            "scope": {
+                "type": "string",
+                "enum": ["all", "chapters", "chat", "glossary_sync"],
+                "description": "target=graph: what to extract (default 'all').",
+            },
+            "chapter_from": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "target=graph: optional inclusive lower chapter ordinal (with chapter_to).",
+            },
+            "chapter_to": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "target=graph: optional inclusive upper chapter ordinal (with chapter_from).",
+            },
+            "model_ref": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "target=wiki: wiki-generation LLM model ref (required for wiki).",
+            },
+            "model_source": {
+                "type": "string",
+                "maxLength": 40,
+                "description": "target=wiki: model source (default 'user_model' for BYOK).",
+            },
+            "entity_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "target=wiki: optional explicit entity ids; omit for ALL book entities.",
+            },
+            "reasoning_effort": {
+                "type": "string",
+                "enum": ["none", "low", "medium", "high"],
+                "description": "Reasoning effort for the build LLM (paid compute; clamped to your "
+                               "grant — Edit caps at medium, Manage/owner at high).",
+            },
+            "project_id": _PROJECT_ID_PROP,
+        },
+        ["target"],
+    ),
+    # Cost-gated job trigger — build the knowledge graph (propose→confirm). LEGACY → kg_build.
     _tool(
         "kg_build_graph",
         "Build the current project's knowledge graph by starting an extraction job over "

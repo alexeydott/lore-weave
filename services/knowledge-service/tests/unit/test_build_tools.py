@@ -245,3 +245,43 @@ async def test_resolve_entity_ids_explicit_subset_skips_glossary():
     out = await _resolve_entity_ids(params, uuid4(), glossary)
     assert out == ["x", "y"]
     glossary.list_entities.assert_not_awaited()
+
+
+# ── kg_build unified delegation (catalog-unification 2026-07-22) ──────────────
+# The unified kg_build(target=graph|wiki) must dispatch to the SAME cores as the
+# legacy kg_build_graph / kg_build_wiki, and reject a target missing its required arg.
+
+
+@pytest.mark.asyncio
+async def test_kg_build_target_graph_delegates_to_build_graph_core():
+    ctx = _mk_ctx()
+    res = await execute_tool(ctx, "kg_build", {"target": "graph", "llm_model": "gpt-x", "scope": "all"})
+    assert res.success, res.error
+    assert res.result["descriptor"] == DESC_BUILD_GRAPH  # graph core, not wiki
+    claims = verify_action_token(settings.jwt_secret, res.result["confirm_token"], __import__("time").time())
+    assert claims.params["llm_model"] == "gpt-x"
+    assert claims.params["embedding_model"] == "emb-model-1"  # resolved by the graph core
+
+
+@pytest.mark.asyncio
+async def test_kg_build_target_wiki_delegates_to_build_wiki_core():
+    ctx = _mk_ctx()
+    res = await execute_tool(ctx, "kg_build", {"target": "wiki", "model_ref": "gpt-x"})
+    assert res.success, res.error
+    assert res.result["descriptor"] == DESC_BUILD_WIKI  # wiki core, not graph
+
+
+@pytest.mark.asyncio
+async def test_kg_build_target_graph_without_llm_model_is_tool_error():
+    ctx = _mk_ctx()
+    res = await execute_tool(ctx, "kg_build", {"target": "graph"})
+    assert not res.success
+    assert "llm_model" in (res.error or "")
+
+
+@pytest.mark.asyncio
+async def test_kg_build_target_wiki_without_model_ref_is_tool_error():
+    ctx = _mk_ctx()
+    res = await execute_tool(ctx, "kg_build", {"target": "wiki"})
+    assert not res.success
+    assert "model_ref" in (res.error or "")
