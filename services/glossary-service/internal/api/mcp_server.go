@@ -54,7 +54,7 @@ func (s *Server) mcpHandler() http.Handler {
 			"concepts) by name, alias, or natural-language terms. Returns ranked entities " +
 			"with name, aliases, kind, and a short description. Use this to find what the " +
 			"glossary already knows before answering or proposing changes.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+		Meta: lwmcp.WithAmbientBook(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil)),
 	}, s.toolSearch)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
@@ -277,6 +277,10 @@ func (s *Server) mcpIdentityMiddleware(next http.Handler) http.Handler {
 		// fires for public-key traffic (glossary runs its own middleware, not the
 		// kit's IdentityMiddleware, so we inject via the kit helper).
 		ctx = lwmcp.ContextWithMcpKeyID(ctx, r.Header.Get(lwmcp.HeaderMcpKeyID))
+		// Studio context binding (spec 2026-07-22) — lift the ambient book (X-Book-Id) into the kit ctx
+		// so a WithAmbientBook glossary tool resolves book_id via lwmcp.ResolveBookScope when the model
+		// omits it. Scope hint only, never authz (the tool still grant-checks the resolved book).
+		ctx = lwmcp.ContextWithBookID(ctx, r.Header.Get(lwmcp.HeaderBookID))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -321,7 +325,9 @@ const (
 )
 
 type searchToolIn struct {
-	BookID string `json:"book_id" jsonschema:"the book whose glossary to search (UUID)"`
+	// book_id OPTIONAL (ambient_book) — omitted inside a book studio, it resolves from the envelope
+	// (X-Book-Id); the handler fail-closes if neither an arg nor an ambient book is present.
+	BookID string `json:"book_id,omitempty" jsonschema:"the book whose glossary to search (UUID). Omit inside a book studio — the current book is used."`
 	Query  string `json:"query" jsonschema:"natural-language search terms"`
 	Limit  int    `json:"limit,omitempty" jsonschema:"max entities to return (default 20, max 50)"`
 }
@@ -378,10 +384,13 @@ func (s *Server) toolSearch(ctx context.Context, _ *mcp.CallToolRequest, in sear
 	if !ok {
 		return nil, searchToolOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
-	if err != nil {
-		return nil, searchToolOut{}, errors.New("book_id must be a UUID")
+	// Ambient scope (spec 2026-07-22): on a book-bound studio surface book_id resolves from the envelope
+	// (X-Book-Id) when omitted. The resolved book is grant-checked below EXACTLY like an explicit arg.
+	scope, sok := lwmcp.ResolveBookScope(ctx, in.BookID)
+	if !sok {
+		return nil, searchToolOut{}, errors.New("book_id is required (a UUID)")
 	}
+	bookID := scope.BookID
 	if err := s.checkGrant(ctx, bookID, userID, grantclient.GrantView); err != nil {
 		return nil, searchToolOut{}, uniformOwnershipError(err)
 	}
