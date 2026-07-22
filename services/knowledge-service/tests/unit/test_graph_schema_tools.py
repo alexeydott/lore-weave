@@ -80,6 +80,7 @@ _LANE_LF_TOOLS = {
 # E2: triage_place_edge (place a proposed_edge), E3: triage_schema_write (schema-mutating
 # triage resolution) — both via the confirm spine.
 _CLASS_C_LIVE_TOOLS = {
+    "kg_ontology_propose",  # unified (2026-07-22): op=schema_edit|adopt_template|sync_apply
     "kg_schema_edit", "kg_adopt_template", "kg_sync_apply",
     "kg_triage_place_edge", "kg_triage_schema_write",
 }
@@ -113,11 +114,12 @@ def test_total_tool_count_is_memory_plus_lane_lf():
     agent) + 2 cost-gated (kg_build_graph, kg_build_wiki) + 1 kg_run_benchmark (R4)
     + 4 W11-M2 reader tools (lore_ask/lore_browse_entities/lore_entity/lore_timeline)
     + 1 W10-M1 kg_create_node (manual single-node create)
-    + 1 catalog-unification kg_build (target=graph|wiki; folds in kg_build_graph/kg_build_wiki,
-      which stay registered visibility:legacy)
-    = 38."""
+    + 2 catalog-unification (kg_build [target=graph|wiki] + kg_ontology_propose
+      [op=schema_edit|adopt_template|sync_apply]; the folded-in singles stay registered
+      visibility:legacy)
+    = 39."""
     schema_names = {d["function"]["name"] for d in TOOL_DEFINITIONS}
-    assert len(TOOL_DEFINITIONS) == 38
+    assert len(TOOL_DEFINITIONS) == 39
     assert set(TOOL_NAMES) == set(ARG_MODELS) == schema_names
     assert len(set(TOOL_NAMES)) == len(TOOL_NAMES)  # no dupes
     assert {"kg_project_create", "kg_project_list", "kg_project_set_embedding_model",
@@ -1665,3 +1667,63 @@ async def test_kg_graph_query_scope_multi_without_project_ids_is_tool_error():
     res = await execute_tool(_ctx(), "kg_graph_query", {"scope": "multi"})
     assert not res.success
     assert "project_ids" in (res.error or "")
+
+
+# ── kg_ontology_propose unified op dispatch (catalog-unification 2026-07-22) ───
+# op=schema_edit|adopt_template|sync_apply must delegate to the SAME cores as the
+# legacy kg_schema_edit / kg_adopt_template / kg_sync_apply.
+
+
+@pytest.mark.asyncio
+async def test_kg_ontology_propose_schema_edit_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen.update(verb=args.verb, level=args.level, code=args.code)
+        return {"op": "schema_edit"}
+
+    monkeypatch.setattr(gst, "_handle_kg_schema_edit", _fake)
+    res = await execute_tool(_ctx(), "kg_ontology_propose",
+                             {"op": "schema_edit", "verb": "add", "level": "edge_type", "code": "WORSHIPS"})
+    assert res.success, res.error
+    assert seen == {"verb": "add", "level": "edge_type", "code": "WORSHIPS"}
+
+
+@pytest.mark.asyncio
+async def test_kg_ontology_propose_adopt_template_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen["sid"] = args.source_schema_id
+        return {"op": "adopt"}
+
+    monkeypatch.setattr(gst, "_handle_kg_adopt_template", _fake)
+    res = await execute_tool(_ctx(), "kg_ontology_propose",
+                             {"op": "adopt_template", "source_schema_id": "T1"})
+    assert res.success, res.error
+    assert seen["sid"] == "T1"
+
+
+@pytest.mark.asyncio
+async def test_kg_ontology_propose_sync_apply_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen["hash"] = args.base_source_hash
+        return {"op": "sync"}
+
+    monkeypatch.setattr(gst, "_handle_kg_sync_apply", _fake)
+    res = await execute_tool(_ctx(), "kg_ontology_propose",
+                             {"op": "sync_apply", "base_source_hash": "H1"})
+    assert res.success, res.error
+    assert seen["hash"] == "H1"
+
+
+@pytest.mark.asyncio
+async def test_kg_ontology_propose_schema_edit_missing_fields_is_tool_error():
+    res = await execute_tool(_ctx(), "kg_ontology_propose", {"op": "schema_edit", "verb": "add"})
+    assert not res.success
+    assert "code" in (res.error or "")

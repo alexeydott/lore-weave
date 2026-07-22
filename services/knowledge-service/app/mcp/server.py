@@ -1270,6 +1270,77 @@ async def kg_triage_resolve(
 # ── KG ontology class-C tools (KM6) — PROPOSE only ─────────────────────
 # Each mints a confirm-token + summary (no write); a human redeems it via
 # POST /v1/kg/actions/confirm (browser-JWT). See the catalog note above.
+# Catalog-unification 2026-07-22: kg_ontology_propose (op=schema_edit|adopt_template|
+# sync_apply) supersedes the 3 legacy single-purpose tools below (visibility:legacy).
+
+
+@mcp_server.tool(
+    name="kg_ontology_propose",
+    description=(
+        "Propose a change to THIS project's ontology — high-impact, so it does NOT apply "
+        "immediately: it returns a confirm_token + summary and a human confirms on the review "
+        "surface. Pick op: 'schema_edit' = add/deprecate an edge_type or fact_type (needs verb, "
+        "level, code); 'adopt_template' = copy a system/user ontology template down (needs "
+        "source_schema_id from kg_list_templates); 'sync_apply' = pull upstream template changes "
+        "with per-change keep_mine/take_theirs (needs base_source_hash from kg_sync_available, "
+        "and decisions)."
+    ),
+    meta=require_meta(
+        "W", "project",
+        tool_name="kg_ontology_propose",
+    ),
+)
+async def kg_ontology_propose(
+    ctx: MCPContext,
+    op: Annotated[
+        Literal["schema_edit", "adopt_template", "sync_apply"],
+        "schema_edit = add/deprecate a type; adopt_template = copy a template down; "
+        "sync_apply = pull upstream template changes.",
+    ],
+    verb: Annotated[
+        Literal["add", "deprecate"] | None,
+        "op=schema_edit: add a new type, or deprecate an existing one.",
+    ] = None,
+    level: Annotated[
+        Literal["edge_type", "fact_type"] | None,
+        "op=schema_edit: which kind of ontology element to change.",
+    ] = None,
+    code: Annotated[
+        str | None, "op=schema_edit: the type's code (e.g. WORSHIPS, prophecy)."
+    ] = None,
+    label: Annotated[
+        str | None, "op=schema_edit: human-readable label (defaults to the code)."
+    ] = None,
+    source_schema_id: Annotated[
+        str | None, "op=adopt_template: the template id to adopt (from kg_list_templates)."
+    ] = None,
+    base_source_hash: Annotated[
+        str | None, "op=sync_apply: the upstream hash from kg_sync_available (drift guard)."
+    ] = None,
+    decisions: Annotated[
+        list[KgSyncDecision] | None,
+        "op=sync_apply: per-change keep_mine/take_theirs decisions (omit for none).",
+    ] = None,
+    project_id: _PROJECT_ID_ARG = None,
+) -> dict:
+    args: dict[str, Any] = {"op": op}
+    if verb is not None:
+        args["verb"] = verb
+    if level is not None:
+        args["level"] = level
+    if code is not None:
+        args["code"] = code
+    if label is not None:
+        args["label"] = label
+    if source_schema_id is not None:
+        args["source_schema_id"] = source_schema_id
+    if base_source_hash is not None:
+        args["base_source_hash"] = base_source_hash
+    if decisions is not None:
+        args["decisions"] = [d.model_dump() for d in decisions]
+    if project_id is not None:
+        args["project_id"] = project_id
+    return await _dispatch(ctx, "kg_ontology_propose", args)
 
 
 @mcp_server.tool(
@@ -1281,8 +1352,10 @@ async def kg_triage_resolve(
         "confirm_token and a summary; a human must confirm it on the review "
         "surface. Requires the project to have adopted its own ontology first."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_ontology_propose (op=schema_edit).
     meta=require_meta(
         "W", "project",
+        visibility="legacy",
         tool_name="kg_schema_edit",
     ),
 )
@@ -1317,8 +1390,10 @@ async def kg_schema_edit(
         "confirm_token and a summary, and a human confirms on the review "
         "surface. Pick a source_schema_id from kg_list_templates."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_ontology_propose (op=adopt_template).
     meta=require_meta(
         "W", "project",
+        visibility="legacy",
         tool_name="kg_adopt_template",
     ),
 )
@@ -1344,8 +1419,10 @@ async def kg_adopt_template(
         "+ bumps the schema version), so it returns a confirm_token and summary; "
         "a human confirms on the review surface."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_ontology_propose (op=sync_apply).
     meta=require_meta(
         "W", "project",
+        visibility="legacy",
         tool_name="kg_sync_apply",
     ),
 )

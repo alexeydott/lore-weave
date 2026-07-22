@@ -423,6 +423,52 @@ class KgSyncApplyArgs(ProjectScopedArgs):
     decisions: list[KgSyncDecision] = Field(default_factory=list)
 
 
+class KgOntologyProposeArgs(ProjectScopedArgs):
+    """`kg_ontology_propose` — UNIFIED class-C ontology-change proposal (catalog-unification
+    2026-07-22). op ∈ {schema_edit, adopt_template, sync_apply}; each MINTS a confirm-token
+    (no write) and DELEGATES to the same core (kg_schema_edit / kg_adopt_template /
+    kg_sync_apply). A flat superset keyed by op; each op reads only its own fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    op: Literal["schema_edit", "adopt_template", "sync_apply"]
+    # op=schema_edit
+    verb: Literal["add", "deprecate"] | None = None
+    level: Literal["edge_type", "fact_type"] | None = None
+    code: str | None = Field(default=None, max_length=_CODE_MAX)
+    label: str | None = Field(default=None, max_length=_NAME_MAX)
+    # op=adopt_template
+    source_schema_id: str | None = Field(default=None, max_length=64)
+    # op=sync_apply
+    base_source_hash: str | None = Field(default=None, max_length=128)
+    decisions: list[KgSyncDecision] | None = None
+
+
+async def _handle_kg_ontology_propose(ctx: "ToolContext", args: KgOntologyProposeArgs) -> dict:
+    """Unified ontology-propose dispatch — delegates to the SAME cores as the legacy
+    kg_schema_edit / kg_adopt_template / kg_sync_apply (no logic moved). Per-op required
+    fields validated with an explicit ToolExecutionError."""
+    from app.tools.executor import ToolExecutionError
+
+    if args.op == "schema_edit":
+        if not (args.verb and args.level and args.code):
+            raise ToolExecutionError("op=schema_edit requires verb, level, and code")
+        return await _handle_kg_schema_edit(ctx, KgSchemaEditArgs(
+            project_id=args.project_id, verb=args.verb, level=args.level,
+            code=args.code, label=args.label or ""))
+    if args.op == "adopt_template":
+        if not args.source_schema_id:
+            raise ToolExecutionError("op=adopt_template requires source_schema_id")
+        return await _handle_kg_adopt_template(ctx, KgAdoptTemplateArgs(
+            project_id=args.project_id, source_schema_id=args.source_schema_id))
+    # op == "sync_apply"
+    if not args.base_source_hash:
+        raise ToolExecutionError("op=sync_apply requires base_source_hash")
+    return await _handle_kg_sync_apply(ctx, KgSyncApplyArgs(
+        project_id=args.project_id, base_source_hash=args.base_source_hash,
+        decisions=args.decisions or []))
+
+
 class KgTriagePlaceEdgeArgs(ProjectScopedArgs):
     """`kg_triage_place_edge` — class-C. Places a drafted `proposed_edge` triage item
     into the graph. Mints a `kg_triage_proposed_edge` confirm-token (NO write — INV-K1);
@@ -512,9 +558,10 @@ GRAPH_SCHEMA_ARG_MODELS: dict[str, type[BaseModel]] = {
     "kg_view_delete": KgViewDeleteArgs,
     "kg_triage_resolve": KgTriageResolveArgs,
     # ── C (confirm-token) — KM6 confirm machinery ─────────────────────
-    "kg_schema_edit": KgSchemaEditArgs,    # KM6-M1: mints a confirm-token (no write)
-    "kg_adopt_template": KgAdoptTemplateArgs,  # KM6-M2: mints a confirm-token (no write)
-    "kg_sync_apply": KgSyncApplyArgs,      # KM6-M3: mints a confirm-token (no write)
+    "kg_ontology_propose": KgOntologyProposeArgs,  # unified (2026-07-22): op=schema_edit|adopt_template|sync_apply
+    "kg_schema_edit": KgSchemaEditArgs,    # LEGACY → kg_ontology_propose (op=schema_edit)
+    "kg_adopt_template": KgAdoptTemplateArgs,  # LEGACY → kg_ontology_propose (op=adopt_template)
+    "kg_sync_apply": KgSyncApplyArgs,      # LEGACY → kg_ontology_propose (op=sync_apply)
     "kg_triage_place_edge": KgTriagePlaceEdgeArgs,  # E2: mints a confirm-token (no write)
     "kg_triage_schema_write": KgTriageSchemaWriteArgs,  # E3: mints a confirm-token (no write)
     # kg_triage_resolve (schema-mutating actions) # KM3/KM4 class-C — deferred to KM6 confirm machinery (D-KG-LF-KM6)
@@ -966,6 +1013,73 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
             "project_id": _PROJECT_ID_PROP,
         },
         ["signature", "action"],
+    ),
+    # UNIFIED ontology-change proposal (catalog-unification 2026-07-22): op supersedes
+    # kg_schema_edit + kg_adopt_template + kg_sync_apply (which stay for existing callers).
+    _tool(
+        "kg_ontology_propose",
+        "Propose a change to THIS project's ontology — high-impact, so it does NOT apply "
+        "immediately: it returns a confirm_token + summary and a human confirms on the review "
+        "surface. Pick op: 'schema_edit' = add/deprecate an edge_type or fact_type (needs verb, "
+        "level, code); 'adopt_template' = copy a system/user ontology template down (needs "
+        "source_schema_id from kg_list_templates); 'sync_apply' = pull upstream template changes "
+        "with per-change keep_mine/take_theirs (needs base_source_hash from kg_sync_available, "
+        "and decisions).",
+        {
+            "op": {
+                "type": "string",
+                "enum": ["schema_edit", "adopt_template", "sync_apply"],
+                "description": "schema_edit = add/deprecate a type; adopt_template = copy a "
+                               "template down; sync_apply = pull upstream template changes.",
+            },
+            "verb": {
+                "type": "string",
+                "enum": ["add", "deprecate"],
+                "description": "op=schema_edit: add a new type, or deprecate an existing one.",
+            },
+            "level": {
+                "type": "string",
+                "enum": ["edge_type", "fact_type"],
+                "description": "op=schema_edit: which kind of ontology element to change.",
+            },
+            "code": {
+                "type": "string",
+                "maxLength": _CODE_MAX,
+                "description": "op=schema_edit: the type's code (e.g. WORSHIPS, prophecy).",
+            },
+            "label": {
+                "type": "string",
+                "maxLength": _NAME_MAX,
+                "description": "op=schema_edit: human-readable label (defaults to the code).",
+            },
+            "source_schema_id": {
+                "type": "string",
+                "maxLength": 64,
+                "description": "op=adopt_template: the template id to adopt (from kg_list_templates).",
+            },
+            "base_source_hash": {
+                "type": "string",
+                "maxLength": 128,
+                "description": "op=sync_apply: the upstream hash from kg_sync_available (drift guard).",
+            },
+            "decisions": {
+                "type": "array",
+                "description": "op=sync_apply: per-change keep_mine/take_theirs decisions.",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "node_type": {"type": "string", "description": "edge_type | fact_type | node_kind | vocab_value."},
+                        "code": {"type": "string", "description": "The child's code."},
+                        "parent_code": {"type": "string", "description": "Parent code (vocab_value only)."},
+                        "choice": {"type": "string", "enum": ["keep_mine", "take_theirs"]},
+                    },
+                    "required": ["node_type", "code", "choice"],
+                },
+            },
+            "project_id": _PROJECT_ID_PROP,
+        },
+        ["op"],
     ),
     _tool(
         "kg_schema_edit",
@@ -2169,6 +2283,7 @@ GRAPH_SCHEMA_HANDLERS = {
     "kg_view_upsert": _handle_kg_view_upsert,
     "kg_view_delete": _handle_kg_view_delete,
     "kg_triage_resolve": _handle_kg_triage_resolve,
+    "kg_ontology_propose": _handle_kg_ontology_propose,  # unified (delegates to the 3 below)
     "kg_schema_edit": _handle_kg_schema_edit,
     "kg_adopt_template": _handle_kg_adopt_template,
     "kg_sync_apply": _handle_kg_sync_apply,
