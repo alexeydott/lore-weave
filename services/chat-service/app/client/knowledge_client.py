@@ -684,6 +684,7 @@ class KnowledgeClient:
         tool_name: str,
         tool_args: dict,
         project_id: str | None = None,
+        book_id: str | None = None,
         admin_token: str | None = None,
     ) -> dict:
         """ARCH-2 C2 — execute a memory tool via MCP streamable HTTP transport.
@@ -726,6 +727,11 @@ class KnowledgeClient:
             }
         if project_id and not admin_token:
             headers["X-Project-Id"] = project_id
+        # Studio context binding (spec 2026-07-22) — forward the session's AMBIENT book as
+        # X-Book-Id so book-scoped tools resolve book_id when the model omits it (ResolveBookScope).
+        # A scope HINT, never authz (the tool still grant-checks it). Non-admin only.
+        if book_id and not admin_token:
+            headers["X-Book-Id"] = book_id
         # K7e — mirror execute_tool: forward the caller's trace_id so
         # knowledge-service stitches its logs to the originating chat turn.
         # Omit when empty so knowledge-service mints its own.

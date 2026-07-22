@@ -28,6 +28,14 @@ export interface Envelope {
    */
   projectId?: string;
   /**
+   * Ambient book scope (X-Book-Id) — the studio/editor's bound book, forwarded so
+   * book-scoped tools resolve "the current book" downstream (ResolveBookScope) when
+   * the model omits book_id. Lifted off the request headers only (SEC-1 — never from
+   * the LLM); forwarded only when present. A SCOPE HINT, never authorization — the
+   * downstream tool still grant-checks it (spec 2026-07-22-studio-context-binding).
+   */
+  bookId?: string;
+  /**
    * Public MCP API key id (X-Mcp-Key-Id) — set ONLY for traffic that entered via
    * the public edge (mcp-public-gateway). Lifted off the request headers (SEC-1)
    * and forwarded downstream so providers can attribute per-key spend (H-C) and
@@ -67,6 +75,7 @@ export function buildEnvelopeHeaders(internalToken: string, env: Envelope): Reco
   if (env.sessionId) headers['X-Session-Id'] = env.sessionId;
   if (env.traceId) headers['X-Trace-Id'] = env.traceId;
   if (env.projectId) headers['X-Project-Id'] = env.projectId;
+  if (env.bookId) headers['X-Book-Id'] = env.bookId;
   if (env.mcpKeyId) headers['X-Mcp-Key-Id'] = env.mcpKeyId;
   if (env.spendCapUsd) headers['X-Mcp-Spend-Cap-Usd'] = env.spendCapUsd;
   return headers;

@@ -3337,6 +3337,9 @@ async def _stream_with_tools(
                 # glossary_admin_* route to /mcp/admin (no X-User-Id; INV-T2).
                 envelope = await knowledge_client.mcp_execute_tool(
                     user_id=user_id, session_id=session_id, project_id=project_id,
+                    # Studio context binding — forward the turn's ambient book so book-scoped
+                    # tools resolve book_id from the envelope when the model omits it.
+                    book_id=(context_ids or {}).get("book_id"),
                     tool_name=c["name"], tool_args=args_obj,
                     admin_token=admin_token,
                 )
@@ -6361,6 +6364,9 @@ async def resume_stream_response(
             envelope = await knowledge_client.mcp_execute_tool(
                 user_id=user_id, session_id=session_id,
                 project_id=str(project_id) if project_id else None,
+                # Studio context binding — a confirm-replayed book tool that resolved book_id
+                # from the envelope on pass 1 must still get the ambient book here.
+                book_id=(session_row.get("book_id") if session_row else None),
                 tool_name=_tool_name, tool_args=_tool_args,
                 admin_token=admin_token,
             )
