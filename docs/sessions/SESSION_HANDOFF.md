@@ -21,9 +21,17 @@ a discovery affordance, e.g. `entity_rename` is an intentional alias of `entity_
 - **Live-verified:** tools/list on `:8211` → 25 visible + 4 unified surfaces present; `curation_list`
   called with **no `book_id` arg** + `X-Book-Id` header → resolved via envelope, `isError:false` (the new
   tools are born `WithAmbientBook`). glossary-service image rebuilt + ai-gateway restarted (re-federated).
-- **Discoverability note (unproven-live):** the enum-discriminator design mirrors what already works
-  (`propose_batch.op`, book_read/book_list). A **gemma-through-gateway smoke** (can a weak model PICK the
-  unified tools?) is the one remaining gold-standard check — not yet run.
+- **Part F** (`f464a122a`) — /review-impl (cold-start) + gemma discoverability smoke, both drove fixes:
+  **[MED]** `set_genres` (glossary's first Tier-A ambient WRITE) now soft-blocks a cross-book write
+  (`cross_book_confirm_required` until `allow_cross_book`) — book-service parity, live-verified both ways;
+  **[LOW]** `get_entity` include switch default branch; **[discoverability]** `set_genres` description
+  front-loads the action verb (synonyms in `_meta` aren't shown to the model — the DESCRIPTION carries
+  discovery). Review verified the rest sound (auth-before-validation is a security *improvement*,
+  per-target grant levels correct, tenant scoping preserved, CAT-4 complete).
+- **Discoverability PROVEN LIVE** (`docs/eval/tool-liveness/glossary-unification/`, gemma-4-12b, N=4):
+  **7–8/8** — the model picks the right unified tool + discriminator; enum discriminators (view/op/target/
+  include) are ALWAYS correct when the tool is picked. Lone variable: `reassign` sometimes reads the
+  named-kind referent first (defensible read-then-act). Ambient envelope + cross-book guard also live-smoked.
 - **DEFERRED (round-2, in spec §7):** D3 localization/annotate merges; D4 server-auto-gated ontology write
   (collapse upsert+batch). **Survivor envelope-tagging** (spec §5: the ~17 book-scoped WRITE survivors →
   `WithAmbientBook`) is the SAME parked long-tail (functionally-ambient-already via injection;
