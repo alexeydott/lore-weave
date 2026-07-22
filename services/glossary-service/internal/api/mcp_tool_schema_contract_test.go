@@ -44,6 +44,7 @@ var closedSetArgs = map[string][]string{
 	"glossary_propose_batch":         {"ops[].type"},
 	"glossary_propose_status_change": {"status"},
 	"glossary_list_merge_candidates": {"status"},
+	"glossary_curation_list":         {"view", "status"},
 	"glossary_create_chapter_link":   {"relevance"},
 	"glossary_create_evidence":       {"evidence_type"},
 	"glossary_ontology_upsert":       {"scope", "items[].level", "items[].field_type"},
@@ -67,6 +68,8 @@ var legacyTaggedTools = []string{
 	"glossary_propose_new_kind", "glossary_propose_kinds", "glossary_propose_new_attribute", // → glossary_propose_batch
 	"glossary_book_revert",                                    // lifecycle/recovery off the default catalog
 	"glossary_user_standards_read", "glossary_user_restore", // user-tier standards managed by the user in the GUI
+	// catalog-unification 2026-07-22 Part B — the 3 curation-inbox reads → glossary_curation_list:
+	"glossary_list_merge_candidates", "glossary_list_unknown_entities", "glossary_list_ai_suggestions",
 }
 
 // closedSetAdminArgs — same rule for the SEPARATE admin server (/mcp/admin).

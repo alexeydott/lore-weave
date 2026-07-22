@@ -711,6 +711,27 @@ func (s *Server) bookToolAuth(ctx context.Context, rawBookID string, level grant
 	return userID, bookID, nil
 }
 
+// bookToolAuthAmbient is bookToolAuth for a WithAmbientBook tool (catalog-unification
+// 2026-07-22): it resolves the book from the arg OR the ambient X-Book-Id (studio context
+// binding, spec 2026-07-22) BEFORE the grant check, so the model may omit book_id inside a
+// book studio. The resolved book is grant-checked EXACTLY like an explicit arg (the ambient
+// book is a scope HINT, never authz). Fail-closed when neither an arg nor an ambient book is
+// present. Use ONLY on a tool tagged WithAmbientBook (its book_id schema must be optional).
+func (s *Server) bookToolAuthAmbient(ctx context.Context, rawBookID string, level grantclient.GrantLevel) (uuid.UUID, uuid.UUID, error) {
+	userID, ok := userIDFromCtx(ctx)
+	if !ok {
+		return uuid.Nil, uuid.Nil, errors.New("missing caller identity")
+	}
+	bookID, err := resolveBookScope(ctx, rawBookID)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+	if err := s.checkGrant(ctx, bookID, userID, level); err != nil {
+		return uuid.Nil, uuid.Nil, uniformOwnershipError(err)
+	}
+	return userID, bookID, nil
+}
+
 // resolveGenreCodes maps book-genre codes to ids, rejecting any that isn't a live
 // genre of the book (tenancy — no silent skip).
 func (s *Server) resolveGenreCodes(ctx context.Context, bookID uuid.UUID, codes []string) ([]uuid.UUID, error) {

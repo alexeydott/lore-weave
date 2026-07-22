@@ -87,7 +87,11 @@ func (s *Server) mcpHandler() http.Handler {
 	s.RegisterSyncTools(srv)
 	s.RegisterUserTools(srv)
 	// Pipeline M1: read tools (merge-candidates / chapter-links / revisions / unknowns).
+	// NOTE: the 3 book-inbox reads are now legacy — superseded by glossary_curation_list
+	// (catalog-unification 2026-07-22 Part B, RegisterCurationTools below).
 	s.RegisterPipelineReadTools(srv)
+	// Part B: glossary_curation_list — the unified inbox read (view enum over the 3 legacy lists).
+	s.RegisterCurationTools(srv)
 	// Pipeline M2: direct (class-W) additive write tools (chapter-links, evidence).
 	s.RegisterPipelineWriteTools(srv)
 	// Pipeline M2: class-C propose tools for destructive curation (status / restore /
