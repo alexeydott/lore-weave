@@ -34,9 +34,17 @@ an adversarial edge-case pass (3 mechanism fixes); book-first pilot BUILT + MEAS
   `WithAmbientBook` and are live-verified `scope_source=envelope` via the gateway. Glossary WRITES resolve
   ambiently TODAY via injection-backfill (`scope_source=arg`); tagging them `WithAmbientBook` (→ envelope)
   is a mechanical long-tail. Glossary's MCP middleware lifts `X-Book-Id` (`ContextWithBookID`).
-- **NEXT / follow-ons:** (1) **composition + kg (Python)** — need the **Python SDK equivalents first**
-  (`X-Book-Id` ctx-lift, `BookIDFromCtx`, `ResolveBookScope`, `ambient_book` meta) before any tool converts
-  — a fresh sub-build, NOT mechanical; (2) glossary WRITE envelope-tags (mechanical); (3) co-writer
+- **PYTHON SDK DONE + composition pilot (`c6368b884`):** `loreweave_mcp` (Python) now has
+  `ToolContext.book_id` + `X-Book-Id` lift, `resolve_book_scope`/`resolve_project_scope`/`Scope` (the Py
+  `ResolveBookScope`), and `require_meta(ambient_book=/ambient_project=)`. chat-service `_inject_context_ids`
+  also skips `project_id` for `ambient_project` tools. **composition_get_work** converted + **live-verified**
+  (X-Book-Id + no args → resolves book→Work). Composition is PROJECT-scoped (tools take `project_id`); its
+  ambient = `X-Project-Id` (already lifted, chat derives book→Work→project_id). PATTERN NOW PROVEN IN BOTH
+  LANGUAGES. Remaining = mechanical replication: ~89 composition project tools + ~27 kg tools (per tool:
+  id optional in the Pydantic/Annotated arg + `resolve_project_scope`/`resolve_book_scope` fallback +
+  `ambient_project`/`ambient_book` meta). Book WRITE tools' cross-book is handled by their confirm cards.
+- **NEXT / follow-ons:** (1) bulk-convert the composition + kg tool bodies (mechanical, pattern proven);
+  (2) glossary WRITE envelope-tags (mechanical); (3) co-writer
   tool-DISCOVERY gap (gemma won't `tool_load` a lazy tool — needed pinning; separate from X-Book-Id, higher
   user-impact); (4) `X-Chapter-Id` — user's call: NOT ambient (many chapters), instead let tools take
   chapter **name/number** not the UUID; (5) optionally re-require book_id on EXTERNAL surfaces (§2.4).
