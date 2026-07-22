@@ -1563,7 +1563,11 @@ async def kg_run_benchmark(
         "window_available is false the reader's position couldn't be pinned so nothing "
         "is shown."
     ),
-    meta=require_meta("R", "project", tool_name="lore_ask"),
+    # LEGACY (catalog-unification 2026-07-22): reader-audience tool (spoiler-safe, for a
+    # READER's chat agent) — hidden from the author co-writer hot-set + fuzzy discovery, still
+    # tool_load-able for a reader context. It bleeds into the author catalog only because there
+    # is no reader surface yet (lore_→glossary alias hot-seeds it on book/editor).
+    meta=require_meta("R", "project", visibility="legacy", tool_name="lore_ask"),
 )
 async def lore_ask(
     ctx: MCPContext,
@@ -1590,7 +1594,9 @@ async def lore_ask(
         "— spoiler-windowed to their furthest-read chapter. A reader whose position "
         "can't be pinned gets an empty list, never the whole cast."
     ),
-    meta=require_meta("R", "project", tool_name="lore_browse_entities"),
+    # LEGACY (catalog-unification 2026-07-22): reader-audience tool — hidden from the author
+    # hot-set, still tool_load-able for a reader context.
+    meta=require_meta("R", "project", visibility="legacy", tool_name="lore_browse_entities"),
 )
 async def lore_browse_entities(
     ctx: MCPContext,
@@ -1616,7 +1622,9 @@ async def lore_browse_entities(
         "One entity's spoiler-windowed status + known facts, bounded to the reader's "
         "furthest-read chapter (facts established later are hidden)."
     ),
-    meta=require_meta("R", "project", tool_name="lore_entity"),
+    # LEGACY (catalog-unification 2026-07-22): reader-audience tool — hidden from the author
+    # hot-set, still tool_load-able for a reader context.
+    meta=require_meta("R", "project", visibility="legacy", tool_name="lore_entity"),
 )
 async def lore_entity(
     ctx: MCPContext,
@@ -1637,7 +1645,9 @@ async def lore_entity(
         "The sequence of events up to the reader's position — spoiler-windowed so "
         "later events are hidden. Empty when the reader's position can't be pinned."
     ),
-    meta=require_meta("R", "project", tool_name="lore_timeline"),
+    # LEGACY (catalog-unification 2026-07-22): reader-audience tool — hidden from the author
+    # hot-set, still tool_load-able for a reader context.
+    meta=require_meta("R", "project", visibility="legacy", tool_name="lore_timeline"),
 )
 async def lore_timeline(
     ctx: MCPContext,
