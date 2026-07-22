@@ -710,13 +710,16 @@ async def kg_project_set_embedding_model(
 # (D-KG-LF-KM6 cleared 2026-06-21).
 
 
+# kg_graph_query is UNIFIED by scope (catalog-unification 2026-07-22): scope=world|multi
+# supersede the legacy kg_world_query / kg_multi_query tools (kept below, visibility:legacy).
 @mcp_server.tool(
     name="kg_graph_query",
     description=(
-        "Read the current project's knowledge graph as nodes + edges, "
-        "optionally narrowed to a named view (lens) and to a point in the "
-        "story via a chapter ordinal. Use this to see who relates to whom as "
-        "of a given chapter. Returns nodes, edges, and any warnings."
+        "Read a knowledge graph as nodes + edges. scope=project (default) reads the CURRENT "
+        "project (optionally narrowed to a named view/lens and to a chapter ordinal — who "
+        "relates to whom as of a chapter); scope=world reads a whole WORLD rolled up (pass "
+        "world_id); scope=multi reads an ARBITRARY SET of your projects (pass project_ids). "
+        "Use world/multi to synthesize ACROSS books. Returns nodes, edges, and any warnings."
     ),
     meta=require_meta(
         "R", "project",
@@ -725,29 +728,53 @@ async def kg_project_set_embedding_model(
 )
 async def kg_graph_query(
     ctx: MCPContext,
+    scope: Annotated[
+        Literal["project", "world", "multi"],
+        "project (default) = the current project; world = a whole world (needs world_id); "
+        "multi = a set of your projects (needs project_ids).",
+    ] = "project",
     view: Annotated[
         str | None,
-        "Optional view code (a saved lens). Omit to read the whole graph.",
+        "scope=project: optional view code (a saved lens). Omit to read the whole graph.",
     ] = None,
     as_of_chapter: Annotated[
         int | None,
         Field(ge=0),
-        "Optional chapter ordinal — the graph as it stood at that chapter. "
+        "scope=project: optional chapter ordinal — the graph as it stood at that chapter. "
         "Omit for the latest state.",
     ] = None,
     limit: Annotated[
         int,
         Field(ge=1, le=GRAPH_LIMIT_MAX),
-        f"Max edges to scan (default {GRAPH_LIMIT_DEFAULT}).",
+        f"Max edges/nodes to scan (default {GRAPH_LIMIT_DEFAULT}).",
     ] = GRAPH_LIMIT_DEFAULT,
     detail: _DETAIL_ARG = "full",
+    world_id: Annotated[
+        str | None,
+        "scope=world: the world to roll up (you must own it).",
+    ] = None,
+    project_ids: Annotated[
+        list[str] | None,
+        Field(max_length=16),
+        "scope=multi: the project ids to union (1–16; you must own each).",
+    ] = None,
+    unify: Annotated[
+        Literal["off", "by_name", "semantic"],
+        "scope=world|multi: cross-book entity unification. 'off' (default) = the raw per-book "
+        "forest; 'by_name' matches the same entity across books by name/alias; 'semantic' also "
+        "matches by meaning (embeddings). Both add unification_clusters + SAME_AS bridge_edges.",
+    ] = "off",
     project_id: _PROJECT_ID_ARG = None,
 ) -> dict:
-    args: dict[str, Any] = {"limit": limit, "detail": detail}
+    args: dict[str, Any] = {"scope": scope, "limit": limit, "detail": detail, "unify": unify}
     if view is not None:
         args["view"] = view
     if as_of_chapter is not None:
         args["as_of_chapter"] = as_of_chapter
+    if world_id is not None:
+        args["world_id"] = world_id
+    if project_ids is not None:
+        args["project_ids"] = project_ids
     if project_id is not None:
         args["project_id"] = project_id
     return await _dispatch(ctx, "kg_graph_query", args)
@@ -762,8 +789,10 @@ async def kg_graph_query(
         "relationships), not one project at a time. Owner-only: partitions owned by "
         "others are skipped and reported in partitions_unreadable."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_graph_query (scope=world).
     meta=require_meta(
         "R", "project",
+        visibility="legacy",
         tool_name="kg_world_query",
     ),
 )
@@ -803,8 +832,10 @@ async def kg_world_query(
         "you name the exact project_ids. Owner-only: ids you don't own are skipped and "
         "reported in partitions_unreadable (the result also carries partitions_read)."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_graph_query (scope=multi).
     meta=require_meta(
         "R", "user",
+        visibility="legacy",
         tool_name="kg_multi_query",
     ),
 )

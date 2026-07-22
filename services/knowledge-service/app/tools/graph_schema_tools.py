@@ -196,13 +196,23 @@ def _project_graph(out: dict, detail: str, *, node_ref, edge_ref) -> dict:
 
 
 class KgGraphQueryArgs(ProjectScopedArgs):
-    """`kg_graph_query` — nodes+edges for a view, as-of a chapter."""
+    """`kg_graph_query` — nodes+edges. Unified by SCOPE (catalog-unification 2026-07-22):
+    scope=project (default) reads the current project; scope=world reads a whole world
+    (world_id); scope=multi reads an arbitrary set of your projects (project_ids). world/multi
+    DELEGATE to the same _handle_kg_world_query / _handle_kg_multi_query cores (no logic moved)."""
 
+    scope: Literal["project", "world", "multi"] = "project"
     view: str | None = Field(default=None, max_length=_CODE_MAX)
     as_of_chapter: int | None = Field(default=None, ge=0)
     limit: int = Field(default=GRAPH_LIMIT_DEFAULT, ge=1, le=GRAPH_LIMIT_MAX)
     # L1/L2 reference-first contract (§6b) — versioned default "full".
     detail: Literal["summary", "full"] = "full"
+    # scope=world — the world to roll up (owner-only).
+    world_id: str | None = Field(default=None, max_length=200)
+    # scope=multi — an arbitrary set of your own projects to union (1–16).
+    project_ids: list[str] | None = Field(default=None, max_length=16)
+    # scope=world|multi — cross-book entity unification.
+    unify: Literal["off", "by_name", "semantic"] = "off"
 
 
 class KgWorldQueryArgs(BaseModel):
@@ -578,17 +588,26 @@ _UNIFY_PROP = {
 }
 
 GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
+    # UNIFIED by scope (catalog-unification 2026-07-22): scope=world|multi supersede
+    # kg_world_query + kg_multi_query (which stay for existing callers).
     _tool(
         "kg_graph_query",
-        "Read the current project's knowledge graph as nodes + edges, "
-        "optionally narrowed to a named view (lens) and to a point in the "
-        "story via a chapter ordinal. Use this to see who relates to whom "
-        "as of a given chapter. Returns nodes, edges, and any warnings.",
+        "Read a knowledge graph as nodes + edges. scope=project (default) reads the CURRENT "
+        "project (optionally narrowed to a named view/lens and to a chapter ordinal — who "
+        "relates to whom as of a chapter); scope=world reads a whole WORLD rolled up (pass "
+        "world_id); scope=multi reads an ARBITRARY SET of your projects (pass project_ids). Use "
+        "world/multi to synthesize ACROSS books. Returns nodes, edges, and any warnings.",
         {
+            "scope": {
+                "type": "string",
+                "enum": ["project", "world", "multi"],
+                "description": "project (default) = the current project; world = a whole world "
+                               "(needs world_id); multi = a set of your projects (needs project_ids).",
+            },
             "view": {
                 "type": "string",
                 "description": (
-                    "Optional view code (a saved lens of edge/node kinds). "
+                    "scope=project: optional view code (a saved lens of edge/node kinds). "
                     "Omit to read the whole graph."
                 ),
             },
@@ -596,7 +615,7 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
                 "type": "integer",
                 "minimum": 0,
                 "description": (
-                    "Optional chapter ordinal — show the graph as it stood at "
+                    "scope=project: optional chapter ordinal — show the graph as it stood at "
                     "that chapter. Omit for the latest state."
                 ),
             },
@@ -604,9 +623,20 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
                 "type": "integer",
                 "minimum": 1,
                 "maximum": GRAPH_LIMIT_MAX,
-                "description": f"Max edges to scan (default {GRAPH_LIMIT_DEFAULT}).",
+                "description": f"Max edges/nodes to scan (default {GRAPH_LIMIT_DEFAULT}).",
             },
             "detail": _DETAIL_PROP,
+            "world_id": {
+                "type": "string",
+                "description": "scope=world: the world to roll up (you must own it).",
+            },
+            "project_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 16,
+                "description": "scope=multi: the project ids to union (1–16; you must own each).",
+            },
+            "unify": _UNIFY_PROP,
             "project_id": _PROJECT_ID_PROP,
         },
         [],
@@ -1178,6 +1208,23 @@ async def _active_project_schema_id(ctx: "ToolContext", project_id: str):
 
 
 async def _handle_kg_graph_query(ctx: "ToolContext", args: KgGraphQueryArgs) -> dict:
+    # Unified scope dispatch (catalog-unification 2026-07-22): world/multi delegate to the
+    # SAME cores as the legacy kg_world_query / kg_multi_query. Per-scope required fields are
+    # validated with an explicit ToolExecutionError. scope=project falls through to the
+    # existing project logic below (unchanged).
+    if args.scope == "world":
+        from app.tools.executor import ToolExecutionError
+        if not args.world_id:
+            raise ToolExecutionError("scope=world requires world_id (the world to roll up)")
+        return await _handle_kg_world_query(ctx, KgWorldQueryArgs(
+            world_id=args.world_id, limit=args.limit, unify=args.unify, detail=args.detail))
+    if args.scope == "multi":
+        from app.tools.executor import ToolExecutionError
+        if not args.project_ids:
+            raise ToolExecutionError("scope=multi requires project_ids (the projects to union)")
+        return await _handle_kg_multi_query(ctx, KgMultiQueryArgs(
+            project_ids=args.project_ids, limit=args.limit, unify=args.unify, detail=args.detail))
+
     owner = await _resolve_project_owner(ctx, GrantLevel.VIEW)
     project_str = str(ctx.project_id)
 

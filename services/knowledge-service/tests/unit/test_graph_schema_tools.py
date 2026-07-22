@@ -113,9 +113,11 @@ def test_total_tool_count_is_memory_plus_lane_lf():
     agent) + 2 cost-gated (kg_build_graph, kg_build_wiki) + 1 kg_run_benchmark (R4)
     + 4 W11-M2 reader tools (lore_ask/lore_browse_entities/lore_entity/lore_timeline)
     + 1 W10-M1 kg_create_node (manual single-node create)
-    = 37."""
+    + 1 catalog-unification kg_build (target=graph|wiki; folds in kg_build_graph/kg_build_wiki,
+      which stay registered visibility:legacy)
+    = 38."""
     schema_names = {d["function"]["name"] for d in TOOL_DEFINITIONS}
-    assert len(TOOL_DEFINITIONS) == 37
+    assert len(TOOL_DEFINITIONS) == 38
     assert set(TOOL_NAMES) == set(ARG_MODELS) == schema_names
     assert len(set(TOOL_NAMES)) == len(TOOL_NAMES)  # no dupes
     assert {"kg_project_create", "kg_project_list", "kg_project_set_embedding_model",
@@ -1611,3 +1613,55 @@ async def test_kg_create_node_rejects_legacy_faction_kind():
     res = await execute_tool(ctx, "kg_create_node", {"name": "The Guild", "kind": "faction"})
     assert not res.success
     assert "kind must be one of" in res.error.lower()
+
+
+# ── kg_graph_query unified scope dispatch (catalog-unification 2026-07-22) ─────
+# scope=world|multi must delegate to the SAME cores as legacy kg_world_query /
+# kg_multi_query, and reject a scope missing its required id.
+
+
+@pytest.mark.asyncio
+async def test_kg_graph_query_scope_world_delegates_to_world_core(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake_world(ctx, args):
+        seen["world_id"] = args.world_id
+        seen["unify"] = args.unify
+        return {"scope": "world"}
+
+    monkeypatch.setattr(gst, "_handle_kg_world_query", _fake_world)
+    res = await execute_tool(_ctx(), "kg_graph_query",
+                             {"scope": "world", "world_id": "W1", "unify": "by_name"})
+    assert res.success, res.error
+    assert seen == {"world_id": "W1", "unify": "by_name"}
+
+
+@pytest.mark.asyncio
+async def test_kg_graph_query_scope_multi_delegates_to_multi_core(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake_multi(ctx, args):
+        seen["project_ids"] = list(args.project_ids)
+        return {"scope": "multi"}
+
+    monkeypatch.setattr(gst, "_handle_kg_multi_query", _fake_multi)
+    res = await execute_tool(_ctx(), "kg_graph_query",
+                             {"scope": "multi", "project_ids": ["P1", "P2"]})
+    assert res.success, res.error
+    assert seen["project_ids"] == ["P1", "P2"]
+
+
+@pytest.mark.asyncio
+async def test_kg_graph_query_scope_world_without_world_id_is_tool_error():
+    res = await execute_tool(_ctx(), "kg_graph_query", {"scope": "world"})
+    assert not res.success
+    assert "world_id" in (res.error or "")
+
+
+@pytest.mark.asyncio
+async def test_kg_graph_query_scope_multi_without_project_ids_is_tool_error():
+    res = await execute_tool(_ctx(), "kg_graph_query", {"scope": "multi"})
+    assert not res.success
+    assert "project_ids" in (res.error or "")
