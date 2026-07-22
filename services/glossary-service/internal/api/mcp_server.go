@@ -61,7 +61,7 @@ func (s *Server) mcpHandler() http.Handler {
 		Name: "glossary_get_entity",
 		Description: "Fetch one glossary entity's full detail (attributes, aliases, kind, " +
 			"counts) by id, within a book. Use after glossary_search to read an entity in depth.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+		Meta: lwmcp.WithAmbientBook(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil)),
 	}, s.toolGetEntity)
 
 	// F2 (§12.3): retarget of the old glossary_list_kinds → the "what CAN I adopt"
@@ -336,7 +336,8 @@ type searchToolOut struct {
 }
 
 type getEntityToolIn struct {
-	BookID   string `json:"book_id" jsonschema:"the book the entity belongs to (UUID)"`
+	// book_id OPTIONAL (ambient_book) — omitted inside a book studio, it resolves from the envelope.
+	BookID   string `json:"book_id,omitempty" jsonschema:"the book the entity belongs to (UUID). Omit inside a book studio — the current book is used."`
 	EntityID string `json:"entity_id" jsonschema:"the entity to fetch (UUID)"`
 }
 type getEntityToolOut struct {
@@ -416,10 +417,11 @@ func (s *Server) toolGetEntity(ctx context.Context, _ *mcp.CallToolRequest, in g
 	if !ok {
 		return nil, getEntityToolOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
-	if err != nil {
-		return nil, getEntityToolOut{}, errors.New("book_id must be a UUID")
+	scope, sok := lwmcp.ResolveBookScope(ctx, in.BookID) // ambient: resolve book_id from X-Book-Id when omitted
+	if !sok {
+		return nil, getEntityToolOut{}, errors.New("book_id is required (a UUID)")
 	}
+	bookID := scope.BookID
 	entityID, err := uuid.Parse(in.EntityID)
 	if err != nil {
 		return nil, getEntityToolOut{}, errors.New("entity_id must be a UUID")
@@ -443,7 +445,8 @@ func (s *Server) toolGetEntity(ctx context.Context, _ *mcp.CallToolRequest, in g
 }
 
 type bookOntologyReadToolIn struct {
-	BookID string `json:"book_id" jsonschema:"the book whose local ontology to read (UUID)"`
+	// book_id OPTIONAL (ambient_book) — omitted inside a book studio, it resolves from the envelope.
+	BookID string `json:"book_id,omitempty" jsonschema:"the book whose local ontology to read (UUID). Omit inside a book studio — the current book is used."`
 }
 type bookOntologyReadToolOut struct {
 	// D-2-ONTOLOGY-BLOAT: the COMPACT projection (identifiers + counts + base_version), not the full
@@ -458,10 +461,11 @@ func (s *Server) toolBookOntologyRead(ctx context.Context, _ *mcp.CallToolReques
 	if !ok {
 		return nil, bookOntologyReadToolOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
-	if err != nil {
-		return nil, bookOntologyReadToolOut{}, errors.New("book_id must be a UUID")
+	scope, sok := lwmcp.ResolveBookScope(ctx, in.BookID) // ambient: resolve book_id from X-Book-Id when omitted
+	if !sok {
+		return nil, bookOntologyReadToolOut{}, errors.New("book_id is required (a UUID)")
 	}
+	bookID := scope.BookID
 	if err := s.checkGrant(ctx, bookID, userID, grantclient.GrantView); err != nil {
 		return nil, bookOntologyReadToolOut{}, uniformOwnershipError(err)
 	}

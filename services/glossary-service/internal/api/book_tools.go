@@ -32,7 +32,7 @@ func (s *Server) RegisterBookTools(srv *mcp.Server) {
 			"Use before proposing entities or shaping the book's schema. Every genre/kind/attribute " +
 			"row carries a `base_version` — copy it verbatim into glossary_book_patch to get " +
 			"concurrent-edit detection.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+		Meta: lwmcp.WithAmbientBook(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil)),
 	}, s.toolBookOntologyRead)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
