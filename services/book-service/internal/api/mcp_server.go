@@ -223,7 +223,7 @@ func (s *Server) newMCPServer() *mcp.Server {
 			"part_id=<id> (or part_id=\"unassigned\"): that group's chapters, paged — every result carries "+
 			"page.is_complete + a `guidance` line telling you when to STOP. Use this to see where chapters "+
 			"live before reorganizing with book_structure_edit.",
-		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"manuscript structure", "parts overview", "table of contents", "where do chapters live", "book outline"}),
+		lwmcp.WithAmbientBook(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"manuscript structure", "parts overview", "table of contents", "where do chapters live", "book outline"})),
 		s.toolBookStructureRead)
 
 	addTool(srv, "book_structure_edit",
@@ -232,10 +232,10 @@ func (s *Server) newMCPServer() *mcp.Server {
 			"home_chapter (chapter_id + part_id, or part_id=\"unassigned\" to un-home) · reorder_chapters "+
 			"(chapter_ids — the complete new order for one language track). Every op is reversible (Undo). "+
 			"To DELETE a part, that is the separate lifecycle tool book_structure_part_archive.",
-		lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{
+		lwmcp.WithAmbientBook(lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{
 			"create part", "add act", "add volume", "rename part", "reorder parts",
 			"move chapter to act", "put chapter in volume", "home chapter", "reorder chapters", "change reading order",
-		}),
+		})),
 		s.toolBookStructureEdit)
 
 	// The destructive part-archive is a SEPARATE legacy/lifecycle tool (CAT-2 split — human owns

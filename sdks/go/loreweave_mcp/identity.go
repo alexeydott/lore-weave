@@ -28,6 +28,7 @@ const (
 	ctxKeySessionID ctxKey = "lw-mcp-session-id"
 	ctxKeyTraceID   ctxKey = "lw-mcp-trace-id"
 	ctxKeyMcpKeyID  ctxKey = "lw-mcp-key-id"
+	ctxKeyBookID    ctxKey = "lw-mcp-book-id"
 )
 
 // Envelope header names the gateway forwards on every per-call MCP request.
@@ -42,6 +43,17 @@ const (
 	// ai-gateway forwards it (additive). Carrier for per-key spend attribution
 	// (H-C) and the owned-resources-only default (OD-8).
 	HeaderMcpKeyID = "X-Mcp-Key-Id"
+	// HeaderBookID is the AMBIENT book scope for a book-bound surface (writing
+	// studio / editor). chat-service sets it per-turn from the session's resolved
+	// book; ai-gateway forwards it. A tool resolves book_id from it when the model
+	// omits the arg (studio agents never transcribe the UUID). See scope.go
+	// (ResolveBookScope) + spec 2026-07-22-studio-context-binding.
+	//
+	// SCOPE HINT, NEVER AUTHORIZATION: the ambient book is grant-checked exactly
+	// like an explicit arg (a spoofed/stale/foreign value grants nothing → the
+	// tool's normal grant check 404s). Absent on external/global traffic (no bound
+	// surface) — there book_id stays a required arg, unchanged.
+	HeaderBookID = "X-Book-Id"
 )
 
 // IdentityMiddleware validates X-Internal-Token in constant time (SEC-1) and,
@@ -64,6 +76,7 @@ func IdentityMiddleware(internalToken string, next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, ctxKeySessionID, r.Header.Get(HeaderSessionID))
 		ctx = context.WithValue(ctx, ctxKeyTraceID, r.Header.Get(HeaderTraceID))
 		ctx = context.WithValue(ctx, ctxKeyMcpKeyID, r.Header.Get(HeaderMcpKeyID))
+		ctx = context.WithValue(ctx, ctxKeyBookID, r.Header.Get(HeaderBookID))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -82,6 +95,32 @@ func UserIDFromCtx(ctx context.Context) (uuid.UUID, bool) {
 		return uuid.Nil, false
 	}
 	return id, true
+}
+
+// BookIDFromCtx returns the ambient book scope (lifted from X-Book-Id by
+// IdentityMiddleware). ok is false when no/blank/malformed id is present — i.e.
+// this is NOT a book-bound surface, so a tool must fall back to its explicit
+// book_id arg. NEVER treat a present ambient book as access — grant-check it
+// exactly like an explicit arg (SEC-1 spirit; the ambient chooses a default id,
+// never widens access).
+func BookIDFromCtx(ctx context.Context) (uuid.UUID, bool) {
+	v, _ := ctx.Value(ctxKeyBookID).(string)
+	if v == "" {
+		return uuid.Nil, false
+	}
+	id, err := uuid.Parse(v)
+	if err != nil {
+		return uuid.Nil, false
+	}
+	return id, true
+}
+
+// ContextWithBookID injects the ambient book scope (X-Book-Id) under the kit's
+// private context key — for a provider running its OWN identity middleware
+// (services using IdentityMiddleware / NewStatelessHandler get it for free).
+// An empty string leaves the call unbound (BookIDFromCtx stays ok=false).
+func ContextWithBookID(ctx context.Context, bookID string) context.Context {
+	return context.WithValue(ctx, ctxKeyBookID, bookID)
 }
 
 // SessionIDFromCtx returns the chat session id (X-Session-Id). ok is false when

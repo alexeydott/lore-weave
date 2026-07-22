@@ -84,6 +84,27 @@ func TestDeprecatedBookToolsAreLegacy(t *testing.T) {
 	}
 }
 
+// TestAmbientBookToolsFlagged — the migration-atomicity lock (studio-context-binding §2.4):
+// a tool that resolves book_id from the envelope (ResolveBookScope) MUST carry
+// _meta.ambient_book=true, because the chat-service surface builder reads that flag to drop
+// book_id from `required`. If the flag is dropped while the tool still resolves-from-envelope,
+// the surface keeps asking the model for book_id (a lost win); if a tool is flagged but does
+// NOT resolve, dropping required would 400 it. Keep the two in lockstep.
+func TestAmbientBookToolsFlagged(t *testing.T) {
+	metas := listBookToolMetas(t)
+	for _, name := range []string{"book_structure_read", "book_structure_edit"} {
+		m, ok := metas[name]
+		if !ok {
+			t.Errorf("%s not registered", name)
+			continue
+		}
+		if v, _ := m[lwmcp.MetaKeyAmbientBook].(bool); !v {
+			t.Errorf("%s must carry _meta.ambient_book=true (it resolves book_id from X-Book-Id) — "+
+				"the surface builder needs it to drop book_id from required (spec §2.4)", name)
+		}
+	}
+}
+
 func TestKeptBookContentToolsAreNotLegacy(t *testing.T) {
 	metas := listBookToolMetas(t)
 	for _, name := range keptContentTools {

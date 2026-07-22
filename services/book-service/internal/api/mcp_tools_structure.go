@@ -25,6 +25,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	lwmcp "github.com/loreweave/loreweave_mcp"
 )
 
 // ── composition internal part-write helpers (mirror fetchStructurePartsInternal) ─────────────────────
@@ -164,7 +166,11 @@ func compWriteErr(status int, action string) error {
 // ── book_structure_read ──────────────────────────────────────────────────────────────────────────
 
 type bookStructureReadIn struct {
-	BookID string `json:"book_id" jsonschema:"the book (UUID) — required"`
+	// book_id is OPTIONAL in the schema (ambient_book): on a book-bound studio surface it resolves from
+	// the envelope (X-Book-Id) when omitted; the handler (ResolveBookScope) fail-closes if neither an arg
+	// nor an ambient book is present, so an external caller still effectively needs it. Do NOT re-mark it
+	// `required` — the SDK would then reject an omitted id before the envelope resolution can run.
+	BookID string `json:"book_id,omitempty" jsonschema:"the book (UUID). Omit inside a book studio — the current book is used."`
 	PartID string `json:"part_id,omitempty" jsonschema:"omit for the parts overview (L1); pass a part UUID to list that part's chapters, or the literal \"unassigned\" for chapters in no part (L2)"`
 	Offset int    `json:"offset,omitempty" jsonschema:"L2 paging: chapter index to start at (default 0)"`
 	Limit  int    `json:"limit,omitempty" jsonschema:"L2 paging: chapters to return (default 50, max 100)"`
@@ -190,6 +196,7 @@ type bookStructureReadOut struct {
 	PartID          string                `json:"part_id,omitempty"`
 	Chapters        []structureChapterRef `json:"chapters,omitempty"`
 	Page            *pageEnvelope         `json:"page,omitempty"`
+	ScopeSource     string                `json:"scope_source,omitempty"` // "arg" | "envelope" — which book this call resolved (SET transparency)
 	Guidance        string                `json:"guidance"`
 }
 
@@ -198,10 +205,13 @@ func (s *Server) toolBookStructureRead(ctx context.Context, _ *mcp.CallToolReque
 	if !ok {
 		return nil, bookStructureReadOut{}, errMissingIdentity
 	}
-	bookID, err := uuid.Parse(in.BookID)
-	if err != nil {
-		return nil, bookStructureReadOut{}, errors.New("book_id must be a UUID")
+	// Ambient scope (spec 2026-07-22): on a book-bound surface book_id resolves from the envelope
+	// when the model omits it. The resolved book is grant-checked below EXACTLY like an explicit arg.
+	scope, sok := lwmcp.ResolveBookScope(ctx, in.BookID)
+	if !sok {
+		return nil, bookStructureReadOut{}, errors.New("book_id is required (a UUID)")
 	}
+	bookID := scope.BookID
 	if _, err := s.mcpRequireGrant(ctx, bookID, userID, GrantView); err != nil {
 		return nil, bookStructureReadOut{}, mcpOwnershipError(err)
 	}
@@ -220,11 +230,23 @@ func (s *Server) toolBookStructureRead(ctx context.Context, _ *mcp.CallToolReque
 		}
 	}
 
-	target := strings.TrimSpace(in.PartID)
-	if target == "" {
-		return s.structureReadL1(ctx, bookID, parts)
+	var res *mcp.CallToolResult
+	var out bookStructureReadOut
+	var rerr error
+	if target := strings.TrimSpace(in.PartID); target == "" {
+		res, out, rerr = s.structureReadL1(ctx, bookID, parts)
+	} else {
+		res, out, rerr = s.structureReadL2(ctx, bookID, target, parts, activeIDs, in.Offset, in.Limit)
 	}
-	return s.structureReadL2(ctx, bookID, target, parts, activeIDs, in.Offset, in.Limit)
+	if rerr != nil {
+		return nil, bookStructureReadOut{}, rerr
+	}
+	// Cross-book READ is advisory (never blocking): note we're showing a different book than the studio.
+	out.ScopeSource = scope.Source
+	if scope.CrossBook {
+		out.Guidance = "NOTE: this is a DIFFERENT book than the studio is bound to. " + out.Guidance
+	}
+	return res, out, nil
 }
 
 // structureReadL1 — the parts skeleton (reuse buildBookStructure so the counts match /structure exactly).
@@ -327,22 +349,27 @@ func (s *Server) structureReadL2(ctx context.Context, bookID uuid.UUID, target s
 
 type bookStructureEditIn struct {
 	Op             string   `json:"op" jsonschema:"the structure operation: create_part | rename_part | reorder_parts | home_chapter | reorder_chapters"`
-	BookID         string   `json:"book_id" jsonschema:"the book (UUID; you need edit access)"`
+	// book_id OPTIONAL (ambient_book) — omitted inside a studio, it resolves from the envelope; the handler
+	// fail-closes if neither arg nor ambient book is present. See bookStructureReadIn.BookID.
+	BookID         string   `json:"book_id,omitempty" jsonschema:"the book (UUID; edit access). Omit inside a book studio — the current book is used."`
 	Title          string   `json:"title,omitempty" jsonschema:"create_part / rename_part: the part title"`
 	PartID         string   `json:"part_id,omitempty" jsonschema:"rename_part: the part to rename; home_chapter: the target part (or omit / \"unassigned\" to un-home into the flat manuscript)"`
 	OrderedPartIDs []string `json:"ordered_part_ids,omitempty" jsonschema:"reorder_parts: the book's active parts in the NEW order — EXACTLY the active set, each once"`
 	ChapterID      string   `json:"chapter_id,omitempty" jsonschema:"home_chapter: the chapter to (re)home"`
 	ChapterIDs     []string `json:"chapter_ids,omitempty" jsonschema:"reorder_chapters: the COMPLETE new order for one language track, each active chapter once"`
+	AllowCrossBook bool     `json:"allow_cross_book,omitempty" jsonschema:"set true ONLY to confirm editing a book different from the studio you're in (normally omit — the current book is used)"`
 }
 
 type bookStructureEditOut struct {
-	Op       string              `json:"op"`
-	Part     *partWriteResult    `json:"part,omitempty"`     // create_part / rename_part
-	Parts    []partWriteResult   `json:"parts,omitempty"`    // reorder_parts
-	Chapter  string              `json:"chapter_id,omitempty"`
-	PartRef  *string             `json:"part_id,omitempty"`  // home_chapter result home (null = unassigned)
-	Chapters []reorderedChapter  `json:"chapters,omitempty"` // reorder_chapters
-	Guidance string              `json:"guidance"`
+	Op                     string             `json:"op"`
+	Part                   *partWriteResult   `json:"part,omitempty"`     // create_part / rename_part
+	Parts                  []partWriteResult  `json:"parts,omitempty"`    // reorder_parts
+	Chapter                string             `json:"chapter_id,omitempty"`
+	PartRef                *string            `json:"part_id,omitempty"`  // home_chapter result home (null = unassigned)
+	Chapters               []reorderedChapter `json:"chapters,omitempty"` // reorder_chapters
+	CrossBookConfirmTarget string             `json:"cross_book_confirm_required,omitempty"` // set (book_id) when a cross-book WRITE was NOT applied
+	ScopeSource            string             `json:"scope_source,omitempty"`                // "arg" | "envelope"
+	Guidance               string             `json:"guidance"`
 }
 
 func (s *Server) toolBookStructureEdit(ctx context.Context, req *mcp.CallToolRequest, in bookStructureEditIn) (*mcp.CallToolResult, bookStructureEditOut, error) {
@@ -350,26 +377,48 @@ func (s *Server) toolBookStructureEdit(ctx context.Context, req *mcp.CallToolReq
 	if !ok {
 		return nil, bookStructureEditOut{}, errMissingIdentity
 	}
-	bookID, err := uuid.Parse(in.BookID)
-	if err != nil {
-		return nil, bookStructureEditOut{}, errors.New("book_id must be a UUID")
-	}
 	op := strings.ToLower(strings.TrimSpace(in.Op))
+	// Ambient scope (spec 2026-07-22): resolve the book from the envelope when the model omits it.
+	scope, sok := lwmcp.ResolveBookScope(ctx, in.BookID)
+	if !sok {
+		return nil, bookStructureEditOut{}, errors.New("book_id is required (a UUID)")
+	}
+	bookID := scope.BookID
+	// Cross-book WRITE pre-confirm (§2.2): a write to a DIFFERENT book than the studio is bound to is
+	// allowed but must be confirmed FIRST — never silently mutate the wrong manuscript. Grant is checked
+	// inside each op; we gate on cross-book before dispatching so nothing is applied without allow_cross_book.
+	if scope.CrossBook && !in.AllowCrossBook {
+		return nil, bookStructureEditOut{
+			Op:                     op,
+			CrossBookConfirmTarget: bookID.String(),
+			ScopeSource:            scope.Source,
+			Guidance: "NOT APPLIED — this would edit a DIFFERENT book (book_id=" + bookID.String() +
+				") than the studio you're in. If that is intended, re-issue the SAME call with allow_cross_book=true.",
+		}, nil
+	}
 
+	var res *mcp.CallToolResult
+	var out bookStructureEditOut
+	var rerr error
 	switch op {
 	case "create_part":
-		return s.editCreatePart(ctx, bookID, userID, in)
+		res, out, rerr = s.editCreatePart(ctx, bookID, userID, in)
 	case "rename_part":
-		return s.editRenamePart(ctx, bookID, userID, in)
+		res, out, rerr = s.editRenamePart(ctx, bookID, userID, in)
 	case "reorder_parts":
-		return s.editReorderParts(ctx, bookID, userID, in)
+		res, out, rerr = s.editReorderParts(ctx, bookID, userID, in)
 	case "home_chapter":
-		return s.editHomeChapter(ctx, req, bookID, in)
+		res, out, rerr = s.editHomeChapter(ctx, req, bookID, in)
 	case "reorder_chapters":
-		return s.editReorderChapters(ctx, req, bookID, in)
+		res, out, rerr = s.editReorderChapters(ctx, req, bookID, in)
 	default:
 		return nil, bookStructureEditOut{}, fmt.Errorf("unknown op %q — use one of: create_part, rename_part, reorder_parts, home_chapter, reorder_chapters", in.Op)
 	}
+	if rerr != nil {
+		return nil, bookStructureEditOut{}, rerr
+	}
+	out.ScopeSource = scope.Source
+	return res, out, nil
 }
 
 func (s *Server) editCreatePart(ctx context.Context, bookID, userID uuid.UUID, in bookStructureEditIn) (*mcp.CallToolResult, bookStructureEditOut, error) {
