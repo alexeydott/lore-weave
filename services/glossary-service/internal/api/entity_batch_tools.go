@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -88,6 +89,17 @@ type proposeEntitiesSummary struct {
 type proposeEntitiesOut struct {
 	Results []proposeEntityItemResult `json:"results"`
 	Summary proposeEntitiesSummary    `json:"summary"`
+	// Guidance makes SUCCESS unambiguous when `created == 0` because every item ALREADY
+	// EXISTED. Without it the model reads `{"created": 0, "skipped": 1}` as a failure and
+	// retries the identical call — measured live 2026-07-23 (session 019f8de6): the same
+	// `glossary_propose_entities` call at iterations 1, 2 and 3, each answering
+	// `skipped_exists`, the entity present in the DB the whole time.
+	//
+	// This is the same retry-loop class the IsError guard below already fixed for the
+	// FAILED case ("9x in one session, book untouched"); the all-skipped case was the
+	// remaining hole. It stays a NON-error — nothing went wrong, the desired state simply
+	// already held — so the fix is a positive statement, not an error flag.
+	Guidance string `json:"guidance,omitempty"`
 }
 
 func (s *Server) toolProposeEntities(ctx context.Context, _ *mcp.CallToolRequest, in proposeEntitiesToolIn) (*mcp.CallToolResult, proposeEntitiesOut, error) {
@@ -161,7 +173,44 @@ func (s *Server) toolProposeEntities(ctx context.Context, _ *mcp.CallToolRequest
 			Content: []mcp.Content{&mcp.TextContent{Text: msg}},
 		}, out, nil
 	}
+	// Success-discrimination (OUT-4): nothing created because everything already
+	// existed is a SUCCESS, but `{"created": 0}` reads as failure to a mid-tier model,
+	// which then re-issues the identical call. Say the desired state already holds and
+	// name the existing entities, so the model reports to the user instead of retrying.
+	if out.Summary.Created == 0 && out.Summary.Failed == 0 && out.Summary.Skipped > 0 {
+		out.Guidance = "SUCCESS — nothing to do: " + existingNamesPhrase(out.Results) +
+			" already exist in this book's glossary, so no duplicate was created. " +
+			"This is the desired end state. Do NOT call this tool again with the same " +
+			"items; tell the user the entity already exists (use glossary_get_entity or " +
+			"glossary_entity_set_attributes to inspect or change it)."
+	}
 	return nil, out, nil
+}
+
+// existingNamesPhrase renders the already-existing entity names for the all-skipped
+// guidance, capped so a 50-item batch can't produce a giant string.
+func existingNamesPhrase(results []proposeEntityItemResult) string {
+	const maxNames = 5
+	names := make([]string, 0, maxNames)
+	extra := 0
+	for _, r := range results {
+		if r.Status != "skipped_exists" && r.Status != "skipped_tombstoned" {
+			continue
+		}
+		if len(names) < maxNames {
+			names = append(names, strconv.Quote(r.Name))
+		} else {
+			extra++
+		}
+	}
+	if len(names) == 0 {
+		return "the requested entities"
+	}
+	phrase := strings.Join(names, ", ")
+	if extra > 0 {
+		phrase += fmt.Sprintf(" and %d more", extra)
+	}
+	return phrase
 }
 
 // distinctErrorReasons collects the DISTINCT error strings across the failed items,

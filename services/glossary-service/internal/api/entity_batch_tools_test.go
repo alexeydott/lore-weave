@@ -217,3 +217,56 @@ func TestProposeEntities_EmptyItems_Rejected(t *testing.T) {
 		t.Fatal("want an error for empty items")
 	}
 }
+
+// TestAllSkippedBatchCarriesSuccessGuidance — the retry-loop hole.
+//
+// Measured live 2026-07-23 (chat session 019f8de6): gemma called
+// glossary_propose_entities with the SAME item at iterations 1, 2 and 3. Each answered
+// `{"created":0,"skipped":1}` with `status: skipped_exists` — a correct dedup — but the
+// model read `created: 0` as failure and re-issued the identical call. The entity was in
+// the DB the whole time.
+//
+// Same class as the IsError guard for the FAILED case ("9x in one session, book
+// untouched"); the all-skipped case was the remaining hole. It must stay a NON-error —
+// nothing went wrong — so success is asserted in the payload, not via IsError.
+func TestAllSkippedBatchCarriesSuccessGuidance(t *testing.T) {
+	out := proposeEntitiesOut{
+		Results: []proposeEntityItemResult{
+			{Name: "Lâm Uyên", Status: "skipped_exists", EntityID: "e1"},
+		},
+		Summary: proposeEntitiesSummary{Created: 0, Skipped: 1, Failed: 0},
+	}
+	// Mirror the handler's terminal branch.
+	if out.Summary.Created == 0 && out.Summary.Failed == 0 && out.Summary.Skipped > 0 {
+		out.Guidance = "SUCCESS — nothing to do: " + existingNamesPhrase(out.Results) +
+			" already exist in this book's glossary, so no duplicate was created. " +
+			"This is the desired end state. Do NOT call this tool again with the same " +
+			"items; tell the user the entity already exists (use glossary_get_entity or " +
+			"glossary_entity_set_attributes to inspect or change it)."
+	}
+	if !strings.Contains(out.Guidance, "SUCCESS") {
+		t.Fatalf("all-skipped result must assert SUCCESS, got %q", out.Guidance)
+	}
+	if !strings.Contains(out.Guidance, "Do NOT call this tool again") {
+		t.Fatalf("guidance must explicitly stop the retry, got %q", out.Guidance)
+	}
+	if !strings.Contains(out.Guidance, `"Lâm Uyên"`) {
+		t.Fatalf("guidance must name the existing entity, got %q", out.Guidance)
+	}
+}
+
+func TestExistingNamesPhraseCapsLongBatches(t *testing.T) {
+	results := make([]proposeEntityItemResult, 0, 8)
+	for _, n := range []string{"a", "b", "c", "d", "e", "f", "g"} {
+		results = append(results, proposeEntityItemResult{Name: n, Status: "skipped_exists"})
+	}
+	// A 50-item batch must not produce a giant string.
+	got := existingNamesPhrase(results)
+	if !strings.Contains(got, "and 2 more") {
+		t.Fatalf("want a capped phrase with an overflow count, got %q", got)
+	}
+	// A created-only batch has no skipped names to report.
+	if got := existingNamesPhrase([]proposeEntityItemResult{{Name: "x", Status: "created"}}); got != "the requested entities" {
+		t.Fatalf("want the neutral fallback, got %q", got)
+	}
+}

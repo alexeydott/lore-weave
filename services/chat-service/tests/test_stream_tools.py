@@ -39,6 +39,7 @@ from app.config import settings
 from app.services.stream_service import (
     MAX_TOOL_ITERATIONS,
     _Usage,
+    _collapse_identical_tool_calls,
     _drop_duplicate_empty_tool_calls,
     _extract_leaked_tool_calls,
     _parse_tool_args,
@@ -1778,3 +1779,63 @@ class TestTaskGateSuspend:
         assert pend["name"] == "composition_create_derivative"
         assert pend["task"] == {"taskId": "task_z", "status": "input_required",
                                 "inputRequests": {"title": "Spawn dị bản?"}}
+
+
+class TestCollapseIdenticalToolCalls:
+    """D-TOOLCALL-DUP-IDENTICAL — byte-identical calls in ONE pass collapse to one.
+
+    Measured live over 24h of transcripts (2026-07-23): affected sessions had
+    `count(DISTINCT args) = 1` across 3-4 calls of the same tool, all at `iteration: 0`
+    — parallel duplicates in a single emission, not sequential retries. A CORRECTNESS
+    fix: a write tool without its own idempotency would run N times for one user intent.
+    """
+
+    def test_collapses_byte_identical_repeats(self):
+        args = '{"book_id":"b1","items":[{"name":"Lâm Uyên","kind":"character"}]}'
+        calls = [
+            {"id": "c0", "name": "glossary_propose_entities", "arguments": args},
+            {"id": "c1", "name": "glossary_propose_entities", "arguments": args},
+            {"id": "c2", "name": "glossary_propose_entities", "arguments": args},
+        ]
+        assert _collapse_identical_tool_calls(calls) == [calls[0]]
+
+    def test_collapses_args_differing_only_in_key_order_or_whitespace(self):
+        calls = [
+            {"id": "c0", "name": "tool_list", "arguments": '{"category":"glossary"}'},
+            {"id": "c1", "name": "tool_list", "arguments": '{ "category" : "glossary" }'},
+        ]
+        assert _collapse_identical_tool_calls(calls) == [calls[0]]
+
+    def test_keeps_distinct_args_for_the_same_tool(self):
+        # A genuine parallel batch (two different searches) must survive intact.
+        calls = [
+            {"id": "c0", "name": "glossary_search", "arguments": '{"query":"a"}'},
+            {"id": "c1", "name": "glossary_search", "arguments": '{"query":"b"}'},
+        ]
+        assert _collapse_identical_tool_calls(calls) == calls
+
+    def test_keeps_same_args_for_different_tools(self):
+        calls = [
+            {"id": "c0", "name": "tool_list", "arguments": '{"category":"glossary"}'},
+            {"id": "c1", "name": "tool_load", "arguments": '{"category":"glossary"}'},
+        ]
+        assert _collapse_identical_tool_calls(calls) == calls
+
+    def test_single_call_and_empty_list_are_untouched(self):
+        one = [{"id": "c0", "name": "t", "arguments": "{}"}]
+        assert _collapse_identical_tool_calls(one) == one
+        assert _collapse_identical_tool_calls([]) == []
+
+    def test_composes_with_the_empty_duplicate_dropper(self):
+        # Real shape: one well-formed call, an identical repeat, and a malformed empty.
+        # Run in the same order production does — empties dropped FIRST, so a `{}` call
+        # is never the survivor a later well-formed call would collapse into.
+        args = '{"query":"a"}'
+        calls = [
+            {"id": "c0", "name": "glossary_search", "arguments": args},
+            {"id": "c1", "name": "glossary_search", "arguments": args},
+            {"id": "c2", "name": "glossary_search", "arguments": ""},
+        ]
+        assert _collapse_identical_tool_calls(
+            _drop_duplicate_empty_tool_calls(calls)
+        ) == [calls[0]]

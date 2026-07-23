@@ -905,6 +905,61 @@ def _drop_duplicate_empty_tool_calls(calls: list[dict]) -> list[dict]:
     return kept
 
 
+def _collapse_identical_tool_calls(calls: list[dict]) -> list[dict]:
+    """D-TOOLCALL-DUP-IDENTICAL — collapse BYTE-IDENTICAL calls emitted in the SAME pass.
+
+    Sibling of `_drop_duplicate_empty_tool_calls` above (same defective-decoding family),
+    but the opposite manifestation: instead of a well-formed call followed by an EMPTY
+    one, the model emits the exact same call — same tool, same arguments — two to four
+    times in a single `tool_calls` array. Measured live over 24h of transcripts
+    (2026-07-23): every affected session had `count(DISTINCT args) = 1`, i.e. the repeats
+    were byte-identical, not a batch of different requests:
+
+        019f8dbd  glossary_propose_entity_edit  4 calls / 1 distinct args
+        019f8cb2  glossary_propose_entity_edit  4 calls / 1 distinct args
+        019f8dda  glossary_propose_entities     3 calls / 1 distinct args
+        019f8cb2  tool_list                     3 calls / 1 distinct args
+
+    All carried `iteration: 0` — parallel duplicates within one emission, NOT sequential
+    retries after seeing a result.
+
+    This is a CORRECTNESS fix, not just a token saving. `glossary_propose_entities`
+    happens to dedup by name server-side, so the repeats were absorbed — but a write tool
+    without its own idempotency (e.g. a plain create) would execute N times and produce N
+    rows from one user intent.
+
+    Scope is deliberately ONE PASS: only the calls in this single emission are compared.
+    An identical call in a LATER iteration is a legitimate retry — the model has seen a
+    result by then and state may have changed — and is never touched. Dropping happens
+    before the assistant message is assembled (same as the sibling helper), so the dropped
+    ids never appear in `tool_calls` and the provider never expects a response for them.
+    """
+    if len(calls) < 2:
+        return calls
+    kept: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    dropped: list[str] = []
+    for c in calls:
+        # Canonicalize through the same parser execution uses, with sorted keys, so
+        # semantically identical args differing only in key order or whitespace collapse.
+        try:
+            key = (c["name"], json.dumps(_parse_tool_args(c["arguments"]), sort_keys=True))
+        except Exception:
+            kept.append(c)
+            continue
+        if key in seen:
+            dropped.append(c["name"])
+            continue
+        seen.add(key)
+        kept.append(c)
+    if dropped:
+        logger.warning(
+            "D-TOOLCALL-DUP-IDENTICAL: collapsed %d byte-identical duplicate tool-call(s) "
+            "emitted in one pass: %s", len(dropped), dropped,
+        )
+    return kept
+
+
 async def _run_composer(
     client,
     composer_model: tuple[str, str],
@@ -2072,6 +2127,11 @@ async def _stream_with_tools(
             # STILL empty/unparseable immediately after a well-formed call to
             # the identical tool name gets silently dropped here.
             calls = _drop_duplicate_empty_tool_calls(calls)
+            # …then collapse byte-identical repeats in the same pass (see the helper: a
+            # write tool without its own idempotency would otherwise run N times for one
+            # user intent). Order matters — drop the malformed empties first so a
+            # `{}`-args call is never the survivor a later well-formed call collapses into.
+            calls = _collapse_identical_tool_calls(calls)
             # D-TOOLCALL-HISTORY-ARGS-NOT-JSON — a call's raw `arguments` string
             # can be `""` (the model never streamed anything) or otherwise
             # unparseable. Per the OpenAI tool-calling wire contract,
