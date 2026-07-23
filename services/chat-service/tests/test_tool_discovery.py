@@ -15,7 +15,7 @@ from uuid import uuid4
 import pytest
 
 from app.client.embedding_client import EmbeddingResult
-from app.services import tool_discovery as td
+from app.services import frontend_tools, tool_discovery as td
 from app.services.frontend_tools import FRONTEND_TOOL_NAMES, frontend_tool_defs
 from app.services.stream_service import (
     TIER_A_AGGREGATE_CAP,
@@ -68,6 +68,39 @@ _CATALOG = [
     # a catalog that lacks it advertises nothing for it (see the degrade test below).
     _tool("web_search", "Search the open web", tier="R", synonyms=["web", "research"]),
 ]
+
+# Every ALWAYS_ON_CORE_NAMES entry that resolves from the CATALOG (rather than from a
+# local `generic_frontend_tool_def`) must exist in this fixture, or the advertiser
+# legitimately omits it and the test reads that as a product bug.
+#
+# This drifted twice. Track D CD5 made `web_search` federated and the fixture was updated
+# by hand (see the comment above). Phase 3 P3.2 then moved the nav `ui_*` tools the SAME
+# way — local def → federated directive tool — and the fixture was NOT updated, so
+# ui_navigate/ui_open_book/ui_show_panel/ui_watch_job silently vanished from every
+# fixture-driven advertisement and left ~15 tests red for nothing. Verified 2026-07-23
+# against the LIVE gateway catalog: all 8 core names advertise, 0 missing — the runtime
+# was correct the whole time; only the fixture lagged.
+#
+# So derive it instead of listing it: anything core that has no local def is added here
+# automatically, and the next local→federated move needs no fixture edit at all.
+_CATALOG += [
+    _tool(_n, f"{_n} (auto-added: core tool that resolves from the catalog)")
+    for _n in td.ALWAYS_ON_CORE_NAMES
+    if frontend_tools.generic_frontend_tool_def(_n) is None
+    and _n not in {t["function"]["name"] for t in _CATALOG}
+]
+
+
+def test_catalog_fixture_covers_every_catalog_resolved_core_tool():
+    """Guard for the drift above: if a core tool resolves from the catalog and the
+    fixture lacks it, every advertisement test silently under-reports the core."""
+    present = {t["function"]["name"] for t in _CATALOG}
+    for name in td.ALWAYS_ON_CORE_NAMES:
+        if frontend_tools.generic_frontend_tool_def(name) is None:
+            assert name in present, (
+                f"core tool {name!r} resolves from the CATALOG but the test fixture "
+                "lacks it — advertisement tests would read a fixture gap as a product bug"
+            )
 
 
 def _run_discovery(

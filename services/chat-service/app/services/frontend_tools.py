@@ -715,7 +715,43 @@ def frontend_tool_defs(
 
 
 def is_frontend_tool(name: str) -> bool:
+    """Does chat-service INTERCEPT this tool (suspend the run, hand it to the FE)?
+
+    Membership of ``FRONTEND_TOOL_NAMES`` — i.e. "chat-service owns this schema and
+    short-circuits the call". NOT the same question as {@link is_browser_executed}; see
+    that docstring for why conflating the two produced a real bug.
+    """
     return name in FRONTEND_TOOL_NAMES
+
+
+# Browser-executed tools that chat-service does NOT intercept: their schema lives in
+# ai-gateway and the call routes there, but what comes back is a DIRECTIVE the browser
+# performs. `ui_*` moved this way in Phase 3 P3.2, `propose_edit` in Phase 2 P2.2.
+_BROWSER_EXECUTED_EXTRA: frozenset[str] = frozenset({"propose_edit"})
+
+
+def is_browser_executed(name: str) -> bool:
+    """Does this tool's EFFECT happen in the browser (rather than on a server)?
+
+    Deliberately separate from :func:`is_frontend_tool`. Those two questions used to be
+    answered by the same set, and when P2.2/P3.2 moved `propose_edit` and the `ui_*` tools
+    out of ``FRONTEND_TOOL_NAMES`` (correct — chat-service stopped intercepting them), every
+    consumer asking "is this browser-executed?" silently started answering *no*:
+
+      * ``agent_surface.server_key_for_tool`` grouped every navigation / panel / watch call
+        under ``"other"`` instead of ``"ui"``;
+      * the advertised-surface split in ``stream_service`` counted them as ``activated``
+        instead of ``frontend``, so the Agent-runtime panel under-reported the UI surface
+        and the frontend/mcp schema-token split was wrong.
+
+    Neither is fatal, which is exactly why it went unnoticed — it only corrupts the numbers
+    you would use to diagnose something else. One predicate, one home, both consumers.
+    """
+    return (
+        name in FRONTEND_TOOL_NAMES
+        or name in _BROWSER_EXECUTED_EXTRA
+        or name.startswith("ui_")
+    )
 
 
 # ── Phase 0 (frontend-tools → MCP migration) — the MCP-native validation seam ──

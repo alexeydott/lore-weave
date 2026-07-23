@@ -16,7 +16,7 @@ from typing import Any, Iterable
 
 from app.db.conversation_search import CONVERSATION_SEARCH_NAME
 from app.db.session_search import CHAT_SEARCH_SESSIONS_NAME
-from app.services.frontend_tools import FRONTEND_TOOL_NAMES
+from app.services.frontend_tools import is_browser_executed
 from app.services.tool_discovery import FIND_TOOLS_NAME
 
 
@@ -31,6 +31,12 @@ PHASES = (
 
 
 # ── W6: tool-name prefix → owning MCP server key ─────────────────────────────
+# Frontend (browser-executed) tools group under "ui"; the consumer-local
+# find_tools meta-tool (never federated) under "chat".
+SERVER_KEY_UI = "ui"
+SERVER_KEY_CHAT = "chat"
+SERVER_KEY_OTHER = "other"
+
 # Mirrors the ai-gateway federation registry (services/ai-gateway/src/config/
 # config.ts DEFAULT_PREFIX_MAP + EXTRA_PREFIX_MAP): knowledge serves BOTH
 # `memory_*` and `kg_*`; composition serves `composition_*` AND the PlanForge
@@ -46,14 +52,16 @@ _SERVER_KEY_BY_PREFIX: dict[str, str] = {
     "plan": "composition",
     "translation": "translation",
     "jobs": "jobs",
+    # `ui_*` are BROWSER-EXECUTED directive tools. Their DEFINITION moved to ai-gateway
+    # (Phase 3 P3.2: local frontend def → federated directive tool), which dropped them
+    # out of FRONTEND_TOOL_NAMES — but this key describes WHERE A TOOL EXECUTES, not where
+    # its schema is authored, and execution is still the browser. Without this row they
+    # fell through to "other", so surface telemetry reported every navigation/panel/watch
+    # call as an unknown provider. Keyed by PREFIX so a new `ui_*` tool is covered on
+    # arrival (`ui_open_chapter`, `ui_open_studio_panel`, `ui_focus_manuscript_unit` all
+    # postdate the constant that used to enumerate them).
+    "ui": SERVER_KEY_UI,
 }
-
-# Frontend (browser-executed) tools group under "ui"; the consumer-local
-# find_tools meta-tool (never federated) under "chat".
-SERVER_KEY_UI = "ui"
-SERVER_KEY_CHAT = "chat"
-SERVER_KEY_OTHER = "other"
-
 
 def server_key_for_tool(name: str) -> str:
     """The MCP-server grouping key for a tool name.
@@ -67,7 +75,7 @@ def server_key_for_tool(name: str) -> str:
     # conversation_search recovery tool, and chat_search_sessions recall group under "chat".
     if name in (FIND_TOOLS_NAME, CONVERSATION_SEARCH_NAME, CHAT_SEARCH_SESSIONS_NAME):
         return SERVER_KEY_CHAT
-    if name in FRONTEND_TOOL_NAMES:
+    if is_browser_executed(name):
         return SERVER_KEY_UI
     prefix = name.split("_", 1)[0] if "_" in name else ""
     return _SERVER_KEY_BY_PREFIX.get(prefix, SERVER_KEY_OTHER)

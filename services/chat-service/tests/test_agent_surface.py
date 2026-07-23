@@ -293,8 +293,19 @@ class TestAdvertiseEmitsSurface:
         first, last = surfaces[0], surfaces[-1]
         # pass 0: the always-on core, plus the always-appended conversation_search
         # recovery tool (T6/D6) in activated. No discovered domain tool yet.
-        assert "find_tools" in first["advertised"]["core"]
-        assert first["advertised"]["activated"] == ["chat_search_sessions", "conversation_search"]
+        # F17 (2026-07-20) retired `find_tools` FROM THE LLM's VIEW — the deterministic
+        # tool_list/tool_load pair is the only advertised discovery surface now. Its
+        # handler stays dispatchable (this test still drives a find_tools call), but it
+        # must NOT appear in the advertised core. Assert the replacement instead.
+        assert {"tool_list", "tool_load"} <= set(first["advertised"]["core"])
+        assert "find_tools" not in first["advertised"]["core"]
+        # SUBSET, not equality: the always-appended set grows (conversation_search +
+        # chat_search_sessions recovery, then `load_skill`). An exact-list assertion here
+        # turns every legitimate addition into a red test, which is how this file
+        # accumulated stale failures in the first place.
+        assert {"chat_search_sessions", "conversation_search"} <= set(
+            first["advertised"]["activated"])
+        assert "translation_start_job" not in first["advertised"]["activated"]
         assert first["servers"].get("translation") is None
         # after find_tools matched: translation tool advertised + grouped.
         assert "translation_start_job" in last["advertised"]["activated"]

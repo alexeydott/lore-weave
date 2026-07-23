@@ -71,6 +71,7 @@ from app.services.composer import build_composer_messages, is_composer_tool
 from app.services.frontend_tools import (
     frontend_tool_def_by_name,
     generic_frontend_tool_def,
+    is_browser_executed,
     is_frontend_tool,
     validate_frontend_tool_args,
 )
@@ -1720,7 +1721,12 @@ async def _stream_with_tools(
                             _fn = _td.get("function") if isinstance(_td, dict) else None
                             _nm = _fn.get("name") if isinstance(_fn, dict) else None
                             _tok = estimate_tokens(json.dumps(_td))
-                            if _nm and is_frontend_tool(_nm):
+                            # Browser-executed, not merely chat-intercepted — the third
+                            # consumer of that distinction (see is_browser_executed). With
+                            # is_frontend_tool here, every ui_*/propose_edit schema was
+                            # billed to the MCP side, so the W1 frontend/mcp token split
+                            # under-reported the UI surface as exactly 0.
+                            if _nm and is_browser_executed(_nm):
                                 _fe_tok += _tok
                             else:
                                 _mcp_tok += _tok
@@ -1746,7 +1752,7 @@ async def _stream_with_tools(
                                 continue
                             if _nm in ALWAYS_ON_CORE_NAMES:
                                 _adv_core.append(_nm)
-                            elif is_frontend_tool(_nm):
+                            elif is_browser_executed(_nm):
                                 _adv_frontend.append(_nm)
                             else:
                                 _adv_activated.append(_nm)
