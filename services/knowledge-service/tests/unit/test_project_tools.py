@@ -238,13 +238,24 @@ async def test_changing_model_on_a_built_graph_is_refused_not_silently_orphaning
     """D-EMB-MODEL-REF-04: changing the model on a project that already has a graph would
     leave its passages in Neo4j tagged with the OLD model while retrieval queries the NEW
     vector space — silent zero-recall. That path deletes vectors, so it stays a
-    confirm-gated REST op; this Tier-A tool must refuse and say where to go."""
+    confirm-gated REST op; this Tier-A tool must refuse and say where to go.
+
+    2026-07-23: "already has a graph" is now a PASSAGE-EXISTENCE probe, not
+    `extraction_status`. That column reads 'disabled' both after a graph delete (vectors
+    gone) and after `POST /extraction/disable` (vectors explicitly preserved), so it could
+    not answer the only question that matters — is there anything to orphan. See
+    tests/unit/test_embedding_model_orphaned_passages.py.
+    """
     repo = AsyncMock()
     repo.project_meta = AsyncMock(return_value=(_USER, _BOOK))
     repo.get = AsyncMock(
         return_value=_fake_full_project(
             embedding_model="old", embedding_dimension=1024, extraction_status="completed"
         )
+    )
+    monkeypatch.setattr(
+        "app.db.neo4j_repos.graph_state.project_has_embedded_passages",
+        AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
         "app.clients.embedding_client.probe_embedding_dimension", AsyncMock(return_value=1024)

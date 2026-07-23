@@ -33,6 +33,7 @@ __all__ = [
     "upsert_passage",
     "delete_passages_for_source",
     "delete_all_passages_for_project",
+    "project_has_passages",
     "find_passages_by_vector",
     "find_passages_by_fulltext",
     "PASSAGE_CJK_FT_INDEX",
@@ -326,6 +327,16 @@ RETURN count(id) AS deleted
 """
 
 
+# D-EMB-MODEL-REF-04 — "does this project hold vectors that a model change would orphan?"
+# LIMIT 1: existence, not a count, so it stays O(1)-ish on a large index.
+_ANY_FOR_PROJECT_CYPHER = """
+MATCH (p:Passage)
+WHERE p.user_id = $user_id AND p.project_id = $project_id
+RETURN p.id AS id
+LIMIT 1
+"""
+
+
 # D-R27 (erasure) — the CONFIRMED-fact graph nodes. WS-2.4's promote turns a reviewed diary fact into a
 # :Fact + :Entity (+ :ABOUT edges); the :Passage delete alone leaves these behind, so a confirmed diary
 # fact + the colleague entity it names would SURVIVE "erase my account" (caught by the E2E erase smoke —
@@ -375,6 +386,32 @@ async def delete_all_passages_for_project(
     )
     record = await result.single()
     return int(record["deleted"]) if record else 0
+
+
+async def project_has_passages(
+    session: CypherSession,
+    *,
+    user_id: str,
+    project_id: str,
+) -> bool:
+    """D-EMB-MODEL-REF-04 — does this project still hold `:Passage` vectors?
+
+    The GROUND TRUTH for "changing the embedding model would orphan something".
+    It exists because the previous proxy for that question — ``extraction_status !=
+    'disabled'`` — is not equivalent to it: ``POST /extraction/disable`` sets
+    ``'disabled'`` while EXPLICITLY preserving the graph (it returns
+    ``graph_preserved: true``), so a disabled project can be full of vectors. Under
+    the old proxy that project's embedding model could then be swapped with no
+    confirm and no purge, leaving every passage in the dead vector space —
+    the exact silent zero-recall the guard was written to prevent.
+    """
+    result = await run_read(
+        session,
+        _ANY_FOR_PROJECT_CYPHER,
+        user_id=user_id,
+        project_id=project_id,
+    )
+    return await result.single() is not None
 
 
 async def delete_passages_for_source(
