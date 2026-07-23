@@ -1329,7 +1329,11 @@ async def composition_scene_link_delete(
 class _CanonRuleCreateArgs(ForbidExtra):
     project_id: str
     text: str
-    scope: str = "world"
+    # K20 — the DB enforces CHECK (scope IN ('world','entity','reveal_gate')), but the arg was
+    # a bare `str` with NO description at all: the model had zero signal and any near-miss
+    # ("global", "book") became a 23514 check violation it could not have foreseen. The schema
+    # now declares exactly what the table already requires.
+    scope: Annotated[Literal["world", "entity", "reveal_gate"], "world | entity | reveal_gate"] = "world"
     entity_id: str | None = None
     from_order: int | None = None
     until_order: int | None = None
@@ -3784,7 +3788,9 @@ class _MotifLinkCreateArgs(ForbidExtra):
 async def composition_motif_link_list(
     ctx: MCPContext,
     motif_id: Annotated[str, "The motif whose edges to list (must be visible to you)."],
-    direction: Annotated[str, "'out', 'in', or 'both'."] = "both",
+    # K20 — see the Literal note on composition_arc_template_list: a runtime-checked closed
+    # set must be declared in the schema, not only enforced after the call arrives.
+    direction: Annotated[Literal["out", "in", "both"], "'out', 'in', or 'both'."] = "both",
     kinds: Annotated[list[str] | None, "Optional filter, e.g. ['precedes']."] = None,
     book_id: Annotated[
         str | None,
@@ -5822,9 +5828,13 @@ async def composition_arc_template_drift(
 )
 async def composition_arc_template_list(
     ctx: MCPContext,
-    scope: Annotated[str, "mine | system | all"] = "all",
+    # K20 — Literal, not `str`. These were runtime-checked closed sets advertised as bare
+    # strings: the handler rejected anything else, but the model was never TOLD the set, so a
+    # near-miss ("user", "published") was a hard error it had no way to avoid. A Literal makes
+    # FastMCP emit a real `enum`, which is the only form the validator reads.
+    scope: Annotated[Literal["mine", "system", "all"], "mine | system | all"] = "all",
     genre: Annotated[str | None, "filter by genre tag"] = None,
-    status: Annotated[str, "draft | active | archived"] = "active",
+    status: Annotated[Literal["draft", "active", "archived"], "draft | active | archived"] = "active",
     q: Annotated[str | None, "text search over name/summary"] = None,
     language: Annotated[str | None, "language code filter"] = None,
     limit: Annotated[int, "1..100"] = 50,
