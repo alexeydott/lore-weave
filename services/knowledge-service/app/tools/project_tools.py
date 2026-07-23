@@ -69,6 +69,36 @@ async def _handle_kg_project_create(ctx: "ToolContext", args: KgProjectCreateArg
                 "only the book's owner can create a knowledge project for it"
             )
 
+    # K13 (2026-07-23) — agent-side idempotency for the BOOK-LESS path.
+    #
+    # `create_or_get` dedups per (user, book) but, by design, "a general project — or a
+    # book-typed one with no book_id — still always inserts (the FE general-project create
+    # UX is unchanged)". That is right for a human clicking "new project" twice; it is
+    # wrong for the agent loop, which was MEASURED re-issuing a byte-identical Tier-A write
+    # across iterations even after an explicit success result, bounded only by
+    # TIER_A_SAME_OP_CAP (5/turn). Live-probed: two identical `kg_project_create` calls
+    # made two projects.
+    #
+    # So the guard lives HERE, on the agent-facing tool, and not in the shared repo — the
+    # FE path keeps its behaviour untouched. Same shape as book-service's N6 chapter guard:
+    # a pre-insert lookup on the non-empty natural key, live rows only. Agent tool calls
+    # execute sequentially, so a lookup closes the observed case without a migration.
+    if book_uuid is None and (args.name or "").strip():
+        existing = await ctx.projects_repo.find_by_name(ctx.user_id, args.name.strip())
+        if existing is not None:
+            return {
+                "project_id": str(existing.project_id),
+                "name": existing.name,
+                "project_type": existing.project_type,
+                "book_id": str(existing.book_id) if existing.book_id else None,
+                "created": False,
+                "note": (
+                    "a project with this name already exists — returning it instead of "
+                    "creating a duplicate. Set this project_id as the active project "
+                    "(X-Project-Id) for the KG schema, extraction, and wiki tools."
+                ),
+            }
+
     body = ProjectCreate(
         name=args.name,
         project_type=args.project_type,

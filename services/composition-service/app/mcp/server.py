@@ -5313,6 +5313,27 @@ async def composition_arc_create(ctx: MCPContext, args: _ArcCreateArgs) -> dict:
     # book_id IS the scope; a cross-book parent_arc_id is caught by the trigger).
     await _gate(tc, bid, GrantLevel.EDIT)
     structures = StructureRepo(get_pool())
+    # K13 (2026-07-23) — idempotency guard against the agent double-firing this Tier-A
+    # create. LIVE-PROBED: two byte-identical calls made TWO arcs. The agent loop was
+    # measured re-issuing an identical Tier-A write across iterations even after an
+    # explicit success result, and Tier-A auto-commits are bounded only by
+    # TIER_A_SAME_OP_CAP (5/turn) — so one intent could mint five arcs. Same shape as
+    # book-service's N6 chapter guard: sequential tool calls make a pre-insert lookup on
+    # the non-empty natural key sufficient, and a DB unique is avoided because two arcs
+    # legitimately sharing a title (different parents/tracks) is a real authoring case.
+    if (args.title or "").strip():
+        existing = await structures.find_node_by_title(
+            bid, args.kind, args.title.strip(),
+            parent_id=UUID(args.parent_arc_id) if args.parent_arc_id else None,
+        )
+        if existing is not None:
+            out = existing.model_dump(mode="json")
+            out["_meta"] = {"undo_hint": _undo("composition_arc_delete", node_id=str(existing.id))}
+            out["note"] = (
+                "an arc with this title already exists at this level — returning it "
+                "instead of creating a duplicate."
+            )
+            return out
     try:
         node = await structures.create_node(
             bid,

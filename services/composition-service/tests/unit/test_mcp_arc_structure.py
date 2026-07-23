@@ -77,6 +77,12 @@ async def _patched(*, grant_level=2, structures=None, book=BOOK, grants=None):
 
     if structures is None:
         structures = AsyncMock()
+    # K13 idempotency guard: `composition_arc_create` looks up an existing same-title arc
+    # BEFORE inserting. A bare AsyncMock returns a truthy mock, which would send every arc
+    # create down the "already exists" branch — so unless a case configured it deliberately,
+    # default it to the real no-match answer (None).
+    if not isinstance(structures.find_node_by_title, AsyncMock) or             not isinstance(structures.find_node_by_title.return_value, (type(None), object)) or             structures.find_node_by_title.return_value.__class__.__name__ == "AsyncMock":
+        structures.find_node_by_title = AsyncMock(return_value=None)
 
     works = AsyncMock()
 
@@ -516,3 +522,41 @@ async def test_arc_mutation_missing_and_foreign_are_same_deny(invoke):
             await invoke(srv, _Ctx())
 
     assert str(missing_exc.value) == str(foreign_exc.value) == NOT_ACCESSIBLE_MESSAGE
+
+
+async def test_arc_create_is_idempotent_on_an_existing_title():
+    """K13 — a byte-identical double-fire must return the EXISTING arc, not mint a second.
+
+    Live-probed before the guard: two identical `composition_arc_create` calls produced two
+    arcs. The agent loop was separately measured re-issuing an identical Tier-A write
+    across iterations even after an explicit success result, and Tier-A auto-commits are
+    bounded only by TIER_A_SAME_OP_CAP (5/turn)."""
+    import app.mcp.server as srv
+
+    existing = _node(kind="saga")
+    structures = AsyncMock()
+    structures.create_node = AsyncMock(return_value=_node(kind="saga"))
+    structures.find_node_by_title = AsyncMock(return_value=existing)
+    async with _patched(grant_level=2, structures=structures):
+        res = await srv.composition_arc_create(
+            _Ctx(), srv._ArcCreateArgs(book_id=str(BOOK), kind="saga", title="Ascension"),
+        )
+    assert res["id"] == str(existing.id), "must return the EXISTING arc"
+    structures.create_node.assert_not_awaited()
+    assert "already exists" in res.get("note", "")
+
+
+async def test_arc_create_still_creates_for_a_new_title():
+    """The guard must not swallow real work — a title with no match still inserts."""
+    import app.mcp.server as srv
+
+    made = _node(kind="saga")
+    structures = AsyncMock()
+    structures.create_node = AsyncMock(return_value=made)
+    structures.find_node_by_title = AsyncMock(return_value=None)
+    async with _patched(grant_level=2, structures=structures):
+        res = await srv.composition_arc_create(
+            _Ctx(), srv._ArcCreateArgs(book_id=str(BOOK), kind="saga", title="A Brand New Arc"),
+        )
+    assert res["id"] == str(made.id)
+    structures.create_node.assert_awaited_once()
