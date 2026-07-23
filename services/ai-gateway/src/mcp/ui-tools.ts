@@ -82,6 +82,23 @@ export interface UiToolDef {
     required?: string[];
     additionalProperties: false;
   };
+  /**
+   * C-TOOL `_meta` — REQUIRED, so a ui_* tool cannot ship untiered.
+   *
+   * K21 (2026-07-23): every domain service is FORCED to declare a tier — Go panics at boot
+   * (MustValidateToolMeta), Python raises (require_meta) — but ai-gateway's own tools are
+   * hand-written defs that no service gate covers. `tool_list`/`tool_load` were fixed when a
+   * federated tools/list showed 3 untiered tools; these 8 were missed, so the same audit
+   * still found 8. Making the field non-optional moves the rule from "remember to" to
+   * "cannot compile without".
+   *
+   * Tier R is DECLARED here, not merely inherited from the consumer's silent default. It is
+   * the correct tier by the kit's own definition ("read — no confirm, doesn't count against
+   * the write budget"): a ui_* call changes what the user is LOOKING AT, never what is
+   * stored. The page it opens loads through the normal authenticated routes, which do their
+   * own grant checks — hence scope 'none' rather than a data scope these tools never read.
+   */
+  _meta: { tier: 'R'; scope: 'none' };
 }
 
 export const UI_TOOLS: UiToolDef[] = [
@@ -99,6 +116,7 @@ export const UI_TOOLS: UiToolDef[] = [
       required: ['path'],
       additionalProperties: false,
     },
+    _meta: { tier: 'R', scope: 'none' },
   },
   {
     name: 'ui_open_book',
@@ -118,6 +136,7 @@ export const UI_TOOLS: UiToolDef[] = [
       required: ['book_id'],
       additionalProperties: false,
     },
+    _meta: { tier: 'R', scope: 'none' },
   },
   {
     name: 'ui_open_chapter',
@@ -138,6 +157,7 @@ export const UI_TOOLS: UiToolDef[] = [
       required: ['book_id', 'chapter_id', 'mode'],
       additionalProperties: false,
     },
+    _meta: { tier: 'R', scope: 'none' },
   },
   {
     name: 'ui_show_panel',
@@ -153,6 +173,7 @@ export const UI_TOOLS: UiToolDef[] = [
       required: ['panel'],
       additionalProperties: false,
     },
+    _meta: { tier: 'R', scope: 'none' },
   },
   {
     name: 'ui_watch_job',
@@ -167,6 +188,7 @@ export const UI_TOOLS: UiToolDef[] = [
       required: ['job_id'],
       additionalProperties: false,
     },
+    _meta: { tier: 'R', scope: 'none' },
   },
   {
     name: 'ui_open_studio_panel',
@@ -181,6 +203,7 @@ export const UI_TOOLS: UiToolDef[] = [
       required: ['panel_id'],
       additionalProperties: false,
     },
+    _meta: { tier: 'R', scope: 'none' },
   },
   {
     name: 'ui_focus_manuscript_unit',
@@ -196,6 +219,7 @@ export const UI_TOOLS: UiToolDef[] = [
       required: ['chapter_id'],
       additionalProperties: false,
     },
+    _meta: { tier: 'R', scope: 'none' },
   },
 ];
 
