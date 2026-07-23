@@ -132,7 +132,9 @@ class TestPlanChokepoint:
         names = {t["function"]["name"] for t in req.tools}
         assert names & ALL_PLAN_ACTIVE == R_CATALOG_NAMES | PLAN_TOOL_NAMES
         # discovery machinery intact in plan mode
-        assert "find_tools" in names
+        # F17 (2026-07-20) retired find_tools from the LLM's view; the deterministic
+        # tool_list/tool_load pair is the advertised discovery surface.
+        assert {"tool_list", "tool_load"} <= names
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -383,7 +385,10 @@ class TestPlanSkillAutoInject:
     def test_plan_mode_with_pins_appends_plan_forge(self):
         """A curated pin set that omits plan_forge still gets it in plan mode."""
         codes = self._resolve(permission_mode="plan", enabled_skills=["glossary"])
-        assert codes == ["glossary", "plan_forge"]
+        # SUBSET, not equality — the injected-skill set grows (glossary_shaping joined
+        # after this was written). What this case guards is that plan_forge is APPENDED to
+        # the pins, not that the pin list never changes.
+        assert "plan_forge" in codes and "glossary" in codes
 
     def test_plan_mode_never_duplicates_a_pinned_plan_forge(self):
         codes = self._resolve(
@@ -542,15 +547,30 @@ class TestPlanSuspendResumeRoundTrip:
     @pytest.mark.asyncio
     async def test_frontend_suspend_saves_plan_mode(self):
         """A plan-mode turn that suspends on a frontend tool persists
-        permission_mode='plan' (the VARCHAR(8) column carries it fine)."""
+        permission_mode='plan' (the VARCHAR(8) column carries it fine).
+
+        Vehicle changed from `propose_edit` to `glossary_propose_entity_edit`: P2.2 moved
+        propose_edit to an ai-gateway consumer-local tool, so chat-service no longer
+        INTERCEPTS it and this surface (deliberately gateway-down, tool_defs=[]) can no
+        longer produce a local suspend from it. The behaviour under test — a suspend
+        persists permission_mode — is unchanged and still reachable via a tool
+        chat-service does intercept. Args are real UUIDs: the frontend-tool validation
+        seam rejects placeholder ids before any suspend (see test_frontend_tool_validation).
+        """
         pool, conn = _make_pool_with_conn()
         pool.fetch.return_value = []
         conn.fetchval.return_value = 1
         kc = _patched_knowledge(tool_defs=[])  # gateway-down agui editor surface
 
         scripts = [[
-            tool_frag(index=0, id="c1", name="propose_edit"),
-            tool_frag(index=0, arguments_delta='{"operation":"insert_at_cursor","text":"x"}'),
+            tool_frag(index=0, id="c1", name="glossary_propose_entity_edit"),
+            tool_frag(index=0, arguments_delta=(
+                '{"book_id":"019f84e1-8716-7c05-9696-1ebf2bde68fc",'
+                '"entity_id":"019f8cbe-b8c1-7a05-b368-ed00a87cbde7",'
+                '"base_version":"1","rationale":"r",'
+                '"changes":[{"target":"short_description","field_label":"Name",'
+                '"old_value":"a","new_value":"b"}]}'
+            )),
             done("tool_calls"),
         ]]
         save_mock = AsyncMock()

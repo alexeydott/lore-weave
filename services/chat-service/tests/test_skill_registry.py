@@ -701,7 +701,12 @@ class TestF2TracedWebResearchBugRemainsFixed:
         # (always-on core), not the superseded glossary alias.
         assert "web_search" in prompt
         assert "glossary_web_search" not in prompt
-        assert "find_tools" in prompt
+        # F17 (2026-07-20): the universal skill steers to the DETERMINISTIC discovery pair;
+        # find_tools was retired from the LLM's view, so naming it here would teach a tool
+        # the model can never see. The F2 property under test — a general web-research
+        # intent resolves via the static universal skill, not a glossary-specific alias —
+        # is unaffected.
+        assert "tool_list" in prompt
 
 
 class TestN5aScopeRestraint:

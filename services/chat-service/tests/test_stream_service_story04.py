@@ -169,7 +169,10 @@ class TestStudioSurface:
         assert "composition_list_outline" in seeds
         assert "composition_outline_node_update" in seeds
         # book_* stays lazy even on the studio surface.
-        assert "book_get_chapter" not in seeds
+        # `book` is a hot domain on a studio surface too (2026-07-07 hot-domain
+        # derivation), so book tools seed here. The mechanism this guards is that the seed
+        # is DOMAIN-SCOPED — assert an off-surface domain stays lazy instead.
+        assert not any(n.startswith("translation_") for n in seeds)
 
     @pytest.mark.asyncio
     async def test_studio_context_position_pointer_in_system_message(self):
@@ -211,7 +214,10 @@ class TestStudioSurface:
         assert system is not None
         content = system["content"] if isinstance(system["content"], str) \
             else " ".join(p["text"] for p in system["content"])
-        assert "book_id=b1" in content
+        # Studio context binding (spec 2026-07-22): the ambient book rides X-Book-Id and
+        # the model is told NOT to pass a book_id, so the UUID is deliberately absent.
+        assert "book_id=b1" not in content
+        assert "Do NOT pass a book_id" in content
         assert "chapter_id=ch1" in content
         assert "project_id=p1" in content
         assert "a book_id is NOT a project_id" in content
