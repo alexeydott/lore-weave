@@ -368,13 +368,21 @@ async def _dispatch(ctx: MCPContext, tool_name: str, tool_args: dict) -> dict:
 @mcp_server.tool(
     name="story_search",
     description=(
-        "Search the book's manuscript for text or ideas — the universal find "
-        "tool. Use it to LOCATE where something appears before reading or "
-        "editing: an exact phrase/name (mode=exact), a concept described in "
-        "your own words (mode=semantic), or both fused (mode=hybrid, default, "
-        "best for most queries). granularity=chapter tells you WHICH chapters "
-        "match; granularity=block drills into the matching passages with "
-        "snippets. Follow up with book_get_chapter to read."
+        # K26 (2026-07-24) — was "the universal find tool", which over-claimed cross-store
+        # reach it does not have: this searches MANUSCRIPT PROSE only. A model reading
+        # "universal find" would use it to look for a character and, getting prose hits,
+        # conclude it had searched everything — never calling glossary_search / memory_search
+        # (a false negative). The tests always documented the intent as "universal MANUSCRIPT
+        # search"; the word "manuscript" had simply dropped out of the prose. Scope restored +
+        # an explicit redirect to the sibling stores.
+        "Search the book's MANUSCRIPT PROSE for text or ideas — where something is WRITTEN, "
+        "not what is known about it. The universal way to search the prose: LOCATE where "
+        "something appears before reading or editing — an exact phrase/name (mode=exact), a "
+        "concept in your own words (mode=semantic), or both fused (mode=hybrid, default, best "
+        "for most queries). granularity=chapter tells you WHICH chapters match; "
+        "granularity=block drills into the matching passages with snippets. Follow up with "
+        "book_get_chapter to read. Prose ONLY — for a glossary entity use glossary_search; "
+        "for known facts about a character/place use memory_search."
     ),
     meta=require_meta(
         "R", "project",
