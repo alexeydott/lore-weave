@@ -1839,3 +1839,83 @@ class TestCollapseIdenticalToolCalls:
         assert _collapse_identical_tool_calls(
             _drop_duplicate_empty_tool_calls(calls)
         ) == [calls[0]]
+
+
+class TestCollapseIsWiredIntoTheLoop:
+    """K9 — every test above calls the helper DIRECTLY. None of them proves the loop
+    reaches it, and a correct helper nobody calls is this repo's recurring silent-no-op
+    shape. Two post-fix live runs failed to reproduce the duplicate emission (the model
+    simply did not misbehave those times), so waiting for it to fire in the wild is not a
+    verification strategy — the duplicate has to be INJECTED at the seam it arrives from.
+
+    These drive the real `_stream_with_tools` with a gateway script that emits the exact
+    measured shape (3 byte-identical calls at iteration 0) and assert on the EFFECT that
+    matters: how many times the tool actually EXECUTES.
+    """
+
+    _ARGS = '{"query":"Lâm Uyên"}'
+
+    def _dup_pass(self, n: int, args_list: list[str] | None = None):
+        """One gateway pass emitting `n` complete tool calls, streamed as the gateway
+        really streams them: id+name on the first fragment per index, args after."""
+        args_list = args_list or [self._ARGS] * n
+        evs = []
+        for i in range(n):
+            evs.append(tool_frag(index=i, id=f"c{i}", name="memory_search"))
+            evs.append(tool_frag(index=i, arguments_delta=args_list[i]))
+        evs.append(done("tool_calls"))
+        return evs
+
+    @pytest.mark.asyncio
+    async def test_three_identical_calls_execute_the_tool_ONCE(self):
+        kc = AsyncMock()
+        kc.mcp_execute_tool.return_value = _envelope(result={"hits": []})
+        scripts = [self._dup_pass(3), [tok("done"), usage(1, 1), done("stop")]]
+        with _patch_client(scripts):
+            await _drain(_run(scripts, knowledge_client=kc))
+
+        assert kc.mcp_execute_tool.await_count == 1, (
+            "the loop executed the duplicate emission more than once — a write tool "
+            "without its own idempotency would have made N rows from one user intent"
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_collapsed_ids_never_reach_the_provider(self):
+        """The other half of correctness: the assistant message the NEXT pass sends back
+        must not advertise tool_call ids that were never answered, or the provider waits
+        on a response that will never come.
+        """
+        kc = AsyncMock()
+        kc.mcp_execute_tool.return_value = _envelope(result={"hits": []})
+        scripts = [self._dup_pass(3), [tok("done"), usage(1, 1), done("stop")]]
+        with _patch_client(scripts):
+            await _drain(_run(scripts, knowledge_client=kc))
+
+        second = _FakeClient.instances[0].requests[1]
+        assistant = [m for m in second.messages if m.get("role") == "assistant"
+                     and m.get("tool_calls")]
+        assert assistant, "the second pass must carry the assistant tool_calls message"
+        ids = [c["id"] for c in assistant[-1]["tool_calls"]]
+        answered = [m["tool_call_id"] for m in second.messages if m.get("role") == "tool"]
+        assert len(ids) == 1, f"collapsed ids leaked into the wire: {ids}"
+        assert sorted(ids) == sorted(answered), (
+            "every advertised tool_call id must have a matching tool result"
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_genuine_parallel_batch_still_runs_BOTH(self):
+        """The guard against over-collapsing. Without this the test above passes just as
+        well for a loop that dropped every call but the first.
+        """
+        kc = AsyncMock()
+        kc.mcp_execute_tool.return_value = _envelope(result={"hits": []})
+        scripts = [
+            self._dup_pass(2, ['{"query":"a"}', '{"query":"b"}']),
+            [tok("done"), usage(1, 1), done("stop")],
+        ]
+        with _patch_client(scripts):
+            await _drain(_run(scripts, knowledge_client=kc))
+
+        assert kc.mcp_execute_tool.await_count == 2, (
+            "two DIFFERENT searches in one emission are a legitimate parallel batch"
+        )
