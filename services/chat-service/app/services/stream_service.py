@@ -1120,7 +1120,10 @@ def _filter_tools_for_ask(
         name = fn.get("name") if isinstance(fn, dict) else None
         if not name:
             continue
-        if name == FIND_TOOLS_NAME or is_frontend_tool(name):
+        # Browser-executed (not merely chat-intercepted): these are human-gated by
+        # construction — the person applies the card — so they survive a read-only
+        # mode. Same P2.2/P3.2 drift as the other consumers.
+        if name == FIND_TOOLS_NAME or is_browser_executed(name):
             out.append(td)
             continue
         if tool_tier(td) == "R" or (plan and _is_plan_tool(name)):
@@ -2836,6 +2839,10 @@ async def _stream_with_tools(
                     }}
                     continue
 
+                # DELIBERATELY is_frontend_tool, not is_browser_executed: this asks
+                # "does chat-service INTERCEPT and suspend here?". propose_edit/ui_*
+                # are browser-executed but route to ai-gateway and are detected from
+                # the directive in the RESULT, so they must not be intercepted here.
                 if is_frontend_tool(c["name"]):
                     # Same gemma {"args":{…}} wrap-repair the backend dispatch does below —
                     # a wrapped frontend-tool payload must be unwrapped BEFORE it is frozen
