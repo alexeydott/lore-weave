@@ -884,12 +884,42 @@ def tool_parameters(tool_def: dict) -> dict:
     return params if isinstance(params, dict) else {"type": "object", "properties": {}}
 
 
+def _stamp_incomplete(payload: dict, unavailable: set[str] | None) -> dict:
+    """Mark a discovery payload as an INCOMPLETE view of the catalog when >=1 provider
+    failed to federate. Python twin of find-tools.ts `stampIncomplete` — keep in lockstep.
+
+    Without this a ``tool_list`` during an outage reads as a complete, healthy answer.
+    Measured 2026-07-23 with glossary down: ``tool_list("glossary")`` returned ``count: 1``
+    with no hint anything was missing, and the live agent then told the user it had "loaded
+    the glossary tools", advertised a capability set built from the single surviving tool,
+    and finally blamed the USER ("I don't have any details about her") for what was a
+    platform outage.
+
+    The availability signal already existed (H10) but was wired ONLY into ``find_tools``,
+    which F17 retired from the LLM's view — so it reached nothing the model could still
+    call. This is the missing half of that wiring.
+    """
+    if not unavailable:
+        return payload
+    listed = ", ".join(sorted(unavailable))
+    payload["unavailable_providers"] = sorted(unavailable)
+    payload["incomplete"] = True
+    payload["note"] = (
+        f"This listing is INCOMPLETE — {listed} is temporarily unavailable, so its tools are "
+        "missing from the catalog right now. If the capability you need is not listed, tell "
+        "the user that service is temporarily down and to try again shortly — do NOT conclude "
+        "the capability doesn't exist, and do NOT substitute an unrelated tool."
+    )
+    return payload
+
+
 def tool_list_result(
     catalog: list[dict],
     category: str | None = None,
     *,
     include_deprecated: bool = True,
     exclude: set[str] | None = None,
+    unavailable_providers: set[str] | None = None,
 ) -> dict:
     """Build the ``tool_list`` payload (contracts.md C2). ``category`` omitted or
     "all" → the whole visible catalog grouped by category; a specific category → its
@@ -900,12 +930,12 @@ def tool_list_result(
         categories: dict[str, list] = {}
         for t in tools:
             categories.setdefault(_domain_of(t["name"]), []).append(t)
-        return {"categories": categories, "count": len(tools)}
+        return _stamp_incomplete({"categories": categories, "count": len(tools)}, unavailable_providers)
     tools = visible_tools(catalog, category, include_deprecated=include_deprecated, exclude=exclude)
     payload: dict = {"category": category, "count": len(tools), "tools": tools}
     if not tools:
         payload["reason"] = "no tools currently available in this category"
-    return payload
+    return _stamp_incomplete(payload, unavailable_providers)
 
 
 def tool_load_result(
@@ -914,10 +944,13 @@ def tool_load_result(
     name: str | None = None,
     names: list[str] | None = None,
     category: str | None = None,
+    unavailable_providers: set[str] | None = None,
 ) -> tuple[dict, list[str]]:
     """Build the ``tool_load`` payload + the names to activate (contracts.md C2).
     Pure disclosure — returns full ``input_schema``(s); executes nothing. Unknown
-    requested names come back under ``not_found`` (never a silent drop)."""
+    requested names come back under ``not_found`` (never a silent drop) — EXCEPT while a
+    provider is down, when non-existence is unknowable and they come back under
+    ``provider_unavailable`` instead (see the block below)."""
     want: set[str] = set()
     if name:
         want.add(name)
@@ -958,7 +991,27 @@ def tool_load_result(
     payload: dict = {"tools": loaded}
     missing = sorted(n for n in want if n not in seen and n not in broken)
     if missing:
-        payload["not_found"] = missing
+        # `not_found` ASSERTS that no such tool exists. During an outage that assertion is
+        # unknowable: a down provider's tools are absent from the catalog entirely, so an
+        # unresolvable name is indistinguishable from one that vanished with its provider.
+        # Asserting it there is a LIE, and it cost a real incident — 2026-07-23, glossary
+        # down, `tool_load("glossary_propose_entities")` answered `not_found`; the model
+        # reasoned correctly from that false premise and gave up on a tool that exists.
+        # Only assert non-existence when the catalog is COMPLETE.
+        # Key is `provider_unavailable`, NOT `unavailable` — the latter already means a CD4
+        # BROKEN tool below (exists but reliably fails). One name, one concept.
+        if unavailable_providers:
+            listed = ", ".join(sorted(unavailable_providers))
+            payload["provider_unavailable"] = missing
+            payload["unavailable_providers"] = sorted(unavailable_providers)
+            payload["note"] = (
+                f"Could not load {', '.join(missing)}. This does NOT mean the tool does not "
+                f"exist — {listed} is temporarily unavailable, so its tools are missing from "
+                "the catalog right now. Tell the user that service is temporarily down and to "
+                "try again shortly."
+            )
+        else:
+            payload["not_found"] = missing
     if broken & want:
         payload["unavailable"] = sorted(broken & want)
         payload["unavailable_reason"] = (
@@ -1283,10 +1336,15 @@ def provider_availability(catalog_meta: dict) -> set[str]:
     unavailable (partial catalog). Reads the catalog-level `_meta` from
     ``KnowledgeClient.get_catalog_meta()``.
 
-    S-GATEWAY (C-GW) owns the exact key; we accept the most likely shapes
-    (``unavailable_providers`` list / ``providers`` availability map) and return
-    an empty set when none is present — so this never invents an outage.
-    TODO(S-GATEWAY): freeze the key at COMPOSE A.
+    **The key is FROZEN (2026-07-23): ``unavailable_providers``**, a list of provider
+    names, emitted by ai-gateway ``handlers.ts::availabilityMeta`` on the ``tools/list``
+    ``_meta``. Pinned cross-language by ``test_provider_availability_key_is_frozen``;
+    change it in one language and that test reds. (The ``providers`` map branch below is
+    retained as inert back-compat for an older payload shape — it is NOT a second
+    supported contract; do not emit it.)
+
+    Returns an empty set when nothing is present, so this never invents an outage —
+    the no-false-alarm property the whole outage-visibility change depends on.
     """
     if not isinstance(catalog_meta, dict):
         return set()

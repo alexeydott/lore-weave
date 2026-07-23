@@ -44,8 +44,40 @@ including the unified tools just built.
 - ⚠️ **Unrelated pre-existing failure found, NOT fixed (out of scope):**
   `composition-service tests/unit/test_mcp_meta_async_wire.py::test_every_tool_declares_valid_tier_and_scope`
   — `composition_task_provide_input` carries no `_meta.tier`. Reproduced with all my changes stashed.
-- **Still open (deliberately not done):** ai-gateway degrades **silently** — losing a whole provider is
-  a `WARN` + a quiet `PARTIAL`. A vanished provider should be loud (no-silent-seams). ai-gateway scope.
+## 🔊 FEDERATION OUTAGE VISIBILITY — DONE + MEASURED (2026-07-23)
+Plan `docs/plans/2026-07-23-federation-outage-visibility.md`; measurements
+`docs/eval/tool-liveness/federation-outage-visibility/RESULTS.md`. Reproducible outage
+(`docker stop infra-glossary-service-1`), three checkpoints: M0 outage/pre-fix · M1 outage/post-fix ·
+M2 healthy/post-fix (no-false-alarm control).
+- **Root cause:** the H10 availability signal already existed AND was correct — it had ONE call site,
+  `find_tools`, which **F17 retired from the LLM's view**. The guarantee never travelled to the
+  replacement discovery pair. Same shape as the skill-drift + hot-set gaps: **a new path does not
+  inherit the old path's guarantees.** Check this explicitly whenever a surface is replaced.
+- **Money metric (same model, same outage).** Before: *"I've loaded the glossary tools…"* then
+  *"I can't save Lâm Uyên because I don't have any details about her"* — **fabricated a reason and
+  blamed the user**. After: *"the glossary service is currently unavailable … please try again in a
+  little while"*. Thrash also fell (discovery 4→1, tool calls 4/2/2 → 3/1/0).
+- **F1+F2** — availability threaded into the LIVE pair (`tool_list`/`tool_load`) in BOTH twins
+  (`find-tools.ts` ↔ `tool_discovery.py`); reported even when results are non-empty (the case that
+  actually occurs). `tool_load` no longer asserts `not_found` during an outage — **that assertion is
+  unknowable then** (a down provider's tools are absent, so "unknown name" and "vanished with its
+  provider" are indistinguishable). New key is `provider_unavailable`; `unavailable` already means a
+  CD4 BROKEN tool — one name, one concept.
+- **F3 — the plan was WRONG and measurement caught it.** "Make the healthcheck fail on PARTIAL" would
+  DEADLOCK: `glossary-service` declares `depends_on: ai-gateway: service_healthy`
+  (`docker-compose.yml:1044`) ⇒ glossary down → gateway unhealthy → glossary can never restart. So
+  `/health` stays pure LIVENESS (docker healthcheck unchanged) and the signal moved to a dedicated
+  **`/health/federation` → 503 when degraded** — loud for alerting, never load-bearing for
+  orchestration. Both facts recorded in code so nobody "fixes" it back into a deadlock.
+  Degraded is **sustained** (3 consecutive partials, `AI_GATEWAY_FEDERATION_DEGRADED_AFTER`), not the
+  first blip. Verified live: 200→200→**503**→…→200 on recovery, `partial_since` cleared.
+- **F4** — transition-only logging (ERROR on loss, LOG on recovery; 1 line per event, not one per
+  30s refresh) + the `unavailable_providers` `_meta` key **frozen**, pinned cross-language by
+  `test_provider_availability_key_is_frozen`.
+- **Verify:** ai-gateway 265 pass + tsc clean (9 new); chat-service 1827 pass/24 fail vs baseline
+  1822/29 — same pre-existing 24, **zero regressions**, +5 new.
+- ⚠️ Pre-existing, NOT fixed (unrelated, reproduced with changes stashed): chat-service
+  `TestGenericFrontendTools` ×2 (`ui_navigate` absent from core) + 22 others.
 
 ## 🧹 KG (knowledge-service) MCP CATALOG UNIFICATION (2026-07-22) — DONE + LIVE-VERIFIED
 Spec `docs/specs/2026-07-22-kg-catalog-unification.md`; results `docs/eval/tool-liveness/kg-unification/`.

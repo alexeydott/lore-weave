@@ -162,3 +162,65 @@ describe('C-GW prefix gate — universal `web_search` on the settings provider',
     expect(EXTRA_PREFIX_MAP.settings).toContain('web_');
   });
 });
+
+// ── Outage visibility (2026-07-23) — federation degradation tracking ─────────
+//
+// A provider can vanish from the catalog while the platform keeps serving. The only
+// evidence was a WARN reprinted identically every refresh: un-alertable, and it can't
+// date the outage. The glossary de-federation ran undetected until a live E2E tripped
+// over it. These pin the SUSTAINED-not-instant threshold and the transition semantics.
+describe('federationStatus — degradation is sustained, not instant', () => {
+  const { FederationService } = require('../src/federation/federation.service.js');
+
+  function svcWithRefreshes(partialSequence: boolean[], threshold = 3) {
+    const svc: any = Object.create(FederationService.prototype);
+    svc.consecutivePartial = 0;
+    svc.lastAvailability = new Map();
+    svc.log = { log: () => {}, warn: () => {}, error: () => {} };
+    (svc as any).cfg = { federationDegradedAfterRefreshes: threshold, providers: [] };
+    for (const partial of partialSequence) {
+      svc.state = { partial, providers: [{ name: 'glossary', available: !partial }], toolList: [] };
+      svc.trackAvailabilityTransitions();
+    }
+    return svc;
+  }
+
+  it('a single blip is NOT degraded — a routine provider restart must not page anyone', () => {
+    const s = svcWithRefreshes([true]).federationStatus();
+    expect(s.partial).toBe(true);
+    expect(s.degraded).toBe(false);
+    expect(s.consecutivePartialRefreshes).toBe(1);
+  });
+
+  it('a SUSTAINED partial catalog is degraded once the threshold is met', () => {
+    const s = svcWithRefreshes([true, true, true]).federationStatus();
+    expect(s.degraded).toBe(true);
+    expect(s.unavailableProviders).toEqual(['glossary']);
+    expect(typeof s.partialSinceMs).toBe('number');
+  });
+
+  it('recovery clears the streak and the outage start time', () => {
+    const s = svcWithRefreshes([true, true, true, false]).federationStatus();
+    expect(s.degraded).toBe(false);
+    expect(s.consecutivePartialRefreshes).toBe(0);
+    expect(s.partialSinceMs).toBeUndefined();
+  });
+
+  it('logs a provider LOSS at error level, and only on the TRANSITION', () => {
+    const seen: string[] = [];
+    const svc: any = Object.create(FederationService.prototype);
+    svc.consecutivePartial = 0;
+    svc.lastAvailability = new Map();
+    svc.log = { log: (m: string) => seen.push(`LOG ${m}`), warn: () => {}, error: (m: string) => seen.push(`ERR ${m}`) };
+    svc.cfg = { federationDegradedAfterRefreshes: 3, providers: [] };
+    for (const available of [true, false, false, false, true]) {
+      svc.state = { partial: !available, providers: [{ name: 'glossary', available }], toolList: [] };
+      svc.trackAvailabilityTransitions();
+    }
+    // 5 refreshes, but only 2 TRANSITIONS — not 4 repeated lines.
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).toContain('ERR');
+    expect(seen[0]).toContain('UNAVAILABLE');
+    expect(seen[1]).toContain('RECOVERED');
+  });
+});

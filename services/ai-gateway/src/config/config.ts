@@ -56,6 +56,12 @@ export interface AppConfig {
   adminProvider: ProviderConfig;
   /** how often the federated catalog is refreshed from providers (H10) */
   catalogRefreshMs: number;
+  /** Consecutive PARTIAL refreshes before federation is reported DEGRADED (outage
+   * visibility, 2026-07-23). A threshold, not the first blip — a transient miss during
+   * a routine provider restart must not read as an outage. Never wired to the docker
+   * healthcheck: glossary-service depends_on ai-gateway service_healthy, so failing
+   * health on a partial catalog would deadlock a down provider out of ever restarting. */
+  federationDegradedAfterRefreshes: number;
   /**
    * REG-P2-03 — per-user federation overlay. When enabled, tools/list for a turn
    * merges the caller's registered MCP servers (from agent-registry
@@ -296,6 +302,9 @@ export function loadConfig(): AppConfig {
     adminProviders,
     adminProvider,
     catalogRefreshMs: parseInt(process.env.AI_GATEWAY_CATALOG_REFRESH_MS ?? '30000', 10),
+    federationDegradedAfterRefreshes: parseInt(
+      process.env.AI_GATEWAY_FEDERATION_DEGRADED_AFTER ?? '3', 10,
+    ),
     groundingUrl,
     overlayEnabled: process.env.REGISTRY_OVERLAY_ENABLED === 'true',
     agentRegistryInternalUrl: (

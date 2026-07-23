@@ -226,7 +226,10 @@ export async function handleToolList(
   // (which still redirects via superseded_by).
   const includeDeprecated = typeof args?.include_deprecated === 'boolean' ? args.include_deprecated : false;
   const overlay = await federation.overlayTools(extractEnvelope(headers));
-  const { payload } = toolListResult([...federation.catalog(), ...overlay], category, includeDeprecated);
+  const { payload } = toolListResult(
+    [...federation.catalog(), ...overlay], category, includeDeprecated, new Set(),
+    availabilityMeta(federation).unavailable_providers,
+  );
   return { content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload };
 }
 
@@ -247,7 +250,10 @@ export async function handleToolLoad(
     : undefined;
   const category = typeof args?.category === 'string' ? args.category : undefined;
   const overlay = await federation.overlayTools(extractEnvelope(headers));
-  const { payload } = toolLoadResult([...federation.catalog(), ...overlay], { name, names, category });
+  const { payload } = toolLoadResult(
+    [...federation.catalog(), ...overlay], { name, names, category },
+    availabilityMeta(federation).unavailable_providers,
+  );
   return { content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload };
 }
 

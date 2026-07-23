@@ -86,6 +86,7 @@ from app.services.tool_discovery import (
     find_tools_result_async,
     group_directory_text,
     hot_tool_names,
+    provider_availability,
     strip_tool_meta,
     surface_hot_domains,
     tool_async,
@@ -2147,6 +2148,8 @@ async def _stream_with_tools(
                         )
                         _load_payload, loaded = tool_load_result(
                             discovery_catalog or [], category=_norm_cat,
+                            unavailable_providers=provider_availability(
+                                knowledge_client.get_catalog_meta()),
                         )
                         names_to_activate = budget_names_by_tokens(
                             discovery_catalog or [], loaded,
@@ -2215,6 +2218,8 @@ async def _stream_with_tools(
                         category,
                         include_deprecated=include_deprecated,
                         exclude=set(ALWAYS_ON_CORE_NAMES),
+                        unavailable_providers=provider_availability(
+                            knowledge_client.get_catalog_meta()),
                     )
                     working.append({
                         "role": "tool", "tool_call_id": c["id"],
@@ -2240,6 +2245,8 @@ async def _stream_with_tools(
                     payload, loaded = tool_load_result(
                         discovery_catalog or [],
                         name=_load_name, names=_load_names, category=_load_category,
+                        unavailable_providers=provider_availability(
+                            knowledge_client.get_catalog_meta()),
                     )
                     from app.services.tool_surface import (
                         HOT_SEED_TOKEN_BUDGET,
@@ -2262,7 +2269,9 @@ async def _stream_with_tools(
                             f"Loaded {len(names_to_activate)} of {len(loaded)} tools (token budget). "
                             "Call tool_load with specific names to load the rest."
                         )
-                    if not loaded and not payload.get("not_found"):
+                    if not loaded and not payload.get("not_found") and not payload.get(
+                        "provider_unavailable"
+                    ):
                         # review-impl #3: nothing requested — guide instead of a silent empty result.
                         payload["note"] = (
                             "No tool was requested — pass `name`, `names`, or a `category` "

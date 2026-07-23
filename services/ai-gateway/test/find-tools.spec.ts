@@ -543,3 +543,49 @@ describe('W10 remediation — `world` category + the world_* federation namespac
     expect(props.group.enum).toContain('world');
   });
 });
+
+// ── Outage visibility (2026-07-23) ────────────────────────────────────────────
+//
+// The H10 availability signal existed but was wired ONLY into find_tools, which F17
+// retired from the LLM's view — so during a real outage the LIVE discovery pair said
+// nothing. Measured with glossary down: tool_list("glossary") returned a small count and
+// read as a complete, healthy answer, and tool_load answered `not_found` for a tool that
+// exists. The agent then told the user it had "loaded the glossary tools" and blamed the
+// USER for the failure. These pin the fix on the gateway side; tool_discovery.py carries
+// the twin (keep them in lockstep).
+describe('outage visibility — tool_list / tool_load', () => {
+  const { toolListResult, toolLoadResult } = require('../src/federation/find-tools.js');
+
+  it('tool_list marks the listing INCOMPLETE and names the down provider', () => {
+    const { payload } = toolListResult(CATALOG, 'book', false, new Set(), ['glossary']);
+    expect(payload.incomplete).toBe(true);
+    expect(payload.unavailable_providers).toEqual(['glossary']);
+    expect(String(payload.note)).toContain('INCOMPLETE');
+  });
+
+  it('tool_list stays clean when every provider is healthy (no false alarm)', () => {
+    const { payload } = toolListResult(CATALOG, 'book', false, new Set(), []);
+    expect(payload.incomplete).toBeUndefined();
+    expect(payload.unavailable_providers).toBeUndefined();
+    expect(payload.note).toBeUndefined();
+  });
+
+  it('tool_load must NOT assert not_found while a provider is down', () => {
+    const { payload } = toolLoadResult(CATALOG, { name: 'glossary_propose_entities' }, ['glossary']);
+    // The exact lie that cost the incident: asserting non-existence when it is unknowable.
+    expect(payload.not_found).toBeUndefined();
+    expect(payload.provider_unavailable).toEqual(['glossary_propose_entities']);
+    expect(String(payload.note)).toContain('does NOT mean the tool does not exist');
+  });
+
+  it('tool_load still asserts not_found when the catalog is COMPLETE', () => {
+    const { payload } = toolLoadResult(CATALOG, { name: 'genuinely_no_such_tool' }, []);
+    expect(payload.not_found).toEqual(['genuinely_no_such_tool']);
+    expect(payload.provider_unavailable).toBeUndefined();
+  });
+
+  it('uses provider_unavailable, never `unavailable` (that name means a BROKEN tool)', () => {
+    const { payload } = toolLoadResult(CATALOG, { name: 'glossary_propose_entities' }, ['glossary']);
+    expect(payload.unavailable).toBeUndefined();
+  });
+});
