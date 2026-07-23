@@ -330,6 +330,13 @@ func TestBookPatch409IncludesCurrentVersion(t *testing.T) {
 //
 // `additionalProperties` is exempt: a boolean there is idiomatic (the SDK infers
 // `false` for every struct) and the validator accepts it.
+var nonSubschemaSchemaKeys = map[string]bool{
+	"additionalProperties": true, "unevaluatedProperties": true, "unevaluatedItems": true,
+	"uniqueItems": true, "readOnly": true, "writeOnly": true, "deprecated": true,
+	"exclusiveMinimum": true, "exclusiveMaximum": true,
+	"default": true, "const": true, "enum": true, "examples": true,
+}
+
 func TestNoBooleanSubschemasAnywhere(t *testing.T) {
 	tools := listToolsWireRaw(t)
 	var walk func(node any, path string, out *[]string)
@@ -339,7 +346,11 @@ func TestNoBooleanSubschemasAnywhere(t *testing.T) {
 			*out = append(*out, path)
 		case map[string]any:
 			for k, v := range n {
-				if k == "additionalProperties" {
+				// Keep in step with loreweave_mcp's nonSubschemaKeywords: keywords whose
+				// value is a boolean-or-schema (additionalProperties — the SDK infers
+				// `false` on every struct) or an INSTANCE (`default: true` on a bool flag
+				// is normal). Flagging those is a false positive, not a finding.
+				if nonSubschemaSchemaKeys[k] {
 					continue
 				}
 				walk(v, path+"/"+k, out)

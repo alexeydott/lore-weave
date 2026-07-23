@@ -93,5 +93,33 @@ func RegisterTool[In, Out any](
 	if t.OutputSchema == nil && isEmptyInterface[Out]() {
 		t.OutputSchema = &jsonschema.Schema{Type: "object"}
 	}
+	// THE FEDERATION-SAFETY GATE (see schema_federation_guard.go). The substitution
+	// above covers only a WHOLE-payload `any`; a NESTED `any` field inside a typed
+	// struct still reflects to the boolean schema `true`, which de-federates the entire
+	// provider. Check what will actually be ADVERTISED: a hand-written schema when the
+	// caller set one, otherwise the same reflection AddTool performs (it does not write
+	// its inferred schema back onto `t`, so we can't read it off afterwards).
+	// Panic (not a returned error) because every caller is a boot-time Register*Tools
+	// with no error path: a service that would silently vanish from the catalog must
+	// instead fail to start, loudly and deterministically.
+	if err := checkNoBooleanSubschemas(t.Name,
+		effectiveSchema[In](t.InputSchema), effectiveSchema[Out](t.OutputSchema)); err != nil {
+		panic(err.Error())
+	}
 	mcp.AddTool(s, t, wrapped)
+}
+
+// effectiveSchema returns the schema that will be advertised for T: the explicit one
+// when the caller supplied it, else the reflected one (matching what AddTool infers).
+// A type that can't be reflected yields nil — AddTool will surface that failure itself,
+// louder and with better context than this gate could.
+func effectiveSchema[T any](explicit any) any {
+	if explicit != nil {
+		return explicit
+	}
+	s, err := jsonschema.For[T](nil)
+	if err != nil {
+		return nil
+	}
+	return s
 }

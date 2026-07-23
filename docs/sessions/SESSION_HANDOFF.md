@@ -24,6 +24,29 @@ including the unified tools just built.
   (`019f8cbe-b8c1-7a05-b368-ed00a87cbde7` "Lâm Uyên", draft). Full glossary suite green.
 - Detail: `docs/eval/tool-liveness/glossary-unification/RESULTS.md` (2026-07-23 section).
 
+**PROPAGATED to all 10 MCP providers** (2026-07-23, follow-up):
+- **Go (5 services) — enforced at the SDK, not copied.** `loreweave_mcp.RegisterTool` already
+  substituted a valid schema for a whole-payload `Out = any`; it did NOT catch a **nested `any`
+  field** in a typed struct — exactly how this shipped. New `schema_federation_guard.go` checks the
+  schemas that will actually be advertised and **panics at registration** (boot-time, deterministic)
+  rather than letting a provider silently vanish. One change covers glossary/book/catalog/
+  agent-registry/provider-registry; all 5 suites green (no false-positive panics).
+- **Python (5 services) — shared checker + thin per-service test.** No FastMCP registration
+  chokepoint exists, so `sdks/python/loreweave_mcp/schema_federation.py` holds the logic and each
+  service has a 5-line `test_mcp_schema_federation_safe.py`. All 5 green.
+- **False-positive caught by measuring before shipping:** the first walker flagged 12 hits across the
+  Python providers — **all** were `.../<flag>/default` (a boolean DEFAULT VALUE, not a subschema).
+  Instance-valued keywords (`default`/`const`/`enum`/`examples`) are now exempt in BOTH languages. Had
+  this shipped as written, a Go tool with a boolean default would have **panicked its service at boot**
+  — worse than the bug being prevented.
+- Live scan of all 10 providers: **0 real violations** (Go 130 tools, Python 159 tools).
+- Registered in `docs/standards/README.md` §D (enforcement mechanisms).
+- ⚠️ **Unrelated pre-existing failure found, NOT fixed (out of scope):**
+  `composition-service tests/unit/test_mcp_meta_async_wire.py::test_every_tool_declares_valid_tier_and_scope`
+  — `composition_task_provide_input` carries no `_meta.tier`. Reproduced with all my changes stashed.
+- **Still open (deliberately not done):** ai-gateway degrades **silently** — losing a whole provider is
+  a `WARN` + a quiet `PARTIAL`. A vanished provider should be loud (no-silent-seams). ai-gateway scope.
+
 ## 🧹 KG (knowledge-service) MCP CATALOG UNIFICATION (2026-07-22) — DONE + LIVE-VERIFIED
 Spec `docs/specs/2026-07-22-kg-catalog-unification.md`; results `docs/eval/tool-liveness/kg-unification/`.
 **Live-counted: 37 → 26 default-visible (~30%); 41 registered, 15 legacy.**

@@ -169,6 +169,7 @@ Durable `INV-<id>` rules cited **at the enforcement site and in a proving test**
 | `frontend/src/features/studio/panels/__tests__/panelCatalogContract.test.ts` | advertised `panel_id` enum ⊆ palette-openable ⊆ dock catalog (dockable-GUI lockstep) |
 | `services/knowledge-service/tests/test_mcp_contract.py` | MCP dispatch — scope-from-headers-only (D3) + success-discrimination |
 | `services/knowledge-service/tests/test_mcp_server.py` + `tests/unit/test_graph_schema_tools.py` | the KG-tool 4-source drift-lock (tool count + enum value-sets + `CLOSED_SET_ARGS`) |
+| `sdks/go/loreweave_mcp/schema_federation_guard*.go` (Go, all 5 Go providers) + `sdks/python/loreweave_mcp/schema_federation.py` with `services/*/tests/**/test_mcp_schema_federation_safe.py` (all 5 Python providers) | **MCP federation safety** — no BOOLEAN subschema in an advertised tool schema. Legal JSON Schema that ai-gateway's validator rejects, failing the WHOLE `tools/list` so **every** tool of that provider drops out of the catalog. Shipped once (`Items any` → all 54 glossary tools vanished; 0 `glossary_*` of 245). Go enforces at registration (panics at boot); Python asserts per-service (no FastMCP chokepoint). |
 | `sdks/python/tests/test_jobs_contract.py` | Unified Job Control-Plane contract (terminal-status set, stream routing) |
 | composition/knowledge/lore-enrichment `test_*_response_contract.py` | per-service API response-shape contracts |
 
