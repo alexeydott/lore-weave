@@ -54,7 +54,14 @@ _KNOWN = ["Kai", "Harbin"]
 _BASELINE_SHA256 = {
     "entity": "b4df60706db908ad5a1ea6564818e04c5e6ec63b186cdae3d10973d48878e954",
     "relation": "942544041a4c82b12d28aaa673ccbb762046d8c984e7e4c45df655fc4aed6e73",
-    "event": "56a475dff1ab7cf7ea19e247265dc6319a50dfc957b24b289409d1061286fc02",
+    # RE-PINNED 2026-07-23. The old hash predated 030429658 ("fix(kg): #10 keep event
+    # summaries in the source language, not English"), which edited
+    # event_extraction_system.md — the very file build_event_system reads. Only `event`
+    # drifted, and only that prompt was touched, so the change is the deliberate fix, not
+    # accidental drift. Re-pinning is therefore correct: consumers SHOULD get the fixed
+    # prompt. The guard did its job — it forced this to be a conscious act. Anyone editing
+    # a prompt updates its hash HERE, in the same commit, with the reason.
+    "event": "753c12d2ddc29d8e60789ade2f67607a0e9bddc675ba02940d73d7c197c5e1a4",
     "fact": "900a52ba19238f42332d3a8652888d638d6f466ddc93fbc732ff546ff67b9fd0",
 }
 
