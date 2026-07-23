@@ -100,6 +100,32 @@ func (s *Server) toolBookCreate(ctx context.Context, _ *mcp.CallToolRequest, in 
 	if n >= maxBooksPerUser {
 		return nil, bookCreateOut{}, errBookLimitReached()
 	}
+	// K13 (2026-07-23) — idempotency guard, same shape as the N6 chapter guard below.
+	// LIVE-PROBED: two byte-identical `book_create` calls produced TWO books. That is not
+	// hypothetical — the agent loop was measured re-issuing an identical Tier-A write
+	// across iterations even after an explicit success result, and Tier-A auto-commits
+	// bounded only by TIER_A_SAME_OP_CAP (5 per turn), so one user intent could mint up to
+	// five duplicate books with no confirm card in between. `book_create` is also the one
+	// Tier-A tool with NO agent-invocable undo (see the note below), so a duplicate can
+	// only be cleaned up by the human in the GUI — which makes the guard matter more here
+	// than anywhere else.
+	//
+	// Agent tool calls execute SEQUENTIALLY, so a pre-insert lookup closes the observed
+	// case without a migration. A DB unique on (owner,title) is deliberately NOT used:
+	// two books legitimately sharing a title is a real user scenario (the same reasoning
+	// N6 records for chapters).
+	{
+		var existing uuid.UUID
+		if err := s.pool.QueryRow(ctx,
+			// `lifecycle_state='active'` is the live-book predicate (books has no
+			// deleted_at; it carries lifecycle_state + trashed_at). Matching a trashed or
+			// purge_pending book would resurrect a deleted title as the "existing" one.
+			`SELECT id FROM books WHERE owner_user_id=$1 AND lower(title)=lower($2)
+			   AND lifecycle_state='active' ORDER BY created_at LIMIT 1`,
+			userID, title).Scan(&existing); err == nil {
+			return &mcp.CallToolResult{}, bookCreateOut{BookID: existing.String()}, nil
+		}
+	}
 	var bookID uuid.UUID
 	if err := s.pool.QueryRow(ctx, `
 -- WS-1.1: kind EXPLICIT (see server.go createBook). An agent-created book is a novel;

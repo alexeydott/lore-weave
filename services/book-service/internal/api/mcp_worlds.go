@@ -113,6 +113,24 @@ func (s *Server) toolWorldCreate(ctx context.Context, _ *mcp.CallToolRequest, in
 	if err := s.ensureQuotaRow(ctx, ownerID); err != nil {
 		return nil, worldCreateOut{}, errors.New("failed to initialize quota")
 	}
+	// K13 (2026-07-23) — idempotency guard, mirroring the N6 chapter guard
+	// (mcp_tools_write.go). LIVE-PROBED: two byte-identical `world_create` calls produced
+	// TWO worlds, and the agent loop was measured re-issuing an identical Tier-A write
+	// across iterations despite an explicit success result. Tier-A auto-commits are
+	// bounded only by TIER_A_SAME_OP_CAP (5/turn), so one intent could mint five worlds.
+	// Sequential tool execution makes a pre-insert lookup sufficient; a DB unique on
+	// (owner,name) is deliberately avoided since a legitimate same-name world is possible.
+	{
+		var existing uuid.UUID
+		if err := s.pool.QueryRow(ctx,
+			`SELECT id FROM worlds WHERE owner_user_id=$1 AND lower(name)=lower($2)
+			   ORDER BY created_at LIMIT 1`, ownerID, name).Scan(&existing); err == nil {
+			if d, derr := scanWorldDetail(s.pool.QueryRow(ctx, worldSelectSQL+`
+WHERE w.id=$1 AND w.owner_user_id=$2`, existing, ownerID)); derr == nil {
+				return nil, worldCreateOut{World: d}, nil
+			}
+		}
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, worldCreateOut{}, errors.New("failed to create world")
