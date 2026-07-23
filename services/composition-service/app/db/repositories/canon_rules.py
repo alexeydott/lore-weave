@@ -43,6 +43,27 @@ class CanonRulesRepo:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
+    async def find_by_text(
+        self, project_id, text: str, *, scope=None, entity_id=None
+    ):
+        """K13 — an existing rule with this exact text in the same project + scope, or None.
+
+        Read-only; backs the agent-side idempotency guard on `composition_canon_rule_create`,
+        which was live-probed minting a duplicate on a byte-identical double-fire (the table
+        carries no natural-key unique, only its PK).
+        """
+        query = f"""
+        SELECT {_SELECT_COLS} FROM canon_rule
+        WHERE project_id = $1 AND lower(text) = lower($2)
+          AND ($3::text IS NULL OR scope = $3)
+          AND ($4::uuid IS NULL OR entity_id = $4)
+        ORDER BY created_at
+        LIMIT 1
+        """
+        async with self._pool.acquire() as c:
+            row = await c.fetchrow(query, project_id, text, scope, entity_id)
+        return _row_to_rule(row) if row else None
+
     async def create(
         self,
         project_id: UUID,

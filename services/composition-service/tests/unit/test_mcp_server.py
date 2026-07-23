@@ -799,6 +799,10 @@ async def test_outline_node_create_returns_undo_hint():
     outline = AsyncMock()
     created = _node(id=uuid.uuid4(), title="New scene")
     outline.create_node = AsyncMock(return_value=created)
+    # K13 guard: the handler looks for an existing same-title node BEFORE inserting. A bare
+    # AsyncMock returns a truthy mock, which would send every create down the "already
+    # exists" branch — so state the real no-match answer.
+    outline.find_node_by_title = AsyncMock(return_value=None)
     async with _patched(OutlineRepo=outline):
         res = await srv.composition_outline_node_create(
             _Ctx(), srv._NodeCreateArgs(project_id=str(PROJECT), kind="scene", title="New scene"),
@@ -814,6 +818,7 @@ async def test_canon_rule_create_returns_undo_hint():
     canon = AsyncMock()
     rule = _rule(id=uuid.uuid4())
     canon.create = AsyncMock(return_value=rule)
+    canon.find_by_text = AsyncMock(return_value=None)  # K13 guard — see the outline case
     async with _patched(CanonRulesRepo=canon):
         res = await srv.composition_canon_rule_create(
             _Ctx(), srv._CanonRuleCreateArgs(project_id=str(PROJECT), text="magic costs HP"),

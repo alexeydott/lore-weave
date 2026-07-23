@@ -1029,6 +1029,23 @@ async def composition_outline_node_create(ctx: MCPContext, args: _NodeCreateArgs
     pid = _resolve_pid(tc, args.project_id)
     await _book_or_deny(works, tc, pid, GrantLevel.EDIT)
     outline = OutlineRepo(get_pool())
+    # K13 (2026-07-23) — idempotency guard against an agent double-fire. LIVE-PROBED: two
+    # byte-identical calls made TWO outline nodes; `outline_node`'s uniques only cover the
+    # plan-provenance and decompile paths, so a plain agent create had no protection.
+    # Keyed on (project, kind, parent, title) so a same-titled node under a DIFFERENT
+    # parent — a real outlining case — still creates.
+    if (args.title or "").strip():
+        dup = await outline.find_node_by_title(
+            pid, kind=args.kind, title=args.title.strip(),
+            parent_id=UUID(args.parent_id) if args.parent_id else None,
+        )
+        if dup is not None:
+            out = dup.model_dump(mode="json")
+            out["_meta"] = {"undo_hint": _undo(
+                "composition_outline_node_delete", project_id=args.project_id, node_id=str(dup.id),
+            )}
+            out["note"] = "an outline node with this title already exists here — returning it."
+            return out
     try:
         node = await outline.create_node(
             pid, kind=args.kind, parent_id=UUID(args.parent_id) if args.parent_id else None,
@@ -1853,6 +1870,23 @@ async def composition_canon_rule_create(ctx: MCPContext, args: _CanonRuleCreateA
     if args.from_order is not None and args.until_order is not None and args.from_order > args.until_order:
         return {"success": False, "error": "from_order must not exceed until_order"}
     canon = CanonRulesRepo(get_pool())
+    # K13 (2026-07-23) — idempotency guard against an agent double-fire, same shape as the
+    # arc/N6 guards. LIVE-PROBED: two byte-identical calls made TWO canon rules, and
+    # `canon_rule` carries no natural-key unique (only the PK). Keyed on the rule TEXT
+    # within the project + scope, which is what "the same rule" means here; a
+    # deliberately-repeated text under a different scope/entity still creates.
+    if (args.text or "").strip():
+        dup = await canon.find_by_text(
+            pid, args.text.strip(), scope=args.scope,
+            entity_id=UUID(args.entity_id) if args.entity_id else None,
+        )
+        if dup is not None:
+            out = dup.model_dump(mode="json")
+            out["_meta"] = {"undo_hint": _undo(
+                "composition_canon_rule_delete", project_id=args.project_id, rule_id=str(dup.id),
+            )}
+            out["note"] = "this canon rule already exists — returning it instead of duplicating."
+            return out
     rule = await canon.create(
         pid, args.text, scope=args.scope,
         entity_id=UUID(args.entity_id) if args.entity_id else None,
