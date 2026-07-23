@@ -410,11 +410,18 @@ func (s *Server) toolChapterBulkCreate(ctx context.Context, _ *mcp.CallToolReque
 	_ = tx.QueryRow(ctx, `SELECT COALESCE(MAX(sort_order),0) FROM chapters WHERE book_id=$1 AND lifecycle_state='active'`, bookID).Scan(&maxSort)
 	sortOrder := maxSort + 1
 	existing := map[string]struct{}{}
-	if rows, qerr := tx.Query(ctx, `SELECT original_filename FROM chapters WHERE book_id=$1 AND lifecycle_state='active'`, bookID); qerr == nil {
+	// K13 (2026-07-23) — the TITLE index backing the fallback guard below.
+	existingTitles := map[string]struct{}{}
+	if rows, qerr := tx.Query(ctx,
+		`SELECT original_filename, COALESCE(lower(title),''), original_language
+		   FROM chapters WHERE book_id=$1 AND lifecycle_state='active'`, bookID); qerr == nil {
 		for rows.Next() {
-			var fn string
-			if rows.Scan(&fn) == nil {
+			var fn, t, l string
+			if rows.Scan(&fn, &t, &l) == nil {
 				existing[fn] = struct{}{}
+				if t != "" {
+					existingTitles[t+"\x00"+l] = struct{}{}
+				}
 			}
 		}
 		rows.Close()
@@ -426,6 +433,31 @@ func (s *Server) toolChapterBulkCreate(ctx context.Context, _ *mcp.CallToolReque
 			title = extractChapterTitle(it.Content)
 		}
 		filename := strings.TrimSpace(it.OriginalFilename)
+		// K13 (2026-07-23) — LIVE-PROBED: two byte-identical `book_chapter_bulk_create`
+		// calls produced TWO chapters, despite this tool advertising itself as "idempotent
+		// on original_filename". The claim is true only for a caller that SUPPLIES the
+		// filename. When it is omitted the key is auto-generated from `sortOrder`, which is
+		// seeded from MAX(sort_order)+1 — so the first call mints `chapter-0002.txt`, the
+		// second `chapter-0003.txt`, and the `existing` check can never match. The dedup key
+		// was DERIVED FROM THE VERY STATE THE PREVIOUS CALL CHANGED, which makes the
+		// documented idempotency vacuous by construction.
+		//
+		// And it is vacuous exactly where it matters: a folder import supplies real
+		// filenames, but an AGENT creating chapters from chat has none — so the agent path,
+		// the one the Tier-A repeat-fire was measured on, is the unprotected one.
+		//
+		// Fall back to the same natural key the singular N6 guard uses (title + language,
+		// non-empty titles only). Escape hatch unchanged: a caller that genuinely wants two
+		// same-titled chapters supplies distinct `original_filename`s, which skips this
+		// branch entirely.
+		if filename == "" && title != "" {
+			titleKey := strings.ToLower(title) + "\x00" + lang
+			if _, dup := existingTitles[titleKey]; dup {
+				out.Skipped++
+				continue
+			}
+			existingTitles[titleKey] = struct{}{}
+		}
 		if filename == "" {
 			filename = fmt.Sprintf("chapter-%04d.txt", sortOrder)
 		}
