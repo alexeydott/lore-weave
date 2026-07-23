@@ -94,7 +94,12 @@ async def test_view_upsert_read_delete_roundtrip_live(pool):
     assert read2.result["count"] == 0
 
 
-async def test_propose_edge_parks_to_triage_then_resolve_live(pool):
+async def test_propose_edge_parks_to_triage_then_resolve_live(pool, neo4j_driver):
+    # K27 (2026-07-24) — this test drives kg_propose_edge through execute_tool, which reaches
+    # the Neo4j graph, so it needs `neo4j_driver`: without it the test wasn't gated on
+    # TEST_NEO4J_URI and FAILED with "Neo4j driver not initialised" in a Postgres-only run.
+    # Requesting the fixture makes it SKIP cleanly when Neo4j is absent and RUN (with the
+    # global driver set) when it is.
     owner = uuid4()
     project_id = await _seed_project(pool, owner=owner)
     ctx = _ctx(pool, owner=owner, project_id=project_id)
