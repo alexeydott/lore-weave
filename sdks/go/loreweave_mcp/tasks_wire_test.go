@@ -310,3 +310,39 @@ func TestProvideInputTool_DoubleAcceptIsError(t *testing.T) {
 		t.Fatal("second accept must be an error result (double-confirm guard)")
 	}
 }
+
+// TestProvideInputDeclaresAnActionTier — the ask-mode leak.
+//
+// chat-service's `tool_tier()` defaults a MISSING tier to "R" (inert) on purpose, so an
+// untiered tool can never auto-commit. `*_task_provide_input` carried visibility only, so
+// it read as tier-R and survived the read-only ask-mode filter — meaning a read-only turn
+// could drive a pending gate to completion, performing the write ask mode exists to
+// withhold. Accepting a gate RUNS the gated action, so it must declare an action tier.
+func TestProvideInputDeclaresAnActionTier(t *testing.T) {
+	srv := mcp.NewServer(&mcp.Implementation{Name: "d", Version: "0.0.1"}, nil)
+	RegisterTaskProvideInput(srv, NewInMemoryTaskStore(nil), "smoke", nil)
+
+	cs := connectInMemory(t, srv)
+	res, err := cs.ListTools(context.Background(), &mcp.ListToolsParams{})
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	var found *mcp.Tool
+	for _, tl := range res.Tools {
+		if tl.Name == "smoke_task_provide_input" {
+			found = tl
+		}
+	}
+	if found == nil {
+		t.Fatal("smoke_task_provide_input not registered")
+	}
+	tier, _ := found.Meta[MetaKeyTier].(string)
+	if tier == "" || tier == "R" {
+		t.Fatalf("provide-input must declare a NON-R tier (accepting runs the gated "+
+			"action); got %q — an untiered/R tool passes the ask-mode read-only filter", tier)
+	}
+	// The CAT-4 visibility tag must survive alongside the tier.
+	if vis, _ := found.Meta[MetaKeyVisibility].(string); vis != string(VisibilityLegacy) {
+		t.Fatalf("visibility must stay legacy, got %q", vis)
+	}
+}

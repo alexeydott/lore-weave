@@ -46,6 +46,11 @@ PROJECT = uuid.UUID("dddddddd-dddd-dddd-dddd-dddddddddddd")
 CHAPTER = uuid.UUID("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
 
 EXPECTED_TOOLS = {
+    # The durable-gate resolver registered by the shared tasks kit
+    # (loreweave_mcp.tasks_wire.register_task_endpoints). It is part of this service's
+    # advertised catalog, so it belongs in the pin — its absence here was a stale
+    # expectation from before the tasks wire was mounted, not a stray tool.
+    "composition_task_provide_input",
     # Tier R
     "composition_get_work", "composition_list_outline",
     "composition_get_outline_node",
