@@ -126,15 +126,13 @@ class TestStudioPanelIntentGated:
 # PAID 2026-07-23: the four compact_* levers now have both-state coverage in
 # test_compact_flag_kill_switches.py ("needs a heavier fixture" was unbuilt work, not a
 # blocker — the fixtures were built). The breadcrumb case is mutation-proven.
+# PAID 2026-07-23: `rail_driver_enabled` — the row that was sharpened rather than paid on
+# the first attempt ("needs the rail's own fixture, not a general stream one") now HAS that
+# fixture, in test_rail_flag_kill_switch.py: all five preconditions are supplied, the ON case
+# is asserted FIRST so the OFF assertions cannot be vacuous, and deleting the flag check from
+# stream_service.py reds two of them (mutation-verified).
 _UNCOVERED_DEBT: dict[str, str] = {
     "minio_use_ssl": "infra transport toggle, not an agent-behaviour lever — no chat-service path to assert",
-    # Reason SHARPENED 2026-07-23 after an attempt: a spy on probe_book_state is the right
-    # shape, but the rail only reaches the probe when ALL of its preconditions hold —
-    # book-scoped + tool-calling enabled + a UUID book id + a grant >= VIEW (it fails
-    # CLOSED) + a pinned workflow to drive. Mocking four of the five still yielded 0 probe
-    # calls, so a partial fixture would assert OFF-skips vacuously. Needs the rail's own
-    # fixture, not a general stream one.
-    "rail_driver_enabled": "step-runner rail; needs the rail's full precondition fixture (book-scoped + tool-calling + UUID book + grant>=VIEW + a pinned workflow) — a partial mock makes the OFF assertion vacuous",
 }
 
 
