@@ -79,6 +79,12 @@ GROUP_DIRECTORY: dict[str, str] = {
     # reach the raw catalog but are NOT enumerable by group and are excluded from "book".
     # Keep in lockstep with ai-gateway find-tools.ts GROUP_DIRECTORY.
     "world": "Worldbuilding containers + reference maps — world create/get/list/move, plus map/marker/region authoring (world_*, world_map_*).",
+    # K23 (2026-07-23) — the CONSUMER-LOCAL tools (tool_list/tool_load, ui_*, propose_edit) had
+    # no group, so `_domain_of` bucketed them under "tool"/"ui"/"propose" — names absent from
+    # this directory and from CATEGORY_ENUM. They were SERVED but invisible to the discovery
+    # pair: tool_list never listed them, tool_load said `not_found` (i.e. "no such tool").
+    # Keep in lockstep with ai-gateway find-tools.ts GROUP_DIRECTORY.
+    "meta": "The tools the assistant itself uses — tool discovery (tool_list, tool_load), browser navigation (ui_*), and the editor edit-proposal card (propose_edit).",
     "jobs": "Job status/cancel for any long-running operation.",
     "catalog": "Public catalog browsing (published books, discovery).",
     "registry": "Agent/tool registry administration.",
@@ -741,6 +747,10 @@ _DOMAIN_ALIASES: dict[str, str] = {
     "memory": "knowledge",
     "lore": "glossary",
     "web": "research",
+    # K23 — the consumer-local trio (see the "meta" entry in GROUP_DIRECTORY).
+    "tool": "meta",
+    "ui": "meta",
+    "propose": "meta",
 }
 
 

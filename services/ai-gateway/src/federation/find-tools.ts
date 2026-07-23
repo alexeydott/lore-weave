@@ -41,6 +41,13 @@ export const GROUP_DIRECTORY: Readonly<Record<string, string>> = {
   // reach the raw catalog but are NOT enumerable by group and are excluded from
   // `book`. Keep in lockstep with chat-service tool_discovery.py GROUP_DIRECTORY.
   world: 'Worldbuilding containers + reference maps — world create/get/list/move, plus map/marker/region authoring (world_*, world_map_*).',
+  // K23 (2026-07-23) — the CONSUMER-LOCAL tools (tool_list/tool_load, ui_*, propose_edit) had
+  // no group, so `domainOf` bucketed them under 'tool'/'ui'/'propose' — names absent from this
+  // directory and from CATEGORY_ENUM. They were served by tools/list but INVISIBLE to the
+  // discovery pair: tool_list never listed them and tool_load answered `not_found`, which
+  // states the tool does not EXIST. Giving them a home makes them enumerable like everything
+  // else. Keep in lockstep with chat-service tool_discovery.py GROUP_DIRECTORY.
+  meta: 'The tools the assistant itself uses — tool discovery (tool_list, tool_load), browser navigation (ui_*), and the editor edit-proposal card (propose_edit).',
   jobs: 'Job status/cancel for any long-running operation.',
   catalog: 'Public catalog browsing (published books, discovery).',
   registry: 'Agent/tool registry administration.',
@@ -234,6 +241,11 @@ const DOMAIN_ALIASES: Readonly<Record<string, string>> = {
   memory: 'knowledge',
   lore: 'glossary',
   web: 'research',
+  // K23 — the consumer-local trio. `propose_edit` has no underscore-delimited prefix of its
+  // own beyond `propose`, so it aliases like the rest.
+  tool: 'meta',
+  ui: 'meta',
+  propose: 'meta',
 };
 
 function domainOf(name: string): string {

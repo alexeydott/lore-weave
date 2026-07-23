@@ -206,7 +206,11 @@ describe('GROUP_DIRECTORY (Part A, TS mirror)', () => {
     // (or a description edited on only one side) fails here.
     expect(Object.keys(GROUP_DIRECTORY).sort()).toEqual([
       'book', 'catalog', 'composition', 'glossary', 'jobs',
-      'knowledge', 'plan', 'registry', 'research', 'settings', 'story', 'translation', 'world',
+      // K23 — 'meta' is the home for the CONSUMER-LOCAL tools (tool_list/tool_load, ui_*,
+      // propose_edit). Without a group they were served by tools/list but unreachable through
+      // the discovery pair: tool_list never listed them and tool_load said `not_found`.
+      'knowledge', 'meta', 'plan', 'registry', 'research', 'settings', 'story', 'translation',
+      'world',
     ]);
   });
 

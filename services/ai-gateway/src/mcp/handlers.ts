@@ -214,6 +214,25 @@ export async function handleFindTools(
  * set with deprecated tools LABELED (not dropped). The public edge intersects this with the key's
  * scope (`catalog ∩ non-legacy(labeled) ∩ isToolAllowed`) — this layer contributes the first two.
  */
+/**
+ * K23 — the CONSUMER-LOCAL tools, in the shape the discovery pair walks.
+ *
+ * `handleListTools` serves these alongside the federated catalog, and the comment there
+ * already states the intent — "ai-gateway lists them so they are discoverable + validated at
+ * one seam". The discovery pair did not honour it: both walked `federation.catalog()` alone,
+ * so tool_list never listed these 10 and tool_load answered `not_found` — which tells a model
+ * the tool does not EXIST, not that it is unfederated.
+ *
+ * That matters most exactly where it is least visible. ui_* and propose_edit are advertised
+ * CONDITIONALLY (the F7c nav-intent / editor-surface gates in chat-service), so when the gate
+ * withholds one, discovery was the only way back — and it said the tool was not real. It also
+ * contradicts F17's whole rationale for retiring find_tools: tool_list/tool_load were adopted
+ * because they "have no such blind spot".
+ */
+function consumerLocalTools(): any[] {
+  return [TOOL_LIST_TOOL, TOOL_LOAD_TOOL, ...UI_TOOLS, PROPOSE_EDIT_TOOL] as any[];
+}
+
 export async function handleToolList(
   federation: FederationService,
   args: Record<string, unknown>,
@@ -227,7 +246,7 @@ export async function handleToolList(
   const includeDeprecated = typeof args?.include_deprecated === 'boolean' ? args.include_deprecated : false;
   const overlay = await federation.overlayTools(extractEnvelope(headers));
   const { payload } = toolListResult(
-    [...federation.catalog(), ...overlay], category, includeDeprecated, new Set(),
+    [...federation.catalog(), ...overlay, ...consumerLocalTools()], category, includeDeprecated, new Set(),
     availabilityMeta(federation).unavailable_providers,
   );
   return { content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload };
@@ -251,7 +270,7 @@ export async function handleToolLoad(
   const category = typeof args?.category === 'string' ? args.category : undefined;
   const overlay = await federation.overlayTools(extractEnvelope(headers));
   const { payload } = toolLoadResult(
-    [...federation.catalog(), ...overlay], { name, names, category },
+    [...federation.catalog(), ...overlay, ...consumerLocalTools()], { name, names, category },
     availabilityMeta(federation).unavailable_providers,
   );
   return { content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload };
