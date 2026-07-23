@@ -123,14 +123,18 @@ class TestStudioPanelIntentGated:
 
 # Flags that are STILL uncovered — tracked debt, not permission. Delete a row when you
 # cover it; never add one without a reason.
+# PAID 2026-07-23: the four compact_* levers now have both-state coverage in
+# test_compact_flag_kill_switches.py ("needs a heavier fixture" was unbuilt work, not a
+# blocker — the fixtures were built). The breadcrumb case is mutation-proven.
 _UNCOVERED_DEBT: dict[str, str] = {
     "minio_use_ssl": "infra transport toggle, not an agent-behaviour lever — no chat-service path to assert",
-    "rail_driver_enabled": "step-runner rail; needs a book-scoped stream fixture with a rail spec (3 call sites)",
-    "lazy_workflow_directive": "WS-5 workflow-preference block; needs a full system-message assembly fixture",
-    "compact_breadcrumb_enabled": "guards the 1/9->9/9 breadcrumb fix; needs a pool + summarizer fixture on maybe_persist_compaction",
-    "compact_persist_enabled": "persisted-compaction entry gate; same fixture need as the breadcrumb flag",
-    "compact_recovery_hint_enabled": "post-compaction recovery hint; needs a turn that actually compacts",
-    "compact_task_elastic_enabled": "elastic task budget inside compaction; same fixture need",
+    # Reason SHARPENED 2026-07-23 after an attempt: a spy on probe_book_state is the right
+    # shape, but the rail only reaches the probe when ALL of its preconditions hold —
+    # book-scoped + tool-calling enabled + a UUID book id + a grant >= VIEW (it fails
+    # CLOSED) + a pinned workflow to drive. Mocking four of the five still yielded 0 probe
+    # calls, so a partial fixture would assert OFF-skips vacuously. Needs the rail's own
+    # fixture, not a general stream one.
+    "rail_driver_enabled": "step-runner rail; needs the rail's full precondition fixture (book-scoped + tool-calling + UUID book + grant>=VIEW + a pinned workflow) — a partial mock makes the OFF assertion vacuous",
 }
 
 
