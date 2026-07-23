@@ -198,3 +198,57 @@ def test_setup_logging_is_idempotent():
     assert len(logging.getLogger().handlers) == 1
     for name in _UVICORN_LOGGERS:
         assert len(logging.getLogger(name).handlers) == 1
+
+
+class TestRedactFilterMappingArgs:
+    """A single dict arg is a MAPPING on the record, not an iterable of values.
+
+    `LogRecord.__init__` unwraps `logger.x(msg, a_dict)` to `self.args = a_dict` (that is
+    how `%(name)s` formatting works). RedactFilter iterated it, and iterating a Mapping
+    yields its KEYS — so `{"a": 1, "b": 2}` became `("a", "b")`, the message formatted one
+    `%s` against a 2-tuple, and logging raised "not all arguments converted" INSIDE emit.
+    The stdlib swallows that via handleError, so the line was simply LOST.
+
+    Found 2026-07-23 from composition's book-lifecycle consumer: its
+    `logger.warning("... %s", fields)` disappeared whenever setup_logging was installed —
+    which is why its test failed in the full suite but passed when run alone.
+    """
+
+    def _record(self, msg: str, args):
+        return logging.LogRecord("t", logging.WARNING, "p", 1, msg, args, None)
+
+    def test_a_single_dict_arg_still_formats(self):
+        from loreweave_obs.logging_setup import RedactFilter
+
+        rec = self._record("event without book_id: %s",
+                           ({"event_type": "book.lifecycle_changed", "payload": "{}"},))
+        assert isinstance(rec.args, dict), "stdlib should have unwrapped the mapping"
+        RedactFilter().filter(rec)
+        # The message must survive — before the fix this raised TypeError inside logging.
+        assert "book.lifecycle_changed" in rec.getMessage()
+
+    def test_percent_named_formatting_survives(self):
+        from loreweave_obs.logging_setup import RedactFilter
+
+        rec = self._record("user=%(user)s action=%(action)s",
+                           ({"user": "u1", "action": "publish"},))
+        RedactFilter().filter(rec)
+        assert rec.getMessage() == "user=u1 action=publish"
+
+    def test_secrets_in_mapping_VALUES_are_now_redacted(self):
+        from loreweave_obs.logging_setup import RedactFilter
+
+        # The whole point of the filter. With the old tuple(...) it saw only KEYS, so a
+        # secret sitting in a value was never scrubbed.
+        rec = self._record("headers=%(auth)s", ({"auth": "Bearer abc.def-ghi"},))
+        RedactFilter().filter(rec)
+        assert "Bearer abc.def-ghi" not in rec.getMessage()
+        assert "***REDACTED***" in rec.getMessage()
+
+    def test_tuple_args_keep_their_existing_behaviour(self):
+        from loreweave_obs.logging_setup import RedactFilter
+
+        rec = self._record("a=%s b=%s", ("sk-" + "x" * 24, "plain"))
+        RedactFilter().filter(rec)
+        out = rec.getMessage()
+        assert "***REDACTED***" in out and out.endswith("plain")
