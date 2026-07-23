@@ -21,10 +21,34 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/loreweave/grantclient"
 	lwmcp "github.com/loreweave/loreweave_mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// curationListOutputSchema is written by HAND, not inferred. `curationListOut.Items` is a
+// discriminated union (`any`), and the go-sdk reflector renders an `any` field as the
+// BOOLEAN schema `true` ("anything goes"). That is legal JSON Schema 2020-12 — and it is
+// exactly what took the whole provider down: ai-gateway's federation validator rejects a
+// boolean subschema, so `glossary` list-tools failed → PARTIAL and ALL 54 glossary tools
+// vanished from the federated catalog (measured 2026-07-23: 0 `glossary_*` of 245 tools,
+// gemma's `tool_load(glossary_propose_entities)` came back `not_found`). One malformed
+// schema on one tool silently de-federates every sibling — so state the union's shape
+// explicitly instead. Rows are objects in all three views; keep it open (no
+// additionalProperties:false) since each view's row type differs.
+func curationListOutputSchema() *jsonschema.Schema {
+	return &jsonschema.Schema{
+		Type: "object",
+		Properties: map[string]*jsonschema.Schema{
+			"view":  {Type: "string", Description: "which inbox these items came from"},
+			"items": {Type: "array", Items: &jsonschema.Schema{Type: "object"}, Description: "the view's rows — merge-candidate clusters, unknown entities, or AI suggestions"},
+			"total": {Type: "integer", Description: "total matching rows (inbox views under-report via LIMIT)"},
+			"truncated": {Type: "boolean",
+				Description: "merge_candidates only — the set was capped; more exist"},
+		},
+	}
+}
 
 // RegisterCurationTools adds glossary_curation_list to the user/book /mcp server
 // (append-only convention, matches the other Register*Tools).
@@ -46,6 +70,7 @@ func (s *Server) RegisterCurationTools(srv *mcp.Server) {
 			"view":   {"merge_candidates", "unknowns", "ai_suggestions"},
 			"status": {"proposed", "dismissed", "merged", "draft", "active", "inactive", "rejected", "all"},
 		}),
+		OutputSchema: curationListOutputSchema(),
 		Meta: lwmcp.WithAmbientBook(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{
 			"review inbox", "curation inbox", "duplicates to merge", "triage unknown entities",
 			"ai suggestions to review", "what needs review", "entity review queue",

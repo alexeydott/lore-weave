@@ -1,5 +1,29 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## 🚨 GLOSSARY FEDERATION OUTAGE — FOUND + FIXED + GATED (2026-07-23)
+The catalog-unification (Part B) shipped a schema that **de-federated the entire glossary provider**.
+`glossary_curation_list` declared its union payload as `Items any`; the go-sdk reflector renders `any` as
+the JSON-Schema **boolean** `true`, and ai-gateway's zod validator rejects a boolean subschema →
+`provider 'glossary' list-tools failed → PARTIAL`. **One bad tool dropped all 54 glossary tools** from the
+federated catalog (measured: **0** `glossary_*` of 245). Every agent lost the whole glossary surface —
+including the unified tools just built.
+- **Nothing caught it.** The schema is valid *in isolation*: unit tests, closed-set-enum contract, legacy-
+  visibility lock, route-conformance — all green. It only breaks at the **federation boundary** (other
+  service, other language, other validator). Same shape as the `panel_id` frontend-tool bug.
+- **It masked a live investigation**: gemma looked like it ignored an explicit re-route, but it *followed*
+  it and got `tool_load(glossary_propose_entities) → not_found`. The model was right, the platform was broken.
+  **Lesson: before blaming model behavior, verify the tool is actually IN the catalog.**
+- **Fix:** hand-written `curationListOutputSchema()` (`curation_tools.go`) — `items: {type:array, items:
+  {type:object}}`. Wire shape unchanged.
+- **Gate:** `TestNoBooleanSubschemasAnywhere` walks every tool's input+output schema over the real
+  `tools/list` wire, fails on any boolean subschema (`additionalProperties` exempt). **Adversarially
+  verified: reds on the exact defect.** Sibling MCP services should adopt the same guard.
+- **Live verify:** ai-gateway `235 tools PARTIAL` → **`289 tools`, no PARTIAL**. S00b E2E turn A: 4 rejected
+  placeholder-id edits → **2 calls, first-try correct write**, `glossary_book_ontology_read` →
+  `glossary_propose_entities` (read-then-act), entity **DB-verified**
+  (`019f8cbe-b8c1-7a05-b368-ed00a87cbde7` "Lâm Uyên", draft). Full glossary suite green.
+- Detail: `docs/eval/tool-liveness/glossary-unification/RESULTS.md` (2026-07-23 section).
+
 ## 🧹 KG (knowledge-service) MCP CATALOG UNIFICATION (2026-07-22) — DONE + LIVE-VERIFIED
 Spec `docs/specs/2026-07-22-kg-catalog-unification.md`; results `docs/eval/tool-liveness/kg-unification/`.
 **Live-counted: 37 → 26 default-visible (~30%); 41 registered, 15 legacy.**

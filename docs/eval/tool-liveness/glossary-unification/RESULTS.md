@@ -53,3 +53,66 @@ General lesson: a unified tool's description must lead with the plain user actio
 internal concept.
 
 Run: `python discover_ab.py` (needs glossary `/mcp` :8211 + lm_studio :1234 with gemma-4).
+
+---
+
+## 2026-07-23 — the unification shipped a PROVIDER-WIDE OUTAGE (found by real E2E only)
+
+### What broke
+`glossary_curation_list` (Part B) declared its discriminated-union payload as
+`Items any`. The go-sdk reflector renders an `any` field as the JSON-Schema
+**boolean** `true`. That is legal JSON Schema 2020-12 — and ai-gateway's zod
+federation validator rejects it:
+
+```
+WARN [FederationService] provider 'glossary' list-tools failed → PARTIAL:
+  [{ "code":"custom", "path":["tools",12,"outputSchema","properties","items"], "message":"Invalid input" }]
+LOG  [FederationService] catalog: 235 tools / 10 providers (... PARTIAL)
+```
+
+**One malformed schema on one tool silently de-federated all 54 sibling tools.**
+Measured: `0` `glossary_*` tools of 245 federated. Every agent lost the entire
+glossary catalog — including the very tools the unification had just created.
+
+### Why nothing caught it
+Every existing gate stayed green, because the schema is **valid in isolation**:
+the tool's unit tests, `TestMCPClosedSetArgsAreEnums`, `TestLegacyToolsCarryVisibilityMeta`,
+and route-conformance all pass. The defect only exists at the **federation boundary** —
+a different service, a different language, a different validator. Classic two-sides-
+joined-only-by-a-contract bug (the same shape as the `panel_id` frontend-tool bug).
+
+It also **masked** a separate investigation: gemma looked like it was ignoring an
+explicit re-route, when in fact it *followed* it and got
+`tool_load(name="glossary_propose_entities") → {"not_found": [...]}` — the tool
+genuinely did not exist in its catalog. The model was right; the platform was broken.
+
+### Fix
+Hand-written `curationListOutputSchema()` (`curation_tools.go`) declaring
+`items: {type: array, items: {type: object}}` — states the union's real shape, emits
+no boolean subschema. Wire shape unchanged.
+
+### Gate added
+`TestNoBooleanSubschemasAnywhere` (`mcp_tool_schema_contract_test.go`) walks **every**
+tool's `inputSchema` + `outputSchema` over the real `tools/list` wire and fails on any
+boolean subschema (`additionalProperties` exempt — a boolean there is idiomatic and
+accepted). Verified adversarially: **reds on the exact defect**, green with the fix.
+
+### Verification (live, before → after)
+
+| | before | after |
+|---|---|---|
+| ai-gateway catalog | 235 tools, `PARTIAL` | **289 tools, no PARTIAL** |
+| `glossary_*` federated | **0** | **54** |
+| S00b turn A tool calls | 4 (all rejected placeholder-id edits) | **2** |
+| first-try correct write | ✗ | ✅ `glossary_propose_entities` `ok=true` |
+| entity in DB | ✗ none | ✅ `019f8cbe-b8c1-7a05-b368-ed00a87cbde7` "Lâm Uyên" (draft) |
+
+The winning trace is the documented **read-then-act** shape — `glossary_book_ontology_read`
+(fetch the valid kinds) → `glossary_propose_entities` with a real `book_id` UUID and
+`kind: "character"`. No `find_tools`, no schema-guess round-trip.
+
+### Lesson
+A schema that is valid in its own language can still be **invalid at the federation
+boundary**, and the blast radius is the whole provider, not the one tool. Any new
+`any`/`interface{}`-typed field in an MCP payload needs an explicit schema. Sibling
+services registering MCP tools should carry the same guard.
