@@ -47,7 +47,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 
-from loreweave_mcp import patch_convert_result, require_meta
+from loreweave_mcp import make_stateless_fastmcp, require_meta
 from pydantic import Field, ValidationError
 
 from app.clients.book_client import get_book_client
@@ -104,36 +104,19 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["mcp_server", "build_mcp_app"]
 
-# External MCP discoverability audit #9 — every structured tool result used
-# to duplicate its full payload into content[0].text (already-JSON-parsed
-# structuredContent sitting right next to a JSON-STRINGIFIED copy of the same
-# data). knowledge-service builds its own FastMCP instance directly (unlike
-# composition/jobs/translation/lore-enrichment-service, which go through the
-# shared `loreweave_mcp.make_stateless_fastmcp` chokepoint and get this for
-# free) — this service already ships `loreweave_mcp` as a dependency (it's
-# installed via `pip install /sdk` in the Dockerfile) even though it doesn't
-# use the rest of the kit, so this is a plain function import, not a new
-# dependency. See sdks/python/loreweave_mcp/compact_content.py for the fix
-# itself (a defensive FastMCP monkeypatch — never raises even if a future mcp
-# release changes the shape it targets).
-patch_convert_result()
-
-# Module-level FastMCP instance. build_mcp_app() converts it to an ASGI
-# app for mounting in main.py. stateless_http=True + path="/" so the
-# mount at "/mcp" exposes the endpoint at exactly "/mcp".
-mcp_server = FastMCP(
-    "knowledge-memory",
-    stateless_http=True,
-    streamable_http_path="/",
-    # ARCH-2 D-ARCH2-MCP-LIVE-SMOKE: this is an INTERNAL service-to-service MCP
-    # endpoint (chat-service → knowledge-service over the docker/private network,
-    # authed by X-Internal-Token). The MCP SDK's DNS-rebinding protection only
-    # allows localhost Host headers by default, so a cross-process call with
-    # Host "knowledge-service:8092" gets 421 Misdirected Request. Disable it —
-    # the trust boundary here is the private network + internal token, not the
-    # Host header (which matters for browser-facing servers, not this one).
-    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
-)
+# K19 (2026-07-23) — this service used to build its own FastMCP instance and hand-import a
+# SINGLE kit patch (patch_convert_result). That silently opted it out of every OTHER fix
+# applied at the shared chokepoint, and the drift was measured, not theorised: after K16/K17/
+# K19 shipped, translation/plan/jobs went to 0% undocumented args while kg stayed at 128/128
+# (100%) — the patches simply never ran here. It is the same shape as `closedSetSchemaFor`
+# being glossary-only while book-service shipped four enum-less closed sets.
+#
+# The construction below was byte-identical to `make_stateless_fastmcp` (stateless_http,
+# streamable_http_path="/", DNS-rebinding protection off for this internal service-to-service
+# endpoint — see ARCH-2 D-ARCH2-MCP-LIVE-SMOKE: chat-service calls it with
+# Host "knowledge-service:8092", which the SDK's localhost-only allowlist would 421). So it
+# now goes through the chokepoint and inherits the patches like every sibling service.
+mcp_server = make_stateless_fastmcp("knowledge-memory")
 
 
 # ── W0 #4b — model-directed validation errors ─────────────────────────

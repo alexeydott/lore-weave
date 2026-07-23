@@ -22,6 +22,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
 from .compact_content import patch_convert_result, patch_tool_run_size_gate
+from .arg_docs import patch_arg_docs
 from .error_signal import patch_error_signal
 from .flat_args import patch_flat_args
 
@@ -102,6 +103,9 @@ def make_stateless_fastmcp(name: str) -> FastMCP:
     patch_flat_args()
     # K17 — a failed tool call must set isError, not just say so in its payload.
     patch_error_signal()
+    # K19 — promote Annotated arg docs into the schema. LAST, so it runs OUTERMOST and
+    # sees the already-flattened properties from patch_flat_args.
+    patch_arg_docs()
     return FastMCP(
         name,
         stateless_http=True,

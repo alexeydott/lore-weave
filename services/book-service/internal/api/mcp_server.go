@@ -65,6 +65,29 @@ func addTool[In, Out any](
 	lwmcp.RegisterTool(srv, tool, handler)
 }
 
+// addToolClosedSet is addTool for a tool with CLOSED-SET args. `enums` maps a dotted
+// property path to its legal values, which are attached to the inferred schema as a real
+// JSON-Schema `enum`.
+//
+// Use it whenever a description would otherwise enumerate the values in prose. The set the
+// model is validated against must be the set the author wrote down — writing it only in the
+// description puts it somewhere the validator can never read (the `panel_id` silent no-op).
+// TestEveryEnumeratedClosedSetHasAnEnum reds if a new tool takes the prose route.
+func addToolClosedSet[In, Out any](
+	srv *mcp.Server,
+	name, description string,
+	meta mcp.Meta,
+	enums map[string][]any,
+	handler func(context.Context, *mcp.CallToolRequest, In) (*mcp.CallToolResult, Out, error),
+) {
+	tool := &mcp.Tool{
+		Name: name, Description: description, Meta: meta,
+		InputSchema: lwmcp.ClosedSetSchema[In](enums),
+	}
+	lwmcp.MustValidateToolMeta(tool)
+	lwmcp.RegisterTool(srv, tool, handler)
+}
+
 // newMCPServer builds the book-service MCP server and registers the S-BOOK
 // catalog (§4). Exposed for tests (which assert tier metadata on every tool).
 func (s *Server) newMCPServer() *mcp.Server {
@@ -75,7 +98,7 @@ func (s *Server) newMCPServer() *mcp.Server {
 	// (docs/specs/2026-07-22-book-tools-redesign.md Part C/D). `kind` selects the set; default
 	// "books" keeps the prior behavior backward-compatible (.books + .total still present).
 	// Supersedes book_list_chapters / book_list_revisions / book_scene_list (now legacy).
-	addTool(srv, "book_list",
+	addToolClosedSet(srv, "book_list",
 		"List REFERENCES only (the 'ls') — never bodies. `kind` selects what: books (default; the "+
 			"caller's library), chapters (needs book_id), revisions (needs book_id + chapter_id), or "+
 			"scenes (needs book_id). Paged via limit/offset; every result carries page.is_complete + a "+
@@ -84,6 +107,8 @@ func (s *Server) newMCPServer() *mcp.Server {
 		lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{
 			"books", "my library", "novels", "list chapters", "table of contents", "toc",
 			"list revisions", "list scenes", "ls"}),
+		// The set selector — same discriminator rule as book_structure_edit.op.
+		map[string][]any{"kind": {"books", "chapters", "revisions", "scenes"}},
 		s.toolBookListUnified)
 
 	addTool(srv, "book_get",
@@ -234,7 +259,7 @@ func (s *Server) newMCPServer() *mcp.Server {
 		lwmcp.WithAmbientBook(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{"manuscript structure", "parts overview", "table of contents", "where do chapters live", "book outline"})),
 		s.toolBookStructureRead)
 
-	addTool(srv, "book_structure_edit",
+	addToolClosedSet(srv, "book_structure_edit",
 		"Reorganize the manuscript STRUCTURE. `op` selects the operation: create_part (title) · rename_part "+
 			"(part_id, title) · reorder_parts (ordered_part_ids — the full active set, each once) · "+
 			"home_chapter (chapter_id + part_id, or part_id=\"unassigned\" to un-home) · reorder_chapters "+
@@ -244,6 +269,11 @@ func (s *Server) newMCPServer() *mcp.Server {
 			"create part", "add act", "add volume", "rename part", "reorder parts",
 			"move chapter to act", "put chapter in volume", "home chapter", "reorder chapters", "change reading order",
 		})),
+		// The dispatch discriminator. A miss here is the whole failure mode, so the legal
+		// ops are declared where the VALIDATOR reads them, not only in the prose above.
+		map[string][]any{"op": {
+			"create_part", "rename_part", "reorder_parts", "home_chapter", "reorder_chapters",
+		}},
 		s.toolBookStructureEdit)
 
 	// The destructive part-archive is a SEPARATE legacy/lifecycle tool (CAT-2 split — human owns
@@ -279,7 +309,7 @@ func (s *Server) newMCPServer() *mcp.Server {
 		lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{"restore revision", "revert chapter", "undo edit"}),
 		s.toolChapterRestoreRevision)
 
-	addTool(srv, "book_chapter_save_draft",
+	addToolClosedSet(srv, "book_chapter_save_draft",
 		"[Saved book] Save a CHAPTER's PROSE as its draft — the story text of one chapter. Put the "+
 			"chapter text in `body` as plain prose (blank line between paragraphs) — do NOT hand-write "+
 			"editor/Tiptap JSON. This is NOT for the book's own description / summary / blurb / synopsis "+
@@ -287,6 +317,7 @@ func (s *Server) newMCPServer() *mcp.Server {
 			"as a chapter draft. REQUIRES base_version (the draft_version you read); a version mismatch "+
 			"returns a conflict and stops — no overwrite. Reverse: book_chapter_restore_revision.",
 		lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{"save draft", "edit chapter text", "write chapter prose"}),
+		map[string][]any{"body_format": {"plain", "markdown", "json"}},
 		s.toolChapterSaveDraft)
 
 	// WS-0.4 — publish-independent KG indexing. Indexing is NOT publishing: a chapter
@@ -325,7 +356,7 @@ func (s *Server) newMCPServer() *mcp.Server {
 		}),
 		s.toolBookSetKGExclude)
 
-	addTool(srv, "book_steering_set",
+	addToolClosedSet(srv, "book_steering_set",
 		"Author or replace a book steering rule (the .cursorrules / story-bible the "+
 			"agent obeys). Upsert keyed on name: a new name CREATES, an existing name "+
 			"FULLY replaces the rule (PUT semantics). The body is injected into every "+
@@ -335,6 +366,7 @@ func (s *Server) newMCPServer() *mcp.Server {
 			"Returns the prior row when one was replaced; reverse is in the result's "+
 			"undo_hint.",
 		lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{"add rule", "remember this steering rule", "always do", "never do", "write that down"}),
+		map[string][]any{"inclusion_mode": {"always", "scene_match", "manual", "auto"}},
 		s.toolBookSteeringSet)
 
 	addTool(srv, "book_steering_delete",
