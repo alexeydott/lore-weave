@@ -1352,6 +1352,42 @@ def test_error_envelope_json_without_code_omits_it():
     assert out == {"success": False, "result": None, "error": "boom"}
 
 
+def test_error_envelope_decodes_the_REAL_fastmcp_wire_shape():
+    """K18 — the shape the PRODUCER actually emits, not the one the contract describes.
+
+    FastMCP wraps every raised ToolError as `Error executing tool <name>: {c4 body}`. The
+    tests above feed a BARE body, which production never sends — so `text.startswith("{")`
+    was always False and the C4 decoding NEVER RAN: every tool failure degraded to raw text
+    and the stable `code` a workflow branches on (C5) was silently lost.
+
+    Captured verbatim from a live ai-gateway probe on 2026-07-23.
+    """
+    from app.client.knowledge_client import _error_envelope
+
+    out = _error_envelope(
+        'Error executing tool kg_add_nodes: {"code":"KG_ENDPOINT_NOT_NODE",'
+        '"message":"invalid arguments: mode=manual requires name and kind",'
+        '"detail":{"missing":["name"]}}'
+    )
+    assert out["code"] == "KG_ENDPOINT_NOT_NODE", (
+        "the prefix swallowed the C4 body — a workflow cannot branch on a code it never sees"
+    )
+    assert out["error"] == "invalid arguments: mode=manual requires name and kind"
+    assert out["detail"] == {"missing": ["name"]}
+    assert "Error executing tool" not in out["error"], (
+        "the model must read the message, not the SDK's plumbing"
+    )
+
+
+def test_error_envelope_keeps_a_plain_text_error_that_merely_starts_that_way():
+    # The stripper is deliberately narrow (it requires a `{` right after the colon), so a
+    # genuine prose error is never truncated into nonsense.
+    from app.client.knowledge_client import _error_envelope
+
+    out = _error_envelope("Error executing tool: the upstream service is down")
+    assert out["error"] == "Error executing tool: the upstream service is down"
+
+
 def test_error_envelope_plain_text_degrades():
     """Overlay/external tools and older services still send plain text — never raise."""
     from app.client.knowledge_client import _error_envelope

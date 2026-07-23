@@ -137,6 +137,27 @@ def _degraded() -> KnowledgeContext:
     )
 
 
+_FASTMCP_ERR_PREFIX = re.compile(r"^Error executing tool [\w.-]+:\s*(?=\{)")
+
+
+def _strip_fastmcp_prefix(text: str) -> str:
+    """Drop FastMCP's ``Error executing tool <name>: `` preamble so the C4 body behind it
+    can actually be decoded.
+
+    K18 (2026-07-23) — without this, the decoding below NEVER RAN in production. FastMCP
+    wraps every raised `ToolError` as ``Error executing tool kg_add_nodes: {"message": …}``,
+    so `text.startswith("{")` was always False and every C4 body degraded to raw text: the
+    stable `code` a workflow is supposed to branch on (contract C5) was silently lost on
+    every single tool failure. It went unnoticed because the unit tests fed this function a
+    BARE `{"message": …}` string — the shape the contract describes, not the shape the
+    producer emits.
+
+    Deliberately narrow: the lookahead requires a `{` right after the colon, so a genuine
+    plain-text error that merely starts with those words is left alone.
+    """
+    return _FASTMCP_ERR_PREFIX.sub("", text, count=1)
+
+
 def _error_envelope(err_text: str) -> dict:
     """Build the `{"success": False, ...}` envelope from an MCP isError payload.
 
@@ -150,7 +171,7 @@ def _error_envelope(err_text: str) -> dict:
     Anything that isn't such a JSON object (plain-text errors from overlay/external
     tools, or older services) degrades to the raw text — never raises.
     """
-    text = (err_text or "").strip()
+    text = _strip_fastmcp_prefix((err_text or "").strip())
     if text.startswith("{"):
         try:
             body = json.loads(text)
