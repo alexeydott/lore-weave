@@ -82,11 +82,20 @@ PROPOSE_EDIT_TOOL: dict = {
     "type": "function",
     "function": {
         "name": "propose_edit",
+        # K10 — MUST stay byte-identical to ai-gateway's copy
+        # (src/mcp/propose-edit-tool.ts), which owns this tool since P2.2 and whose own
+        # comment calls the prose "a MOVE, not a duplication — Phase 4 removes
+        # chat-service's copy". The move never finished, and the leftover copy had already
+        # drifted: this text said "the user's current selection" where ai-gateway says
+        # "the current selection". Harmless in itself, but the DESCRIPTION is what decides
+        # WHEN the model reaches for a tool, and it is the one field the contract SoT does
+        # not pin (it slices args + required only). Pinned by
+        # TestResidualAdvertisedDefsMatchContract::test_description_matches_ai_gateway.
         "description": (
             "Propose an edit to the chapter the user is currently writing. The "
             "edit is shown to the user with an Apply button and is NOT applied "
             "automatically — the user reviews it first. Use this to suggest "
-            "inserting new prose at the cursor, or rewriting the user's current "
+            "inserting new prose at the cursor, or rewriting the current "
             "selection. After the user decides, you receive whether they applied "
             "or dismissed it."
         ),
