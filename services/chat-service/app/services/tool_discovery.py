@@ -193,9 +193,24 @@ TOOL_LIST_TOOL: dict = {
                     "description": "A tool domain, or \"all\" for the whole catalog. Omit = all.",
                 },
                 "include_deprecated": {
+                    # K22 (2026-07-23) — this said `default: True` / "Default true." while the
+                    # HANDLER that actually runs (ai-gateway handleToolList) defaults it to
+                    # FALSE, deliberately: "a browsing agent should see the CURRENT surface,
+                    # not the shrunk-away legacy tools as noise (the book catalog was 16 active
+                    # + 19 deprecated)" (spec 2026-07-22 review).
+                    #
+                    # So the model was told the opposite of what happens. It omits the arg
+                    # expecting deprecated tools, gets only current ones, and concludes a tool
+                    # it remembers by its OLD name no longer exists — on tool_list, which F17
+                    # made the ONLY discovery surface, right after a unification renamed tools
+                    # en masse. Advertised contract now matches executed behaviour.
                     "type": "boolean",
-                    "description": "Include deprecated tools (shown labeled). Default true.",
-                    "default": True,
+                    "description": (
+                        "Include deprecated tools (shown labeled with their replacement). "
+                        "Default false — omit to see only the CURRENT tools; set true only "
+                        "when migrating off an old tool name."
+                    ),
+                    "default": False,
                 },
             },
             "additionalProperties": False,
