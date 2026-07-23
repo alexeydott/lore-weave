@@ -5845,11 +5845,28 @@ async def composition_arc_template_list(
     if status not in ("draft", "active", "archived"):
         return {"error": "status must be one of: draft, active, archived"}
     repo = ArcTemplateRepo(get_pool())
+    # K25 (2026-07-24) — OUT-5: this returned ONLY the capped slice, no total/more flag, so a
+    # caller with 31 templates asking limit=5 read "you have 5 templates" — a silent
+    # truncation. Fetch limit+1 and report `more` (the same signal kg_project_list uses:
+    # "the repo fetches limit+1 to signal more"), which is honest without a second COUNT.
+    capped = max(1, min(100, limit))
     rows = await repo.list_for_caller(
         tc.user_id, scope=("user" if scope == "mine" else scope), genre=genre,
-        status=status, q=q, language=language, limit=max(1, min(100, limit)),
+        status=status, q=q, language=language, limit=capped + 1,
     )
-    return {"arc_templates": [a.model_dump(mode="json") for a in rows], "scope": scope}
+    more = len(rows) > capped
+    rows = rows[:capped]
+    return {
+        "arc_templates": [a.model_dump(mode="json") for a in rows],
+        "scope": scope,
+        "returned": len(rows),
+        "more": more,
+        "guidance": (
+            f"showing {len(rows)} — more exist; raise `limit` or narrow with "
+            "scope/genre/status/q. Do NOT assume this is all of them."
+            if more else f"complete — all {len(rows)} matching templates returned."
+        ),
+    }
 
 
 @mcp_server.tool(
