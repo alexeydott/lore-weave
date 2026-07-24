@@ -1293,6 +1293,44 @@ async def test_kg_world_query_unions_partitions_and_reports_unreadable(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_kg_world_query_surfaces_node_cap_hit_as_meta_truncated(monkeypatch):
+    """K37/OUT-5 — get_world_subgraph already flags `node_cap_hit` when the union re-cap (or
+    any member) trims; the handler now surfaces it as the UNIFORM `meta.truncated`, so a
+    capped world rollup is signalled just like the other graph reads (never a silent cut)."""
+    import app.tools.graph_schema_tools as gst
+
+    world_proj = uuid4()
+    book = AsyncMock()
+    book.list_world_books = AsyncMock(return_value=[])  # world-level project only
+    repo = AsyncMock()
+    repo.project_meta = AsyncMock(return_value=(_OWNER, _BOOK))
+    repo.list = AsyncMock(return_value=[SimpleNamespace(project_id=world_proj)])
+
+    async def _fake_subgraph(session, *, user_id, project_ids, limit):
+        # the repo says it trimmed the union → node_cap_hit=True
+        return SimpleNamespace(model_dump=lambda mode="json": {
+            "nodes": [{"id": "n1", "kind": "character", "name": "N"}],
+            "edges": [], "node_cap_hit": True,
+        })
+
+    monkeypatch.setattr("app.db.neo4j_repos.relations.get_world_subgraph", _fake_subgraph)
+
+    class _CM:
+        async def __aenter__(self):
+            return MagicMock()
+
+        async def __aexit__(self, *a):
+            return False
+
+    monkeypatch.setattr(gst, "neo4j_session", lambda: _CM())
+
+    ctx = _ctx(user_id=_OWNER, projects_repo=repo, book_client=book)
+    res = await execute_tool(ctx, "kg_world_query", {"world_id": str(uuid4())})
+    assert res.success, res.error
+    assert res.result["meta"]["truncated"] is True
+
+
+@pytest.mark.asyncio
 async def test_kg_world_query_unknown_world_is_self_correcting_error():
     """EC-B5: a bad world / book-service issue maps to a tool-error STRING (not a 500),
     so a weak model can self-correct."""
@@ -1445,7 +1483,7 @@ async def test_kg_multi_query_invalid_id_is_self_correcting_error():
 def test_kg_multi_query_args_require_at_least_one_and_cap_at_16():
     """The set must be non-empty (min_length=1) and capped at 16 (matches the B1(2)
     chat-session multi-KG grounding cap)."""
-    assert KgMultiQueryArgs(project_ids=["p1"]).limit == 200
+    assert KgMultiQueryArgs(project_ids=["p1"]).limit == 60  # K37: 200→60 (GRAPH_LIMIT_DEFAULT)
     with pytest.raises(ValidationError):
         KgMultiQueryArgs(project_ids=[])            # min_length=1
     with pytest.raises(ValidationError):

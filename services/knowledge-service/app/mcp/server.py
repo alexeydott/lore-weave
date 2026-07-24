@@ -799,8 +799,9 @@ async def kg_world_query(
     limit: Annotated[
         int,
         Field(ge=1, le=GRAPH_LIMIT_MAX),
-        "Max nodes in the union (default 200).",
-    ] = 200,
+        f"Max nodes in the union (default {GRAPH_LIMIT_DEFAULT}; a bigger union is signalled "
+        "via meta.truncated — raise it, up to the max).",
+    ] = GRAPH_LIMIT_DEFAULT,
     unify: Annotated[
         Literal["off", "by_name", "semantic"],
         "Cross-book entity unification. 'off' (default) = the raw per-book forest. "
@@ -843,8 +844,9 @@ async def kg_multi_query(
     limit: Annotated[
         int,
         Field(ge=1, le=GRAPH_LIMIT_MAX),
-        "Max nodes in the union (default 200).",
-    ] = 200,
+        f"Max nodes in the union (default {GRAPH_LIMIT_DEFAULT}; a bigger union is signalled "
+        "via meta.truncated — raise it, up to the max).",
+    ] = GRAPH_LIMIT_DEFAULT,
     unify: Annotated[
         Literal["off", "by_name", "semantic"],
         "Cross-book entity unification. 'off' (default) = the raw per-book forest. "

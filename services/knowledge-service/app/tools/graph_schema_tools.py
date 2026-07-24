@@ -243,7 +243,7 @@ class KgWorldQueryArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     world_id: str = Field(min_length=1, max_length=200)
-    limit: int = Field(default=200, ge=1, le=GRAPH_LIMIT_MAX)
+    limit: int = Field(default=GRAPH_LIMIT_DEFAULT, ge=1, le=GRAPH_LIMIT_MAX)  # K37: 200→60, signalled via node_cap_hit
     unify: Literal["off", "by_name", "semantic"] = "off"
     # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
     detail: Literal["summary", "full"] = "summary"
@@ -263,7 +263,7 @@ class KgMultiQueryArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     project_ids: list[str] = Field(min_length=1, max_length=16)
-    limit: int = Field(default=200, ge=1, le=GRAPH_LIMIT_MAX)
+    limit: int = Field(default=GRAPH_LIMIT_DEFAULT, ge=1, le=GRAPH_LIMIT_MAX)  # K37: 200→60, signalled via node_cap_hit
     unify: Literal["off", "by_name", "semantic"] = "off"
     # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
     detail: Literal["summary", "full"] = "summary"
@@ -797,7 +797,7 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
                 "type": "integer",
                 "minimum": 1,
                 "maximum": GRAPH_LIMIT_MAX,
-                "description": "Max nodes in the union (default 200).",
+                "description": "Max nodes in the union (default 60; a bigger union is signalled via meta.truncated — raise it).",
             },
             "unify": _UNIFY_PROP,
             "detail": _DETAIL_PROP,
@@ -824,7 +824,7 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
                 "type": "integer",
                 "minimum": 1,
                 "maximum": GRAPH_LIMIT_MAX,
-                "description": "Max nodes in the union (default 200).",
+                "description": "Max nodes in the union (default 60; a bigger union is signalled via meta.truncated — raise it).",
             },
             "unify": _UNIFY_PROP,
             "detail": _DETAIL_PROP,
@@ -1644,6 +1644,9 @@ async def _handle_kg_world_query(ctx: "ToolContext", args: KgWorldQueryArgs) -> 
     return _project_graph(
         out, args.detail,
         node_ref=SUBGRAPH_NODE_REF_FIELDS, edge_ref=SUBGRAPH_EDGE_REF_FIELDS,
+        # OUT-5 (K37): get_world_subgraph already flags `node_cap_hit` when the union re-cap
+        # (or any member) trimmed — surface it as the uniform `meta.truncated` (NOT a silent cut).
+        truncated=bool(out.get("node_cap_hit")),
     )
 
 
@@ -1726,6 +1729,9 @@ async def _handle_kg_multi_query(ctx: "ToolContext", args: KgMultiQueryArgs) -> 
     return _project_graph(
         out, args.detail,
         node_ref=SUBGRAPH_NODE_REF_FIELDS, edge_ref=SUBGRAPH_EDGE_REF_FIELDS,
+        # OUT-5 (K37): get_world_subgraph already flags `node_cap_hit` when the union re-cap
+        # (or any member) trimmed — surface it as the uniform `meta.truncated` (NOT a silent cut).
+        truncated=bool(out.get("node_cap_hit")),
     )
 
 
