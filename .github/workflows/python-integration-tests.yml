@@ -30,10 +30,14 @@ name: python-integration-tests
 #    The suites carry xdist_group("pg") so `-n auto --dist loadgroup` IS safe now (K31), but
 #    serial is the conservative first cut — flip to xdist once this job has proven stable.
 #  - Path-filtered: runs only when one of these services or the shared Python SDK changes.
-#  - Scope: the FOUR services whose DB-integration suites are triaged green + guarded
-#    (composition, knowledge, campaign, lore-enrichment). chat + translation keep their
-#    DB tests as top-level *_db.py / *_pg.py files that default to a real dev DB (a tracked
-#    smell, K32) — wire them here only after those defaults are made throwaway-or-skip.
+#  - Scope: all SIX Python services with DB-backed tests, each proven green against a fresh
+#    throwaway (K27→K28-3). composition/campaign/lore-enrichment/knowledge self-migrate via
+#    their `pool` fixture; translation self-applies its DDL per test (empty DB is enough);
+#    chat's top-level *_db.py tests do NOT self-migrate (they skip if the schema is absent),
+#    so this job runs run_migrations first for chat (`needs_migrate: true`). chat+translation
+#    still DEFAULT their DSN to a real dev DB on a bare `pytest` (a tracked smell, K32) — but
+#    that default is an intentional dev-workflow choice, and CI overrides it with an explicit
+#    throwaway DSN below, so it is not a CI concern.
 
 on:
   push:
@@ -43,6 +47,8 @@ on:
       - "services/knowledge-service/**"
       - "services/campaign-service/**"
       - "services/lore-enrichment-service/**"
+      - "services/chat-service/**"
+      - "services/translation-service/**"
       - "sdks/python/**"
       - ".github/workflows/python-integration-tests.yml"
   pull_request:
@@ -52,6 +58,8 @@ on:
       - "services/knowledge-service/**"
       - "services/campaign-service/**"
       - "services/lore-enrichment-service/**"
+      - "services/chat-service/**"
+      - "services/translation-service/**"
       - "sdks/python/**"
       - ".github/workflows/python-integration-tests.yml"
 
@@ -71,14 +79,36 @@ jobs:
             dsn_var: TEST_COMPOSITION_DB_URL
             db_name: loreweave_composition_test
             test_path: tests/integration/db
+            needs_migrate: false
           - service: campaign-service
             dsn_var: TEST_CAMPAIGN_DB_URL
             db_name: loreweave_campaign_test
             test_path: tests/integration
+            needs_migrate: false
           - service: lore-enrichment-service
             dsn_var: TEST_LORE_ENRICHMENT_DB_URL
             db_name: loreweave_lore_enrichment_test
             test_path: tests/db
+            needs_migrate: false
+          # translation self-applies its DDL per test → an EMPTY throwaway is enough.
+          # The DB tests are a hand-listed set of files (they don't share a clean glob).
+          - service: translation-service
+            dsn_var: TRANSLATION_TEST_PG_DSN
+            db_name: loreweave_translation_test
+            test_path: >-
+              tests/test_extraction_cache.py tests/test_extraction_offload.py
+              tests/test_extraction_outcomes_pg.py tests/test_extraction_replay.py
+              tests/test_job_cost_pg.py tests/test_promote_active_pg.py
+              tests/test_segment_coverage_pg.py tests/test_segment_status_pg.py
+              tests/test_mcp_sql_compiles.py
+            needs_migrate: false
+          # chat's *_db.py tests SKIP if the schema is absent (they don't self-migrate),
+          # so run_migrations must apply the schema to the empty throwaway first.
+          - service: chat-service
+            dsn_var: CHAT_DB_DSN
+            db_name: loreweave_chat_test
+            test_path: tests/test_*_db.py
+            needs_migrate: true
     services:
       postgres:
         image: postgres:18-alpine
@@ -113,6 +143,23 @@ jobs:
         # The name carries `_test` so the fixtures' _guard_throwaway accepts it. A bare
         # production name (loreweave_composition) would be REFUSED — that is the K29 guard.
         run: psql -h localhost -p 5432 -U loreweave -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE ${{ matrix.db_name }};"
+      - name: migrate schema (services whose tests do not self-migrate)
+        if: ${{ matrix.needs_migrate }}
+        working-directory: "services/${{ matrix.service }}"
+        # chat's *_db.py tests skip when the schema is absent, so apply it with the same
+        # run_migrations the app runs at startup. Proven locally: 15 tables → 57 tests pass.
+        env:
+          CHAT_DB_DSN: postgresql://loreweave:loreweave_dev@localhost:5432/${{ matrix.db_name }}
+        run: |
+          python - <<'PY'
+          import asyncio, os, asyncpg
+          from app.db.migrate import run_migrations
+          async def go():
+              pool = await asyncpg.create_pool(os.environ["CHAT_DB_DSN"])
+              await run_migrations(pool)
+              await pool.close()
+          asyncio.run(go())
+          PY
       - name: pytest (integration — real Postgres)
         working-directory: "services/${{ matrix.service }}"
         # Dynamic env-var NAME per service — set it inline for the pytest process only.
