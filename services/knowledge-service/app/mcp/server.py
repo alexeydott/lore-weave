@@ -741,7 +741,7 @@ async def kg_graph_query(
         Field(ge=1, le=GRAPH_LIMIT_MAX),
         f"Max edges/nodes to scan (default {GRAPH_LIMIT_DEFAULT}).",
     ] = GRAPH_LIMIT_DEFAULT,
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
     world_id: Annotated[
         str | None,
         "scope=world: the world to roll up (you must own it).",
@@ -808,7 +808,7 @@ async def kg_world_query(
         "matches by meaning (embeddings, catching renames). Both add "
         "unification_clusters + inferred SAME_AS bridge_edges (one connected graph).",
     ] = "off",
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
 ) -> dict:
     return await _dispatch(
         ctx, "kg_world_query",
@@ -852,7 +852,7 @@ async def kg_multi_query(
         "matches by meaning (embeddings, catching renames). Both add "
         "unification_clusters + inferred SAME_AS bridge_edges (one connected graph).",
     ] = "off",
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
 ) -> dict:
     return await _dispatch(
         ctx, "kg_multi_query",
@@ -882,7 +882,7 @@ async def kg_entity_edge_timeline(
         Field(ge=1, le=KG_TIMELINE_LIMIT_MAX),
         f"Max instances (default {KG_TIMELINE_LIMIT_DEFAULT}).",
     ] = KG_TIMELINE_LIMIT_DEFAULT,
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
 ) -> dict:
     # No project_id arg: this tool scopes by the ENTITY (resolved to its owner +
     # OD-8-gated in the handler), so a project_id here would be a no-op.
@@ -1016,7 +1016,7 @@ async def kg_triage_list(
         Field(ge=1, le=TRIAGE_LIMIT_MAX),
         f"Max signature groups (default {TRIAGE_LIMIT_DEFAULT}).",
     ] = TRIAGE_LIMIT_DEFAULT,
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
     project_id: _PROJECT_ID_ARG = None,
 ) -> dict:
     args: dict[str, Any] = {"status": status, "limit": limit, "detail": detail}

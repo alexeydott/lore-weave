@@ -46,11 +46,17 @@ LIMIT_CEIL = 25
 # FLIP-PENDING debt: migrate the tool to summary + a small limit (K36-style) then delete its
 # row. A NEW list tool must comply or earn an explicit reason here (a reviewer will ask why).
 ALLOW: dict[str, str] = {
-    "knowledge-service::kg_entity_edge_timeline": "K37 FLIP-PENDING — detail=full default",
-    "knowledge-service::kg_graph_query": "K37 FLIP-PENDING — detail=full default",
-    "knowledge-service::kg_multi_query": "K37 FLIP-PENDING — detail=full + limit=200",
-    "knowledge-service::kg_triage_list": "K37 FLIP-PENDING — detail=full default",
-    "knowledge-service::kg_world_query": "K37 FLIP-PENDING — detail=full + limit=200",
+    # detail=summary DONE (K37 drain) for all 5. Still allowlisted for the LIMIT: these are
+    # nodes+edges GRAPH slices / temporal chains, not flat rows — the limit is a Neo4j SCAN
+    # cap (graph/world/multi=500-200, timeline=500, triage=100). Lowering the DEFAULT needs a
+    # verified truncation signal first (OUT-5): the graph-slice Cypher caps SILENTLY today (no
+    # "graph has N more" count), so a smaller default would drop nodes with no signal. Per-tool
+    # follow-up (add the total-count/has_more, then lower).
+    "knowledge-service::kg_graph_query": "K37 — detail=summary done; limit=500 silent Cypher scan cap (OUT-5 signal needed before lowering)",
+    "knowledge-service::kg_world_query": "K37 — detail=summary done; limit=200 graph-union scan cap (OUT-5 signal needed); LEGACY",
+    "knowledge-service::kg_multi_query": "K37 — detail=summary done; limit=200 graph-union scan cap (OUT-5 signal needed); LEGACY",
+    "knowledge-service::kg_entity_edge_timeline": "K37 — detail=summary done; limit=500 temporal-chain cap (verify meta.truncated over-fetches before lowering)",
+    "knowledge-service::kg_triage_list": "K37 — detail=summary done; limit=100 (has_more signalled — safe to lower next, verify over-fetch)",
     # detail=summary DONE (K37 drain); still allowlisted because limit defaults to None
     # (UNBOUNDED) and bounding these needs per-tool judgement — an outline is a TREE (a flat
     # count-cap would cut it mid-branch; wants a depth bound), a job status is an overview.
