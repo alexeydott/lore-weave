@@ -42,23 +42,14 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # generous ceiling (a genuinely list-heavy tool may justify more via an ALLOW reason).
 LIMIT_CEIL = 25
 
-# service::tool -> reason. The K37 drain is COMPLETE: 11/14 offenders were fully migrated to
-# summary + a bounded, SIGNALLED limit (removed from here). The ONLY rows left are 3 CONSCIOUS
-# exceptions — the knowledge graph reads, whose nodes+edges result justifies a page larger than
-# the ≤25 flat-list ceiling AND now stamps `meta.truncated`, so a bigger graph is never a silent
-# cut. They are NOT debt. A NEW list tool must comply or earn an explicit reason here.
+# service::tool -> reason. The K37 drain is COMPLETE — 14/14 offenders fully migrated to
+# summary + a bounded, SIGNALLED limit ≤25. ALLOW is now EMPTY: even the graph reads fit the
+# ≤25 ceiling (a LIVE seed+measure confirmed summary/25 = 6.7 KB, under the 8 KB warn, on a real
+# 150-edge graph — my earlier "graph justifies a conscious 60" was disproven by that data; 60
+# was still 14.7 KB, over warn). A NEW list tool must comply or earn an explicit reason here.
 ALLOW: dict[str, str] = {
-    # kg_graph_query: OUT-5 silent-cap FIXED (K37) — handler over-fetches limit+1 and stamps
-    # meta.truncated; default lowered 500→60 (≈4 KB at summary). Kept as a CONSCIOUS exception
-    # to the ≤25 flat-list ceiling: a nodes+edges graph justifies a larger page, and it's now
-    # signalled (raise limit up to MAX / narrow via a view or scope).
-    "knowledge-service::kg_graph_query": "K37 — detail=summary + OUT-5 truncation signal added; default 60 (graph page, signalled — conscious >25)",
-    # kg_world_query / kg_multi_query: OUT-5 signal was ALREADY there (get_world_subgraph flags
-    # node_cap_hit — my earlier "silent cap" was wrong); now surfaced as meta.truncated + default
-    # 200→60. Kept as CONSCIOUS exceptions to the ≤25 ceiling (a graph UNION justifies a larger
-    # page, and it's signalled). LEGACY (superseded by kg_graph_query scope=world/multi).
-    "knowledge-service::kg_world_query": "K37 — detail=summary + meta.truncated (node_cap_hit); default 60; conscious >25 (graph union); LEGACY",
-    "knowledge-service::kg_multi_query": "K37 — detail=summary + meta.truncated (node_cap_hit); default 60; conscious >25 (graph union); LEGACY",
+    # (empty — no conscious exceptions remain; every detail-selector LIST tool defaults to
+    # summary + a bounded, signalled limit ≤25.)
     # kg_entity_edge_timeline: DRAINED (K37) — a FLAT temporal chain, so limit 500→25 (≤ ceiling)
     # + the handler over-fetches limit+1 and stamps meta.truncated (OUT-5). Removed from ALLOW.
     # kg_triage_list: DRAINED (K37) — limit 100→25 (repo over-fetches limit+1 → real has_more,

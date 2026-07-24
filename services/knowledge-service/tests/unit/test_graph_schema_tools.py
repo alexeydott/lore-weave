@@ -218,7 +218,7 @@ def test_no_envelope_keys_leak_into_any_lane_lf_schema():
 def test_graph_query_defaults_and_bounds():
     args = KgGraphQueryArgs()
     assert args.view is None and args.as_of_chapter is None
-    assert args.limit == 60  # K37/OUT-5: default lowered 500→60 (over-fetch signals truncation)
+    assert args.limit == 25  # K37/OUT-5: default 500→25 (live-confirmed to fit the 8KB budget)
     with pytest.raises(ValidationError):
         KgGraphQueryArgs(limit=2001)  # le=2000
     with pytest.raises(ValidationError):
@@ -1483,7 +1483,7 @@ async def test_kg_multi_query_invalid_id_is_self_correcting_error():
 def test_kg_multi_query_args_require_at_least_one_and_cap_at_16():
     """The set must be non-empty (min_length=1) and capped at 16 (matches the B1(2)
     chat-session multi-KG grounding cap)."""
-    assert KgMultiQueryArgs(project_ids=["p1"]).limit == 60  # K37: 200→60 (GRAPH_LIMIT_DEFAULT)
+    assert KgMultiQueryArgs(project_ids=["p1"]).limit == 25  # K37: 200→25 (GRAPH_LIMIT_DEFAULT)
     with pytest.raises(ValidationError):
         KgMultiQueryArgs(project_ids=[])            # min_length=1
     with pytest.raises(ValidationError):

@@ -112,12 +112,13 @@ __all__ = [
 # Result-size + addressing caps (mirror the HTTP routers' query bounds so the
 # MCP surface is byte-for-byte as bounded as the bespoke routes — design D7).
 GRAPH_LIMIT_MAX = 2000
-# K37/OUT-5 (2026-07-24): default lowered 500→60. 500 edges at detail=full was ~40 KB (5× the
-# 8 KB context-budget warn) on the DEFAULT call; 60 edges at the now-default summary is ~4 KB.
-# The handler over-fetches limit+1 and stamps `meta.truncated`, so a bigger graph is SIGNALLED
-# (raise `limit` up to MAX, or narrow with a view/scope) — never a silent cut. A graph read
-# justifies a larger page than a flat list (the ≤25 list ceiling), hence a conscious 60.
-GRAPH_LIMIT_DEFAULT = 60
+# K37/OUT-5 (2026-07-24): default 500→25, then confirmed by a LIVE seed+measure (a real MCP
+# call on a seeded 150-edge graph): old default full/500 = 49,032 B; summary/60 was still
+# 14,671 B (OVER the 8 KB warn — my first "conscious 60" was wrong); summary/25 = 6,703 B
+# (UNDER warn). So 25 — the same flat-list ceiling — fits a graph too; no conscious exception
+# needed. The handler over-fetches limit+1 and stamps `meta.truncated`, so a bigger graph is
+# SIGNALLED (raise `limit` up to MAX, or narrow with a view/scope) — never a silent cut.
+GRAPH_LIMIT_DEFAULT = 25
 TIMELINE_LIMIT_MAX = 2000
 # K37/OUT-5 (2026-07-24): kg_entity_edge_timeline default lowered 500→25. A temporal chain
 # is a FLAT list (unlike a graph), so the ≤25 page ceiling applies. The handler over-fetches
@@ -797,7 +798,7 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
                 "type": "integer",
                 "minimum": 1,
                 "maximum": GRAPH_LIMIT_MAX,
-                "description": "Max nodes in the union (default 60; a bigger union is signalled via meta.truncated — raise it).",
+                "description": "Max nodes in the union (default 25; a bigger union is signalled via meta.truncated — raise it).",
             },
             "unify": _UNIFY_PROP,
             "detail": _DETAIL_PROP,
@@ -824,7 +825,7 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
                 "type": "integer",
                 "minimum": 1,
                 "maximum": GRAPH_LIMIT_MAX,
-                "description": "Max nodes in the union (default 60; a bigger union is signalled via meta.truncated — raise it).",
+                "description": "Max nodes in the union (default 25; a bigger union is signalled via meta.truncated — raise it).",
             },
             "unify": _UNIFY_PROP,
             "detail": _DETAIL_PROP,
