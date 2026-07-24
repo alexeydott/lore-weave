@@ -40,6 +40,20 @@ from app.db.migrate import run_down_migrations, run_migrations
 _THROWAWAY = re.compile(r"(?i)(test|smoke|audit|scratch|throwaway|tmp|sandbox|ephemeral)")
 
 
+def pytest_collection_modifyitems(items):
+    """K27 (2026-07-24) — serialize every test in THIS directory onto one xdist
+    worker. Each `pool` fixture down-migrates + up-migrates the SAME shared throwaway
+    Postgres, so two workers running these concurrently interleave DROP/CREATE DDL
+    and corrupt each other (35 errors under `-n auto --dist loadgroup` before this).
+    Per CLAUDE.md › Test Parallelization, a DB-touching test carries
+    `xdist_group("pg")`; stamping it here covers all 8 files + any future one in one
+    place. Scoped by fspath so it only marks tests under this db/ tree."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    for item in items:
+        if str(item.fspath).startswith(here):
+            item.add_marker(pytest.mark.xdist_group("pg"))
+
+
 def _dsn() -> str | None:
     # ONLY the dedicated test var — never fall back to the production
     # LORE_ENRICHMENT_DB_URL, which in any dev shell (and in-container) points at

@@ -25,6 +25,19 @@ from app.migrate import run_migrations
 _THROWAWAY = re.compile(r"(?i)(test|smoke|audit|scratch|throwaway|tmp|sandbox|ephemeral)")
 
 
+def pytest_collection_modifyitems(items):
+    """K27 (2026-07-24) — serialize every test in THIS directory onto one xdist
+    worker. Each `pool` fixture TRUNCATEs the SAME shared throwaway Postgres, so two
+    workers running these concurrently wipe each other's rows mid-test (17 errors
+    under `-n auto --dist loadgroup` before this). Per CLAUDE.md › Test
+    Parallelization, a DB-touching test carries `xdist_group("pg")`; stamping it here
+    covers every file + any future one in one place, scoped by fspath."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    for item in items:
+        if str(item.fspath).startswith(here):
+            item.add_marker(pytest.mark.xdist_group("pg"))
+
+
 def _dsn() -> str | None:
     # ONLY the dedicated test var — never fall back to the production CAMPAIGN_DB_URL,
     # which in any dev shell points at the real loreweave_campaign the TRUNCATE would wipe.
