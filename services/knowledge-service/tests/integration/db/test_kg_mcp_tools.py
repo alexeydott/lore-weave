@@ -141,7 +141,9 @@ async def test_propose_edge_parks_to_triage_then_resolve_live(pool, neo4j_driver
         assert res.result["parked"] is True
         signature = res.result["signature"]
 
-        # The parked proposal shows up in the triage queue.
+        # The parked proposal shows up in the triage queue. K37: kg_triage_list defaults to
+        # detail=summary (OUT-2), which keeps `suggested_actions` (small + actionable) and
+        # drops only the heavy sample_payload — so the default reply is enough to resolve.
         listed = await execute_tool(ctx, "kg_triage_list", {})
         assert listed.success
         sigs = {g["signature"] for g in listed.result["groups"]}

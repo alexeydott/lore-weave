@@ -178,9 +178,11 @@ SUBGRAPH_EDGE_REF_FIELDS = ("id", "source", "target", "predicate")
 # temporal window; DROP evidence_chapter_id/schema_version/target_glossary_entity_id/
 # target_label_localized.
 TIMELINE_INSTANCE_REF_FIELDS = ("target_id", "target_label", "valid_from", "valid_to")
-# kg_triage_list groups: keep the signature + type/count/status; DROP the heavy
-# `sample_payload` blob + the `suggested_actions` list.
-TRIAGE_GROUP_REF_FIELDS = ("signature", "item_type", "count", "status")
+# kg_triage_list groups: keep the signature + type/count/status + `suggested_actions`
+# (small + ACTIONABLE — OUT-1 keeps what the caller acts on to resolve); DROP only the
+# heavy `sample_payload` blob. (K37 first dropped suggested_actions too, which forced a
+# second detail=full call just to resolve — a pre-merge integration test caught it.)
+TRIAGE_GROUP_REF_FIELDS = ("signature", "item_type", "count", "status", "suggested_actions")
 
 
 def _project_graph(out: dict, detail: str, *, node_ref, edge_ref, truncated: bool = False) -> dict:

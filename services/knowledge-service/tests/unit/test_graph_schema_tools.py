@@ -337,7 +337,8 @@ async def test_kg_triage_list_default_is_bounded_and_summary():
     # the heavy fields are dropped, the scan refs kept.
     g = res.result["groups"][0]
     assert g["signature"] == "dup:allies:a->b" and g["count"] == 4
-    assert "sample_payload" not in g and "suggested_actions" not in g
+    assert "sample_payload" not in g          # heavy blob dropped at summary
+    assert g["suggested_actions"] == ["map", "drop_edge"]  # kept — actionable (OUT-1)
 
     # full stays an explicit opt-in that returns the heavy fields
     full = await execute_tool(ctx, "kg_triage_list", {"detail": "full"})

@@ -288,10 +288,12 @@ def _group(**over) -> dict:
 
 
 class TestTriageGroupRefFields:
-    def test_sample_payload_and_actions_dropped_at_summary(self):
+    def test_heavy_sample_payload_dropped_at_summary_actions_kept(self):
+        # K37: summary drops the heavy `sample_payload` blob but KEEPS `suggested_actions`
+        # (small + actionable — OUT-1: what the caller acts on to resolve stays in the ref set).
         out, _ = apply_response_contract([_group()], ref_fields=TRIAGE_GROUP_REF_FIELDS, detail="summary")
-        assert "sample_payload" not in out[0] and "suggested_actions" not in out[0]
-        for required in ("signature", "item_type", "count", "status"):
+        assert "sample_payload" not in out[0]
+        for required in ("signature", "item_type", "count", "status", "suggested_actions"):
             assert required in out[0]
 
     def test_full_keeps_sample_payload(self):
