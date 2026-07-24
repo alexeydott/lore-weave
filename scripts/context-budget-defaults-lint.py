@@ -64,8 +64,10 @@ ALLOW: dict[str, str] = {
     # (UNBOUNDED) and bounding these needs per-tool judgement — an outline is a TREE (a flat
     # count-cap would cut it mid-branch; wants a depth bound), a job status is an overview.
     "composition-service::composition_list_outline": "K37 — detail=summary done; limit=None (outline TREE — needs depth bound, not count)",
-    "translation-service::translation_job_status": "K37 — detail=summary done; limit=None (per-chapter overview — bound TBD)",
-    "translation-service::translation_list_versions": "K37 — detail=summary done; limit=None (versions of one chapter — small in practice; bound TBD)",
+    # translation_job_status / translation_list_versions: DRAINED (K37) — limit None→25. Their
+    # SQL fetches ALL rows and `limit` feeds only apply_response_contract, so the cap sees the
+    # true total and reports `truncated` — a bounded default page, never a silent drop. Removed
+    # from ALLOW → lint-enforced.
 }
 
 
