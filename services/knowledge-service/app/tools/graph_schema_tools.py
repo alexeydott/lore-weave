@@ -112,7 +112,12 @@ __all__ = [
 # Result-size + addressing caps (mirror the HTTP routers' query bounds so the
 # MCP surface is byte-for-byte as bounded as the bespoke routes — design D7).
 GRAPH_LIMIT_MAX = 2000
-GRAPH_LIMIT_DEFAULT = 500
+# K37/OUT-5 (2026-07-24): default lowered 500→60. 500 edges at detail=full was ~40 KB (5× the
+# 8 KB context-budget warn) on the DEFAULT call; 60 edges at the now-default summary is ~4 KB.
+# The handler over-fetches limit+1 and stamps `meta.truncated`, so a bigger graph is SIGNALLED
+# (raise `limit` up to MAX, or narrow with a view/scope) — never a silent cut. A graph read
+# justifies a larger page than a flat list (the ≤25 list ceiling), hence a conscious 60.
+GRAPH_LIMIT_DEFAULT = 60
 TIMELINE_LIMIT_MAX = 2000
 TIMELINE_LIMIT_DEFAULT = 500
 TRIAGE_LIMIT_MAX = 500
@@ -173,11 +178,15 @@ TIMELINE_INSTANCE_REF_FIELDS = ("target_id", "target_label", "valid_from", "vali
 TRIAGE_GROUP_REF_FIELDS = ("signature", "item_type", "count", "status")
 
 
-def _project_graph(out: dict, detail: str, *, node_ref, edge_ref) -> dict:
+def _project_graph(out: dict, detail: str, *, node_ref, edge_ref, truncated: bool = False) -> dict:
     """Apply the L1/L2 field projection to a graph result's `nodes` + `edges` lists
-    in place and stamp coverage `meta`. The tool's own `limit` already bounds ROW
-    counts (in the Cypher); `detail` is the per-item FIELD lever, so summary
-    projects fields but never silently drops rows — meta reports both totals."""
+    in place and stamp coverage `meta`. `detail` is the per-item FIELD lever, so summary
+    projects fields but never silently drops rows — meta reports both totals.
+
+    `truncated` (K37, OUT-5) — the Cypher `LIMIT` caps EDGES, and until now that cap was
+    SILENT (the response couldn't tell the agent the graph had more). The caller now
+    over-fetches `limit+1` and passes `truncated=True` when the edge cap actually bit, so
+    `meta.truncated` tells the agent to raise `limit` or narrow (a view/scope)."""
     nodes_p, nmeta = apply_response_contract(
         out.get("nodes", []), ref_fields=node_ref, detail=detail,
     )
@@ -192,6 +201,7 @@ def _project_graph(out: dict, detail: str, *, node_ref, edge_ref) -> dict:
         "nodes_returned": nmeta["returned"],
         "edges_total": emeta["total"],
         "edges_returned": emeta["returned"],
+        "truncated": truncated,
     }
     return out
 
@@ -1516,9 +1526,15 @@ async def _handle_kg_graph_query(ctx: "ToolContext", args: KgGraphQueryArgs) -> 
             _GRAPH_READ_CYPHER,
             user_id=str(owner),
             project_id=project_str,
-            limit=args.limit,
+            # OUT-5 (K37): over-fetch ONE edge past the cap so we can tell the agent the
+            # graph had MORE (the Cypher LIMIT was a silent cap before). Isolated to this
+            # MCP handler — the shared _GRAPH_READ_CYPHER + the REST caller are untouched.
+            limit=args.limit + 1,
         )
         records = await _records(result)
+
+    edges_truncated = len(records) > args.limit
+    records = records[: args.limit]  # drop the sentinel over-fetch row
 
     deprecated = await _deprecated_edge_codes(ctx.graph_schemas_repo, project_str)
     slice_ = build_graph_slice(
@@ -1534,6 +1550,7 @@ async def _handle_kg_graph_query(ctx: "ToolContext", args: KgGraphQueryArgs) -> 
     return _project_graph(
         out, args.detail,
         node_ref=GRAPH_NODE_REF_FIELDS, edge_ref=GRAPH_EDGE_REF_FIELDS,
+        truncated=edges_truncated,
     )
 
 

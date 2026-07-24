@@ -218,7 +218,7 @@ def test_no_envelope_keys_leak_into_any_lane_lf_schema():
 def test_graph_query_defaults_and_bounds():
     args = KgGraphQueryArgs()
     assert args.view is None and args.as_of_chapter is None
-    assert args.limit == 500
+    assert args.limit == 60  # K37/OUT-5: default lowered 500→60 (over-fetch signals truncation)
     with pytest.raises(ValidationError):
         KgGraphQueryArgs(limit=2001)  # le=2000
     with pytest.raises(ValidationError):
@@ -1709,6 +1709,77 @@ async def test_kg_graph_query_scope_multi_without_project_ids_is_tool_error():
     res = await execute_tool(_ctx(), "kg_graph_query", {"scope": "multi"})
     assert not res.success
     assert "project_ids" in (res.error or "")
+
+
+@pytest.mark.asyncio
+async def test_kg_graph_query_overfetches_and_signals_truncation(monkeypatch):
+    """K37/OUT-5 (2026-07-24) — the graph read's Cypher LIMIT was a SILENT cap. The handler
+    now over-fetches `limit+1` edges, and when that sentinel row comes back it reports
+    `meta.truncated=True` and returns exactly `limit` edges — a bigger graph is signalled,
+    never a silent cut."""
+    from contextlib import asynccontextmanager
+    from app.tools import graph_schema_tools as gst
+
+    seen = {}
+
+    async def _fake_run_read(session, cypher, **kw):
+        seen["limit"] = kw.get("limit")
+        return object()
+
+    # `_records` yields limit+1 (=4) valid edge rows → the cap bites at limit=3.
+    def _rec(i):
+        return {
+            "rel": {"predicate": "allies"},
+            "subj": {"id": f"s{i}", "kind": "character"},
+            "obj": {"id": f"o{i}", "kind": "character"},
+        }
+
+    async def _fake_records(result):
+        return [_rec(i) for i in range(4)]
+
+    @asynccontextmanager
+    async def _fake_session(*a, **k):
+        yield object()
+
+    monkeypatch.setattr(gst, "run_read", _fake_run_read)
+    monkeypatch.setattr(gst, "_records", _fake_records)
+    monkeypatch.setattr(gst, "neo4j_session", _fake_session)
+    monkeypatch.setattr(gst, "_deprecated_edge_codes", AsyncMock(return_value=[]))
+
+    res = await execute_tool(_ctx(), "kg_graph_query", {"limit": 3})
+    assert res.success, res.error
+    assert seen["limit"] == 4                          # over-fetched limit+1
+    assert res.result["meta"]["truncated"] is True     # the drop is SIGNALLED
+    assert res.result["meta"]["edges_returned"] == 3   # capped back to the real limit
+
+
+@pytest.mark.asyncio
+async def test_kg_graph_query_not_truncated_when_within_limit(monkeypatch):
+    """The complement: exactly `limit` (or fewer) edges → truncated is False, all returned."""
+    from contextlib import asynccontextmanager
+    from app.tools import graph_schema_tools as gst
+
+    def _rec(i):
+        return {"rel": {"predicate": "allies"},
+                "subj": {"id": f"s{i}", "kind": "character"},
+                "obj": {"id": f"o{i}", "kind": "character"}}
+
+    async def _fake_records(result):
+        return [_rec(i) for i in range(2)]  # < limit
+
+    @asynccontextmanager
+    async def _fake_session(*a, **k):
+        yield object()
+
+    monkeypatch.setattr(gst, "run_read", AsyncMock(return_value=object()))
+    monkeypatch.setattr(gst, "_records", _fake_records)
+    monkeypatch.setattr(gst, "neo4j_session", _fake_session)
+    monkeypatch.setattr(gst, "_deprecated_edge_codes", AsyncMock(return_value=[]))
+
+    res = await execute_tool(_ctx(), "kg_graph_query", {"limit": 3})
+    assert res.success, res.error
+    assert res.result["meta"]["truncated"] is False
+    assert res.result["meta"]["edges_returned"] == 2
 
 
 # ── kg_ontology_propose unified op dispatch (catalog-unification 2026-07-22) ───

@@ -52,7 +52,11 @@ ALLOW: dict[str, str] = {
     # verified truncation signal first (OUT-5): the graph-slice Cypher caps SILENTLY today (no
     # "graph has N more" count), so a smaller default would drop nodes with no signal. Per-tool
     # follow-up (add the total-count/has_more, then lower).
-    "knowledge-service::kg_graph_query": "K37 — detail=summary done; limit=500 silent Cypher scan cap (OUT-5 signal needed before lowering)",
+    # kg_graph_query: OUT-5 silent-cap FIXED (K37) — handler over-fetches limit+1 and stamps
+    # meta.truncated; default lowered 500→60 (≈4 KB at summary). Kept as a CONSCIOUS exception
+    # to the ≤25 flat-list ceiling: a nodes+edges graph justifies a larger page, and it's now
+    # signalled (raise limit up to MAX / narrow via a view or scope).
+    "knowledge-service::kg_graph_query": "K37 — detail=summary + OUT-5 truncation signal added; default 60 (graph page, signalled — conscious >25)",
     "knowledge-service::kg_world_query": "K37 — detail=summary done; limit=200 graph-union scan cap (OUT-5 signal needed); LEGACY",
     "knowledge-service::kg_multi_query": "K37 — detail=summary done; limit=200 graph-union scan cap (OUT-5 signal needed); LEGACY",
     "knowledge-service::kg_entity_edge_timeline": "K37 — detail=summary done; limit=500 temporal-chain cap (verify meta.truncated over-fetches before lowering)",
