@@ -17,6 +17,12 @@ command -v python >/dev/null 2>&1 || PY=python3
 "$PY" "$ROOT/scripts/ai-provider-gate.py" --staged
 "$PY" "$ROOT/scripts/knowledge-access-gate.py" --staged
 "$PY" "$ROOT/scripts/knowledge-http-surface-gate.py" --staged
+# Context Budget Law OUT-2 — a LIST-returning MCP tool (has both `detail` + `limit`) must
+# DEFAULT to the small shape (detail=summary, limit<=25); full/big-limit are opt-ins. The
+# runtime size gate only WARNS (nobody acted → jobs_list dumped 45.6 KB for weeks, K36); this
+# makes the defaults that produce those payloads a commit failure. Exemptions: ALLOW in the
+# gate (current offenders seeded as FLIP-PENDING debt, K37).
+"$PY" "$ROOT/scripts/context-budget-defaults-lint.py" --staged
 # Destructive DB ops in tests — block an unscoped DELETE/TRUNCATE/DROP in a test file, or a
 # *_TEST_*_URL pointing at a bare production DB name (the loreweave_book wipe). CLAUDE.md ›
 # "Destructive DB ops in tests". Exempt a real false positive with a `db-safety-gate: ok` pragma.
