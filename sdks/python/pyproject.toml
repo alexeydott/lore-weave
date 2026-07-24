@@ -55,6 +55,11 @@ dependencies = [
 test = [
   "pytest>=8",
   "pytest-asyncio>=0.23",
+  # pytest-mock: several services' tests use the `mocker` fixture but never declared the
+  # dep (knowledge, composition, learning) — they only passed on dev machines that happened
+  # to have it. The CI installs this shared `[test]` extra, so the harness is complete
+  # fleet-wide and a `fixture 'mocker' not found` can't reach a runner. (K34, 2026-07-24.)
+  "pytest-mock>=3.14",
   "respx>=0.21",
   "fastapi>=0.110",
 ]

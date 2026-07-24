@@ -129,8 +129,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: install the shared Python SDK
-        run: python -m pip install --upgrade pip && python -m pip install ./sdks/python
+      - name: install the shared Python SDK (with the [test] extra)
+        # The [test] extra brings pytest + pytest-mock + respx (K34): composition's
+        # integration/db suite uses the `mocker` fixture, so a plain `./sdks/python` install
+        # would error 'fixture mocker not found' on a real runner.
+        run: python -m pip install --upgrade pip && python -m pip install "./sdks/python[test]"
       - name: install service dependencies
         run: |
           python -m pip install -r "services/${{ matrix.service }}/requirements.txt"
@@ -204,8 +207,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: install the shared Python SDK
-        run: python -m pip install --upgrade pip && python -m pip install ./sdks/python
+      - name: install the shared Python SDK (with the [test] extra)
+        # The [test] extra brings pytest + pytest-mock + respx (K34): composition's
+        # integration/db suite uses the `mocker` fixture, so a plain `./sdks/python` install
+        # would error 'fixture mocker not found' on a real runner.
+        run: python -m pip install --upgrade pip && python -m pip install "./sdks/python[test]"
       - name: install service dependencies
         run: |
           python -m pip install -r "services/knowledge-service/requirements.txt"
