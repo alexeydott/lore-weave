@@ -86,6 +86,33 @@ RE_DBNAME = re.compile(r"/(loreweave_[a-z0-9_]+)")
 RE_THROWAWAY = re.compile(r"(?i)(test|smoke|audit|scratch|throwaway|tmp|sandbox|ephemeral)")
 CONFIG_EXT = (".yml", ".yaml", ".env", ".toml")
 
+# ── test code: a SCHEMA-RESETTING fixture reading a PRODUCTION DSN (K29) ───────
+# The check above only inspects CI/compose config — it never sees what a test
+# fixture reads at runtime. lore-enrichment's DB conftest did:
+#     os.environ.get("TEST_LORE_ENRICHMENT_DB_URL") or os.environ.get("LORE_ENRICHMENT_DB_URL")
+# and then ran run_down_migrations() (DROP TABLE ×12). A root-conftest
+# `os.environ.setdefault(...)` placeholder does NOT protect: setdefault is a no-op
+# when the var is already exported, which it is in any compose/dev shell. Reproduced
+# against a decoy: 39 tests PASSED green while every table was dropped and the seeded
+# row destroyed. So: reading a NON-TEST `*_DB_URL`/`*_DATABASE_URL`/`*_DSN` in a test
+# fixture that can reset the schema is a finding, guarded-dir or not — the dedicated
+# TEST_ var is the only admissible source. (Assignment — `os.environ["X_DB_URL"] =
+# <throwaway>` — is fine: that SETS a test DSN rather than inheriting a live one.)
+RE_PROD_DSN_ENV = re.compile(
+    r"""(?:environ(?:\.get)?|getenv)\s*[\(\[]\s*["']((?!\w*TEST)[A-Z][A-Z0-9_]*"""
+    r"""(?:_DB_URL|_DATABASE_URL|_DSN))["']"""
+)
+RE_ENV_ASSIGN = re.compile(r"""environ\s*\[\s*["'][A-Z0-9_]+["']\s*\]\s*=""")
+# Scoped deliberately NARROW so the gate never cries wolf. It fires only where the
+# combination is data-loss shaped: a production DSN reaching a fixture that RESETS
+# THE SCHEMA (a conftest supplying a DSN to a whole tree, or any file invoking a
+# down-migration/drop helper). Plain `*_db.py` tests that read a prod DSN and clean
+# up with SCOPED deletes are NOT this class — the scoped delete is the sanctioned
+# pattern, and flagging them here would train people to bypass the gate.
+RE_SCHEMA_RESET = re.compile(
+    r"\b(run_down_migrations|down_migrations|drop_all|reset_schema|drop_schema|DOWN_DDL)\b"
+)
+
 
 def _is_config(path: str) -> bool:
     p = path.replace("\\", "/")
@@ -145,9 +172,21 @@ def scan_test_file(path: str) -> list[Finding]:
     lines = _lines(path)
     if any(FILE_PRAGMA in ln for ln in lines[:60]):
         return []
-    if _dir_is_guarded(path):
-        return []
     out: list[Finding] = []
+    # The production-DSN read is checked FIRST and is NOT exempted by guarded-dir:
+    # a runtime guard refuses a bad DSN, but the fallback itself should not exist —
+    # defence in depth for a data-loss class that already shipped once (K29). Only
+    # applies where a wipe is actually reachable: a conftest (its DSN feeds a whole
+    # tree) or a file that invokes a schema-reset helper.
+    resets_schema = any(RE_SCHEMA_RESET.search(ln) for ln in lines)
+    if resets_schema or os.path.basename(path) == "conftest.py":
+        for i, ln in enumerate(lines):
+            if RE_NON_EXEC.search(ln) or PRAGMA in ln or RE_ENV_ASSIGN.search(ln):
+                continue
+            if RE_PROD_DSN_ENV.search(ln):
+                out.append(Finding(path, i + 1, "production-DSN-read-in-test", ln))
+    if _dir_is_guarded(path):
+        return out
     for i, ln in enumerate(lines):
         if RE_NON_EXEC.search(ln):
             continue
