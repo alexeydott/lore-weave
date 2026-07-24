@@ -169,34 +169,24 @@ def scan_file(path: str) -> list[str]:
     svc = _service_of(path)
     _const_cache: dict[str, dict[str, int]] = {}
     problems: list[str] = []
-    for fn in ast.walk(tree):
-        if not isinstance(fn, (ast.AsyncFunctionDef, ast.FunctionDef)):
-            continue
-        params = {a.arg for a in fn.args.args + fn.args.kwonlyargs}
-        if "detail" not in params or "limit" not in params:
-            continue  # not a LIST detail-tool
-        key = f"{svc}::{fn.name}"
+
+    def _check_pair(key: str, det_node, lim_node, lineno: int) -> None:
         if key in ALLOW:
-            continue
-        defaults = _default_map(fn)
-        det_node = defaults.get("detail")
+            return
         det = det_node.value if isinstance(det_node, ast.Constant) else None
         if det != "summary":
             problems.append(
                 f"  {key}: detail defaults to {det!r} — a LIST tool must default detail=\"summary\" "
-                f"(OUT-2). {path}:{fn.lineno}"
+                f"(OUT-2). {path}:{lineno}"
             )
-        lim_node = defaults.get("limit")
         lim = None
-        # An UNBOUNDED default (`limit=None`) is the worst case: apply_response_contract
-        # treats None as "no cap" (response.py: `items[:limit] if limit is not None else items`),
-        # so the default reply grows with the user's data. A LIST tool must default to a bounded
-        # page. (K37 — this hole let translation_job_status / composition_list_outline default
-        # to every row.)
+        # An UNBOUNDED default (`limit=None`) is the worst case: apply_response_contract treats
+        # None as "no cap" (response.py: `items[:limit] if limit is not None else items`), so the
+        # default reply grows with the user's data. A LIST tool must default to a bounded page.
         if isinstance(lim_node, ast.Constant) and lim_node.value is None:
             problems.append(
                 f"  {key}: limit defaults to None (UNBOUNDED — no cap) — a LIST tool must default "
-                f"to a bounded page (<= {LIMIT_CEIL}); None returns every row. {path}:{fn.lineno}"
+                f"to a bounded page (<= {LIMIT_CEIL}); None returns every row. {path}:{lineno}"
             )
         if isinstance(lim_node, ast.Constant) and isinstance(lim_node.value, int):
             lim = lim_node.value
@@ -205,13 +195,50 @@ def scan_file(path: str) -> list[str]:
             if lim is None:
                 problems.append(
                     f"  {key}: limit default `{lim_node.id}` could not be resolved to an int in-file "
-                    f"— cannot verify it's <= {LIMIT_CEIL}. {path}:{fn.lineno}"
+                    f"— cannot verify it's <= {LIMIT_CEIL}. {path}:{lineno}"
                 )
         if isinstance(lim, int) and lim > LIMIT_CEIL:
             problems.append(
                 f"  {key}: limit defaults to {lim} (> {LIMIT_CEIL}) — a default page that big crowds "
-                f"the caller's context (OUT-2). {path}:{fn.lineno}"
+                f"the caller's context (OUT-2). {path}:{lineno}"
             )
+
+    def _field_default(node):
+        """The default AST node of a pydantic field: `x = 20` → 20; `x = Field(default=Y)` → Y."""
+        if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "Field":
+            for kw in node.keywords:
+                if kw.arg == "default":
+                    return kw.value
+            return None  # Field(...) with no default → required (no default to check)
+        return node
+
+    # (1) inline function-param tools: `async def foo(..., detail=…, limit=…)`
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.AsyncFunctionDef, ast.FunctionDef)):
+            continue
+        params = {a.arg for a in fn.args.args + fn.args.kwonlyargs}
+        if "detail" not in params or "limit" not in params:
+            continue
+        defaults = _default_map(fn)
+        _check_pair(f"{svc}::{fn.name}", defaults.get("detail"), defaults.get("limit"), fn.lineno)
+
+    # (2) request-MODEL tools: a pydantic class with both `detail` and `limit` fields — the
+    # tool takes a single `args: SomeArgs`, so its LIST-ness is invisible to (1). This is the
+    # blind spot that let composition `_MotifSearchArgs` (detail=full) ship un-flagged (K38).
+    for cls in ast.walk(tree):
+        if not isinstance(cls, ast.ClassDef):
+            continue
+        fields = {
+            b.target.id: b.value
+            for b in cls.body
+            if isinstance(b, ast.AnnAssign) and isinstance(b.target, ast.Name) and b.value is not None
+        }
+        if "detail" in fields and "limit" in fields:
+            _check_pair(
+                f"{svc}::{cls.name}",
+                _field_default(fields["detail"]), _field_default(fields["limit"]), cls.lineno,
+            )
+
     return problems
 
 

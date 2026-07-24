@@ -306,19 +306,16 @@ def _ctx(*, user_id=_OWNER, project_id=_PROJECT, projects_repo=None, **deps) -> 
 
 
 @pytest.mark.asyncio
-async def test_kg_triage_list_default_limit_is_bounded_and_summary_projects():
-    """K37 drain (2026-07-24) — the LIMIT is now a bounded default page:
-    `KgTriageListArgs` forwards TRIAGE_LIMIT_DEFAULT (25, lowered from 100) to the repo,
-    and the repo's REAL `has_more` (it over-fetches limit+1) passes through so a capped
-    queue is never a silent drop. Projection: detail=summary drops the heavy
-    sample_payload/suggested_actions; detail=full keeps them.
-
-    NOTE (K38): this uses `execute_tool` with NO detail → the executor `KgTriageListArgs`
-    default applies, which is STILL "full" (the versioned-default lever, see
-    definitions._DETAIL_PROP). The K37 drain flipped only the MCP *signature* to summary,
-    so a NATIVE MCP agent gets summary but an OpenAI-schema/execute_tool caller still gets
-    full — a 3-source lockstep gap tracked as K38. This test asserts the LIMIT drain (which
-    IS consistent, constant-based) + the projection effect, not the detail default."""
+async def test_kg_triage_list_default_is_bounded_and_summary():
+    """K37/K38 drain (2026-07-24) — the DEFAULT kg_triage_list reply is the small shape,
+    end-to-end through the EXECUTOR (not just the MCP signature):
+      - LIMIT: `KgTriageListArgs` forwards TRIAGE_LIMIT_DEFAULT (25, was 100) to the repo,
+        and the repo's REAL `has_more` (it over-fetches limit+1) passes through — a capped
+        queue is never a silent drop.
+      - DETAIL: `KgTriageListArgs.detail` now defaults to "summary" (K38 closed the lockstep
+        gap — the arg-model + _DETAIL_PROP defaults matched the MCP signature), so a caller
+        that omits detail (execute_tool / OpenAI-schema) gets the SAME summary a native MCP
+        agent does. `detail=full` stays an explicit opt-in."""
     from app.tools.graph_schema_tools import TRIAGE_LIMIT_DEFAULT
 
     assert TRIAGE_LIMIT_DEFAULT <= 25  # the OUT-2 page ceiling
@@ -330,19 +327,19 @@ async def test_kg_triage_list_default_limit_is_bounded_and_summary_projects():
     triage_repo.list_grouped = AsyncMock(return_value=([group], True))  # has_more from the repo
     ctx = _ctx(triage_repo=triage_repo)
 
-    res = await execute_tool(ctx, "kg_triage_list", {})  # no limit → bounded default
+    res = await execute_tool(ctx, "kg_triage_list", {})  # no limit, no detail → small defaults
     assert res.success, res.error
     # the tool forwarded the small bounded page, not the old 100
     assert triage_repo.list_grouped.await_args.kwargs["limit"] == TRIAGE_LIMIT_DEFAULT
     # the real truncation signal is surfaced (never a silent drop)
     assert res.result["has_more"] is True
-
-    # projection effect: summary drops the heavy fields, keeps the scan refs
-    summ = await execute_tool(ctx, "kg_triage_list", {"detail": "summary"})
-    g = summ.result["groups"][0]
+    # K38: the DEFAULT (detail omitted) is summary all the way through the executor —
+    # the heavy fields are dropped, the scan refs kept.
+    g = res.result["groups"][0]
     assert g["signature"] == "dup:allies:a->b" and g["count"] == 4
     assert "sample_payload" not in g and "suggested_actions" not in g
-    # full keeps the heavy fields
+
+    # full stays an explicit opt-in that returns the heavy fields
     full = await execute_tool(ctx, "kg_triage_list", {"detail": "full"})
     assert "sample_payload" in full.result["groups"][0]
 

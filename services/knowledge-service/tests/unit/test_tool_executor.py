@@ -222,7 +222,9 @@ async def test_memory_search_embedding_error_is_tool_error(monkeypatch):
 @pytest.mark.asyncio
 async def test_memory_search_truncates_long_snippets(monkeypatch):
     ctx = _search_ctx(monkeypatch, [_hit("x" * 600)])
-    res = await execute_tool(ctx, "memory_search", {"query": "x"})
+    # K38: the default is now `summary`, which DROPS the heavy `text` field entirely; this
+    # test is about the 500-char TRUNCATION of that field, so opt into `detail=full` to see it.
+    res = await execute_tool(ctx, "memory_search", {"query": "x", "detail": "full"})
     assert res.success
     # 500-char cap + a single ellipsis character.
     assert len(res.result["hits"][0]["text"]) <= 501

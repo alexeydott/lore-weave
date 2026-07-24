@@ -209,8 +209,8 @@ class KgGraphQueryArgs(ProjectScopedArgs):
     view: str | None = Field(default=None, max_length=_CODE_MAX)
     as_of_chapter: int | None = Field(default=None, ge=0)
     limit: int = Field(default=GRAPH_LIMIT_DEFAULT, ge=1, le=GRAPH_LIMIT_MAX)
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
     # scope=world — the world to roll up (owner-only).
     world_id: str | None = Field(default=None, max_length=200)
     # scope=multi — an arbitrary set of your own projects to union (1–16).
@@ -231,8 +231,8 @@ class KgWorldQueryArgs(BaseModel):
     world_id: str = Field(min_length=1, max_length=200)
     limit: int = Field(default=200, ge=1, le=GRAPH_LIMIT_MAX)
     unify: Literal["off", "by_name", "semantic"] = "off"
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
 
 
 class KgMultiQueryArgs(BaseModel):
@@ -251,8 +251,8 @@ class KgMultiQueryArgs(BaseModel):
     project_ids: list[str] = Field(min_length=1, max_length=16)
     limit: int = Field(default=200, ge=1, le=GRAPH_LIMIT_MAX)
     unify: Literal["off", "by_name", "semantic"] = "off"
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
 
 
 class KgEntityEdgeTimelineArgs(BaseModel):
@@ -269,8 +269,8 @@ class KgEntityEdgeTimelineArgs(BaseModel):
     entity_id: str = Field(min_length=1, max_length=200)
     edge_type: str = Field(min_length=1, max_length=_CODE_MAX)
     limit: int = Field(default=TIMELINE_LIMIT_DEFAULT, ge=1, le=TIMELINE_LIMIT_MAX)
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
 
 
 class KgSchemaReadArgs(ProjectScopedArgs):
@@ -298,8 +298,8 @@ class KgTriageListArgs(ProjectScopedArgs):
 
     status: Literal["pending", "pending_glossary", "resolved", "dismissed"] = "pending"
     limit: int = Field(default=TRIAGE_LIMIT_DEFAULT, ge=1, le=TRIAGE_LIMIT_MAX)
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
 
 
 class KgProposeFactArgs(ProjectScopedArgs):
@@ -683,17 +683,16 @@ _PROJECT_ID_PROP = {
 }
 
 # L1/L2 reference-first `detail` enum (§6b) shared by the SET-returning kg-read
-# tools. Enum-locked + versioned-default "full" (see definitions._DETAIL_PROP).
+# tools. Enum-locked + default "summary" (K38 — migration complete; see definitions._DETAIL_PROP).
 _DETAIL_PROP = {
     "type": "string",
     "enum": ["summary", "full"],
     "description": (
-        "Response granularity. 'full' (default) = every field of each node/edge/"
-        "item. 'summary' = a compact reference projection (ids + names + the "
-        "relation triple; localized labels, glossary anchors, scores and heavy "
-        "payloads dropped) — scan a large graph cheaply, then re-read specifics "
-        "with a get-by-id sibling (e.g. memory_recall_entity / "
-        "kg_entity_edge_timeline). `meta` reports the node/edge totals."
+        "Response granularity. 'summary' (default) = a compact reference projection "
+        "(ids + names + the relation triple; localized labels, glossary anchors, scores "
+        "and heavy payloads dropped) — scan a large graph cheaply, then re-read specifics "
+        "with a get-by-id sibling (e.g. memory_recall_entity / kg_entity_edge_timeline). "
+        "'full' = every field of each node/edge/item. `meta` reports the node/edge totals."
     ),
 }
 

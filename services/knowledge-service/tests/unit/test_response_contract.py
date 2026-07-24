@@ -40,10 +40,14 @@ from app.tools.graph_schema_tools import (
 )
 
 
-# ── versioned-default migration (spec §6b rule #1) ────────────────────
-# Every refactored SET tool's `detail` MUST default to "full" so an existing
-# caller (chat-service OpenAI path / a federated agent) is byte-unchanged until it
-# opts into "summary".
+# ── versioned-default migration (spec §6b rule #1) — COMPLETE (K38, 2026-07-24) ──
+# The migration is now finished: every SET tool's `detail` defaults to "summary" (OUT-2,
+# "default to the smaller shape"), and "full" is an explicit opt-in. This must match the
+# MCP signature AND _DETAIL_PROP (the three-source lockstep) so a native-MCP agent, an
+# OpenAI-schema caller, and an internal execute_tool caller all get the SAME small default
+# — the K38 gap was that only the MCP signature had been flipped (K37), leaving these
+# arg-model defaults on "full". (Live behaviour was already summary — the MCP handler
+# forwards the signature default explicitly — so this closed a dormant lockstep trap.)
 @pytest.mark.parametrize(
     "model",
     [
@@ -52,9 +56,9 @@ from app.tools.graph_schema_tools import (
         KgEntityEdgeTimelineArgs, KgTriageListArgs,
     ],
 )
-def test_detail_defaults_to_full(model):
+def test_detail_defaults_to_summary(model):
     field = model.model_fields["detail"]
-    assert field.default == "full", f"{model.__name__}.detail must default to 'full'"
+    assert field.default == "summary", f"{model.__name__}.detail must default to 'summary' (OUT-2)"
 
 
 # ── story_search — drop the full passage snippet at summary ───────────

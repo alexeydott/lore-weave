@@ -3185,10 +3185,9 @@ class _MotifSearchArgs(ForbidExtra):
     status: Literal["draft", "active", "archived"] | None = None
     language: str | None = None
     limit: int = 20
-    # L1/L2 reference-first (Context Budget Law §6b). Default "full" (versioned
-    # migration — federated/legacy callers unchanged); the chat-compiler passes
-    # "summary" for a lightweight ref list (no roles/beats/preconditions/effects).
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first (Context Budget Law §6b). Default "summary" (K38 — OUT-2; a
+    # lightweight ref list, no roles/beats/preconditions/effects); "full" is an opt-in.
+    detail: Literal["summary", "full"] = "summary"
 
 
 @mcp_server.tool(
