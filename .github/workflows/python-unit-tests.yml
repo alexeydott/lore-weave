@@ -17,10 +17,10 @@ name: python-unit-tests
 #    TEST_NEO4J_URI is set, exactly as they do on a dev laptop. Wiring those needs an
 #    ephemeral Postgres + a Neo4j service container AND the K27 fixture rot repaired first, so
 #    it is a follow-up job (python-integration-tests) — see K27/K28 in the RUN-STATE ledger.
-#  - Run SERIAL (no pytest-xdist): a gating job must be deterministic, and one cross-file
-#    xdist isolation flake exists in lore-enrichment (test_tool_carries_valid_meta RuntimeErrors
-#    intermittently under -n auto, passes in isolation). Speeding this up with xdist waits on
-#    fixing that isolation bug.
+#  - Run SERIAL (no pytest-xdist): a gating job must be deterministic. (A cross-file
+#    lore-enrichment isolation bug that once broke -n auto — the MCP loopback reusing a
+#    consumed StreamableHTTP session manager — was fixed in K31; serial remains the
+#    conservative default for a gating job, flip to xdist once this has proven stable.)
 #
 # Python 3.12 to match the service Dockerfiles (python:3.12-slim) — and loreweave_llm in the
 # shared SDK declares requires-python >= 3.11, so 3.10 would fail to install the SDK.
