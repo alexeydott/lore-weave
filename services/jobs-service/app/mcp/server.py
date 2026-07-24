@@ -158,6 +158,15 @@ def _with_caps(job: dict[str, Any]) -> dict[str, Any]:
     return job
 
 
+# K24/K36 (2026-07-24) — the MCP `jobs_list` default limit is DELIBERATELY smaller than
+# the shared store.DEFAULT_LIMIT (50). 50 fat rows measured 45.6 KB at detail=full — 5.7×
+# the kit's 8 KB context-budget warning, on the DEFAULT no-arg call. The REST list view
+# (routers/jobs.py) legitimately renders 50, so we do NOT lower the shared constant; the
+# LLM caller — the party the Context Budget Law exists to protect — gets a context-sized
+# page and pulls more via `cursor`. 10 summary rows ≈ 4.4 KB, comfortably under the warn.
+MCP_LIST_DEFAULT_LIMIT = 10
+
+
 # ── Tool registrations ────────────────────────────────────────────────────────
 # Names MUST be `jobs_*` (C-GW prefix map: jobs="jobs_"). Descriptions guide the
 # LLM; `_meta` (tier R + scope user + synonyms) is validated at registration time.
@@ -172,8 +181,10 @@ def _with_caps(job: dict[str, Any]) -> dict[str, Any]:
         "Owner-scoped — only the caller's own jobs are ever returned. Supports "
         "filtering by status / kind / parent job + a free-text search, and cursor "
         "pagination via `cursor` (pass back the returned `next_cursor` for the next "
-        "page). Pass `detail=summary` for a lightweight list that drops each job's "
-        "heavy `params`/`error` (default `full`); fetch those via jobs_get."
+        "page). Returns a lightweight summary by default (each job's heavy "
+        "`params`/`error` dropped) — pass `detail=full` for every field, or fetch the "
+        "heavy fields for ONE job via jobs_get. Defaults to a small page; raise `limit` "
+        "or page with `cursor` for more."
     ),
     meta=require_meta(
         "R",
@@ -223,12 +234,13 @@ async def jobs_list(
     limit: Annotated[
         int,
         Field(ge=1, le=store.MAX_LIMIT),
-        f"Max jobs to return (default {store.DEFAULT_LIMIT}, max {store.MAX_LIMIT}).",
-    ] = store.DEFAULT_LIMIT,
+        f"Max jobs to return (default {MCP_LIST_DEFAULT_LIMIT}, max {store.MAX_LIMIT}). "
+        "Kept small so the default reply fits the caller's context; page with `cursor`.",
+    ] = MCP_LIST_DEFAULT_LIMIT,
     detail: Annotated[
         Literal["summary", "full"],
-        "summary = drop each job's heavy params/error; full = every field.",
-    ] = "full",
+        "summary (default) = drop each job's heavy params/error; full = every field.",
+    ] = "summary",
 ) -> dict:
     tool_ctx = build_tool_context(ctx, settings.internal_service_token)
     items, next_cursor = await store.list_jobs(
