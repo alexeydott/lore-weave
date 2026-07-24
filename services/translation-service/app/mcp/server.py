@@ -284,7 +284,7 @@ async def translation_list_versions(
         Literal["summary", "full"],
         "summary = id/version_num/target_language/status/is_active only (drops model "
         "refs, job id, token counts, authored_by); full = every field.",
-    ] = "full",
+    ] = "summary",  # K37 drain: OUT-2 small-shape default
     limit: Annotated[
         int | None,
         "Coarse cap on versions returned (a flat prefix across all languages; "
@@ -335,7 +335,7 @@ async def translation_job_status(
         Literal["summary", "full"],
         "summary = per-chapter chapter_id/status/version_num only (drops the heavy "
         "error_message + token counts); full = every field.",
-    ] = "full",
+    ] = "summary",  # K37 drain: OUT-2 small-shape default
     limit: Annotated[
         int | None,
         "Coarse cap on the per-chapter rows returned (`truncated` reports how many "

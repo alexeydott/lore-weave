@@ -51,12 +51,12 @@ ALLOW: dict[str, str] = {
     "knowledge-service::kg_multi_query": "K37 FLIP-PENDING — detail=full + limit=200",
     "knowledge-service::kg_triage_list": "K37 FLIP-PENDING — detail=full default",
     "knowledge-service::kg_world_query": "K37 FLIP-PENDING — detail=full + limit=200",
-    "composition-service::composition_arc_suggest": "K37 FLIP-PENDING — detail=full default",
-    "composition-service::composition_list_outline": "K37 FLIP-PENDING — detail=full default",
-    "composition-service::composition_motif_book_list": "K37 FLIP-PENDING — detail=full + limit=50",
-    "composition-service::composition_motif_suggest_for_chapter": "K37 FLIP-PENDING — detail=full default",
-    "translation-service::translation_job_status": "K37 FLIP-PENDING — detail=full default",
-    "translation-service::translation_list_versions": "K37 FLIP-PENDING — detail=full default",
+    # detail=summary DONE (K37 drain); still allowlisted because limit defaults to None
+    # (UNBOUNDED) and bounding these needs per-tool judgement — an outline is a TREE (a flat
+    # count-cap would cut it mid-branch; wants a depth bound), a job status is an overview.
+    "composition-service::composition_list_outline": "K37 — detail=summary done; limit=None (outline TREE — needs depth bound, not count)",
+    "translation-service::translation_job_status": "K37 — detail=summary done; limit=None (per-chapter overview — bound TBD)",
+    "translation-service::translation_list_versions": "K37 — detail=summary done; limit=None (versions of one chapter — small in practice; bound TBD)",
 }
 
 
@@ -179,6 +179,16 @@ def scan_file(path: str) -> list[str]:
             )
         lim_node = defaults.get("limit")
         lim = None
+        # An UNBOUNDED default (`limit=None`) is the worst case: apply_response_contract
+        # treats None as "no cap" (response.py: `items[:limit] if limit is not None else items`),
+        # so the default reply grows with the user's data. A LIST tool must default to a bounded
+        # page. (K37 — this hole let translation_job_status / composition_list_outline default
+        # to every row.)
+        if isinstance(lim_node, ast.Constant) and lim_node.value is None:
+            problems.append(
+                f"  {key}: limit defaults to None (UNBOUNDED — no cap) — a LIST tool must default "
+                f"to a bounded page (<= {LIMIT_CEIL}); None returns every row. {path}:{fn.lineno}"
+            )
         if isinstance(lim_node, ast.Constant) and isinstance(lim_node.value, int):
             lim = lim_node.value
         elif isinstance(lim_node, ast.Name):

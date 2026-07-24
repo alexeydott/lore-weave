@@ -599,7 +599,7 @@ async def composition_list_outline(
     detail: Annotated[
         Literal["summary", "full"],
         "summary = refs only (id/kind/title/status/version, no prose); full = every field.",
-    ] = "full",
+    ] = "summary",  # K37 drain: OUT-2 small-shape default
     limit: Annotated[
         int | None,
         "Coarse cap on nodes returned (a flat prefix of the tree — may drop later "
@@ -3304,11 +3304,11 @@ async def composition_motif_book_list(
     q: Annotated[str | None, "Free-text filter on name/summary."] = None,
     status: Annotated[Literal["draft", "active", "archived"] | None, "Status filter."] = "active",
     language: Annotated[str | None, "Language filter."] = None,
-    limit: Annotated[int, "Max rows."] = 50,
+    limit: Annotated[int, "Max rows (a small default page; raise for more)."] = 25,
     detail: Annotated[
         Literal["summary", "full"],
         "summary = refs only (id/code/name/kind/summary/badges, no roles/beats); full = every field.",
-    ] = "full",
+    ] = "summary",  # K37 drain: OUT-2 small-shape default
 ) -> dict:
     tc = _ctx(ctx)
     bid = UUID(book_id)
@@ -3354,7 +3354,7 @@ async def composition_motif_suggest_for_chapter(
         Literal["summary", "full"],
         "summary = each candidate's motif is refs only (no roles/beats); full = every field. "
         "score + match_reason are kept at both levels.",
-    ] = "full",
+    ] = "summary",  # K37 drain: OUT-2 small-shape default
 ) -> dict:
     tc = _ctx(ctx)
     works = WorksRepo(get_pool())
@@ -3424,7 +3424,7 @@ async def composition_arc_suggest(
         Literal["summary", "full"],
         "summary = each candidate's arc_template is refs only (no threads/layout/pacing); "
         "full = every field. score + match_reason are kept at both levels.",
-    ] = "full",
+    ] = "summary",  # K37 drain: OUT-2 small-shape default
 ) -> dict:
     tc = _ctx(ctx)
     works = WorksRepo(get_pool())
