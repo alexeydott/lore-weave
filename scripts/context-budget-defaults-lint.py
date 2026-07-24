@@ -56,7 +56,10 @@ ALLOW: dict[str, str] = {
     "knowledge-service::kg_world_query": "K37 — detail=summary done; limit=200 graph-union scan cap (OUT-5 signal needed); LEGACY",
     "knowledge-service::kg_multi_query": "K37 — detail=summary done; limit=200 graph-union scan cap (OUT-5 signal needed); LEGACY",
     "knowledge-service::kg_entity_edge_timeline": "K37 — detail=summary done; limit=500 temporal-chain cap (verify meta.truncated over-fetches before lowering)",
-    "knowledge-service::kg_triage_list": "K37 — detail=summary done; limit=100 (has_more signalled — safe to lower next, verify over-fetch)",
+    # kg_triage_list: DRAINED (K37) — limit 100→25 (repo over-fetches limit+1 → real has_more,
+    # never a silent drop), MCP signature detail=summary. Removed from ALLOW → lint-enforced.
+    # (The Args-model / OpenAI-schema detail default is still "full" — the K38 lockstep gap,
+    # tracked separately; it affects every "detail-drained" tool, not just this one.)
     # detail=summary DONE (K37 drain); still allowlisted because limit defaults to None
     # (UNBOUNDED) and bounding these needs per-tool judgement — an outline is a TREE (a flat
     # count-cap would cut it mid-branch; wants a depth bound), a job status is an overview.

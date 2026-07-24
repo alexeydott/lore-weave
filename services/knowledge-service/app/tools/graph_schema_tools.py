@@ -116,7 +116,11 @@ GRAPH_LIMIT_DEFAULT = 500
 TIMELINE_LIMIT_MAX = 2000
 TIMELINE_LIMIT_DEFAULT = 500
 TRIAGE_LIMIT_MAX = 500
-TRIAGE_LIMIT_DEFAULT = 100
+# K37 drain (2026-07-24): default lowered 100→25 (OUT-2). The repo over-fetches limit+1 and
+# returns a REAL `has_more`, so a bounded default page is signalled, never a silent drop; the
+# agent raises `limit` (up to MAX) or pages. Not shared with any REST endpoint — the three
+# lockstep schema sources (MCP signature + KgTriageListArgs + the OpenAI schema) all read this.
+TRIAGE_LIMIT_DEFAULT = 25
 _CODE_MAX = 120  # SchemaCode/view code slug cap (ontology_models.SchemaCode)
 _NAME_MAX = 200
 
