@@ -119,7 +119,11 @@ GRAPH_LIMIT_MAX = 2000
 # justifies a larger page than a flat list (the ≤25 list ceiling), hence a conscious 60.
 GRAPH_LIMIT_DEFAULT = 60
 TIMELINE_LIMIT_MAX = 2000
-TIMELINE_LIMIT_DEFAULT = 500
+# K37/OUT-5 (2026-07-24): kg_entity_edge_timeline default lowered 500→25. A temporal chain
+# is a FLAT list (unlike a graph), so the ≤25 page ceiling applies. The handler over-fetches
+# limit+1 and stamps `meta.truncated`, so a longer chain is SIGNALLED (raise limit up to MAX),
+# never a silent cut. Only this tool reads it (memory_timeline uses definitions'.=20).
+TIMELINE_LIMIT_DEFAULT = 25
 TRIAGE_LIMIT_MAX = 500
 # K37 drain (2026-07-24): default lowered 100→25 (OUT-2). The repo over-fetches limit+1 and
 # returns a REAL `has_more`, so a bounded default page is signalled, never a silent drop; the
@@ -1753,17 +1757,22 @@ async def _handle_kg_entity_edge_timeline(
             user_id=str(ctx.user_id),
             entity_id=args.entity_id,
             edge_type=args.edge_type,
-            limit=args.limit,
+            # OUT-5 (K37): over-fetch ONE past the cap so we can tell the agent the chain had
+            # MORE (the Cypher LIMIT was a silent cap). Mirrors kg_graph_query.
+            limit=args.limit + 1,
         )
         records = await _records(result)
+    truncated = len(records) > args.limit
+    records = records[: args.limit]  # drop the sentinel over-fetch row
     out = build_timeline(args.entity_id, args.edge_type, records).model_dump(mode="json")
     # L1/L2 reference-first (§6b): at detail="summary" project each temporal
     # instance to target + window, dropping evidence_chapter_id/schema_version/
-    # localized/glossary fields. `meta` reports the instance total/returned.
+    # localized/glossary fields. `meta` reports the instance total/returned + truncation.
     instances, meta = apply_response_contract(
         out.get("instances", []),
         ref_fields=TIMELINE_INSTANCE_REF_FIELDS, detail=args.detail,
     )
+    meta["truncated"] = truncated
     out["instances"] = instances
     out["meta"] = meta
     return out

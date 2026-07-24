@@ -1782,6 +1782,44 @@ async def test_kg_graph_query_not_truncated_when_within_limit(monkeypatch):
     assert res.result["meta"]["edges_returned"] == 2
 
 
+@pytest.mark.asyncio
+async def test_kg_entity_edge_timeline_overfetches_and_signals_truncation(monkeypatch):
+    """K37/OUT-5 (2026-07-24) — the temporal chain's Cypher LIMIT was a silent cap too. Same
+    fix as kg_graph_query: over-fetch limit+1, cap back, stamp `meta.truncated`."""
+    from contextlib import asynccontextmanager
+    from app.tools import graph_schema_tools as gst
+
+    seen = {}
+
+    async def _fake_run_read(session, cypher, **kw):
+        seen["limit"] = kw.get("limit")
+        return object()
+
+    def _rec(i):
+        return {"rel": {"predicate": "allies", "valid_from": i}, "obj": {"id": f"o{i}", "name": f"O{i}"}}
+
+    async def _fake_records(result):
+        return [_rec(i) for i in range(4)]  # limit+1 → cap bites at limit=3
+
+    @asynccontextmanager
+    async def _fake_session(*a, **k):
+        yield object()
+
+    monkeypatch.setattr(gst, "run_read", _fake_run_read)
+    monkeypatch.setattr(gst, "_records", _fake_records)
+    monkeypatch.setattr(gst, "neo4j_session", _fake_session)
+    monkeypatch.setattr(gst, "_resolve_entity_project_grant", AsyncMock())
+
+    res = await execute_tool(
+        _ctx(), "kg_entity_edge_timeline",
+        {"entity_id": "e1", "edge_type": "allies", "limit": 3},
+    )
+    assert res.success, res.error
+    assert seen["limit"] == 4                        # over-fetched limit+1
+    assert res.result["meta"]["truncated"] is True   # the drop is SIGNALLED
+    assert len(res.result["instances"]) == 3         # capped back to the real limit
+
+
 # ── kg_ontology_propose unified op dispatch (catalog-unification 2026-07-22) ───
 # op=schema_edit|adopt_template|sync_apply must delegate to the SAME cores as the
 # legacy kg_schema_edit / kg_adopt_template / kg_sync_apply.

@@ -59,7 +59,8 @@ ALLOW: dict[str, str] = {
     "knowledge-service::kg_graph_query": "K37 — detail=summary + OUT-5 truncation signal added; default 60 (graph page, signalled — conscious >25)",
     "knowledge-service::kg_world_query": "K37 — detail=summary done; limit=200 graph-union scan cap (OUT-5 signal needed); LEGACY",
     "knowledge-service::kg_multi_query": "K37 — detail=summary done; limit=200 graph-union scan cap (OUT-5 signal needed); LEGACY",
-    "knowledge-service::kg_entity_edge_timeline": "K37 — detail=summary done; limit=500 temporal-chain cap (verify meta.truncated over-fetches before lowering)",
+    # kg_entity_edge_timeline: DRAINED (K37) — a FLAT temporal chain, so limit 500→25 (≤ ceiling)
+    # + the handler over-fetches limit+1 and stamps meta.truncated (OUT-5). Removed from ALLOW.
     # kg_triage_list: DRAINED (K37) — limit 100→25 (repo over-fetches limit+1 → real has_more,
     # never a silent drop), MCP signature detail=summary. Removed from ALLOW → lint-enforced.
     # (The Args-model / OpenAI-schema detail default is still "full" — the K38 lockstep gap,
@@ -95,17 +96,19 @@ def _module_int_consts(path: str) -> dict[str, int]:
     return out
 
 
-def _import_sources(path: str) -> dict[str, str]:
-    """name -> the module string it was imported `from` (`from app.x.y import NAME`)."""
+def _import_sources(path: str) -> dict[str, tuple[str, str]]:
+    """local-name -> (module string, ORIGINAL name). Tracks the original through an alias
+    (`from x import FOO as BAR` → BAR: (x, "FOO")) so the target file is queried by the name
+    it actually defines, not the alias."""
     try:
         tree = ast.parse(open(path, encoding="utf-8").read())
     except (OSError, SyntaxError):
         return {}
-    out: dict[str, str] = {}
+    out: dict[str, tuple[str, str]] = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module:
             for a in node.names:
-                out[a.asname or a.name] = ("." * node.level) + node.module
+                out[a.asname or a.name] = (("." * node.level) + node.module, a.name)
     return out
 
 
@@ -132,16 +135,18 @@ def _module_to_file(module: str, importer_path: str) -> str | None:
 def _resolve_int(name: str, module_ints: dict[str, int], path: str, cache: dict[str, dict[str, int]]) -> int | None:
     if name in module_ints:
         return module_ints[name]
-    # follow the import to its defining file, within this service
-    src_mod = _import_sources(path).get(name)
-    if not src_mod:
+    # follow the import to its defining file, within this service (resolving by the ORIGINAL
+    # name so an alias like `TIMELINE_LIMIT_DEFAULT as KG_TIMELINE_LIMIT_DEFAULT` works).
+    src = _import_sources(path).get(name)
+    if not src:
         return None
+    src_mod, orig_name = src
     src_file = _module_to_file(src_mod, path)
     if not src_file:
         return None
     if src_file not in cache:
         cache[src_file] = _module_int_consts(src_file)
-    return cache[src_file].get(name)
+    return cache[src_file].get(orig_name)
 
 
 def _default_map(fn: ast.AST) -> dict[str, ast.expr]:
