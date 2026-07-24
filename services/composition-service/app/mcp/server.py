@@ -602,10 +602,10 @@ async def composition_list_outline(
     ] = "summary",  # K37 drain: OUT-2 small-shape default
     limit: Annotated[
         int | None,
-        "Coarse cap on nodes returned (a flat prefix of the tree — may drop later "
-        "arcs' scenes; `truncated` reports how many). To read ONE node use "
-        "composition_get_outline_node, not pagination.",
-    ] = None,
+        "Coarse cap on nodes returned, a flat prefix of the tree (default 25 — may drop "
+        "later arcs' scenes; `truncated` reports how many). Raise it, or read ONE node via "
+        "composition_get_outline_node.",
+    ] = 25,  # K37 drain: OUT-2 bounded default (list_tree fetches all → apply_response_contract caps + signals truncated, never a silent drop)
     include_archived: Annotated[bool, "Include soft-archived nodes."] = False,
 ) -> dict:
     tc = _ctx(ctx)

@@ -364,6 +364,32 @@ async def _patched(*, grant_level=2, works_get=None, **repo_overrides):
                 p.stop()
 
 
+async def test_list_outline_default_limit_bounds_and_signals_truncation():
+    """K37 drain (2026-07-24) — composition_list_outline once returned 146K TOKENS (the
+    documented incident). It now defaults `limit=25` (was None = the whole tree). `list_tree`
+    fetches ALL nodes and the cap runs in apply_response_contract, which sees the true total
+    → `truncated` reports the drop; it is a SIGNALLED flat prefix, never a silent cut."""
+    from types import SimpleNamespace
+
+    def _mk_node(i):
+        return SimpleNamespace(model_dump=lambda mode="json", i=i: {
+            "id": f"n{i}", "kind": "scene", "title": f"T{i}", "status": "draft",
+            "version": 1, "prose": "x" * 500,
+        })
+
+    outline = AsyncMock()
+    outline.list_tree = AsyncMock(return_value=[_mk_node(i) for i in range(30)])
+    scene_links = AsyncMock()
+    scene_links.list_by_project = AsyncMock(return_value=[])
+
+    async with _patched(grant_level=1, OutlineRepo=outline, SceneLinksRepo=scene_links) as srv:
+        res = await srv.composition_list_outline(_Ctx(), project_id=str(PROJECT))
+
+    assert len(res["nodes"]) == 25   # bounded default page (was the unbounded 146K-token dump)
+    assert res["truncated"] == 5     # the drop is SIGNALLED, never silent
+    assert res["total"] == 30
+
+
 async def test_get_work_owner_ok():
     import app.mcp.server as srv
     async with _patched(grant_level=1):

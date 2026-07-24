@@ -65,10 +65,10 @@ ALLOW: dict[str, str] = {
     # never a silent drop), MCP signature detail=summary. Removed from ALLOW → lint-enforced.
     # (The Args-model / OpenAI-schema detail default is still "full" — the K38 lockstep gap,
     # tracked separately; it affects every "detail-drained" tool, not just this one.)
-    # detail=summary DONE (K37 drain); still allowlisted because limit defaults to None
-    # (UNBOUNDED) and bounding these needs per-tool judgement — an outline is a TREE (a flat
-    # count-cap would cut it mid-branch; wants a depth bound), a job status is an overview.
-    "composition-service::composition_list_outline": "K37 — detail=summary done; limit=None (outline TREE — needs depth bound, not count)",
+    # composition_list_outline: DRAINED (K37) — like translation, list_tree fetches ALL nodes
+    # and `limit` feeds only apply_response_contract, so a flat-count default (None→25) caps the
+    # true total + reports `truncated` (a signalled prefix, never a silent drop; the description
+    # documents the flat-prefix behaviour). Removed from ALLOW.
     # translation_job_status / translation_list_versions: DRAINED (K37) — limit None→25. Their
     # SQL fetches ALL rows and `limit` feeds only apply_response_contract, so the cap sees the
     # true total and reports `truncated` — a bounded default page, never a silent drop. Removed
