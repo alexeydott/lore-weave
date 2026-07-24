@@ -51,9 +51,6 @@ ALLOW: dict[str, str] = {
     "knowledge-service::kg_multi_query": "K37 FLIP-PENDING — detail=full + limit=200",
     "knowledge-service::kg_triage_list": "K37 FLIP-PENDING — detail=full default",
     "knowledge-service::kg_world_query": "K37 FLIP-PENDING — detail=full + limit=200",
-    "knowledge-service::memory_search": "K37 FLIP-PENDING — detail=full default",
-    "knowledge-service::memory_timeline": "K37 FLIP-PENDING — detail=full default",
-    "knowledge-service::story_search": "K37 FLIP-PENDING — detail=full default",
     "composition-service::composition_arc_suggest": "K37 FLIP-PENDING — detail=full default",
     "composition-service::composition_list_outline": "K37 FLIP-PENDING — detail=full default",
     "composition-service::composition_motif_book_list": "K37 FLIP-PENDING — detail=full + limit=50",
@@ -68,8 +65,68 @@ def _service_of(path: str) -> str:
     return parts[parts.index("services") + 1] if "services" in parts else "?"
 
 
-def _resolve_int(name: str, module_ints: dict[str, int]) -> int | None:
-    return module_ints.get(name)
+def _module_int_consts(path: str) -> dict[str, int]:
+    """Module-level `NAME = <int>` assignments in one file."""
+    try:
+        tree = ast.parse(open(path, encoding="utf-8").read())
+    except (OSError, SyntaxError):
+        return {}
+    out: dict[str, int] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, int):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    out[t.id] = node.value.value
+    return out
+
+
+def _import_sources(path: str) -> dict[str, str]:
+    """name -> the module string it was imported `from` (`from app.x.y import NAME`)."""
+    try:
+        tree = ast.parse(open(path, encoding="utf-8").read())
+    except (OSError, SyntaxError):
+        return {}
+    out: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for a in node.names:
+                out[a.asname or a.name] = ("." * node.level) + node.module
+    return out
+
+
+def _module_to_file(module: str, importer_path: str) -> str | None:
+    """Resolve a `from` module string to a file under the SAME service's app/. Handles
+    relative (`.definitions`) and absolute (`app.tools.definitions`) forms — collision-safe
+    because it stays within the importer's own service tree (TIMELINE_LIMIT_DEFAULT is 20 in
+    one service file and 500 in another; following the real import picks the right one)."""
+    p = importer_path.replace("\\", "/").split("/")
+    if "services" not in p:
+        return None
+    svc_root = "/".join(p[: p.index("services") + 2])  # services/<svc>
+    if module.startswith("."):
+        base = os.path.dirname(importer_path)
+        for _ in range(len(module) - len(module.lstrip("."))):
+            base = os.path.dirname(base)
+        rel = module.lstrip(".").replace(".", "/")
+        cand = os.path.join(base, rel + ".py")
+    else:
+        cand = os.path.join(svc_root, module.replace(".", "/") + ".py")
+    return cand if os.path.isfile(cand) else None
+
+
+def _resolve_int(name: str, module_ints: dict[str, int], path: str, cache: dict[str, dict[str, int]]) -> int | None:
+    if name in module_ints:
+        return module_ints[name]
+    # follow the import to its defining file, within this service
+    src_mod = _import_sources(path).get(name)
+    if not src_mod:
+        return None
+    src_file = _module_to_file(src_mod, path)
+    if not src_file:
+        return None
+    if src_file not in cache:
+        cache[src_file] = _module_int_consts(src_file)
+    return cache[src_file].get(name)
 
 
 def _default_map(fn: ast.AST) -> dict[str, ast.expr]:
@@ -101,6 +158,7 @@ def scan_file(path: str) -> list[str]:
                 if isinstance(t, ast.Name):
                     module_ints[t.id] = node.value.value
     svc = _service_of(path)
+    _const_cache: dict[str, dict[str, int]] = {}
     problems: list[str] = []
     for fn in ast.walk(tree):
         if not isinstance(fn, (ast.AsyncFunctionDef, ast.FunctionDef)):
@@ -124,7 +182,7 @@ def scan_file(path: str) -> list[str]:
         if isinstance(lim_node, ast.Constant) and isinstance(lim_node.value, int):
             lim = lim_node.value
         elif isinstance(lim_node, ast.Name):
-            lim = _resolve_int(lim_node.id, module_ints)
+            lim = _resolve_int(lim_node.id, module_ints, path, _const_cache)
             if lim is None:
                 problems.append(
                     f"  {key}: limit default `{lim_node.id}` could not be resolved to an int in-file "
