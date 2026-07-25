@@ -80,6 +80,7 @@ EXPECTED_TOOLS = {
     "composition_create_derivative",  # Tier W (confirm-gated derive → composition.derive)
     # ── S-04 — post-derive delta editing (spec + overrides now mutable). Tier A (auto-write + Undo). ──
     "composition_divergence_spec_update",
+    "composition_derivative_edit",  # S3 unified (op=archive|update_spec)
     "composition_entity_override_add",
     "composition_entity_override_update",
     "composition_entity_override_delete",

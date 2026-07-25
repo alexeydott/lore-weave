@@ -180,3 +180,35 @@ async def test_scene_link_create_requires_endpoints():
     with pytest.raises(ValueError, match="from_node_id"):
         await srv.composition_scene_link_edit(
             _Ctx(), srv._SceneLinkEditArgs(op="create", project_id=PROJ))
+
+
+# ── derivative (S3 deep-dive: the prefix-blind pair) ──────────────────────────
+
+
+async def test_derivative_edit_archive_routes_and_requires_version():
+    with patch.object(srv, "composition_archive_derivative", AsyncMock(return_value={"archived": True})) as a, \
+         patch.object(srv, "composition_divergence_spec_update", AsyncMock()) as u:
+        await srv.composition_derivative_edit(
+            _Ctx(), srv._DerivativeEditArgs(op="archive", project_id=PROJ, expected_version=3))
+    a.assert_awaited_once()
+    u.assert_not_awaited()
+    assert a.await_args.args[1].expected_version == 3
+    with pytest.raises(ValueError, match="expected_version"):
+        await srv.composition_derivative_edit(
+            _Ctx(), srv._DerivativeEditArgs(op="archive", project_id=PROJ))
+
+
+async def test_derivative_edit_update_spec_routes_and_preserves_null_clear():
+    """update_spec must forward an EXPLICIT pov_anchor=None as a SET field (the documented
+    'pass null to clear' the handler drives off model_fields_set) — not drop it."""
+    with patch.object(srv, "composition_divergence_spec_update", AsyncMock(return_value={"ok": 1})) as m, \
+         patch.object(srv, "composition_archive_derivative", AsyncMock()) as a:
+        await srv.composition_derivative_edit(
+            _Ctx(), srv._DerivativeEditArgs(op="update_spec", project_id=PROJ, pov_anchor=None))
+    m.assert_awaited_once()
+    a.assert_not_awaited()
+    passed = m.await_args.args[1]
+    assert isinstance(passed, srv._DivergenceSpecUpdateArgs)
+    assert "pov_anchor" in passed.model_fields_set and passed.pov_anchor is None
+    # an omitted field is NOT forwarded (real partial update)
+    assert "taxonomy" not in passed.model_fields_set

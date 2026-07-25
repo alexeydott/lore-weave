@@ -1449,6 +1449,7 @@ async def composition_get_derivative_context(
     meta=require_meta(
         "A", "book",
         synonyms=["archive dị bản", "archive derivative", "delete what-if branch", "remove branch"],
+        visibility="legacy", superseded_by="composition_derivative_edit",  # S3
         tool_name="composition_archive_derivative",
     ),
 )
@@ -1600,6 +1601,7 @@ async def _require_derivative(works: WorksRepo, tc, project_id: UUID):
     meta=require_meta(
         "A", "book",
         synonyms=["edit dị bản spec", "update divergence spec", "change branch taxonomy", "edit what-if spec"],
+        visibility="legacy", superseded_by="composition_derivative_edit",  # S3
         tool_name="composition_divergence_spec_update",
     ),
 )
@@ -6885,6 +6887,54 @@ async def composition_scene_link_edit(ctx: MCPContext, args: _SceneLinkEditArgs)
     if not args.project_id or not args.link_id:
         raise ValueError("op=delete requires project_id and link_id")
     return await composition_scene_link_delete(ctx, project_id=args.project_id, link_id=args.link_id)
+
+
+# ── S3 catalog-unification (2026-07-25): the derivative CRUD pair. Surfaced by the deep-dive
+# of the "leave separate" calls — my prefix-based survey missed it because these two ops don't
+# share a name prefix (`archive_derivative` + `divergence_spec_update`), yet both are A/book,
+# both keyed by the derivative's own project_id, both reject the canonical Work: they are
+# soft-DELETE + UPDATE on the SAME entity (a derivative). op=update_spec uses `_passed` so the
+# documented `pov_anchor=null` clear survives (the same null-clear the motif fix preserved).
+# create_derivative stays separate (W/confirm-gated); switch_active_work stays separate (a
+# per-user active-work PREF keyed by book_id, over any Work, not derivative-CRUD). ─────────────
+class _DerivativeEditArgs(ForbidExtra):
+    op: Literal["archive", "update_spec"]
+    project_id: str                      # both (the derivative's project_id)
+    expected_version: int | None = None  # archive (required — optimistic concurrency)
+    taxonomy: Literal["pov_shift", "character_transform", "au"] | None = None  # update_spec
+    pov_anchor: str | None = None        # update_spec (explicit null CLEARS it)
+    canon_rule: list[str] | None = None  # update_spec
+
+
+@mcp_server.tool(
+    name="composition_derivative_edit",
+    description=(
+        "Update or archive a what-if derivative (dị bản) — the unified derivative-CRUD entry point. "
+        "op=update_spec edits the divergence spec AFTER derive (taxonomy ∈ pov_shift|character_transform|"
+        "au, pov_anchor, canon_rule[]; only the fields you pass change; pass pov_anchor=null to CLEAR it). "
+        "op=archive soft-deletes the derivative (needs expected_version; reversible — its chapters + "
+        "knowledge survive; restore by switching it active). Both reject the canonical Work. To CREATE a "
+        "derivative use composition_create_derivative; to switch which is active use "
+        "composition_switch_active_work. EDIT on the book required."
+    ),
+    meta=require_meta(
+        "A", "book",
+        synonyms=["edit derivative", "update divergence spec", "archive derivative",
+                  "delete derivative", "edit dị bản", "manage derivative"],
+        tool_name="composition_derivative_edit",
+    ),
+)
+async def composition_derivative_edit(ctx: MCPContext, args: _DerivativeEditArgs) -> dict:
+    """Unified derivative-CRUD dispatch — delegates to the SAME handlers (no logic moved)."""
+    if args.op == "archive":
+        if args.expected_version is None:
+            raise ValueError("op=archive requires expected_version")
+        return await composition_archive_derivative(ctx, _DerivativeArchiveArgs(
+            project_id=args.project_id, expected_version=args.expected_version))
+    # op == "update_spec" — _passed preserves the documented pov_anchor=null clear
+    return await composition_divergence_spec_update(ctx, _DivergenceSpecUpdateArgs(
+        project_id=args.project_id,
+        **_passed(args, "taxonomy", "pov_anchor", "canon_rule")))
 
 
 # ── ASGI factory ──────────────────────────────────────────────────────────────
