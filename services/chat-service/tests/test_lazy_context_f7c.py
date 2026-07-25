@@ -139,14 +139,10 @@ class TestCompactStudioPanel:
         assert _est_tokens(compact) < _est_tokens(full) * 0.55  # ~2.4k → <~1.3k
 
     def test_frontend_tool_defs_threads_flag(self):
-        defs = frontend_tool_defs(studio=True, compact_studio_panel=True)
-        panel = next(d for d in defs if d["function"]["name"] == "ui_open_studio_panel")
-        desc = panel["function"]["parameters"]["properties"]["panel_id"]["description"]
-        assert "PLAN/STRUCTURE" in desc  # the compact area-grouped guide
-        # default (off) is byte-identical to the original object
-        defs_off = frontend_tool_defs(studio=True)
-        panel_off = next(d for d in defs_off if d["function"]["name"] == "ui_open_studio_panel")
-        assert panel_off is UI_OPEN_STUDIO_PANEL_TOOL
+        # DEPRECATED 2026-07-25 — ui_open_studio_panel is no longer advertised, so the compact-desc
+        # flag can no longer produce it: the studio surface is empty under either flag value.
+        assert frontend_tool_defs(studio=True, compact_studio_panel=True) == []
+        assert frontend_tool_defs(studio=True, compact_studio_panel=False) == []
 
 
 # ── M4: the ui_open_studio_panel navigation-intent gate ──────────────────────
@@ -180,13 +176,12 @@ class TestPanelNavIntent:
         assert _is_panel_nav_intent(msg) is False
 
     def test_gate_omits_navigator_but_keeps_chapter_focus(self):
-        # studio_panel_nav=False (a writing turn) drops the ~880-tok navigator but keeps
-        # ui_focus_manuscript_unit (part of the writing loop).
-        off = [d["function"]["name"] for d in frontend_tool_defs(studio=True, studio_panel_nav=False)]
-        assert "ui_open_studio_panel" not in off
-        assert "ui_focus_manuscript_unit" in off
-        on = [d["function"]["name"] for d in frontend_tool_defs(studio=True, studio_panel_nav=True)]
-        assert "ui_open_studio_panel" in on
+        # DEPRECATED 2026-07-25 — BOTH the panel navigator AND ui_focus_manuscript_unit are no
+        # longer advertised, regardless of studio_panel_nav (GUI control is user/logic-driven).
+        for nav in (False, True):
+            names = [d["function"]["name"] for d in frontend_tool_defs(studio=True, studio_panel_nav=nav)]
+            assert "ui_open_studio_panel" not in names
+            assert "ui_focus_manuscript_unit" not in names
 
 
 # ── wiring seam: the advertise chokepoint gates load_skill on the flag ────────

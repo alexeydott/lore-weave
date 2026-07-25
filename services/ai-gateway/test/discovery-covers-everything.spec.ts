@@ -56,19 +56,21 @@ describe('discovery covers everything served (K23)', () => {
     expect(missing).toEqual([]);
   });
 
-  it('tool_load resolves the consumer-local tools instead of saying not_found', async () => {
-    // `not_found` is the sharp end of this bug: it does not say "unfederated", it says the
-    // tool does not exist.
+  it('tool_load resolves the remaining consumer-local tools; DEPRECATED ui_* are not_found', async () => {
+    // 2026-07-25 — the ui_* GUI-nav tools are DEPRECATED (de-advertised, not discoverable). They
+    // are no longer part of the served/discoverable surface, so tool_load reports them not_found;
+    // propose_edit + the discovery meta-tools remain. (handleUiTool still dispatches a raw
+    // ui_* call defensively — covered in handlers.spec — but the model can no longer discover them.)
     const res: any = await handleToolLoad(fakeFederation(), {
       names: ['ui_open_book', 'propose_edit', 'tool_load'],
     });
-    expect(res.structuredContent.not_found ?? []).toEqual([]);
+    expect(res.structuredContent.not_found ?? []).toEqual(['ui_open_book']);
     expect(res.structuredContent.tools.map((t: any) => t.name).sort()).toEqual(
-      ['propose_edit', 'tool_load', 'ui_open_book'],
+      ['propose_edit', 'tool_load'],
     );
   });
 
-  it('buckets them under a REAL category a caller can ask for', async () => {
+  it('buckets the remaining consumer-local tools under a REAL category (ui_* deprecated → absent)', async () => {
     // Enumerable only counts if `category` accepts the bucket — otherwise the tools appear
     // under 'all' but no targeted listing can reach them.
     expect(Object.keys(GROUP_DIRECTORY)).toContain('meta');
@@ -76,7 +78,8 @@ describe('discovery covers everything served (K23)', () => {
 
     const res: any = await handleToolList(fakeFederation(), { category: 'meta' });
     const names = res.structuredContent.tools.map((t: any) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['tool_list', 'tool_load', 'propose_edit', 'ui_navigate']));
+    expect(names).toEqual(expect.arrayContaining(['tool_list', 'tool_load', 'propose_edit']));
+    expect(names).not.toContain('ui_navigate'); // deprecated ui_* no longer discoverable
   });
 
   it('does not disturb the federated tools', async () => {

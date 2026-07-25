@@ -716,10 +716,17 @@ def frontend_tool_defs(
     if book_scoped:
         defs.append(GLOSSARY_PROPOSE_EDIT_TOOL)
         defs.append(GLOSSARY_CONFIRM_ACTION_TOOL)
-    if studio:
-        if studio_panel_nav:
-            defs.append(_studio_panel_tool(compact=compact_studio_panel))
-        defs.append(UI_FOCUS_MANUSCRIPT_UNIT_TOOL)
+    # DEPRECATED 2026-07-25 — the studio GUI-navigation tools (ui_open_studio_panel /
+    # ui_focus_manuscript_unit) are NO LONGER advertised to the model. GUI control is
+    # user/logic-driven: the studio already exposes full navigation (sidebar, navigator,
+    # quick-open, panel palette), so agent-driven nav only cost tokens (the F7c gate + the
+    # ~880-tok panel enum) for a convenience the user already has — and it carried a
+    # silent-no-op bug class (an off-enum panel_id reported opened:true while nothing opened).
+    # KEPT CALLABLE: FRONTEND_TOOL_NAMES still intercepts them + the FE resolvers still act,
+    # so a cached workflow that emits one resolves; the model simply never sees them.
+    # (`studio`/`studio_panel_nav`/`compact_studio_panel` are now inert; the ui_* consts +
+    # _studio_panel_tool/_is_panel_nav_intent remain for the callable path + tests.)
+    del studio, studio_panel_nav, compact_studio_panel  # retained args — advertisement removed
     return defs
 
 

@@ -12,7 +12,7 @@ import {
   toolListResult,
   toolLoadResult,
 } from '../federation/find-tools.js';
-import { UI_TOOLS, UI_TOOL_NAMES, handleUiTool } from './ui-tools.js';
+import { UI_TOOL_NAMES, handleUiTool } from './ui-tools.js';
 import { PROPOSE_EDIT_TOOL, PROPOSE_EDIT_NAME, handleProposeEdit } from './propose-edit-tool.js';
 
 const log = new Logger('McpProxy');
@@ -69,7 +69,11 @@ export async function handleListTools(
   return {
     tools: [
       TOOL_LIST_TOOL, TOOL_LOAD_TOOL,
-      ...UI_TOOLS,
+      // DEPRECATED 2026-07-25 — UI_TOOLS (ui_open_book/_chapter/_navigate/_show_panel/
+      // _watch_job/_open_studio_panel/_focus_manuscript_unit) are NO LONGER advertised.
+      // GUI control is user/logic-driven (the FE already exposes full navigation); agent-driven
+      // nav only cost tokens. `handleUiTool` stays wired, so a directive still resolves if one
+      // arrives — the model just never sees these tools.
       PROPOSE_EDIT_TOOL,
       ...(federation.catalog() as any[]),
       ...overlay,
@@ -230,7 +234,9 @@ export async function handleFindTools(
  * because they "have no such blind spot".
  */
 function consumerLocalTools(): any[] {
-  return [TOOL_LIST_TOOL, TOOL_LOAD_TOOL, ...UI_TOOLS, PROPOSE_EDIT_TOOL] as any[];
+  // DEPRECATED 2026-07-25 — UI_TOOLS de-advertised (GUI control is user/logic-driven).
+  // handleUiTool remains dispatchable for a cached-workflow directive; the model never sees them.
+  return [TOOL_LIST_TOOL, TOOL_LOAD_TOOL, PROPOSE_EDIT_TOOL] as any[];
 }
 
 export async function handleToolList(

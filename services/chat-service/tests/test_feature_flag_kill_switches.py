@@ -70,13 +70,11 @@ class TestCompactStudioPanelDesc:
         )
 
     def test_the_surface_builder_honours_the_flag(self):
-        # The flag reaches the advertised surface, not just the helper.
-        full = frontend_tool_defs(studio=True, compact_studio_panel=False)
-        compact = frontend_tool_defs(studio=True, compact_studio_panel=True)
-        f = next(t for t in full if t["function"]["name"] == "ui_open_studio_panel")
-        c = next(t for t in compact if t["function"]["name"] == "ui_open_studio_panel")
-        assert _panel_prop(c)["description"] != _panel_prop(f)["description"]
-        assert _panel_prop(c)["enum"] == _panel_prop(f)["enum"]
+        # DEPRECATED 2026-07-25 — ui_open_studio_panel is no longer advertised, so the
+        # compact_studio_panel_desc flag is now INERT: the studio surface is empty under either
+        # value (the flag remains in config but gates nothing — cleanup follow-up).
+        assert frontend_tool_defs(studio=True, compact_studio_panel=False) == []
+        assert frontend_tool_defs(studio=True, compact_studio_panel=True) == []
 
 
 class TestStudioPanelIntentGated:
@@ -93,17 +91,19 @@ class TestStudioPanelIntentGated:
         assert "ui_open_studio_panel" not in names
 
     def test_writing_loop_tool_survives_the_gate(self):
-        # The documented carve-out: focusing a chapter is part of writing, not navigating.
+        # DEPRECATED 2026-07-25 — ui_focus_manuscript_unit is now also de-advertised (GUI control is
+        # user/logic-driven), so it does NOT survive: the studio surface is empty regardless of the gate.
         defs = frontend_tool_defs(studio=True, studio_panel_nav=False)
         names = [t["function"]["name"] for t in defs]
-        assert "ui_focus_manuscript_unit" in names
+        assert "ui_focus_manuscript_unit" not in names
 
     def test_default_keeps_pre_gate_behavior(self):
-        # config.py: "Default True ⇒ pre-M4 behavior."
+        # DEPRECATED 2026-07-25 — the studio nav tools are no longer advertised in ANY flag state
+        # (studio_panel_intent_gated is now inert). GUI control is user/logic-driven.
         defs = frontend_tool_defs(studio=True)
         names = [t["function"]["name"] for t in defs]
-        assert "ui_open_studio_panel" in names
-        assert "ui_focus_manuscript_unit" in names
+        assert "ui_open_studio_panel" not in names
+        assert "ui_focus_manuscript_unit" not in names
 
     def test_gate_is_studio_only(self):
         # A non-studio surface never had these tools; the gate must not resurrect them.

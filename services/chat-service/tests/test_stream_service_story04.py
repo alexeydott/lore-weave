@@ -86,10 +86,10 @@ class TestGlossaryOnlySkillInject:
 
 class TestStudioSurface:
     @pytest.mark.asyncio
-    async def test_studio_context_advertises_studio_nav_tools(self):
-        """#09 Lane A — closing the loop: a request carrying studio_context makes the REAL
-        stream path advertise the studio dock-nav frontend tools (ui_open_studio_panel /
-        ui_focus_manuscript_unit) into the tool loop, so the agent can call them."""
+    async def test_studio_context_does_not_advertise_deprecated_nav_tools(self):
+        """DEPRECATED 2026-07-25 — closing the loop on the deprecation: a request carrying
+        studio_context makes the REAL stream path NOT advertise the studio dock-nav frontend tools
+        (ui_open_studio_panel / ui_focus_manuscript_unit) — GUI control is user/logic-driven."""
         pool, conn = _make_pool_with_conn()
         pool.fetchrow.return_value = _session_row()
         pool.fetch.return_value = []
@@ -123,8 +123,8 @@ class TestStudioSurface:
 
         extra_fe = loop_mock.call_args.kwargs["discovery_extra_frontend"]
         names = {t["function"]["name"] for t in extra_fe}
-        assert "ui_open_studio_panel" in names
-        assert "ui_focus_manuscript_unit" in names
+        assert "ui_open_studio_panel" not in names
+        assert "ui_focus_manuscript_unit" not in names
 
     @pytest.mark.asyncio
     async def test_studio_context_seeds_the_composition_domain_hot(self):
