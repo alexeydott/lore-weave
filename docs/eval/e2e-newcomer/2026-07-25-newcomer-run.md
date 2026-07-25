@@ -168,4 +168,26 @@ whose system prompt is far larger and uses a different request shape), so the lo
 traffic. The skill-body reduction (the dominant lever) is proven deterministically against the
 deployed code; the loop fix is proven in chat-service's own logs.
 
+## 🐛 Fix (C) — a 500 the live re-run surfaced: UUID not JSON-serializable (crashed the whole turn)
+
+Driving the plan turn (step 5) hit a **500** that killed the turn:
+```
+TypeError: Object of type UUID is not JSON serializable   (_persist_terminal_assistant, stream_service.py)
+```
+**Root cause:** `session_row["project_id"]` comes back from asyncpg as a `uuid.UUID` OBJECT (not a
+str). `_inject_context_ids` wrote it straight into `args_obj` (both the backfill and the
+"mistranscribed → substitute" branches), and `args_obj` is JSON-serialized twice downstream — onto
+the MCP wire AND into `tool_calls_history` at terminal-persist. The weak model mistranscribed
+`project_id` (a char short) → the substitute branch fired → the UUID object landed in the history →
+`json.dumps` blew up → 500 → the entire turn lost. A pre-existing latent bug (the sibling dict at
+~4988 already `str()`-d it; the injection boundary + the fallback dict at ~5555 did not).
+
+**Fix (fix-now, root cause at the injection boundary):** `_inject_context_ids` coerces every
+injected id to `str` (every id is a string identifier by contract; `args_obj` must stay
+JSON-serializable), + the fallback `context_ids` dict `str()`s `project_id` to match its sibling.
+2 regression tests assert the exact serialization that 500'd. **Live-verified:** redeployed, re-ran
+the SAME plan turn — the identical mistranscription now substitutes cleanly (just a WARNING), no
+TypeError, and the turn COMPLETED with a real plan proposal ("E2E Hero Journey" arc template via
+`composition_arc_suggest`). (`stream_service.py`, `test_context_id_injection.py`; suite 1892 passed.)
+
 ## Steps 6–8 — pending (compile / plan-hub review / write)

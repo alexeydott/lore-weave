@@ -1309,16 +1309,25 @@ def _inject_context_ids(
             continue
         if not val or key not in props:
             continue
+        # Coerce to str: `val` is a session context-id that can arrive as a UUID OBJECT
+        # (asyncpg returns a uuid column as `uuid.UUID`, e.g. session_row["project_id"]),
+        # and `args_obj` is JSON-serialized twice downstream — once onto the MCP wire and
+        # again into `tool_calls_history` at terminal-persist. A raw UUID there raises
+        # `TypeError: Object of type UUID is not JSON serializable`, which crashed the WHOLE
+        # turn with a 500 (found live 2026-07-25: model mistranscribed project_id → this
+        # branch substituted the UUID object → persist blew up). Every id here is a string
+        # identifier by contract, so str() is both safe and required.
+        val_s = str(val)
         supplied = args_obj.get(key)
         if not supplied:
-            args_obj[key] = val
+            args_obj[key] = val_s
             continue
         if isinstance(supplied, str) and not _is_uuid(supplied):
             logger.warning(
                 "tool arg %s=%r is not a UUID — the model mistranscribed it; substituting the "
                 "turn's known id", key, supplied[:64],
             )
-            args_obj[key] = val
+            args_obj[key] = val_s
     return args_obj
 
 
@@ -5552,7 +5561,10 @@ async def _emit_chat_turn(
                 context_ids=context_ids or {
                     "book_id": (editor_context or {}).get("book_id"),
                     "chapter_id": (editor_context or {}).get("chapter_id"),
-                    "project_id": project_id,
+                    # str(): project_id here is session_row["project_id"], a uuid.UUID from
+                    # asyncpg — keep it a string identifier (mirrors the sibling dict at ~4988
+                    # and the _inject_context_ids coercion) so it stays JSON-serializable.
+                    "project_id": str(project_id) if project_id else None,
                 },
                 discovery_catalog=discovery_catalog,
                 discovery_extra_frontend=discovery_extra_frontend,

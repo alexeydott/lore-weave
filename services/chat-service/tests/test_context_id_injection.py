@@ -5,6 +5,9 @@ because the book_id is only a prose note, never filled into args → VALIDATION-
 server knows the id; `_inject_context_ids` supplies it. Pure helper, no DB.
 """
 
+import json
+from uuid import UUID
+
 import app.services.stream_service as ss
 
 
@@ -95,6 +98,34 @@ def test_overrides_a_MALFORMED_model_supplied_id():
     args = {"book_id": real + "6"}
     ss._inject_context_ids(args, td, book_id=real, chapter_id=None, project_id=None)
     assert args["book_id"] == real
+
+
+# ── UUID-object coercion (found live 2026-07-25 — a 500 that crashed the whole turn) ──
+# `session_row["project_id"]` arrives from asyncpg as a uuid.UUID OBJECT, not a str, and
+# `args_obj` is JSON-serialized twice downstream (MCP wire + tool_calls_history at persist).
+# An un-coerced UUID there raised `TypeError: Object of type UUID is not JSON serializable`
+# and 500'd the turn (seen when the model mistranscribed project_id → the substitute branch
+# put the UUID object into args). Every injected id must be a JSON-serializable string.
+
+def test_backfilled_uuid_OBJECT_is_stringified():
+    td = _tool("kg_project_entities_to_nodes", {"project_id": {"type": "string"}})
+    args: dict = {}
+    pid = UUID("019f99c8-52c6-7cca-ada5-f7229f9ea5a7")
+    ss._inject_context_ids(args, td, book_id=None, chapter_id=None, project_id=pid)
+    assert args["project_id"] == str(pid)
+    assert isinstance(args["project_id"], str)
+    json.dumps(args)  # must not raise (this is the exact serialization that 500'd the turn)
+
+
+def test_substituted_uuid_OBJECT_over_a_mistranscription_is_stringified():
+    td = _tool("kg_project_entities_to_nodes", {"project_id": {"type": "string"}})
+    pid = UUID("019f99c8-52c6-7cca-ada5-f7229f9ea5a7")
+    # the model mistranscribed project_id (a char short) → the substitute branch fires
+    args = {"project_id": "019f99c8-52c7-cca-ada5-f7229f9ea5a7"}
+    ss._inject_context_ids(args, td, book_id=None, chapter_id=None, project_id=pid)
+    assert args["project_id"] == str(pid)
+    assert isinstance(args["project_id"], str)
+    json.dumps(args)  # must not raise
 
 
 def test_only_injects_keys_the_tool_declares():
