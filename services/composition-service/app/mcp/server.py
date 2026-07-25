@@ -4275,16 +4275,17 @@ async def composition_motif_edit(ctx: MCPContext, args: _MotifEditArgs) -> dict:
     if args.op == "patch":
         if not args.motif_id or args.expected_version is None:
             raise ValueError("op=patch requires motif_id and expected_version")
-        # Only caller-supplied fields become the patch (model_fields_set drives PATCH semantics
-        # in the handler) — _present drops omitted None so the set is exactly what was passed.
+        # PATCH semantics: motif_patch builds its SET clause from model_fields_set +
+        # model_dump(exclude_unset=True), so an EXPLICIT null clears the column. Forward by the
+        # caller's own model_fields_set (`_passed`), NOT _present — else an explicit
+        # `emotion_target=null` (clear) is dropped and the unified tool can't clear a nullable
+        # field the legacy motif_patch can. (S3 null-clear fix, 2026-07-25.)
         return await composition_motif_patch(ctx, _MotifPatchToolArgs(
             motif_id=args.motif_id, expected_version=args.expected_version,
-            **_present(
-                book_id=args.book_id, name=args.name, kind=args.kind, category=args.category,
-                summary=args.summary, genre_tags=args.genre_tags, roles=args.roles, beats=args.beats,
-                preconditions=args.preconditions, effects=args.effects, annotations=args.annotations,
-                tension_target=args.tension_target, emotion_target=args.emotion_target,
-                status=args.status,
+            **_passed(
+                args, "book_id", "name", "kind", "category", "summary", "genre_tags", "roles",
+                "beats", "preconditions", "effects", "annotations", "tension_target",
+                "emotion_target", "status",
             ),
         ))
     if args.op == "archive":
@@ -5960,8 +5961,20 @@ def _present(**kwargs: Any) -> dict[str, Any]:
     """Keep only the args the caller actually supplied (drop None) so each sub-Args model
     applies its OWN defaults. A flat-superset op tool must never force None onto a field
     whose default is a non-None value (e.g. _ArcCreateArgs.status='outline' — passing None
-    would fail the Literal validation)."""
+    would fail the Literal validation). Use for CREATE and for updates whose handler treats
+    None as 'unchanged' (the `if value is not None` pattern)."""
     return {k: v for k, v in kwargs.items() if v is not None}
+
+
+def _passed(args: Any, *names: str) -> dict[str, Any]:
+    """Forward only the fields the caller EXPLICITLY set (via `model_fields_set`), INCLUDING an
+    explicit None. Unlike `_present` (drop-None), this PRESERVES null-as-clear semantics for a
+    PATCH handler that builds its SET clause from `model_fields_set` / `model_dump(exclude_unset=
+    True)` — e.g. `motif_patch` clears `emotion_target` on an explicit null. A flat op superset
+    otherwise collapses absent-vs-null (both arrive None); routing the caller's own
+    `model_fields_set` is what keeps the two distinguishable through the wrapper."""
+    fs = args.model_fields_set
+    return {n: getattr(args, n) for n in names if n in fs}
 
 
 class _ArcEditArgs(ForbidExtra):

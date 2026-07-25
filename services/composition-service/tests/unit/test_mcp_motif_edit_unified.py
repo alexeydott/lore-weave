@@ -77,6 +77,24 @@ async def test_motif_edit_patch_requires_motif_id_and_version():
         await srv.composition_motif_edit(_Ctx(), srv._MotifEditArgs(op="patch", motif_id=M1))
 
 
+async def test_motif_edit_patch_preserves_explicit_null_clear():
+    """motif_patch clears a nullable column on an EXPLICIT null (repo model_dump(exclude_unset)).
+    The unified tool must forward an explicitly-passed `emotion_target=None` as a SET field (so it
+    clears), not drop it — else motif_edit can't clear what the legacy motif_patch can. Mutation:
+    switching op=patch back to `_present` (drop-None) reds this test."""
+    with patch.object(srv, "composition_motif_patch", AsyncMock(return_value={"id": M1})) as m:
+        await srv.composition_motif_edit(
+            _Ctx(),
+            srv._MotifEditArgs(op="patch", motif_id=M1, expected_version=1, emotion_target=None),
+        )
+    passed = m.await_args.args[1]
+    # explicit null → must be a SET field on the forwarded patch (so the repo clears it)
+    assert "emotion_target" in passed.model_fields_set
+    assert passed.emotion_target is None
+    # an OMITTED field must NOT be forwarded (still a real partial patch, no clobber)
+    assert "summary" not in passed.model_fields_set
+
+
 async def test_motif_edit_archive_routes_with_book_passthrough_not_restore():
     with patch.object(srv, "composition_motif_archive", AsyncMock(return_value={"archived": True})) as a, \
          patch.object(srv, "composition_motif_restore", AsyncMock()) as r:
