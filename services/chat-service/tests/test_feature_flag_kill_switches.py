@@ -69,45 +69,11 @@ class TestCompactStudioPanelDesc:
             "leak the compact description into every later turn, including OFF ones"
         )
 
-    def test_the_surface_builder_honours_the_flag(self):
-        # DEPRECATED 2026-07-25 — ui_open_studio_panel is no longer advertised, so the
-        # compact_studio_panel_desc flag is now INERT: the studio surface is empty under either
-        # value (the flag remains in config but gates nothing — cleanup follow-up).
-        assert frontend_tool_defs(studio=True, compact_studio_panel=False) == []
-        assert frontend_tool_defs(studio=True, compact_studio_panel=True) == []
-
-
-class TestStudioPanelIntentGated:
-    """`studio_panel_intent_gated` — omit the panel NAVIGATOR on a plain writing turn.
-
-    config.py: "Pass False on a plain writing turn (no navigation intent) to omit its
-    ~880 tok; ui_focus_manuscript_unit (open a chapter, part of the writing loop) is
-    unaffected." Both halves of that promise were untested.
-    """
-
-    def test_navigator_omitted_when_gated_off(self):
-        defs = frontend_tool_defs(studio=True, studio_panel_nav=False)
-        names = [t["function"]["name"] for t in defs]
-        assert "ui_open_studio_panel" not in names
-
-    def test_writing_loop_tool_survives_the_gate(self):
-        # DEPRECATED 2026-07-25 — ui_focus_manuscript_unit is now also de-advertised (GUI control is
-        # user/logic-driven), so it does NOT survive: the studio surface is empty regardless of the gate.
-        defs = frontend_tool_defs(studio=True, studio_panel_nav=False)
-        names = [t["function"]["name"] for t in defs]
-        assert "ui_focus_manuscript_unit" not in names
-
-    def test_default_keeps_pre_gate_behavior(self):
-        # DEPRECATED 2026-07-25 — the studio nav tools are no longer advertised in ANY flag state
-        # (studio_panel_intent_gated is now inert). GUI control is user/logic-driven.
-        defs = frontend_tool_defs(studio=True)
-        names = [t["function"]["name"] for t in defs]
-        assert "ui_open_studio_panel" not in names
-        assert "ui_focus_manuscript_unit" not in names
-
-    def test_gate_is_studio_only(self):
-        # A non-studio surface never had these tools; the gate must not resurrect them.
-        assert frontend_tool_defs(studio=False, studio_panel_nav=True) == []
+    # DEPRECATED 2026-07-25 — the `compact_studio_panel_desc` + `studio_panel_intent_gated`
+    # config flags and the F7c nav-intent gate were REMOVED with the ui_open_studio_panel
+    # advertisement they gated (GUI control is user/logic-driven; nothing advertises the studio
+    # nav tools now). The _studio_panel_tool schema tests above stay as the compact-variant
+    # contract guard (the wire schema is ai-gateway-owned). No config flag lives here anymore.
 
 
 # ── The gate: a NEW lever may not ship untested ──────────────────────────────
@@ -161,7 +127,7 @@ def _flag_is_mentioned_in_tests(flag: str) -> bool:
 
 def test_every_boolean_flag_is_covered_or_explicitly_tracked():
     """A new lever must be tested in both states, or listed as debt with a reason."""
-    covered_here = {"compact_studio_panel_desc", "studio_panel_intent_gated"}
+    covered_here: set[str] = set()  # the 2 studio-panel flags were removed 2026-07-25
     missing = [
         f for f in _boolean_flags()
         if f not in covered_here

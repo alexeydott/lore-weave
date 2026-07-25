@@ -17,7 +17,6 @@ carry editor_context); other clients never have these tools advertised.
 """
 from __future__ import annotations
 
-import re as _re
 from copy import deepcopy
 
 from jsonschema import Draft202012Validator
@@ -457,14 +456,12 @@ UI_OPEN_STUDIO_PANEL_TOOL: dict = {
     },
 }
 
-# F7c (2026-07-19) — compact variant of ui_open_studio_panel. The full per-panel prose
-# above is ~2.4k tokens on EVERY studio turn though a panel is opened rarely. This variant
-# KEEPS the exact panel_id enum (Frontend-Tool Contract: the closed set is correctness — a
-# free-string panel_id was the original silent-no-op bug; never trim the enum) and replaces
-# the prose with a terse area-grouped guide (~0.7k). Most enum ids are self-describing
-# (`kg-timeline`, `quality-critic`, `motif-graph`); the groups orient the model, and it can
-# still pass any id. Gated by settings.compact_studio_panel_desc (default ON — the
-# ~1.7k-tok saving is safe because the enum is kept; toggle OFF for the verbose A/B).
+# F7c (2026-07-19) — compact variant of ui_open_studio_panel's panel_id description. KEEPS the
+# exact panel_id enum (Frontend-Tool Contract: the closed set is correctness — a free-string
+# panel_id was the original silent-no-op bug; never trim the enum) and replaces the prose with a
+# terse area-grouped guide. DEPRECATED 2026-07-25 — ui_open_studio_panel is no longer advertised,
+# so this variant is unused at runtime; _studio_panel_tool + this constant remain only as the
+# compact-schema CONTRACT guard (the wire schema is ai-gateway-owned).
 _COMPACT_PANEL_DESC = (
     "The studio panel to open (pass one panel_id from the enum). Panels by area — "
     "WRITE: compose (AI co-writer chat), scene-compose, chapter-assemble, editor, agent-mode "
@@ -492,45 +489,11 @@ _COMPACT_PANEL_DESC = (
 )
 
 
-# F7c M4 — deterministic navigation-intent gate for ui_open_studio_panel. The panel
-# navigator is a click/keypress the user can do manually, so it is advertised (paying its
-# ~880 tok) ONLY when the turn actually asks to open/see a panel. Biased to PRECISION: a
-# missed nav request just means the user clicks the panel; a FALSE POSITIVE (opening a panel
-# on a plain writing turn) is the harmful error. So the trigger is a nav VERB *and* a
-# PANEL-SPECIFIC noun — and the overloaded writing words (scene/arc/plan/chapter/character/
-# beat) are deliberately NOT panel nouns, so "write a scene" / "plan the arc" never fire.
-_NAV_VERBS: tuple[str, ...] = (
-    "open", "show", "view", "display", "navigate", "go to", "goto", "bring up",
-    "pull up", "switch to", "jump to", "take me to", "let me see", "let me open",
-    "where is", "where can i", "i want to see", "manage", "let me manage",
-    "import", "upload",  # the book-import panel's own opener verbs
-)
-_PANEL_NOUNS: frozenset[str] = frozenset({
-    # panel-shape words (rare in prose-writing instructions)
-    "panel", "tab", "dock", "matrix", "canvas", "inspector", "browser", "timeline",
-    "graph", "leaderboard", "dashboard", "hub", "shelf", "codex",
-    # panel-name words (a view, not a writing noun)
-    "glossary", "wiki", "ontology", "settings", "notifications", "translation",
-    "translations", "enrichment", "motif", "motifs", "quality", "critic", "coverage",
-    "conformance", "divergence", "what-if", "whatif", "kg", "knowledge", "world",
-    "map", "cast", "editor", "compose", "planner", "import", "proposals", "workflow",
-    "workflows", "steering", "usage", "trash", "sharing", "flywheel", "promises",
-    "leaderboards", "wireframe",
-})
-
-
-def _is_panel_nav_intent(message: str | None) -> bool:
-    """True when the turn reads as a request to OPEN/SEE a studio panel (nav verb +
-    panel-specific noun). Deterministic; precision-biased (see the note above)."""
-    m = (message or "").lower()
-    if not m.strip():
-        return False
-    if not any(v in m for v in _NAV_VERBS):
-        return False
-    # word-ish token scan so "map" doesn't match "roadmap"; the [a-z\-]* class keeps
-    # hyphenated panel nouns ("what-if") intact as a single token.
-    tokens = set(_re.findall(r"[a-z][a-z\-]*", m))
-    return bool(tokens & _PANEL_NOUNS)
+# DEPRECATED 2026-07-25 — the F7c navigation-intent gate (_NAV_VERBS/_PANEL_NOUNS/
+# _is_panel_nav_intent) was removed with the ui_open_studio_panel advertisement it gated.
+# GUI control is user/logic-driven; nothing advertises the studio panel navigator now.
+# The schema constants + _studio_panel_tool remain as chat-service's schema-of-record for the
+# frontend-tool CONTRACT cross-check (ai-gateway is the authoritative owner of the wire schema).
 
 
 def _studio_panel_tool(*, compact: bool) -> dict:
@@ -688,27 +651,20 @@ def frontend_tool_defs(
     *,
     editor: bool = False,
     book_scoped: bool = False,
-    studio: bool = False,
-    compact_studio_panel: bool = False,
-    studio_panel_nav: bool = True,
 ) -> list[dict]:
     """Frontend tool schemas to advertise, by surface.
 
     ``editor`` — the chapter editor panel (book_id + chapter_id): adds the prose
     write-back ``propose_edit``.
     ``book_scoped`` — any book-scoped chat (editor OR a glossary-page/reader chat
-    carrying a book context): adds ``glossary_propose_entity_edit``.
-    ``studio`` — the Writing Studio compose panel (studio_context): adds the studio
-    dock-navigation tools (open panel / focus manuscript unit — #09 Lane A).
-    ``compact_studio_panel`` (F7c) — advertise ui_open_studio_panel with the compact
-    area-grouped description instead of the full per-panel prose (same enum). Off ⇒
-    byte-identical to pre-F7c.
-    ``studio_panel_nav`` (F7c M4) — include the ui_open_studio_panel NAVIGATOR this turn.
-    Pass False on a plain writing turn (no navigation intent) to omit its ~880 tok;
-    ui_focus_manuscript_unit (open a chapter, part of the writing loop) is unaffected.
-    Default True ⇒ pre-M4 behavior.
+    carrying a book context): adds ``glossary_propose_entity_edit`` + confirm.
 
     The flags are independent: a glossary-page chat is book_scoped but not editor.
+
+    NOTE (2026-07-25): the studio GUI-navigation tools (ui_open_studio_panel /
+    ui_focus_manuscript_unit) are NO LONGER advertised — GUI control is user/logic-driven,
+    so agent-driven nav only cost tokens. They stay dispatchable via ai-gateway's handleUiTool
+    + the FE resolvers if a cached directive arrives; the model simply never sees them.
     """
     defs: list[dict] = []
     if editor:
@@ -716,17 +672,6 @@ def frontend_tool_defs(
     if book_scoped:
         defs.append(GLOSSARY_PROPOSE_EDIT_TOOL)
         defs.append(GLOSSARY_CONFIRM_ACTION_TOOL)
-    # DEPRECATED 2026-07-25 — the studio GUI-navigation tools (ui_open_studio_panel /
-    # ui_focus_manuscript_unit) are NO LONGER advertised to the model. GUI control is
-    # user/logic-driven: the studio already exposes full navigation (sidebar, navigator,
-    # quick-open, panel palette), so agent-driven nav only cost tokens (the F7c gate + the
-    # ~880-tok panel enum) for a convenience the user already has — and it carried a
-    # silent-no-op bug class (an off-enum panel_id reported opened:true while nothing opened).
-    # KEPT CALLABLE: FRONTEND_TOOL_NAMES still intercepts them + the FE resolvers still act,
-    # so a cached workflow that emits one resolves; the model simply never sees them.
-    # (`studio`/`studio_panel_nav`/`compact_studio_panel` are now inert; the ui_* consts +
-    # _studio_panel_tool/_is_panel_nav_intent remain for the callable path + tests.)
-    del studio, studio_panel_nav, compact_studio_panel  # retained args — advertisement removed
     return defs
 
 

@@ -270,27 +270,11 @@ class Settings(BaseSettings):
     # demand. The domain's TOOLS stay hot regardless (surface_hot_domains is
     # surface-driven, not skill-body-driven) — only the verbose prose defers.
     lazy_skill_bodies: bool = True
-    # `compact_studio_panel_desc` — when ON, ui_open_studio_panel advertises a
-    # compact area-grouped description (~2.4k → ~0.8k) while KEEPING the full
-    # panel_id enum (Frontend-Tool Contract: the closed set is correctness, never
-    # trimmed — only the prose guidance is compacted).
-    compact_studio_panel_desc: bool = True
     # `lazy_workflow_directive` — when ON, the WS-5 workflow-preference block lists
     # workflow SLUGS + short titles only (drops each workflow's full description,
     # ~1-2k), keeping the "call workflow_load(<slug>) FIRST" directive that steers
     # the model to load the rail's real detail on demand.
     lazy_workflow_directive: bool = True
-    # `studio_panel_intent_gated` (F7c M4) — the studio panel navigator
-    # (ui_open_studio_panel) is a click/keypress the user can do manually, yet it
-    # cost ~880 tok on EVERY studio turn. When ON, advertise it ONLY on a
-    # navigation-intent turn (a nav verb + a panel-specific noun) → ~0 tok on the
-    # common writing turn, full enum-safe capability when the user asks to open a
-    # panel. ui_focus_manuscript_unit (open a chapter, part of the writing loop)
-    # stays always-on. Off ⇒ pre-M4 behavior (always advertised). Deterministic gate,
-    # biased to PRECISION: a false-negative just means the user clicks the panel; a
-    # false-positive (opening a panel mid-write) is the harmful error, so overloaded
-    # writing words (scene/arc/plan/character) are NOT panel-noun triggers.
-    studio_panel_intent_gated: bool = True
 
     # D-T2-03 — degraded-mode fallback when knowledge-service is unreachable
     # or returns an error. Must agree with knowledge-service's Mode 1 + Mode 2
