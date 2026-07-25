@@ -54,6 +54,22 @@ logger = logging.getLogger(__name__)
 # shows one surface needs a different bar (out of scope for this pass).
 ROUTER_CONFIDENCE_THRESHOLD = 0.35
 
+# Top-K cap (2026-07-25, context-bloat fix) — the router returns at most this many
+# additions, the HIGHEST-scoring ones, even when more clear the threshold. This is the
+# real discriminator, not the absolute threshold: measured against the shipping bge-m3
+# embedder, EVERY novel-authoring skill description scores 0.35-0.66 cosine to ANY
+# authoring intent (they are all "assist with a novel" one-liners in one tight semantic
+# cluster), so a bare `>= 0.35` gate passed ~all 10 studio-visible skills on EVERY turn
+# and re-injected ~15.5k tokens of skill bodies — silently defeating `lazy_skill_bodies`
+# (the L1 index + load_skill were supposed to keep the prompt at ~432 tok). An absolute
+# threshold cannot separate a compressed distribution; a rank cap can. K=2 was chosen
+# from the same measurement: the CORRECT skill for a turn is reliably rank 1-2 (knowledge
+# for ontology, plan_forge for a plan), and the surface/mode base (e.g. co_write in write
+# mode) already covers a 3rd, so base+2 spans the genuinely multi-skill turns (compile =
+# plan_forge+composition+co_write) while bounding a mismatch to 2 bodies, not 10. The
+# threshold stays as a FLOOR (kills the truly-unrelated tail); the cap bounds the head.
+ROUTER_MAX_ADDITIONS = 2
+
 # Process-lifetime cache: skill code -> embedding vector. No TTL (see module
 # docstring) -- invalidated only by a SYSTEM_SKILLS signature change.
 _SKILL_VECTOR_CACHE: dict[str, list[float]] | None = None
@@ -167,7 +183,7 @@ async def route_additional_skills(
         return []
 
     already = set(already_selected)
-    additions: list[str] = []
+    scored: list[tuple[str, float]] = []
     for code, skill in SYSTEM_SKILLS.items():
         if code in already:
             continue
@@ -178,5 +194,10 @@ async def route_additional_skills(
             continue
         score = cosine_similarity(intent_vector, vec)
         if score >= ROUTER_CONFIDENCE_THRESHOLD:
-            additions.append(code)
-    return additions
+            scored.append((code, score))
+    # Rank by score (highest first) and keep only the top-K — the absolute threshold
+    # above is a FLOOR that removes the unrelated tail; this cap removes the flood when
+    # the whole (tightly clustered) set clears that floor. `sorted` is stable, so ties
+    # break on SYSTEM_SKILLS insertion order — deterministic, not arbitrary.
+    scored.sort(key=lambda cs: cs[1], reverse=True)
+    return [code for code, _ in scored[:ROUTER_MAX_ADDITIONS]]

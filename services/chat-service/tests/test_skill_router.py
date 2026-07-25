@@ -102,9 +102,15 @@ class TestRouteAdditionalSkills:
         router narrows WITHIN `surfaces`, it never widens it."""
         mock_client = AsyncMock()
         # Every skill vector (including glossary's) is a perfect match for the
-        # intent vector — the ONLY thing that can exclude glossary here is the
-        # surface filter.
-        mock_client.embed.side_effect = _fake_embed_fixed_map({}, default=[1.0, 0.0])
+        # intent vector EXCEPT knowledge (mapped orthogonal) — so the two chat-
+        # visible candidates that clear the threshold are exactly settings+jobs,
+        # which fits under the top-K cap and lets this test keep asserting BOTH
+        # are surfaced. The ONLY thing that can exclude glossary/plan_forge/book
+        # here is the surface filter (they'd otherwise be perfect matches).
+        knowledge_text = router._skill_embedding_text("knowledge")
+        mock_client.embed.side_effect = _fake_embed_fixed_map(
+            {knowledge_text: [0.0, 1.0]}, default=[1.0, 0.0],
+        )
         with patch("app.client.embedding_client.get_embedding_client", return_value=mock_client):
             additions = await router.route_additional_skills(
                 intent_text="anything",
@@ -119,6 +125,49 @@ class TestRouteAdditionalSkills:
         # over-excluding, only under-including invisible skills.
         assert "settings" in additions
         assert "jobs" in additions
+
+    @pytest.mark.asyncio
+    async def test_top_k_cap_returns_only_the_highest_scoring_when_many_clear(self):
+        """The context-bloat fix (2026-07-25): when the whole clustered skill set
+        clears the absolute threshold — the exact bge-m3 failure mode that
+        re-injected ~15.5k tokens of bodies every turn — the router returns only
+        the top ``ROUTER_MAX_ADDITIONS`` by score, never the flood. Distinct
+        descending scores prove it keeps the HEAD, not an arbitrary K."""
+        # Give each skill a distinct, monotonically-decreasing cosine vs the intent
+        # by rotating its 2-D vector: angle grows with insertion index, so score
+        # (cos angle) strictly decreases. The intent points at angle 0 ([1, 0]).
+        import math
+
+        codes = list(SYSTEM_SKILLS.keys())
+        text_vectors = {
+            router._skill_embedding_text(c): [math.cos(i * 0.05), math.sin(i * 0.05)]
+            for i, c in enumerate(codes)
+        }
+
+        async def _embed(*, user_id, model_source, model_ref, texts):
+            out = []
+            for t in texts:
+                if t in text_vectors:
+                    out.append(text_vectors[t])
+                else:  # the fresh per-call intent text → points at angle 0
+                    out.append([1.0, 0.0])
+            return EmbeddingResult(embeddings=out, dimension=2, model="fake")
+
+        mock_client = AsyncMock()
+        mock_client.embed.side_effect = _embed
+        # A surface where MANY skills are visible so lots clear the floor.
+        with patch("app.client.embedding_client.get_embedding_client", return_value=mock_client):
+            additions = await router.route_additional_skills(
+                intent_text="broad authoring intent that matches everything",
+                active_surface={"book", "editor", "studio", "chat"},
+                already_selected=[],
+                user_id="u1", model_source="user_model", model_ref="m1",
+            )
+        # Never more than the cap, even though ~all skills clear 0.35 here.
+        assert len(additions) == router.ROUTER_MAX_ADDITIONS
+        # And they are the two lowest-index (highest-cosine) VISIBLE, non-already
+        # skills — the head of the distribution, deterministically.
+        assert additions == codes[: router.ROUTER_MAX_ADDITIONS]
 
     @pytest.mark.asyncio
     async def test_below_threshold_score_is_not_added(self):

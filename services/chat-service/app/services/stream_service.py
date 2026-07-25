@@ -521,6 +521,18 @@ BLANK_TOOL_ARGS_CAP = 2
 # never trips this; only a read that keeps handing back the byte-identical answer does.
 REPEAT_READ_CAP = 2
 
+# Idempotent-no-op WRITE breaker cap — how many times a Tier-A write may return a
+# `created: False` (made-nothing) result for the SAME (tool, args) before a further
+# identical call is short-circuited. 1 = the first call is legitimate (the model learns
+# the resource exists and gets its id); the 2nd identical no-op call is the loop and is
+# steered forward. Deliberately far tighter than TIER_A_SAME_OP_CAP (5) — that cap is a
+# generic runaway-write bound that ends in a human confirm card; this fires 4 calls
+# earlier because a repeated NO-OP needs no human gate, just a "you already have it, move
+# on" nudge. Only `created is False` trips it, so a real creation (`created: True`) is
+# never blocked, and a create with DIFFERENT args (a different resource) has a different
+# key and is untouched.
+IDEMPOTENT_NOOP_WRITE_CAP = 1
+
 # ── F18: the tool_list loop breaker (dogfood round-4) ────────────────────────
 # `tool_list` returns the COMPLETE category in one shot (no cursor/paging), so a
 # re-list of a category the model already listed is provably a loop — the answer is
@@ -1541,6 +1553,17 @@ async def _stream_with_tools(
         # exactly why, and told to use what it has).
         # (tool+args) -> (fingerprint of the last result, how many times that SAME result came back)
         read_call_results: dict[str, tuple[str, int]] = {}
+        # Idempotent-no-op WRITE breaker (2026-07-25, kg_project_create loop) — the read
+        # breaker above is READS-ONLY by design ("a repeated WRITE is not a loop — six
+        # book_create calls create six books"). But a create-or-get write that reports it
+        # made NOTHING (`created: False`, e.g. kg_project_create when the book's project
+        # already exists) is the one write that IS provably pointless to repeat — the
+        # world did not change and the byte-identical call will return the same "already
+        # exists" every time. Measured live: gemma re-called kg_project_create ~5×/turn
+        # (bounded only by TIER_A_SAME_OP_CAP) on a book whose project already existed,
+        # burning a full tool-loop pass each time. Keyed (tool+args) -> count of no-op
+        # results this turn; the 2nd identical call is short-circuited with a forward steer.
+        noop_write_counts: dict[str, int] = {}
         # F18 — tool_list exhaustion state (see TOOL_LIST_CATEGORY_CAP). tool_list returns the
         # WHOLE category at once, so a re-list is a loop; track per-category list counts + the
         # per-turn total so a repeat switches to auto-load+steer and a persistent spammer gets
@@ -3350,6 +3373,39 @@ async def _stream_with_tools(
                     f"{c['name']}::{json.dumps(args_obj, sort_keys=True, default=str)}"
                     if tier == "R" else None
                 )
+                # Idempotent-no-op WRITE breaker — a Tier-A write's identity key (same
+                # (tool, args)); populated post-execution only when the result reported
+                # `created: False`. Computed here so both the short-circuit below and the
+                # record step later share one key. (Distinct from _read_key: a write is
+                # never a read, so the two never collide.)
+                _noop_write_key = (
+                    f"{c['name']}::{json.dumps(args_obj, sort_keys=True, default=str)}"
+                    if tier == "A" else None
+                )
+                if (
+                    _noop_write_key is not None
+                    and noop_write_counts.get(_noop_write_key, 0) >= IDEMPOTENT_NOOP_WRITE_CAP
+                ):
+                    _noop_err = (
+                        f"'{c['name']}' already ran this turn with these exact arguments and "
+                        "reported created=false — the resource ALREADY EXISTS and its id is in "
+                        "that earlier result, above. Calling it again creates nothing and changes "
+                        f"nothing. STOP calling '{c['name']}'; take that existing id and move on "
+                        "to the NEXT step."
+                    )
+                    logger.info(
+                        "idempotent-no-op-write breaker: %s returned created=false already this "
+                        "turn — short-circuited the repeat", c["name"],
+                    )
+                    working.append({
+                        "role": "tool", "tool_call_id": c["id"],
+                        "content": tool_result_content({"error": _noop_err}),
+                    })
+                    yield {"tool_call": {
+                        "id": c["id"], "iteration": iteration, "tool": c["name"],
+                        "args": args_obj, "ok": False, "result": None, "error": _noop_err,
+                    }}
+                    continue
                 _prior = read_call_results.get(_read_key) if _read_key is not None else None
                 if _prior is not None and _prior[1] >= REPEAT_READ_CAP:
                     _repeat_err = (
@@ -3502,14 +3558,24 @@ async def _stream_with_tools(
                     else:
                         read_call_results[_read_key] = (_fp, 0)              # new answer → reset
                 elif ok and tier == "A":
-                    # A tool that actually COMMITTED (Tier-A auto-write) changed the world, so
-                    # every earlier read is now potentially stale and re-reading it is
-                    # legitimate again. Only Tier-A: a Tier-W/S "propose" writes NOTHING (it
-                    # mints a confirm_token), so clearing on it would let the exact loop shape
-                    # the breaker exists for — propose → read → propose → read — reset itself
-                    # forever. The real write those proposals cause lands later, via the
-                    # confirm path, and clears the ledger then.
-                    read_call_results.clear()
+                    # A Tier-A tool result that reports `created: False` COMMITTED NOTHING —
+                    # it is a create-or-get that found the resource already there. Record it
+                    # for the idempotent-no-op-write breaker (the next identical call is the
+                    # loop) and do NOT clear the read ledger, because the world did not change.
+                    # A result with `created: True` (or no `created` field at all) is a real
+                    # write: clear the read ledger (earlier reads may now be stale) exactly as
+                    # before. This split is why the recording is keyed on the RESULT, not the
+                    # call — same discipline as the read breaker above.
+                    if (
+                        _noop_write_key is not None
+                        and isinstance(tool_payload, dict)
+                        and tool_payload.get("created") is False
+                    ):
+                        noop_write_counts[_noop_write_key] = (
+                            noop_write_counts.get(_noop_write_key, 0) + 1
+                        )
+                    else:
+                        read_call_results.clear()
                 if ok or _MISSING_REQUIRED_ARGS_MARKER not in str(envelope.get("error") or ""):
                     blank_tool_args_streak = 0
                 else:
