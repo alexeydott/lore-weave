@@ -190,4 +190,37 @@ the SAME plan turn — the identical mistranscription now substitutes cleanly (j
 TypeError, and the turn COMPLETED with a real plan proposal ("E2E Hero Journey" arc template via
 `composition_arc_suggest`). (`stream_service.py`, `test_context_id_injection.py`; suite 1892 passed.)
 
+## 🟢 Full live re-run on the tool_liveness harness (agui + auto-confirm + DB oracle)
+
+Rebuilt the scenario driver on `scripts/eval/tool_liveness/` (agui SSE + confirm/gate
+redemption + independent DB read-back) so Tier-W proposals + task/grant gates actually LAND
+and effects are checked in Postgres, not just asserted from the model's words. This surfaced
++ fixed **3 more real bugs (D, E)** and got the newcomer flow WORKING through step 4:
+
+- **(D) world-setup gate** — a REGRESSION from the top-K router cap: `glossary_shaping` (the
+  "adopt ONTOLOGY KINDS before seeding entities" guidance) was ranked out of top-2 on a setup
+  turn, so gemma seeded entities into a book with no kinds and looped on `unknown kind`. Fix:
+  deterministic keyword gate force-injects glossary_shaping for world/ontology-setup intents.
+  Live: `injected_skills` now includes glossary_shaping; model calls `glossary_adopt_standards`
+  FIRST. Committed `307846668`.
+- **(E) UUID header abort** — accepting the adopt-standards gate (resume → `glossary_task_
+  provide_input`) died with `Header value must be str or bytes, not …UUID`; the accepted gate
+  never ran, kinds never created. Fix: str() every id header in `mcp_execute_tool`. Committed
+  `121309236`.
+- **RESULT — step 4 works end-to-end:** adopt standards → **book_kinds=6** created → **glossary_
+  entities=3** seeded (Elara / the Reality Maps / the Known World), DB-verified, agent reports
+  success. The (B) idempotent-write breaker fired **33×** on gemma's kg_project_create fixation
+  — bounding it, not crashing. chat-service suite **1897 passed**.
+
+### Step 5 (plan) — a 6th bug found, needs a DESIGN decision (checkpoint)
+`plan_propose_spec` → `not found or not accessible`. Root cause: it is book-scoped but **not
+`ambient_book`**, yet the studio system prompt tells the model "do NOT pass a book_id" — so the
+weak model INVENTED a well-formed-but-WRONG book_id (`…f535` vs the session's `…f3a3`), and
+`_gate` refused it. `_inject_context_ids` only overrides a MALFORMED id; `_resolve_scope` prefers
+a valid arg over the ambient book (only flagging `cross=true`). **Fixing it needs a decision:**
+should a book-scoped tool on a book-BOUND (studio) turn override a mismatched book_id with the
+ambient book (kills hallucinations, but changes the documented cross-book behavior —
+`test_does_not_override_a_model_supplied_value`)? Proposed: override only when `studio_context`
+is present (preserves legitimate cross-book elsewhere). **Awaiting steer before implementing.**
+
 ## Steps 6–8 — pending (compile / plan-hub review / write)
