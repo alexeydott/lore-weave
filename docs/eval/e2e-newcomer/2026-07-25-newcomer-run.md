@@ -223,4 +223,36 @@ ambient book (kills hallucinations, but changes the documented cross-book behavi
 `test_does_not_override_a_model_supplied_value`)? Proposed: override only when `studio_context`
 is present (preserves legitimate cross-book elsewhere). **Awaiting steer before implementing.**
 
-## Steps 6–8 — pending (compile / plan-hub review / write)
+## ✅✅ SCENARIO WORKS END-TO-END (2026-07-25) — DB-verified via independent read-back
+
+After 6 fixes (A–F), a fresh newcomer book runs the whole authoring flow to a saved chapter,
+every step confirmed by reading the owning service's Postgres directly (not the model's words):
+
+| Step | Ask (natural language) | Effect | DB oracle |
+|---|---|---|---|
+| 3 | update the book description | description set | `books.description` |
+| 4 | propose ontology + seed entities | **6 kinds + 3 entities** (Elara / the Reality Maps / the Known World) | `book_kinds`=6, `glossary_entities`=3 |
+| 5–6 | propose the plan + COMPILE | 3 arcs → linked structure, **status=compiled** | `plan_run.status=compiled` |
+| 8 | write the opening chapter | "The Ink and the Edge" drafted, real prose saved | `chapter_revisions` (ProseMirror doc) |
+
+### The 6 bugs this scenario found + fixed (all committed, all live-verified)
+| # | Commit | Bug |
+|---|---|---|
+| A | `98d00036d` | intent-router flood — 10 skill bodies (15.5K)/turn; top-K cap → 3 |
+| B | `98d00036d` | `kg_project_create` no-op loop; idempotent-write breaker (fired 33× live) |
+| C | `795b923bf` | UUID→JSON 500 crashed the whole turn at persist; coerce injected ids to str |
+| D | `307846668` | top-K cap dropped `glossary_shaping` → entities-before-kinds; deterministic world-setup gate |
+| E | `121309236` | UUID HTTP header aborted the adopt-gate resume → kinds never created; str() id headers |
+| F | `28e784a4d` | plan tools: valid-but-wrong book_id honored → "not accessible"; studio single-book override |
+
+### Harness
+Driver rebuilt on `scripts/eval/tool_liveness/` (agui SSE + auto-confirm/gate-accept + DB
+read-back) — outcome-based, reusable. Scratchpad: `scenario2.py`.
+
+### Known residual (not blocking; bounded)
+- gemma stays fixated on `kg_project_create` across resume passes (the (B) breaker short-circuits
+  every repeat — 33× in one run — so it is bounded + harmless, never a dup project). A
+  deterministic ontology/KG bootstrap *workflow* (the user's "control mạnh chỗ này") would remove
+  the fixation entirely; tracked as a follow-up, not a blocker.
+- Step 7 (open Plan Hub UI to review) is inherently a browser step — verify via Playwright when
+  UI review is in scope; the plan/structure it would show is confirmed present in the DB.
