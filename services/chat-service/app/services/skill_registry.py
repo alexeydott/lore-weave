@@ -419,6 +419,32 @@ def _skill_visible(skill: SkillDef, active: set[str]) -> bool:
     return bool(skill.surfaces & active)
 
 
+# Tight, unambiguous world/ontology-SETUP signals — the intents where glossary_shaping's
+# "adopt kinds before seeding entities" guidance is load-bearing. Deliberately excludes
+# generic authoring verbs (write/draft/chapter/scene) so glossary_shaping never rides a
+# plain co-writing turn (the N5a regression this skill was split out of `glossary` to fix).
+_WORLD_SETUP_MARKERS: tuple[str, ...] = (
+    "ontolog",          # ontology / ontological
+    "entity kind", "entity-kind", "entity kinds",
+    "glossary",
+    "codex",
+    "taxonomy",
+    "worldbuild", "world-build", "world build",  # worldbuilding / world-building
+    "adopt standard", "adopt the standard", "system kinds", "seed the core entit",
+    "seed entit", "seed the entit", "core entities", "set up the world", "set up this book's world",
+)
+
+
+def _is_world_setup_intent(intent_text: str) -> bool:
+    """True when the turn is clearly about setting up the book's world/ontology (kinds,
+    glossary, entity seeding) — the case where glossary_shaping must be injected
+    deterministically. Substring match on a lowercased copy; tight markers only."""
+    if not intent_text:
+        return False
+    t = intent_text.lower()
+    return any(m in t for m in _WORLD_SETUP_MARKERS)
+
+
 def resolve_skills_to_inject(
     *,
     enabled_skills: list[str],
@@ -632,6 +658,26 @@ async def resolve_skills_to_inject_async(
         return base
 
     active = _surface_key(editor=editor, book_scoped=book_scoped, admin=admin, studio=studio)
+
+    # World-setup bootstrap gate (2026-07-25) — glossary_shaping carries the load-bearing
+    # "create the ONTOLOGY KINDS *before* seeding entities" guidance, and it must reach the
+    # model DETERMINISTICALLY on a world/ontology-setup turn, NOT via the fuzzy embedding
+    # router. Why deterministic: the router returns only its top-K (ROUTER_MAX_ADDITIONS)
+    # and glossary_shaping's cosine rank for a setup turn is phrasing-sensitive — measured
+    # live it was ranked out (a "propose ontology + seed the core entities" turn injected
+    # co_write/knowledge/plan_forge but NOT glossary_shaping), so gemma proposed entities of
+    # kinds that did not exist yet and looped on `unknown kind`, book untouched. This mirrors
+    # the plan_forge-in-plan-mode force-inject: keyword-gated, additive, surface-filtered.
+    # Keywords are deliberately TIGHT (ontology/kinds/glossary/codex/adopt-standards/seed-
+    # entities — never a generic writing verb) so glossary_shaping still never rides a plain
+    # "write a chapter" turn (the N5a bug this skill was split out to fix stays fixed).
+    if _is_world_setup_intent(intent_text):
+        for code in ("glossary", "glossary_shaping"):
+            if code not in base:
+                sk = SYSTEM_SKILLS.get(code)
+                if sk and _skill_visible(sk, active):
+                    base.append(code)
+
     try:
         from app.services.skill_router import route_additional_skills  # noqa: PLC0415
 
