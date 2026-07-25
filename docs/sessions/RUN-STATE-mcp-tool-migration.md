@@ -122,3 +122,26 @@ is exactly what let `Items any` de-federate 54 tools with every gate green.
   of trusting the earlier reading.
 - **Claimed ai-gateway "degrades silently."** Too coarse — the signal existed and was plumbed; it was
   wired only to the F17-retired path. Corrected after reading the code.
+
+## Pre-merge verification pass (2026-07-25)
+
+Full-suite green across every touched surface (evidence for the merge decision):
+- **Static gates (8):** ai-provider, db-safety, context-budget-defaults, context-budget-l3,
+  no-absolute-host-paths, tier-tag, knowledge-access, knowledge-http-surface — all EXIT 0.
+- **Python unit:** chat 1906 · knowledge 3962 · composition 2317 · translation 1055 ·
+  jobs 99 · campaign 183 · lore-enrichment 961 — all pass.
+- **Python integration (throwaway PG/Neo4j):** knowledge 627 · composition 332 ·
+  campaign 20 · lore-enrichment 39 — all pass.
+- **Go:** glossary/book/provider-registry/catalog/agent-registry/integrity-checker/
+  usage-billing `go build ./...` OK; **Rust** roleplay/tilemap/travel/world `cargo build` OK
+  (+ scanned: 0 remaining axum-0.7 `:param` routes — the crash-loop class the user's
+  e6d01f7dc fixed is fully closed). **TS** ai-gateway `tsc --noEmit` EXIT 0.
+- **1 REGRESSION CAUGHT + FIXED (f5ce1c7ef):** the K37 kg_triage_list drain had dropped the
+  actionable `suggested_actions` at summary → broke the agent resolve flow (an integration
+  test red with KeyError). Fixed per OUT-1 (keep the actionable ref, drop only the heavy
+  sample_payload). This is the value of the pass — unit tests alone missed it.
+
+Branch is green + mergeable. REMAINING (human-only): push so the two CI workflows run on a
+real GitHub Actions runner (the service-container/health-check path is the one thing not
+verifiable locally); then merge. (3 pre-existing uncommitted files — .gitignore,
+chat config.py, compact_service.py — are NOT from this session.)
