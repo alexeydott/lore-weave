@@ -105,6 +105,9 @@ EXPECTED_TOOLS = {
     "composition_motif_patch",
     "composition_motif_bind", "composition_motif_unbind",
     "composition_motif_link_create", "composition_motif_link_delete",
+    # S3 unified (op-dispatch): motif_edit (create|patch|archive|restore),
+    # motif_link_edit (create|delete), motif_bind_edit (bind|unbind)
+    "composition_motif_edit", "composition_motif_link_edit", "composition_motif_bind_edit",
     # Tier W (motif)
     "composition_motif_adopt", "composition_motif_mine",
     "composition_arc_import_analyze", "composition_conformance_run",

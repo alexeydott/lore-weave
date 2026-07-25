@@ -3513,6 +3513,7 @@ class _MotifCreateArgs(ForbidExtra):
         "A", "user",
         synonyms=["create motif", "new trope", "author a motif", "define pattern",
                   "add motif to my library", "make a beat"],
+        visibility="legacy", superseded_by="composition_motif_edit",  # S3 2026-07-25
         tool_name="composition_motif_create",
     ),
 )
@@ -3569,6 +3570,7 @@ async def composition_motif_create(ctx: MCPContext, args: _MotifCreateArgs) -> d
     meta=require_meta(
         "A", "user",
         synonyms=["archive motif", "delete motif", "retire trope", "remove a motif from my library"],
+        visibility="legacy", superseded_by="composition_motif_edit",  # S3 2026-07-25
         tool_name="composition_motif_archive",
     ),
 )
@@ -3615,6 +3617,7 @@ async def composition_motif_archive(
     meta=require_meta(
         "A", "user",
         synonyms=["restore motif", "unarchive motif", "un-retire trope", "bring back a motif"],
+        visibility="legacy", superseded_by="composition_motif_edit",  # S3 2026-07-25
         tool_name="composition_motif_restore",
     ),
 )
@@ -3689,6 +3692,7 @@ _MOTIF_PATCH_META = {"motif_id", "expected_version", "book_id"}
         "A", "user",
         synonyms=["edit motif", "update motif", "rename motif", "change motif summary",
                   "edit trope", "fix motif beats", "edit shared motif"],
+        visibility="legacy", superseded_by="composition_motif_edit",  # S3 2026-07-25
         tool_name="composition_motif_patch",
     ),
 )
@@ -3829,6 +3833,7 @@ async def composition_motif_link_list(
         "A", "user",
         synonyms=["link motifs", "connect motifs", "add motif edge", "compose pattern",
                   "set succession", "mark variant", "relate tropes"],
+        visibility="legacy", superseded_by="composition_motif_link_edit",  # S3 2026-07-25
         tool_name="composition_motif_link_create",
     ),
 )
@@ -3873,6 +3878,7 @@ async def composition_motif_link_create(ctx: MCPContext, args: _MotifLinkCreateA
     meta=require_meta(
         "A", "user",
         synonyms=["unlink motifs", "remove motif edge", "delete motif link", "disconnect motifs"],
+        visibility="legacy", superseded_by="composition_motif_link_edit",  # S3 2026-07-25
         tool_name="composition_motif_link_delete",
     ),
 )
@@ -3918,6 +3924,7 @@ class _MotifBindArgs(ForbidExtra):
         "A", "book",
         synonyms=["bind motif", "apply motif", "use this trope", "attach pattern to chapter",
                   "swap motif", "set chapter motif"],
+        visibility="legacy", superseded_by="composition_motif_bind_edit",  # S3 2026-07-25
         tool_name="composition_motif_bind",
     ),
 )
@@ -3995,6 +4002,7 @@ async def composition_motif_bind(ctx: MCPContext, args: _MotifBindArgs) -> dict:
     meta=require_meta(
         "A", "book",
         synonyms=["unbind motif", "remove motif", "clear chapter motif", "detach pattern"],
+        visibility="legacy", superseded_by="composition_motif_bind_edit",  # S3 2026-07-25
         tool_name="composition_motif_unbind",
     ),
 )
@@ -4052,6 +4060,187 @@ async def composition_motif_unbind(
         "new_scene_ids": res.new_scene_ids,
         "undo_token": res.undo_token,
     }
+
+
+# ── S3 catalog-unification (2026-07-25): 3 unified motif op-tools SUPERSEDE the 8 per-op
+# motif write tools above (all marked visibility=legacy). Grouped by TIER+SCOPE (an op tool
+# is single-tier): motif_edit (A/user CRUD ×4), motif_link_edit (A/user link ×2),
+# motif_bind_edit (A/book chapter-binding ×2). adopt (W/user) + mine (W/book) stay separate
+# (different tier), as do all reads. Delegates to the SAME handlers (no logic moved); mirrors
+# the arc-family S3·arc pattern + KG's op-dispatch. ────────────────────────────────────────
+class _MotifEditArgs(ForbidExtra):
+    """Flat superset for composition_motif_edit (A/user); each op reads only its own fields."""
+
+    op: Literal["create", "patch", "archive", "restore"]
+    motif_id: str | None = None          # patch, archive, restore
+    book_id: str | None = None           # all (shared-tier variant)
+    expected_version: int | None = None  # patch (required)
+    target: Literal["user", "book_shared"] | None = None  # create
+    code: str | None = None              # create (required)
+    name: str | None = None              # create (required), patch
+    language: str | None = None          # create
+    kind: _MotifKind | None = None       # create, patch
+    category: str | None = None          # patch
+    summary: str | None = None           # create, patch
+    genre_tags: list[str] | None = None  # create, patch
+    roles: list[dict[str, Any]] | None = None         # create, patch
+    beats: list[dict[str, Any]] | None = None         # create, patch
+    preconditions: list[dict[str, Any]] | None = None  # create, patch
+    effects: list[dict[str, Any]] | None = None       # create, patch
+    examples: list[dict[str, Any]] | None = None      # create
+    annotations: dict[str, Any] | None = None         # patch
+    tension_target: int | None = None    # create, patch
+    emotion_target: str | None = None    # create, patch
+    visibility: Literal["private", "unlisted"] | None = None       # create
+    status: Literal["draft", "active", "archived"] | None = None   # patch
+
+
+@mcp_server.tool(
+    name="composition_motif_edit",
+    description=(
+        "Create, edit, archive, or restore a motif in YOUR library (a reusable plot pattern — "
+        "sequence/situation/hook/emotion_arc/trope/pattern/scheme) — the unified motif-CRUD entry point. "
+        "op=create mints a PRIVATE motif (needs code + name; optional kind/summary/roles/beats/"
+        "preconditions/effects/genre_tags/tension_target/emotion_target/examples; target='book_shared'+"
+        "book_id authors into a book's shared tier). op=patch edits your own (needs motif_id + "
+        "expected_version — optimistic concurrency; only the fields you pass change; book_id edits a "
+        "shared row). op=archive soft-archives yours (needs motif_id; reversible via op=restore; book_id "
+        "for a shared row). op=restore un-archives yours (needs motif_id). Auto-applied with an Undo hint. "
+        "To publish/adopt/bind use composition_motif_adopt / composition_motif_bind_edit; read with "
+        "composition_motif_get / composition_motif_search."
+    ),
+    meta=require_meta(
+        "A", "user",
+        synonyms=["edit motif", "create motif", "new trope", "author a motif", "define pattern",
+                  "update motif", "rename motif", "archive motif", "restore motif", "manage motif"],
+        tool_name="composition_motif_edit",
+    ),
+)
+async def composition_motif_edit(ctx: MCPContext, args: _MotifEditArgs) -> dict:
+    """Unified motif-CRUD dispatch — delegates to the SAME per-op handlers (no logic moved)."""
+    if args.op == "create":
+        if not args.code or not args.name:
+            raise ValueError("op=create requires code and name")
+        return await composition_motif_create(ctx, _MotifCreateArgs(
+            code=args.code, name=args.name,
+            **_present(
+                target=args.target, book_id=args.book_id, language=args.language, kind=args.kind,
+                summary=args.summary, genre_tags=args.genre_tags, roles=args.roles, beats=args.beats,
+                preconditions=args.preconditions, effects=args.effects, examples=args.examples,
+                tension_target=args.tension_target, emotion_target=args.emotion_target,
+                visibility=args.visibility,
+            ),
+        ))
+    if args.op == "patch":
+        if not args.motif_id or args.expected_version is None:
+            raise ValueError("op=patch requires motif_id and expected_version")
+        # Only caller-supplied fields become the patch (model_fields_set drives PATCH semantics
+        # in the handler) — _present drops omitted None so the set is exactly what was passed.
+        return await composition_motif_patch(ctx, _MotifPatchToolArgs(
+            motif_id=args.motif_id, expected_version=args.expected_version,
+            **_present(
+                book_id=args.book_id, name=args.name, kind=args.kind, category=args.category,
+                summary=args.summary, genre_tags=args.genre_tags, roles=args.roles, beats=args.beats,
+                preconditions=args.preconditions, effects=args.effects, annotations=args.annotations,
+                tension_target=args.tension_target, emotion_target=args.emotion_target,
+                status=args.status,
+            ),
+        ))
+    if args.op == "archive":
+        if not args.motif_id:
+            raise ValueError("op=archive requires motif_id")
+        return await composition_motif_archive(ctx, motif_id=args.motif_id, book_id=args.book_id)
+    # op == "restore"
+    if not args.motif_id:
+        raise ValueError("op=restore requires motif_id")
+    return await composition_motif_restore(ctx, motif_id=args.motif_id, book_id=args.book_id)
+
+
+class _MotifLinkEditArgs(ForbidExtra):
+    """Flat superset for composition_motif_link_edit (A/user)."""
+
+    op: Literal["create", "delete"]
+    from_motif_id: str | None = None  # create
+    to_motif_id: str | None = None    # create
+    kind: Literal["composed_of", "precedes", "variant_of"] | None = None  # create
+    ord: int | None = None            # create
+    link_id: str | None = None        # delete
+    book_id: str | None = None        # both (shared-tier variant)
+
+
+@mcp_server.tool(
+    name="composition_motif_link_edit",
+    description=(
+        "Create or delete a relationship edge between two motifs — the unified motif-link entry point. "
+        "op=create adds an edge (needs from_motif_id + to_motif_id + kind ∈ composed_of|precedes|"
+        "variant_of; optional ord; both endpoints must be YOUR own motifs, or pass book_id to link two "
+        "SHARED motifs of that book). op=delete removes an edge (needs link_id; book_id for a shared "
+        "edge). A duplicate/self-link/cycle is refused. Read with composition_motif_link_list."
+    ),
+    meta=require_meta(
+        "A", "user",
+        synonyms=["link motifs", "connect motifs", "add motif edge", "unlink motifs",
+                  "remove motif edge", "compose pattern", "set succession", "mark variant"],
+        tool_name="composition_motif_link_edit",
+    ),
+)
+async def composition_motif_link_edit(ctx: MCPContext, args: _MotifLinkEditArgs) -> dict:
+    """Unified motif-link dispatch — delegates to the SAME per-op handlers (no logic moved)."""
+    if args.op == "create":
+        if not args.from_motif_id or not args.to_motif_id or not args.kind:
+            raise ValueError("op=create requires from_motif_id, to_motif_id, and kind")
+        return await composition_motif_link_create(ctx, _MotifLinkCreateArgs(
+            from_motif_id=args.from_motif_id, to_motif_id=args.to_motif_id, kind=args.kind,
+            **_present(ord=args.ord, book_id=args.book_id),
+        ))
+    # op == "delete"
+    if not args.link_id:
+        raise ValueError("op=delete requires link_id")
+    return await composition_motif_link_delete(ctx, link_id=args.link_id, book_id=args.book_id)
+
+
+class _MotifBindEditArgs(ForbidExtra):
+    """Flat superset for composition_motif_bind_edit (A/book — chapter binding)."""
+
+    op: Literal["bind", "unbind"]
+    project_id: str | None = None   # both
+    node_id: str | None = None      # both
+    motif_id: str | None = None     # bind
+    role_bindings: dict[str, str] | None = None  # bind
+    undo_token: dict | None = None  # unbind
+
+
+@mcp_server.tool(
+    name="composition_motif_bind_edit",
+    description=(
+        "Bind a motif to a chapter or unbind it — the unified chapter-motif-binding entry point. "
+        "op=bind instantiates the motif's beats as scene nodes + maps roles to glossary entities "
+        "(needs project_id + node_id + motif_id; optional role_bindings {role_key: entity_id}; "
+        "re-binding archives the prior scenes, reversible). op=unbind archives the binding + derived "
+        "scenes (needs project_id + node_id; pass the bind's undo_token to do the EXACT inverse, omit "
+        "to CLEAR the chapter's motif). EDIT on the book required; auto-applied with an Undo hint."
+    ),
+    meta=require_meta(
+        "A", "book",
+        synonyms=["bind motif", "apply motif", "attach pattern to chapter", "set chapter motif",
+                  "unbind motif", "remove motif", "clear chapter motif", "swap motif"],
+        tool_name="composition_motif_bind_edit",
+    ),
+)
+async def composition_motif_bind_edit(ctx: MCPContext, args: _MotifBindEditArgs) -> dict:
+    """Unified chapter-motif-binding dispatch — delegates to the SAME per-op handlers."""
+    if args.op == "bind":
+        if not args.project_id or not args.node_id or not args.motif_id:
+            raise ValueError("op=bind requires project_id, node_id, and motif_id")
+        return await composition_motif_bind(ctx, _MotifBindArgs(
+            project_id=args.project_id, node_id=args.node_id, motif_id=args.motif_id,
+            **_present(role_bindings=args.role_bindings),
+        ))
+    # op == "unbind"
+    if not args.project_id or not args.node_id:
+        raise ValueError("op=unbind requires project_id and node_id")
+    return await composition_motif_unbind(
+        ctx, project_id=args.project_id, node_id=args.node_id, undo_token=args.undo_token)
 
 
 # ── Tier W — motif confirm-token ops (cost/tenancy-gated) ─────────────────────
