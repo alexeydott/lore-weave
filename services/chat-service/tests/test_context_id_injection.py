@@ -189,3 +189,46 @@ def test_missing_required_names_empty_when_satisfied():
 
 def test_missing_required_names_unknown_tool_empty():
     assert ss._missing_required_names({}, None) == []
+
+
+# ── Studio single-book override (2026-07-25, user decision) ───────────────────
+# The writing studio works ONE book/Work at a time. A book-scoped tool that is NOT
+# ambient_book (e.g. plan_propose_spec) still REQUIRES book_id, but the studio prompt
+# tells the model not to pass one — so a weak model invents a VALID-but-WRONG book_id,
+# which the tool's grant-gate then refuses ("not found or not accessible"). On a studio
+# turn a book_id that differs from the studio's book is a hallucination, so it is
+# overridden to the studio's book. OFF a studio turn a different valid book_id is still
+# honored (a real cross-book call — see test_does_not_override_a_model_supplied_value).
+
+_AMBIENT = "019f5239-3f0d-7ad7-8fff-edd7176d056e"
+_WRONG = "019f0000-0000-7000-8000-000000000000"
+
+
+def test_studio_overrides_a_mismatched_valid_book_id():
+    td = _tool("plan_propose_spec", {"book_id": {"type": "string"}})
+    args = {"book_id": _WRONG}
+    ss._inject_context_ids(args, td, book_id=_AMBIENT, chapter_id=None, project_id=None, studio=True)
+    assert args["book_id"] == _AMBIENT  # hallucinated cross-book target corrected
+
+
+def test_non_studio_still_preserves_a_cross_book_id():
+    td = _tool("plan_propose_spec", {"book_id": {"type": "string"}})
+    args = {"book_id": _WRONG}
+    ss._inject_context_ids(args, td, book_id=_AMBIENT, chapter_id=None, project_id=None, studio=False)
+    assert args["book_id"] == _WRONG  # off-studio: a deliberate cross-book call survives
+
+
+def test_studio_leaves_a_matching_book_id_untouched():
+    td = _tool("plan_propose_spec", {"book_id": {"type": "string"}})
+    args = {"book_id": _AMBIENT}
+    ss._inject_context_ids(args, td, book_id=_AMBIENT, chapter_id=None, project_id=None, studio=True)
+    assert args["book_id"] == _AMBIENT
+
+
+def test_studio_drops_a_mismatched_book_id_on_an_ambient_book_tool():
+    # ambient_book tools resolve book_id from X-Book-Id; a mismatched supplied one is dropped
+    # so the envelope's ambient book wins (not the hallucinated arg).
+    td = _tool("book_structure_edit", {"book_id": {"type": "string"}}, meta={"ambient_book": True})
+    args = {"book_id": _WRONG, "op": "create_part"}
+    ss._inject_context_ids(args, td, book_id=_AMBIENT, chapter_id=None, project_id=None, studio=True)
+    assert "book_id" not in args  # dropped → envelope resolves the studio's book

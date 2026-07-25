@@ -1264,6 +1264,7 @@ def _inject_context_ids(
     book_id: str | None,
     chapter_id: str | None,
     project_id: str | None,
+    studio: bool = False,
 ) -> dict:
     """S02 fix — fill known session context-ids into a backend tool's args when the tool's
     schema ACCEPTS them and the model OMITTED them.
@@ -1304,6 +1305,19 @@ def _inject_context_ids(
     ambient_project = bool(_meta.get("ambient_project"))  # composition: resolve project_id from X-Project-Id
     for key, val in (("book_id", book_id), ("chapter_id", chapter_id), ("project_id", project_id)):
         if key == "book_id" and ambient_book:
+            # ambient_book: book_id resolves from X-Book-Id server-side; the model shouldn't
+            # pass it. But a weak model DOES — and on a studio turn it invents a well-formed
+            # WRONG one. The studio is single-book by design (one book/Work at a time), so a
+            # supplied book_id that differs from the studio's book is a hallucination: DROP it
+            # so the envelope's ambient book wins, instead of leaving the wrong arg to be
+            # honored by resolve_book_scope (valid-arg-wins). Match → harmless, leave as-is.
+            _sup = args_obj.get(key)
+            if studio and val and _sup and isinstance(_sup, str) and _sup != str(val):
+                logger.warning(
+                    "ambient_book tool got book_id=%r != the studio's book %s — dropping it "
+                    "(the studio works one book at a time)", _sup[:64], str(val),
+                )
+                args_obj.pop(key, None)
             continue
         if key == "project_id" and ambient_project:
             continue
@@ -1326,6 +1340,27 @@ def _inject_context_ids(
             logger.warning(
                 "tool arg %s=%r is not a UUID — the model mistranscribed it; substituting the "
                 "turn's known id", key, supplied[:64],
+            )
+            args_obj[key] = val_s
+        elif (
+            key == "book_id"
+            and studio
+            and isinstance(supplied, str)
+            and _is_uuid(supplied)
+            and supplied != val_s
+        ):
+            # Studio single-book override (2026-07-25, user decision): a book-scoped tool that
+            # is NOT ambient_book (e.g. plan_propose_spec) still requires book_id, and the studio
+            # prompt tells the model NOT to pass one — so a weak model invents a VALID-but-WRONG
+            # book_id, which _gate then refuses as "not found or not accessible". The writing
+            # studio works one book/Work at a time by design, so a book_id that differs from the
+            # studio's book is a hallucination, not a deliberate cross-book call: override it to
+            # the studio's book (with a warning). This override is STUDIO-SCOPED — off a studio
+            # turn a valid-but-different book_id is still honored as a real cross-book call.
+            logger.warning(
+                "tool arg book_id=%r differs from the studio's book %s — overriding "
+                "(the studio works one book at a time; a cross-book target here is a hallucination)",
+                supplied[:64], val_s,
             )
             args_obj[key] = val_s
     return args_obj
@@ -2955,6 +2990,7 @@ async def _stream_with_tools(
                     book_id=(context_ids or {}).get("book_id"),
                     chapter_id=(context_ids or {}).get("chapter_id"),
                     project_id=(context_ids or {}).get("project_id"),
+                    studio=bool((context_ids or {}).get("studio")),
                 )
                 # The chat agent's arc-plan wants a SYNCHRONOUS plan (mode="rules"): a mid-tier
                 # model cannot reliably watch a background llm-plan job, so it fires the async
@@ -4995,6 +5031,10 @@ async def stream_response(
             "book_id": _ctx_book_id,
             "chapter_id": _ctx_chapter_id,
             "project_id": _ctx_project_id or (str(project_id) if project_id else None),
+            # Studio single-book flag — a studio turn works ONE book at a time, so a
+            # book-scoped tool arg whose book_id differs from this one is a hallucination to
+            # override (see _inject_context_ids). Only set on a real studio turn.
+            "studio": studio_context is not None,
         },
         admin_token=admin_token,
         messages=messages,
