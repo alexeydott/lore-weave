@@ -1020,6 +1020,7 @@ class _NodeCreateArgs(ForbidExtra):
         "A", "book",
         synonyms=["add scene", "add chapter", "create outline node", "add outline chapter"],
         ambient_project=True,
+        visibility="legacy", superseded_by="composition_outline_node_edit",  # S3
         tool_name="composition_outline_node_create",
     ),
 )
@@ -1102,6 +1103,7 @@ class _NodeUpdateArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["edit scene", "update node", "rename chapter", "set status", "edit beat"],
+        visibility="legacy", superseded_by="composition_outline_node_edit",  # S3
         tool_name="composition_outline_node_update",
     ),
 )
@@ -1185,6 +1187,7 @@ async def composition_outline_node_update(ctx: MCPContext, args: _NodeUpdateArgs
     meta=require_meta(
         "A", "book",
         synonyms=["delete scene", "remove node", "archive chapter", "delete beat"],
+        visibility="legacy", superseded_by="composition_outline_node_edit",  # S3
         tool_name="composition_outline_node_delete",
     ),
 )
@@ -1223,6 +1226,7 @@ async def composition_outline_node_delete(
     meta=require_meta(
         "A", "book",
         synonyms=["restore scene", "undelete node", "unarchive chapter"],
+        visibility="legacy", superseded_by="composition_outline_node_edit",  # S3
         tool_name="composition_outline_node_restore",
     ),
 )
@@ -1271,6 +1275,7 @@ class _SceneLinkCreateArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["link scenes", "setup payoff", "connect scenes", "add scene link"],
+        visibility="legacy", superseded_by="composition_scene_link_edit",  # S3
         tool_name="composition_scene_link_create",
     ),
 )
@@ -1303,6 +1308,7 @@ async def composition_scene_link_create(ctx: MCPContext, args: _SceneLinkCreateA
     meta=require_meta(
         "A", "book",
         synonyms=["unlink scenes", "remove scene link", "delete edge"],
+        visibility="legacy", superseded_by="composition_scene_link_edit",  # S3
         tool_name="composition_scene_link_delete",
     ),
 )
@@ -1650,6 +1656,7 @@ class _EntityOverrideAddArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["add dị bản override", "override entity", "add entity override", "override another entity"],
+        visibility="legacy", superseded_by="composition_entity_override_edit",  # S3
         tool_name="composition_entity_override_add",
     ),
 )
@@ -1691,6 +1698,7 @@ class _EntityOverrideUpdateArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["edit dị bản override", "update entity override", "change override fields"],
+        visibility="legacy", superseded_by="composition_entity_override_edit",  # S3
         tool_name="composition_entity_override_update",
     ),
 )
@@ -1730,6 +1738,7 @@ class _EntityOverrideDeleteArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["remove dị bản override", "delete entity override", "revert override to canon"],
+        visibility="legacy", superseded_by="composition_entity_override_edit",  # S3
         tool_name="composition_entity_override_delete",
     ),
 )
@@ -1863,6 +1872,7 @@ async def composition_switch_active_work(ctx: MCPContext, args: _SwitchActiveWor
     meta=require_meta(
         "A", "book",
         synonyms=["add canon rule", "new invariant", "add constraint", "declare lore rule"],
+        visibility="legacy", superseded_by="composition_canon_rule_edit",  # S3
         tool_name="composition_canon_rule_create",
     ),
 )
@@ -1922,6 +1932,7 @@ class _CanonRuleUpdateArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["edit canon rule", "update invariant", "toggle canon rule", "disable rule"],
+        visibility="legacy", superseded_by="composition_canon_rule_edit",  # S3
         tool_name="composition_canon_rule_update",
     ),
 )
@@ -1968,6 +1979,7 @@ async def composition_canon_rule_update(ctx: MCPContext, args: _CanonRuleUpdateA
     meta=require_meta(
         "A", "book",
         synonyms=["delete canon rule", "remove invariant", "archive rule"],
+        visibility="legacy", superseded_by="composition_canon_rule_edit",  # S3
         tool_name="composition_canon_rule_delete",
     ),
 )
@@ -2012,6 +2024,7 @@ async def composition_canon_rule_delete(
     meta=require_meta(
         "A", "book",
         synonyms=["restore canon rule", "un-archive rule", "undo delete rule"],
+        visibility="legacy", superseded_by="composition_canon_rule_edit",  # S3
         tool_name="composition_canon_rule_restore",
     ),
 )
@@ -2095,6 +2108,7 @@ class _StructTemplateIdArgs(ForbidExtra):
         "A", "user",
         synonyms=["create story structure", "new structure template", "author a beat sheet",
                   "define a custom structure"],
+        visibility="legacy", superseded_by="composition_structure_template_edit",  # S3
         tool_name="composition_structure_template_create",
     ),
 )
@@ -2118,6 +2132,7 @@ async def composition_structure_template_create(ctx: MCPContext, args: _StructTe
     meta=require_meta(
         "A", "user",
         synonyms=["clone structure", "copy a story structure", "customise a built-in structure"],
+        visibility="legacy", superseded_by="composition_structure_template_edit",  # S3
         tool_name="composition_structure_template_clone",
     ),
 )
@@ -2142,6 +2157,7 @@ async def composition_structure_template_clone(ctx: MCPContext, args: _StructTem
     meta=require_meta(
         "A", "user",
         synonyms=["edit story structure", "update structure template", "change beats"],
+        visibility="legacy", superseded_by="composition_structure_template_edit",  # S3
         tool_name="composition_structure_template_update",
     ),
 )
@@ -2166,6 +2182,7 @@ async def composition_structure_template_update(ctx: MCPContext, args: _StructTe
     meta=require_meta(
         "A", "user",
         synonyms=["archive structure", "delete story structure", "remove structure template"],
+        visibility="legacy", superseded_by="composition_structure_template_edit",  # S3
         tool_name="composition_structure_template_archive",
     ),
 )
@@ -2184,6 +2201,7 @@ async def composition_structure_template_archive(ctx: MCPContext, args: _StructT
     meta=require_meta(
         "A", "user",
         synonyms=["restore structure", "unarchive story structure"],
+        visibility="legacy", superseded_by="composition_structure_template_edit",  # S3
         tool_name="composition_structure_template_restore",
     ),
 )
@@ -6536,6 +6554,7 @@ class _OutlineNodeMoveArgs(ForbidExtra):
         "A", "book",
         synonyms=["move node", "reorder scene", "reparent chapter", "drag reorder",
                   "reorder outline node"],
+        visibility="legacy", superseded_by="composition_outline_node_edit",  # S3
         tool_name="composition_outline_node_move",
     ),
 )
@@ -6587,6 +6606,272 @@ async def composition_outline_node_move(ctx: MCPContext, args: _OutlineNodeMoveA
 # returns the completed result synchronously — so no `tasks/get` polling is needed for
 # the confirm gate. `enable_task_results` stays available for a future protocol-pure /
 # external-MCP-tasks-client path.
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# S3 catalog-unification (2026-07-25): 5 clean single-tier CRUD families → 5 unified
+# op-tools. Each SUPERSEDES its per-op write tools (all marked visibility=legacy above,
+# still callable, hidden from tool_list default). Same tier per family; delegates to the
+# SAME handlers (no logic moved); per-op required-field guards raise ValueError→isError;
+# _present() drops omitted None so each sub-Args applies its own defaults. Mirrors S3·arc.
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class _StructTemplateEditArgs(ForbidExtra):
+    op: Literal["create", "update", "clone", "archive", "restore"]
+    template_id: str | None = None       # update, clone, archive, restore
+    expected_version: int | None = None  # update
+    name: str | None = None              # create (req), update, clone
+    kind: str | None = None              # create, update
+    beats: list[dict[str, Any]] | None = None  # create, update
+
+
+@mcp_server.tool(
+    name="composition_structure_template_edit",
+    description=(
+        "Create, edit, clone, archive, or restore one of YOUR structure templates (reusable "
+        "beat skeletons) — the unified template-CRUD entry point. op=create (needs name; optional "
+        "kind/beats). op=update your own (needs template_id + expected_version; only passed fields "
+        "change). op=clone copies one (needs template_id; optional new name). op=archive soft-archives "
+        "(needs template_id; reversible via op=restore). op=restore un-archives (needs template_id)."
+    ),
+    meta=require_meta("A", "user",
+                      synonyms=["edit structure template", "create structure template",
+                                "clone template", "archive structure template", "manage structure template"],
+                      tool_name="composition_structure_template_edit"),
+)
+async def composition_structure_template_edit(ctx: MCPContext, args: _StructTemplateEditArgs) -> dict:
+    if args.op == "create":
+        if not args.name:
+            raise ValueError("op=create requires name")
+        return await composition_structure_template_create(ctx, _StructTemplateCreateArgs(
+            name=args.name, **_present(kind=args.kind, beats=args.beats)))
+    if args.op == "update":
+        if not args.template_id or args.expected_version is None:
+            raise ValueError("op=update requires template_id and expected_version")
+        return await composition_structure_template_update(ctx, _StructTemplateUpdateArgs(
+            template_id=args.template_id, expected_version=args.expected_version,
+            **_present(name=args.name, kind=args.kind, beats=args.beats)))
+    if args.op == "clone":
+        if not args.template_id:
+            raise ValueError("op=clone requires template_id")
+        return await composition_structure_template_clone(ctx, _StructTemplateCloneArgs(
+            template_id=args.template_id, **_present(name=args.name)))
+    if args.op == "archive":
+        if not args.template_id:
+            raise ValueError("op=archive requires template_id")
+        return await composition_structure_template_archive(
+            ctx, _StructTemplateIdArgs(template_id=args.template_id))
+    # op == "restore"
+    if not args.template_id:
+        raise ValueError("op=restore requires template_id")
+    return await composition_structure_template_restore(
+        ctx, _StructTemplateIdArgs(template_id=args.template_id))
+
+
+class _OutlineNodeEditArgs(ForbidExtra):
+    op: Literal["create", "update", "delete", "restore", "move"]
+    project_id: str | None = None        # all (create: optional)
+    node_id: str | None = None           # update, delete, restore, move
+    expected_version: int | None = None  # update (req), move (opt)
+    kind: Literal["chapter", "scene"] | None = None  # create (req)
+    parent_id: str | None = None         # create
+    title: str | None = None             # create, update
+    goal: str | None = None              # create, update
+    synopsis: str | None = None          # create, update
+    status: Literal["empty", "outline", "drafting", "done"] | None = None  # create, update
+    chapter_id: str | None = None        # create
+    location_entity_id: str | None = None  # create, update
+    story_time: str | None = None        # create, update
+    conflict: str | None = None          # create, update
+    outcome: str | None = None           # create, update
+    value_shift: int | None = None       # create, update
+    stakes: str | None = None            # create, update
+    target_words: int | None = None      # create, update
+    exit_state: SceneExitState | None = None  # create, update
+    new_parent_id: str | None = None     # move
+    after_id: str | None = None          # move
+
+
+@mcp_server.tool(
+    name="composition_outline_node_edit",
+    description=(
+        "Create, edit, delete, restore, or move an outline node (chapter/scene) — the unified "
+        "outline-CRUD entry point. op=create (needs kind ∈ chapter|scene; optional parent_id/title/"
+        "goal/synopsis/status/chapter_id/scene fields). op=update (needs project_id + node_id + "
+        "expected_version; only passed fields change). op=delete soft-archives (needs project_id + "
+        "node_id; reversible via op=restore). op=restore un-archives. op=move reparents+reorders "
+        "(needs project_id + node_id; new_parent_id/after_id, optional expected_version). EDIT required."
+    ),
+    meta=require_meta("A", "book",
+                      synonyms=["edit outline node", "create chapter", "create scene", "delete scene",
+                                "move scene", "reorder outline", "restore scene", "manage outline node"],
+                      tool_name="composition_outline_node_edit"),
+)
+async def composition_outline_node_edit(ctx: MCPContext, args: _OutlineNodeEditArgs) -> dict:
+    if args.op == "create":
+        if not args.kind:
+            raise ValueError("op=create requires kind")
+        return await composition_outline_node_create(ctx, _NodeCreateArgs(
+            kind=args.kind,
+            **_present(project_id=args.project_id, parent_id=args.parent_id, title=args.title,
+                       goal=args.goal, synopsis=args.synopsis, status=args.status,
+                       chapter_id=args.chapter_id, location_entity_id=args.location_entity_id,
+                       story_time=args.story_time, conflict=args.conflict, outcome=args.outcome,
+                       value_shift=args.value_shift, stakes=args.stakes,
+                       target_words=args.target_words, exit_state=args.exit_state)))
+    if args.op == "update":
+        if not args.project_id or not args.node_id or args.expected_version is None:
+            raise ValueError("op=update requires project_id, node_id, and expected_version")
+        return await composition_outline_node_update(ctx, _NodeUpdateArgs(
+            project_id=args.project_id, node_id=args.node_id, expected_version=args.expected_version,
+            **_present(title=args.title, goal=args.goal, synopsis=args.synopsis, status=args.status,
+                       location_entity_id=args.location_entity_id, story_time=args.story_time,
+                       conflict=args.conflict, outcome=args.outcome, value_shift=args.value_shift,
+                       stakes=args.stakes, target_words=args.target_words, exit_state=args.exit_state)))
+    if args.op == "delete":
+        if not args.project_id or not args.node_id:
+            raise ValueError("op=delete requires project_id and node_id")
+        return await composition_outline_node_delete(ctx, project_id=args.project_id, node_id=args.node_id)
+    if args.op == "restore":
+        if not args.project_id or not args.node_id:
+            raise ValueError("op=restore requires project_id and node_id")
+        return await composition_outline_node_restore(ctx, project_id=args.project_id, node_id=args.node_id)
+    # op == "move"
+    if not args.project_id or not args.node_id:
+        raise ValueError("op=move requires project_id and node_id")
+    return await composition_outline_node_move(ctx, _OutlineNodeMoveArgs(
+        project_id=args.project_id, node_id=args.node_id,
+        **_present(new_parent_id=args.new_parent_id, after_id=args.after_id,
+                   expected_version=args.expected_version)))
+
+
+class _CanonRuleEditArgs(ForbidExtra):
+    op: Literal["create", "update", "delete", "restore"]
+    project_id: str | None = None        # all
+    rule_id: str | None = None           # update, delete, restore
+    expected_version: int | None = None  # update
+    text: str | None = None              # create (req), update
+    scope: Literal["world", "entity", "reveal_gate"] | None = None  # create
+    entity_id: str | None = None         # create
+    from_order: int | None = None        # create
+    until_order: int | None = None       # create
+    kind: str | None = None              # create
+    active: bool | None = None           # update
+
+
+@mcp_server.tool(
+    name="composition_canon_rule_edit",
+    description=(
+        "Create, edit, delete, or restore a canon rule (a constraint the generator must honor) — "
+        "the unified canon-rule-CRUD entry point. op=create (needs project_id + text; optional scope ∈ "
+        "world|entity|reveal_gate, entity_id, from_order/until_order, kind). op=update (needs project_id + "
+        "rule_id + expected_version; text/active). op=delete soft-deletes (needs project_id + rule_id; "
+        "reversible via op=restore). op=restore un-deletes. EDIT required."
+    ),
+    meta=require_meta("A", "book",
+                      synonyms=["edit canon rule", "add canon rule", "delete canon rule",
+                                "restore canon rule", "set constraint", "manage canon rule"],
+                      tool_name="composition_canon_rule_edit"),
+)
+async def composition_canon_rule_edit(ctx: MCPContext, args: _CanonRuleEditArgs) -> dict:
+    if args.op == "create":
+        if not args.project_id or not args.text:
+            raise ValueError("op=create requires project_id and text")
+        return await composition_canon_rule_create(ctx, _CanonRuleCreateArgs(
+            project_id=args.project_id, text=args.text,
+            **_present(scope=args.scope, entity_id=args.entity_id, from_order=args.from_order,
+                       until_order=args.until_order, kind=args.kind)))
+    if args.op == "update":
+        if not args.project_id or not args.rule_id or args.expected_version is None:
+            raise ValueError("op=update requires project_id, rule_id, and expected_version")
+        return await composition_canon_rule_update(ctx, _CanonRuleUpdateArgs(
+            project_id=args.project_id, rule_id=args.rule_id, expected_version=args.expected_version,
+            **_present(text=args.text, active=args.active)))
+    if args.op == "delete":
+        if not args.project_id or not args.rule_id:
+            raise ValueError("op=delete requires project_id and rule_id")
+        return await composition_canon_rule_delete(ctx, project_id=args.project_id, rule_id=args.rule_id)
+    # op == "restore"
+    if not args.project_id or not args.rule_id:
+        raise ValueError("op=restore requires project_id and rule_id")
+    return await composition_canon_rule_restore(ctx, project_id=args.project_id, rule_id=args.rule_id)
+
+
+class _EntityOverrideEditArgs(ForbidExtra):
+    op: Literal["add", "update", "delete"]
+    project_id: str | None = None        # all
+    target_entity_id: str | None = None  # add
+    override_id: str | None = None       # update, delete
+    overridden_fields: dict[str, Any] | None = None  # add, update
+
+
+@mcp_server.tool(
+    name="composition_entity_override_edit",
+    description=(
+        "Add, update, or delete a per-Work entity override (book-local field changes on a glossary "
+        "entity) — the unified entity-override-CRUD entry point. op=add (needs project_id + "
+        "target_entity_id; overridden_fields). op=update (needs project_id + override_id; "
+        "overridden_fields). op=delete (needs project_id + override_id). EDIT required."
+    ),
+    meta=require_meta("A", "book",
+                      synonyms=["add entity override", "edit entity override", "delete entity override",
+                                "override entity field", "manage entity override"],
+                      tool_name="composition_entity_override_edit"),
+)
+async def composition_entity_override_edit(ctx: MCPContext, args: _EntityOverrideEditArgs) -> dict:
+    if args.op == "add":
+        if not args.project_id or not args.target_entity_id:
+            raise ValueError("op=add requires project_id and target_entity_id")
+        return await composition_entity_override_add(ctx, _EntityOverrideAddArgs(
+            project_id=args.project_id, target_entity_id=args.target_entity_id,
+            **_present(overridden_fields=args.overridden_fields)))
+    if args.op == "update":
+        if not args.project_id or not args.override_id:
+            raise ValueError("op=update requires project_id and override_id")
+        return await composition_entity_override_update(ctx, _EntityOverrideUpdateArgs(
+            project_id=args.project_id, override_id=args.override_id,
+            **_present(overridden_fields=args.overridden_fields)))
+    # op == "delete"
+    if not args.project_id or not args.override_id:
+        raise ValueError("op=delete requires project_id and override_id")
+    return await composition_entity_override_delete(ctx, _EntityOverrideDeleteArgs(
+        project_id=args.project_id, override_id=args.override_id))
+
+
+class _SceneLinkEditArgs(ForbidExtra):
+    op: Literal["create", "delete"]
+    project_id: str | None = None       # both
+    from_node_id: str | None = None     # create
+    to_node_id: str | None = None       # create
+    kind: LinkKind | None = None        # create
+    label: str | None = None            # create
+    link_id: str | None = None          # delete
+
+
+@mcp_server.tool(
+    name="composition_scene_link_edit",
+    description=(
+        "Create or delete a scene-link edge (setup_payoff / foreshadow / callback between outline "
+        "nodes) — the unified scene-link entry point. op=create (needs project_id + from_node_id + "
+        "to_node_id; optional kind, label). op=delete (needs project_id + link_id). EDIT required."
+    ),
+    meta=require_meta("A", "book",
+                      synonyms=["link scenes", "connect scenes", "add scene link", "delete scene link",
+                                "set setup payoff", "manage scene link"],
+                      tool_name="composition_scene_link_edit"),
+)
+async def composition_scene_link_edit(ctx: MCPContext, args: _SceneLinkEditArgs) -> dict:
+    if args.op == "create":
+        if not args.project_id or not args.from_node_id or not args.to_node_id:
+            raise ValueError("op=create requires project_id, from_node_id, and to_node_id")
+        return await composition_scene_link_create(ctx, _SceneLinkCreateArgs(
+            project_id=args.project_id, from_node_id=args.from_node_id, to_node_id=args.to_node_id,
+            **_present(kind=args.kind, label=args.label)))
+    # op == "delete"
+    if not args.project_id or not args.link_id:
+        raise ValueError("op=delete requires project_id and link_id")
+    return await composition_scene_link_delete(ctx, project_id=args.project_id, link_id=args.link_id)
 
 
 # ── ASGI factory ──────────────────────────────────────────────────────────────

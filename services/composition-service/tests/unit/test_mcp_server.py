@@ -67,6 +67,10 @@ EXPECTED_TOOLS = {
     "composition_structure_template_create", "composition_structure_template_clone",
     "composition_structure_template_update", "composition_structure_template_archive",
     "composition_structure_template_restore",
+    # S3 unified (op-dispatch CRUD): 5 families → 5 *_edit tools
+    "composition_structure_template_edit", "composition_outline_node_edit",
+    "composition_canon_rule_edit", "composition_entity_override_edit",
+    "composition_scene_link_edit",
     "composition_write_prose",
     # ── S5 (D-DIVERGENCE-MCP-TOOLS) — the dị bản manage surface. ──
     "composition_list_derivatives",   # Tier R
