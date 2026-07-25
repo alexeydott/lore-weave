@@ -94,6 +94,9 @@ EXPECTED_TOOLS = {
     "composition_authoring_run_create", "composition_authoring_run_gate",
     "composition_authoring_run_start", "composition_authoring_run_resume",
     "composition_authoring_run_revert_all",
+    # S3 unified (op-dispatch, tier-split): manage (W: create|start|resume|gate|revert_all),
+    # review (A: pause|close|accept_unit|reject_unit)
+    "composition_authoring_run_manage", "composition_authoring_run_review",
     # ── W4 narrative-motif-library tools (register on the SAME server) ──
     # Tier R (motif)
     "composition_motif_search", "composition_motif_get",

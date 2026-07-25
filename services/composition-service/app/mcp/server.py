@@ -2694,6 +2694,7 @@ class _AuthoringRunCreateArgs(TolerantArgs):
         "W", "book",
         synonyms=["start autonomous run", "agent mode", "autonomous authoring",
                   "draft chapters unattended", "mission control", "create authoring run"],
+        visibility="legacy", superseded_by="composition_authoring_run_manage",  # S3
         tool_name="composition_authoring_run_create",
     ),
 )
@@ -2763,6 +2764,7 @@ class _AuthoringRunIdArgs(TolerantArgs):
         "W", "book",
         synonyms=["gate authoring run", "start gate check", "validate authoring run",
                   "run start-gate"],
+        visibility="legacy", superseded_by="composition_authoring_run_manage",  # S3
         tool_name="composition_authoring_run_gate",
     ),
 )
@@ -2822,6 +2824,7 @@ class _AuthoringRunStartArgs(TolerantArgs):
         synonyms=["start authoring run", "begin autonomous drafting", "run gated run",
                   "kick off agent mode"],
         async_job=True,
+        visibility="legacy", superseded_by="composition_authoring_run_manage",  # S3
         tool_name="composition_authoring_run_start",
     ),
 )
@@ -2882,6 +2885,7 @@ class _AuthoringRunResumeArgs(TolerantArgs):
         synonyms=["resume authoring run", "continue autonomous drafting",
                   "unpause agent mode", "keep drafting"],
         async_job=True,
+        visibility="legacy", superseded_by="composition_authoring_run_manage",  # S3
         tool_name="composition_authoring_run_resume",
     ),
 )
@@ -2937,6 +2941,7 @@ async def composition_authoring_run_resume(ctx: MCPContext, args: _AuthoringRunR
         "A", "book",
         synonyms=["pause authoring run", "stop agent mode", "halt autonomous drafting",
                   "pause my run"],
+        visibility="legacy", superseded_by="composition_authoring_run_review",  # S3
         tool_name="composition_authoring_run_pause",
     ),
 )
@@ -2971,6 +2976,7 @@ async def composition_authoring_run_pause(ctx: MCPContext, args: _AuthoringRunId
         "A", "book",
         synonyms=["close authoring run", "end agent mode", "cancel autonomous run",
                   "stop autonomous run", "kill the run", "release run slot"],
+        visibility="legacy", superseded_by="composition_authoring_run_review",  # S3
         tool_name="composition_authoring_run_close",
     ),
 )
@@ -3009,6 +3015,7 @@ class _AuthoringRunUnitArgs(TolerantArgs):
         "A", "book",
         synonyms=["accept chapter draft", "approve unit", "keep this chapter",
                   "accept authoring unit"],
+        visibility="legacy", superseded_by="composition_authoring_run_review",  # S3
         tool_name="composition_authoring_run_accept_unit",
     ),
 )
@@ -3054,6 +3061,7 @@ async def composition_authoring_run_accept_unit(
         "A", "book",
         synonyms=["reject chapter draft", "discard unit", "undo this chapter",
                   "reject authoring unit", "revert chapter"],
+        visibility="legacy", superseded_by="composition_authoring_run_review",  # S3
         tool_name="composition_authoring_run_reject_unit",
     ),
 )
@@ -3126,6 +3134,7 @@ async def composition_authoring_run_reject_unit(
         "W", "book",
         synonyms=["revert all chapters", "undo entire run", "roll back authoring run",
                   "discard all drafted chapters"],
+        visibility="legacy", superseded_by="composition_authoring_run_manage",  # S3
         tool_name="composition_authoring_run_revert_all",
     ),
 )
@@ -3161,6 +3170,120 @@ async def composition_authoring_run_revert_all(ctx: MCPContext, args: _Authoring
         input_requests={"title": _title, "descriptor": _AUTHORING_RUN_REVERT_ALL_DESCRIPTOR, "domain": "composition"},
         confirm_fallback=_confirm_fallback,
     )
+
+
+# ── S3 catalog-unification (2026-07-25): 2 unified authoring-run op-tools SUPERSEDE the 9
+# per-op write tools above (all marked visibility=legacy). The split is by TIER, and the tier
+# boundary is BEHAVIORAL, not cosmetic: the W ops (create/start/resume/gate/revert_all) MINT a
+# confirm-token (human-gated, cost-bearing), the A ops (pause/close/accept_unit/reject_unit)
+# AUTO-APPLY immediately. Merging W+A into one tool would force confirm-gating onto the immediate
+# ops OR bypass the cost gate on the gated ops — so two tier-coherent tools is the only safe
+# unification. get/list reads stay separate. Delegates to the SAME handlers (no logic moved). ──
+class _AuthoringRunManageArgs(ForbidExtra):
+    """Flat superset for composition_authoring_run_manage (W/book — each op mints a confirm-token)."""
+
+    op: Literal["create", "start", "resume", "gate", "revert_all"]
+    book_id: str
+    run_id: str | None = None                 # start, resume, gate, revert_all (NOT create)
+    plan_run_id: str | None = None            # create (required)
+    scope: list[str] | None = None            # create
+    level: Literal[3, 4] | None = None        # create
+    budget_usd: Decimal | None = None         # create (required)
+    tool_allowlist: list[Literal[ALLOWLISTABLE_TOOLS]] | None = None  # create
+    pause_after_each_unit: bool | None = None  # create (required) / start, resume (optional)
+    params: dict[str, Any] | None = None      # create
+
+
+@mcp_server.tool(
+    name="composition_authoring_run_manage",
+    description=(
+        "Drive the GATED lifecycle of an autonomous authoring run — the unified entry point for "
+        "the run actions that mint a confirm-token (human-approved, cost-bearing). "
+        "op=create sets up a run (needs plan_run_id + budget_usd + pause_after_each_unit; optional "
+        "scope/level/tool_allowlist/params). op=start begins a created run (needs run_id; optional "
+        "pause_after_each_unit). op=resume continues a paused run (needs run_id). op=gate runs the "
+        "start-gate check draft→gated (needs run_id). op=revert_all rolls back all accepted units "
+        "(needs run_id). Each returns a confirm-token to approve. Read with "
+        "composition_authoring_run_get / _list; immediate controls are composition_authoring_run_review."
+    ),
+    meta=require_meta(
+        "W", "book",
+        synonyms=["create authoring run", "start authoring run", "resume run", "run gate check",
+                  "revert authoring run", "manage authoring run", "begin autopilot"],
+        tool_name="composition_authoring_run_manage",
+    ),
+)
+async def composition_authoring_run_manage(ctx: MCPContext, args: _AuthoringRunManageArgs) -> dict:
+    """Unified gated-run dispatch — delegates to the SAME per-op handlers (no logic moved)."""
+    if args.op == "create":
+        if not args.plan_run_id or args.budget_usd is None or args.pause_after_each_unit is None:
+            raise ValueError("op=create requires plan_run_id, budget_usd, and pause_after_each_unit")
+        return await composition_authoring_run_create(ctx, _AuthoringRunCreateArgs(
+            book_id=args.book_id, plan_run_id=args.plan_run_id, budget_usd=args.budget_usd,
+            pause_after_each_unit=args.pause_after_each_unit,
+            **_present(scope=args.scope, level=args.level, tool_allowlist=args.tool_allowlist,
+                       params=args.params),
+        ))
+    if not args.run_id:
+        raise ValueError(f"op={args.op} requires run_id")
+    if args.op == "start":
+        return await composition_authoring_run_start(ctx, _AuthoringRunStartArgs(
+            book_id=args.book_id, run_id=args.run_id,
+            **_present(pause_after_each_unit=args.pause_after_each_unit)))
+    if args.op == "resume":
+        return await composition_authoring_run_resume(ctx, _AuthoringRunResumeArgs(
+            book_id=args.book_id, run_id=args.run_id,
+            **_present(pause_after_each_unit=args.pause_after_each_unit)))
+    if args.op == "gate":
+        return await composition_authoring_run_gate(
+            ctx, _AuthoringRunIdArgs(book_id=args.book_id, run_id=args.run_id))
+    # op == "revert_all"
+    return await composition_authoring_run_revert_all(
+        ctx, _AuthoringRunIdArgs(book_id=args.book_id, run_id=args.run_id))
+
+
+class _AuthoringRunReviewArgs(ForbidExtra):
+    """Flat superset for composition_authoring_run_review (A/book — each op applies immediately)."""
+
+    op: Literal["pause", "close", "accept_unit", "reject_unit"]
+    book_id: str
+    run_id: str
+    unit_index: int | None = None  # accept_unit, reject_unit (required for those)
+
+
+@mcp_server.tool(
+    name="composition_authoring_run_review",
+    description=(
+        "Apply an IMMEDIATE control to an authoring run — the unified entry point for the "
+        "auto-applied (no confirm-token) actions. op=pause pauses a running run (needs run_id). "
+        "op=close ends a run (needs run_id). op=accept_unit accepts a generated unit (needs run_id "
+        "+ unit_index ≥ 0). op=reject_unit rejects one (needs run_id + unit_index). Gated actions "
+        "(create/start/resume/gate/revert) are composition_authoring_run_manage; read with "
+        "composition_authoring_run_get / _list."
+    ),
+    meta=require_meta(
+        "A", "book",
+        synonyms=["pause authoring run", "close authoring run", "accept unit", "reject unit",
+                  "approve draft unit", "review authoring run", "stop run"],
+        tool_name="composition_authoring_run_review",
+    ),
+)
+async def composition_authoring_run_review(ctx: MCPContext, args: _AuthoringRunReviewArgs) -> dict:
+    """Unified immediate-run-control dispatch — delegates to the SAME per-op handlers."""
+    if args.op == "pause":
+        return await composition_authoring_run_pause(
+            ctx, _AuthoringRunIdArgs(book_id=args.book_id, run_id=args.run_id))
+    if args.op == "close":
+        return await composition_authoring_run_close(
+            ctx, _AuthoringRunIdArgs(book_id=args.book_id, run_id=args.run_id))
+    if args.unit_index is None:
+        raise ValueError(f"op={args.op} requires unit_index")
+    if args.op == "accept_unit":
+        return await composition_authoring_run_accept_unit(ctx, _AuthoringRunUnitArgs(
+            book_id=args.book_id, run_id=args.run_id, unit_index=args.unit_index))
+    # op == "reject_unit"
+    return await composition_authoring_run_reject_unit(ctx, _AuthoringRunUnitArgs(
+        book_id=args.book_id, run_id=args.run_id, unit_index=args.unit_index))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
