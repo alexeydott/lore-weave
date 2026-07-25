@@ -115,10 +115,12 @@ EXPECTED_TOOLS = {
     "composition_arc_template_list", "composition_arc_template_get",
     "composition_arc_template_create", "composition_arc_template_update",
     "composition_arc_template_archive", "composition_arc_template_restore",
+    "composition_arc_template_edit",    # S3 unified (op=create|update|archive|restore)
     "composition_conformance_status",   # 26 IX-14 staleness read contract
     # Tier A (arc auto-writes + outline move)
     "composition_arc_create", "composition_arc_update", "composition_arc_delete",
     "composition_arc_restore", "composition_arc_move", "composition_arc_assign_chapters",
+    "composition_arc_edit",             # S3 unified (op=create|update|delete|restore|move|assign_chapters)
     "composition_arc_apply", "composition_arc_extract_template",
     "composition_outline_node_move",
     # ── PlanForge (M4) plan_* tools ──

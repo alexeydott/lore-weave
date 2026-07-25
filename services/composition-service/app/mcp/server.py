@@ -5342,6 +5342,7 @@ class _ArcCreateArgs(ForbidExtra):
         "A", "book",
         synonyms=["create arc", "new saga", "add arc", "author an arc", "start a saga",
                   "add sub-arc", "create story arc"],
+        visibility="legacy", superseded_by="composition_arc_edit",  # S3 2026-07-25
         tool_name="composition_arc_create",
     ),
 )
@@ -5423,6 +5424,7 @@ class _ArcUpdateArgs(ForbidExtra):
         "A", "book",
         synonyms=["edit arc", "update arc", "rename saga", "set arc status",
                   "edit tracks", "update roster"],
+        visibility="legacy", superseded_by="composition_arc_edit",  # S3 2026-07-25
         tool_name="composition_arc_update",
     ),
 )
@@ -5477,6 +5479,7 @@ async def composition_arc_update(ctx: MCPContext, args: _ArcUpdateArgs) -> dict:
     meta=require_meta(
         "A", "book",
         synonyms=["delete arc", "archive saga", "remove arc", "delete story arc"],
+        visibility="legacy", superseded_by="composition_arc_edit",  # S3 2026-07-25
         tool_name="composition_arc_delete",
     ),
 )
@@ -5505,6 +5508,7 @@ async def composition_arc_delete(
     meta=require_meta(
         "A", "book",
         synonyms=["restore arc", "unarchive saga", "undelete arc"],
+        visibility="legacy", superseded_by="composition_arc_edit",  # S3 2026-07-25
         tool_name="composition_arc_restore",
     ),
 )
@@ -5546,6 +5550,7 @@ class _ArcMoveArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["move arc", "reparent arc", "reorder arc", "nest arc", "restructure book"],
+        visibility="legacy", superseded_by="composition_arc_edit",  # S3 2026-07-25
         tool_name="composition_arc_move",
     ),
 )
@@ -5592,6 +5597,7 @@ class _ArcAssignChaptersArgs(ForbidExtra):
         "A", "book",
         synonyms=["assign chapters", "attach chapters to arc", "arc membership",
                   "add chapters to arc", "group chapters under arc"],
+        visibility="legacy", superseded_by="composition_arc_edit",  # S3 2026-07-25
         tool_name="composition_arc_assign_chapters",
     ),
 )
@@ -5611,6 +5617,118 @@ async def composition_arc_assign_chapters(
         "assigned": count, "structure_node_id": args.structure_node_id,
         "_meta": {"undo_hint": None},
     }
+
+
+# ── S3 catalog-unification (2026-07-25): composition_arc_edit (op=create|update|delete|
+# restore|move|assign_chapters) SUPERSEDES the 6 per-op arc-CRUD tools above (kept,
+# visibility:legacy — still callable for cached workflows/schemas, hidden from the default
+# discovery surface). Same tier (A/book), same cores: it DELEGATES to the legacy handlers
+# (NO logic moved), so every guard, Undo hint, and conflict shape is preserved verbatim.
+# Mirrors KG's kg_view_edit / kg_ontology_propose op-dispatch. Reads stay separate
+# (composition_arc_get / composition_arc_list) — different response contracts. ──────────
+def _present(**kwargs: Any) -> dict[str, Any]:
+    """Keep only the args the caller actually supplied (drop None) so each sub-Args model
+    applies its OWN defaults. A flat-superset op tool must never force None onto a field
+    whose default is a non-None value (e.g. _ArcCreateArgs.status='outline' — passing None
+    would fail the Literal validation)."""
+    return {k: v for k, v in kwargs.items() if v is not None}
+
+
+class _ArcEditArgs(ForbidExtra):
+    """Flat superset for composition_arc_edit; each op reads only its own fields. Wrapped
+    (like KgOntologyProposeArgs) so Pydantic stays the single validation truth; FastMCP
+    flattens it on the wire (K16)."""
+
+    op: Literal["create", "update", "delete", "restore", "move", "assign_chapters"]
+    book_id: str | None = None          # create, assign_chapters
+    node_id: str | None = None          # update, delete, restore, move
+    kind: Literal["saga", "arc"] | None = None   # create
+    parent_arc_id: str | None = None    # create
+    title: str | None = None            # create, update
+    summary: str | None = None          # create, update
+    goal: str | None = None             # create, update
+    status: _ArcStatus | None = None    # create, update
+    tracks: list[dict[str, Any]] | None = None          # create, update
+    roster: list[dict[str, Any]] | None = None          # create, update
+    roster_bindings: dict[str, Any] | None = None       # create, update
+    arc_template_id: str | None = None  # create, update
+    template_version: int | None = None  # create, update
+    expected_version: int | None = None  # update (required)
+    new_parent_arc_id: str | None = None  # move
+    after_id: str | None = None         # move
+    structure_node_id: str | None = None  # assign_chapters (null unassigns)
+    chapter_node_ids: list[str] | None = None  # assign_chapters
+
+
+@mcp_server.tool(
+    name="composition_arc_edit",
+    description=(
+        "Create, edit, delete, restore, move, or (re)assign chapters to a saga/arc in a "
+        "book's SPEC tree — the unified arc-CRUD entry point. "
+        "op=create mints a saga/arc (needs book_id; optional kind + title/summary/goal/"
+        "status/parent_arc_id/tracks/roster/roster_bindings/arc_template_id/template_version). "
+        "op=update edits its content (needs node_id + expected_version — optimistic "
+        "concurrency, a stale version is rejected). op=delete soft-archives it + its subtree "
+        "(needs node_id; reversible via op=restore). op=restore un-archives it (needs node_id). "
+        "op=move reparents+reorders it (needs node_id; new_parent_arc_id=null → root, "
+        "after_id=null → first). op=assign_chapters attaches CHAPTER nodes to an arc (needs "
+        "book_id + chapter_node_ids; structure_node_id=null UNASSIGNS them). EDIT on the book "
+        "required; auto-applied with an Undo hint. Read with composition_arc_get / composition_arc_list."
+    ),
+    meta=require_meta(
+        "A", "book",
+        synonyms=["edit arc", "create arc", "new saga", "delete arc", "archive arc",
+                  "restore arc", "move arc", "reparent arc", "reorder arc",
+                  "assign chapters to arc", "manage arc", "author an arc"],
+        tool_name="composition_arc_edit",
+    ),
+)
+async def composition_arc_edit(ctx: MCPContext, args: _ArcEditArgs) -> dict:
+    """Unified arc-CRUD dispatch — delegates to the SAME per-op handlers (no logic moved).
+    Per-op required fields are validated here with a clear ValueError (→ isError)."""
+    if args.op == "create":
+        if not args.book_id:
+            raise ValueError("op=create requires book_id")
+        return await composition_arc_create(ctx, _ArcCreateArgs(
+            book_id=args.book_id,
+            **_present(
+                kind=args.kind, parent_arc_id=args.parent_arc_id, title=args.title,
+                summary=args.summary, goal=args.goal, status=args.status, tracks=args.tracks,
+                roster=args.roster, roster_bindings=args.roster_bindings,
+                arc_template_id=args.arc_template_id, template_version=args.template_version,
+            ),
+        ))
+    if args.op == "update":
+        if not args.node_id or args.expected_version is None:
+            raise ValueError("op=update requires node_id and expected_version")
+        return await composition_arc_update(ctx, _ArcUpdateArgs(
+            node_id=args.node_id, expected_version=args.expected_version,
+            **_present(
+                title=args.title, summary=args.summary, goal=args.goal, status=args.status,
+                tracks=args.tracks, roster=args.roster, roster_bindings=args.roster_bindings,
+                arc_template_id=args.arc_template_id, template_version=args.template_version,
+            ),
+        ))
+    if args.op == "delete":
+        if not args.node_id:
+            raise ValueError("op=delete requires node_id")
+        return await composition_arc_delete(ctx, node_id=args.node_id)
+    if args.op == "restore":
+        if not args.node_id:
+            raise ValueError("op=restore requires node_id")
+        return await composition_arc_restore(ctx, node_id=args.node_id)
+    if args.op == "move":
+        if not args.node_id:
+            raise ValueError("op=move requires node_id")
+        return await composition_arc_move(ctx, _ArcMoveArgs(
+            node_id=args.node_id, new_parent_arc_id=args.new_parent_arc_id,
+            after_id=args.after_id))
+    # op == "assign_chapters"
+    if not args.book_id or args.chapter_node_ids is None:
+        raise ValueError("op=assign_chapters requires book_id and chapter_node_ids")
+    return await composition_arc_assign_chapters(ctx, _ArcAssignChaptersArgs(
+        book_id=args.book_id, structure_node_id=args.structure_node_id,
+        chapter_node_ids=args.chapter_node_ids))
 
 
 # ── B2 — template ops. ⚠ CORRECTION (O-3, close-21-28): the prior comment here said
@@ -5896,6 +6014,7 @@ async def composition_arc_template_get(
     ),
     meta=require_meta("W", "book",
                       synonyms=["create arc template", "new arc template", "save arc skeleton"],
+                      visibility="legacy", superseded_by="composition_arc_template_edit",  # S3
                       tool_name="composition_arc_template_create"),
 )
 async def composition_arc_template_create(ctx: MCPContext, args: ArcTemplateCreateArgs) -> dict:
@@ -5926,6 +6045,7 @@ class _ArcTemplateUpdateArgs(ArcTemplatePatchArgs):
     ),
     meta=require_meta("W", "book",
                       synonyms=["update arc template", "edit arc template", "patch arc template"],
+                      visibility="legacy", superseded_by="composition_arc_template_edit",  # S3
                       tool_name="composition_arc_template_update"),
 )
 async def composition_arc_template_update(ctx: MCPContext, args: _ArcTemplateUpdateArgs) -> dict:
@@ -5954,6 +6074,7 @@ async def composition_arc_template_update(ctx: MCPContext, args: _ArcTemplateUpd
     ),
     meta=require_meta("W", "book",
                       synonyms=["archive arc template", "delete arc template", "remove arc template"],
+                      visibility="legacy", superseded_by="composition_arc_template_edit",  # S3
                       tool_name="composition_arc_template_archive"),
 )
 async def composition_arc_template_archive(
@@ -5975,6 +6096,7 @@ async def composition_arc_template_archive(
     ),
     meta=require_meta("W", "book",
                       synonyms=["restore arc template", "unarchive arc template"],
+                      visibility="legacy", superseded_by="composition_arc_template_edit",  # S3
                       tool_name="composition_arc_template_restore"),
 )
 async def composition_arc_template_restore(
@@ -5988,6 +6110,89 @@ async def composition_arc_template_restore(
     out = arc.model_dump(mode="json")
     out["_meta"] = {"undo_hint": _undo("composition_arc_template_archive", arc_id=arc_id)}
     return out
+
+
+# ── S3 catalog-unification (2026-07-25): composition_arc_template_edit (op=create|update|
+# archive|restore) SUPERSEDES the 4 per-op arc-TEMPLATE-CRUD tools above (kept,
+# visibility:legacy). Same tier (W/book), delegates to the SAME handlers (no logic moved).
+# Reads stay separate (composition_arc_template_get / composition_arc_template_list). ───────
+class _ArcTemplateEditArgs(ForbidExtra):
+    """Flat superset for composition_arc_template_edit; each op reads only its own fields.
+    Wrapped so Pydantic validates/coerces the rich sub-models (threads/layout/pacing/
+    arc_roster from plain dicts); FastMCP flattens on the wire (K16)."""
+
+    op: Literal["create", "update", "archive", "restore"]
+    arc_id: str | None = None           # update, archive, restore
+    expected_version: int | None = None  # update (optional optimistic concurrency)
+    code: str | None = None             # create (required)
+    name: str | None = None             # create (required), update
+    language: str | None = None         # create
+    summary: str | None = None          # create, update
+    genre_tags: list[str] | None = None  # create, update
+    chapter_span: int | None = None     # create, update
+    threads: list[dict[str, Any]] | None = None   # create, update
+    layout: list[dict[str, Any]] | None = None    # create, update
+    pacing: list[dict[str, Any]] | None = None    # create, update
+    arc_roster: list[dict[str, Any]] | None = None  # create, update
+    visibility: str | None = None       # create, update (only 'private' accepted here)
+    status: str | None = None           # update
+
+
+@mcp_server.tool(
+    name="composition_arc_template_edit",
+    description=(
+        "Create, edit, archive, or restore one of YOUR arc templates (reusable arc "
+        "skeletons — threads, layout, pacing, roster) — the unified template-CRUD entry point. "
+        "op=create mints a PRIVATE template (needs code + name; optional language/summary/"
+        "genre_tags/chapter_span/threads/layout/pacing/arc_roster; a duplicate code+language → "
+        "409). op=update edits your own (needs arc_id; optional expected_version for optimistic "
+        "concurrency; only the fields you pass change; a foreign/system row → 404). op=archive "
+        "soft-archives yours (needs arc_id; reversible via op=restore). op=restore un-archives "
+        "yours (needs arc_id). Publishing/sharing (visibility other than private) is a deliberate "
+        "studio action — refused here. Read with composition_arc_template_get / composition_arc_template_list."
+    ),
+    meta=require_meta(
+        "W", "book",
+        synonyms=["edit arc template", "create arc template", "new arc template",
+                  "update arc template", "archive arc template", "restore arc template",
+                  "save arc skeleton", "manage arc template"],
+        tool_name="composition_arc_template_edit",
+    ),
+)
+async def composition_arc_template_edit(ctx: MCPContext, args: _ArcTemplateEditArgs) -> dict:
+    """Unified arc-template CRUD dispatch — delegates to the SAME per-op handlers (no logic
+    moved). Per-op required fields validated here with a clear ValueError (→ isError)."""
+    if args.op == "create":
+        if not args.code or not args.name:
+            raise ValueError("op=create requires code and name")
+        return await composition_arc_template_create(ctx, ArcTemplateCreateArgs(
+            code=args.code, name=args.name,
+            **_present(
+                language=args.language, summary=args.summary, genre_tags=args.genre_tags,
+                chapter_span=args.chapter_span, threads=args.threads, layout=args.layout,
+                pacing=args.pacing, arc_roster=args.arc_roster, visibility=args.visibility,
+            ),
+        ))
+    if args.op == "update":
+        if not args.arc_id:
+            raise ValueError("op=update requires arc_id")
+        return await composition_arc_template_update(ctx, _ArcTemplateUpdateArgs(
+            arc_id=args.arc_id, expected_version=args.expected_version,
+            **_present(
+                name=args.name, summary=args.summary, genre_tags=args.genre_tags,
+                chapter_span=args.chapter_span, threads=args.threads, layout=args.layout,
+                pacing=args.pacing, arc_roster=args.arc_roster, visibility=args.visibility,
+                status=args.status,
+            ),
+        ))
+    if args.op == "archive":
+        if not args.arc_id:
+            raise ValueError("op=archive requires arc_id")
+        return await composition_arc_template_archive(ctx, arc_id=args.arc_id)
+    # op == "restore"
+    if not args.arc_id:
+        raise ValueError("op=restore requires arc_id")
+    return await composition_arc_template_restore(ctx, arc_id=args.arc_id)
 
 
 # ── B3 — the missing outline reorder (F6): a human has full drag-reorder
