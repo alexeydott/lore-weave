@@ -63,3 +63,46 @@ validation clean; legacy hidden.
 - 1 genuinely-missed family recovered (derivative_edit).
 - 3 "leave separate" verdicts re-confirmed with correct reasons.
 - Composition default discovery: **96 → 50** (9 families, 48 legacy write tools → 13 unified).
+
+---
+
+## Round 2 — real bugs found by continuing the deep-dive (2026-07-25)
+
+Prompted by *"have we fixed real bugs?"* → *"deep dive and fix them"*. Audited the composition
+write handlers for correctness (gating, OCC, integrity invariants, contract-vs-behavior). Most
+were solidly defended (scene_link validates both endpoints are scenes in the gated project;
+switch_active_work validates the target belongs to the book; OCC enforced). **Three real bugs
+found in one cluster — Undo affordances that silently vanished + an advertised-but-unreachable
+reversibility:**
+
+### Bug 1+2 — bare-STRING `undo_hint` silently dropped (no Undo button)
+
+`chat-service tool_undo_hint()` returns `hint if isinstance(hint, dict) else None`. Two Tier-A
+composition tools returned a **string** `undo_hint`, so the consumer dropped it → the FE activity
+strip showed **no Undo** for these reversible actions:
+- `composition_archive_derivative`: `"restore by PATCH status=active"` — a string, AND naming an
+  operation no tool exposed.
+- `composition_switch_active_work`: `"…project_id=null → back to canonical"` — a string, AND only
+  ever offering canonical (not the true prior).
+
+Cross-service sweep: **isolated to composition** — book/glossary/provider-registry all emit the
+structured `{tool,args}` map. Fixed both to structured `_undo(...)`. Live-verified: both now
+return dicts; `switch_active_work`'s undo restores the **actual prior** active Work (added
+`get_user_preference` to capture it first) — proven live (switch→WORK then→canonical yields an
+undo pointing back at WORK).
+
+### Bug 3 — `archive_derivative` advertised a reversibility NO path delivered
+
+The archive claimed "REVERSIBLE" but **no tool or REST route un-archived a derivative** (nothing
+set a Work's `status` back to `active`). Fixed by adding `op=restore` to
+`composition_derivative_edit` (the un-archive that makes the claim real) over the SAME
+`WorksRepo.update` the archive uses — EDIT-gated, derivative-only, OCC, with a structured
+re-archive undo. Live: `op=restore` is wired + reaches the guarded handler (NOT_A_DERIVATIVE on a
+canonical Work). Also corrected the false "restore by switching it active" claim in the
+`derivative_edit`/`archive_derivative` descriptions (switching active sets a pref, never changes
+status).
+
+**Net round 2: 3 real bugs fixed** (2 silently-dropped Undo affordances + 1 unreachable
+reversibility), 6 tests (incl. the pre-existing test that had PINNED the buggy string hint),
+live-verified. Method note: contract-vs-behavior ("the description promises X; does the code do
+X, and can the consumer even read the result?") is the lens that keeps yielding real defects.

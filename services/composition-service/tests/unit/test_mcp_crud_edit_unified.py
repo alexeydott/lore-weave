@@ -212,3 +212,43 @@ async def test_derivative_edit_update_spec_routes_and_preserves_null_clear():
     assert "pov_anchor" in passed.model_fields_set and passed.pov_anchor is None
     # an omitted field is NOT forwarded (real partial update)
     assert "taxonomy" not in passed.model_fields_set
+
+
+async def test_derivative_edit_restore_unarchives_with_undo_and_derivative_guard():
+    """op=restore is NEW behavior (there was no un-archive path — archive advertised a
+    reversibility nothing delivered). It sets status active over WorksRepo.update, rejects the
+    canonical Work, and emits a structured re-archive undo."""
+    import uuid as _uuid
+    from types import SimpleNamespace
+    deriv = SimpleNamespace(project_id=_uuid.UUID(PROJ), source_work_id=_uuid.uuid4())
+    restored = SimpleNamespace(version=6, model_dump=lambda mode: {"status": "active", "version": 6})
+    works = AsyncMock()
+    works.get = AsyncMock(return_value=deriv)
+    works.update = AsyncMock(return_value=restored)
+    with patch.object(srv, "_ctx", side_effect=lambda c: c), \
+         patch.object(srv, "get_pool", return_value=object()), \
+         patch.object(srv, "WorksRepo", return_value=works), \
+         patch.object(srv, "_book_or_deny", AsyncMock(return_value=None)):
+        res = await srv.composition_derivative_edit(
+            _Ctx(), srv._DerivativeEditArgs(op="restore", project_id=PROJ))
+    # set status active via the same repo the archive uses
+    assert works.update.await_args.args[1] == {"status": "active"}
+    hint = res["_meta"]["undo_hint"]
+    assert hint["tool"] == "composition_derivative_edit" and hint["args"]["op"] == "archive"
+    assert hint["args"]["expected_version"] == 6
+
+
+async def test_derivative_edit_restore_rejects_canonical_work():
+    import uuid as _uuid
+    from types import SimpleNamespace
+    canonical = SimpleNamespace(project_id=_uuid.UUID(PROJ), source_work_id=None)  # not a derivative
+    works = AsyncMock()
+    works.get = AsyncMock(return_value=canonical)
+    with patch.object(srv, "_ctx", side_effect=lambda c: c), \
+         patch.object(srv, "get_pool", return_value=object()), \
+         patch.object(srv, "WorksRepo", return_value=works), \
+         patch.object(srv, "_book_or_deny", AsyncMock(return_value=None)):
+        res = await srv.composition_derivative_edit(
+            _Ctx(), srv._DerivativeEditArgs(op="restore", project_id=PROJ))
+    assert res["success"] is False and "NOT_A_DERIVATIVE" in res["error"]
+    works.update.assert_not_awaited()

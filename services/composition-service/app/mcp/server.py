@@ -1442,7 +1442,7 @@ async def composition_get_derivative_context(
     name="composition_archive_derivative",
     description=(
         "Archive a what-if derivative (dị bản) — a REVERSIBLE soft-delete (its chapters + "
-        "knowledge partition survive; restore by setting status active). Requires "
+        "knowledge partition survive; restore via composition_derivative_edit op=restore). Requires "
         "`expected_version` (optimistic concurrency; stale → applied_conflict). EDIT "
         "required. Rejects the canonical Work (only a derivative can be archived here)."
     ),
@@ -1474,7 +1474,13 @@ async def composition_archive_derivative(ctx: MCPContext, args: _DerivativeArchi
     if updated is None:
         raise uniform_not_accessible()
     out = updated.model_dump(mode="json")
-    out["_meta"] = {"undo_hint": "restore by PATCH status=active"}
+    # C-ACTIVITY: a STRUCTURED hint to the REAL reverse op (composition_derivative_edit op=restore).
+    # The prior value was a bare string ("restore by PATCH status=active") — silently dropped by
+    # chat-service tool_undo_hint AND naming an operation no tool exposed (the archive claimed
+    # reversibility that was unreachable; op=restore now delivers it).
+    out["_meta"] = {"undo_hint": _undo(
+        "composition_derivative_edit", op="restore",
+        project_id=args.project_id, expected_version=updated.version)}
     return out
 
 
@@ -1853,15 +1859,27 @@ async def composition_switch_active_work(ctx: MCPContext, args: _SwitchActiveWor
         if w is None or w.book_id != bid:
             return {"success": False, "error": "NOT_A_WORK_OF_THIS_BOOK"}
         target = str(w.project_id) if w.project_id else args.project_id
-    from app.clients.auth_prefs_client import AuthPrefsError, set_user_preference
+    from app.clients.auth_prefs_client import (
+        AuthPrefsError, get_user_preference, set_user_preference,
+    )
+    pref_key = f"lw_active_work.{bid}"  # the SAME key the FE's useActiveWorkId reads
+    # Capture the PRIOR active-work FIRST so Undo restores exactly it (not always canonical) —
+    # best-effort: a read failure just falls back to canonical (project_id=None) in the hint.
     try:
-        # The SAME key + store the FE's useActiveWorkId reads (lw_active_work.<book>).
-        await set_user_preference(tc.user_id, f"lw_active_work.{bid}", target)
+        prior = await get_user_preference(tc.user_id, pref_key)
+    except AuthPrefsError:
+        prior = None
+    try:
+        await set_user_preference(tc.user_id, pref_key, target)
     except AuthPrefsError:
         return {"success": False, "error": "PREF_WRITE_UNAVAILABLE"}
     return {
         "success": True, "book_id": str(bid), "active_project_id": target,
-        "_meta": {"undo_hint": "composition_switch_active_work with project_id=null → back to canonical"},
+        # C-ACTIVITY: a STRUCTURED {tool,args} hint — a bare STRING is silently dropped by
+        # chat-service `tool_undo_hint` (isinstance dict check), so the Undo affordance vanished.
+        "_meta": {"undo_hint": _undo(
+            "composition_switch_active_work", book_id=str(bid),
+            project_id=prior if isinstance(prior, str) else None)},
     }
 
 
@@ -6898,9 +6916,9 @@ async def composition_scene_link_edit(ctx: MCPContext, args: _SceneLinkEditArgs)
 # create_derivative stays separate (W/confirm-gated); switch_active_work stays separate (a
 # per-user active-work PREF keyed by book_id, over any Work, not derivative-CRUD). ─────────────
 class _DerivativeEditArgs(ForbidExtra):
-    op: Literal["archive", "update_spec"]
-    project_id: str                      # both (the derivative's project_id)
-    expected_version: int | None = None  # archive (required — optimistic concurrency)
+    op: Literal["archive", "restore", "update_spec"]
+    project_id: str                      # all (the derivative's project_id)
+    expected_version: int | None = None  # archive (required) / restore (optional OCC)
     taxonomy: Literal["pov_shift", "character_transform", "au"] | None = None  # update_spec
     pov_anchor: str | None = None        # update_spec (explicit null CLEARS it)
     canon_rule: list[str] | None = None  # update_spec
@@ -6909,28 +6927,59 @@ class _DerivativeEditArgs(ForbidExtra):
 @mcp_server.tool(
     name="composition_derivative_edit",
     description=(
-        "Update or archive a what-if derivative (dị bản) — the unified derivative-CRUD entry point. "
-        "op=update_spec edits the divergence spec AFTER derive (taxonomy ∈ pov_shift|character_transform|"
-        "au, pov_anchor, canon_rule[]; only the fields you pass change; pass pov_anchor=null to CLEAR it). "
-        "op=archive soft-deletes the derivative (needs expected_version; reversible — its chapters + "
-        "knowledge survive; restore by switching it active). Both reject the canonical Work. To CREATE a "
-        "derivative use composition_create_derivative; to switch which is active use "
-        "composition_switch_active_work. EDIT on the book required."
+        "Update, archive, or restore a what-if derivative (dị bản) — the unified derivative-CRUD entry "
+        "point. op=update_spec edits the divergence spec AFTER derive (taxonomy ∈ pov_shift|"
+        "character_transform|au, pov_anchor, canon_rule[]; only the fields you pass change; pass "
+        "pov_anchor=null to CLEAR it). op=archive soft-deletes the derivative (needs expected_version; "
+        "its chapters + knowledge survive). op=restore un-archives it (sets status active; optional "
+        "expected_version). All reject the canonical Work. To CREATE a derivative use "
+        "composition_create_derivative; to switch which is active use composition_switch_active_work. "
+        "EDIT on the book required."
     ),
     meta=require_meta(
         "A", "book",
         synonyms=["edit derivative", "update divergence spec", "archive derivative",
-                  "delete derivative", "edit dị bản", "manage derivative"],
+                  "delete derivative", "restore derivative", "unarchive derivative",
+                  "edit dị bản", "manage derivative"],
         tool_name="composition_derivative_edit",
     ),
 )
 async def composition_derivative_edit(ctx: MCPContext, args: _DerivativeEditArgs) -> dict:
-    """Unified derivative-CRUD dispatch — delegates to the SAME handlers (no logic moved)."""
+    """Unified derivative-CRUD dispatch. archive/update_spec delegate to the SAME legacy handlers;
+    op=restore is NEW behavior (there was no un-archive tool — the archive advertised a
+    reversibility no path delivered), implemented here over the same WorksRepo.update the archive
+    uses (status→active), EDIT-gated + derivative-only + OCC, mirroring the archive."""
     if args.op == "archive":
         if args.expected_version is None:
             raise ValueError("op=archive requires expected_version")
         return await composition_archive_derivative(ctx, _DerivativeArchiveArgs(
             project_id=args.project_id, expected_version=args.expected_version))
+    if args.op == "restore":
+        tc = _ctx(ctx)
+        works = WorksRepo(get_pool())
+        pid = UUID(args.project_id)
+        await _book_or_deny(works, tc, pid, GrantLevel.EDIT)
+        work = await works.get(pid)
+        if work is None:
+            raise uniform_not_accessible()
+        if work.source_work_id is None:
+            return {"success": False,
+                    "error": "NOT_A_DERIVATIVE — restore applies only to a dị bản, not the canonical Work"}
+        try:
+            updated = await works.update(
+                pid, {"status": "active"}, created_by=tc.user_id,
+                expected_version=args.expected_version)
+        except VersionMismatchError as exc:
+            return {"success": False, "outcome": "applied_conflict",
+                    "error": "stale expected_version — refetch and retry",
+                    "current_version": exc.current.version}
+        if updated is None:
+            raise uniform_not_accessible()
+        out = updated.model_dump(mode="json")
+        out["_meta"] = {"undo_hint": _undo(
+            "composition_derivative_edit", op="archive",
+            project_id=args.project_id, expected_version=updated.version)}
+        return out
     # op == "update_spec" — _passed preserves the documented pov_anchor=null clear
     return await composition_divergence_spec_update(ctx, _DivergenceSpecUpdateArgs(
         project_id=args.project_id,

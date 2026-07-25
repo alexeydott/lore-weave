@@ -1001,7 +1001,13 @@ async def test_archive_derivative_soft_deletes_with_restore_hint():
             _Ctx(), srv._DerivativeArchiveArgs(project_id=str(deriv.project_id), expected_version=2),
         )
     assert res["status"] == "archived"
-    assert "restore" in res["_meta"]["undo_hint"].lower()
+    # S3 undo-shape fix: a STRUCTURED {tool,args} hint to the REAL reverse op — a bare STRING
+    # (the prior value) was silently dropped by chat-service tool_undo_hint (isinstance dict).
+    hint = res["_meta"]["undo_hint"]
+    assert isinstance(hint, dict)
+    assert hint["tool"] == "composition_derivative_edit"
+    assert hint["args"]["op"] == "restore"
+    assert hint["args"]["project_id"] == str(deriv.project_id)
 
 
 async def test_archive_derivative_stale_version_is_applied_conflict():
@@ -1207,13 +1213,20 @@ async def test_switch_active_work_sets_the_per_book_pref():
     async with _patched(grant_level=2) as s:
         s.WorksRepo(None).get = AsyncMock(return_value=_work())  # a Work of BOOK
         set_pref = AsyncMock()
-        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref):
+        get_pref = AsyncMock(return_value="prior-work-id")  # the PRIOR active work
+        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref), \
+             patch("app.clients.auth_prefs_client.get_user_preference", get_pref):
             res = await srv.composition_switch_active_work(
                 _Ctx(), srv._SwitchActiveWorkArgs(book_id=str(BOOK), project_id=str(PROJECT)),
             )
     assert res["success"] is True and res["active_project_id"] == str(PROJECT)
     a = set_pref.await_args.args
     assert a[0] == TEST_USER and a[1] == f"lw_active_work.{BOOK}" and a[2] == str(PROJECT)
+    # S3 undo-shape fix: STRUCTURED {tool,args} hint restoring the PRIOR active work (a bare
+    # string was silently dropped by tool_undo_hint → the Undo affordance had vanished).
+    hint = res["_meta"]["undo_hint"]
+    assert isinstance(hint, dict) and hint["tool"] == "composition_switch_active_work"
+    assert hint["args"]["book_id"] == str(BOOK) and hint["args"]["project_id"] == "prior-work-id"
 
 
 async def test_switch_active_work_null_clears_to_canonical():
@@ -1221,7 +1234,8 @@ async def test_switch_active_work_null_clears_to_canonical():
 
     async with _patched(grant_level=2):
         set_pref = AsyncMock()
-        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref):
+        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref), \
+             patch("app.clients.auth_prefs_client.get_user_preference", AsyncMock(return_value=None)):
             res = await srv.composition_switch_active_work(
                 _Ctx(), srv._SwitchActiveWorkArgs(book_id=str(BOOK), project_id=None),
             )
@@ -1237,7 +1251,8 @@ async def test_switch_active_work_rejects_a_foreign_work():
         foreign.book_id = uuid.uuid4()  # a Work of a DIFFERENT book
         s.WorksRepo(None).get = AsyncMock(return_value=foreign)
         set_pref = AsyncMock()
-        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref):
+        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref), \
+             patch("app.clients.auth_prefs_client.get_user_preference", AsyncMock(return_value=None)):
             res = await srv.composition_switch_active_work(
                 _Ctx(), srv._SwitchActiveWorkArgs(book_id=str(BOOK), project_id=str(PROJECT)),
             )
@@ -1251,7 +1266,8 @@ async def test_switch_active_work_pref_write_unavailable():
 
     async with _patched(grant_level=2):
         set_pref = AsyncMock(side_effect=AuthPrefsError("auth down"))
-        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref):
+        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref), \
+             patch("app.clients.auth_prefs_client.get_user_preference", AsyncMock(return_value=None)):
             res = await srv.composition_switch_active_work(
                 _Ctx(), srv._SwitchActiveWorkArgs(book_id=str(BOOK), project_id=None),
             )
