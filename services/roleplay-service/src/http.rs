@@ -56,10 +56,10 @@ pub fn build_router(state: AppState) -> Router {
     let user = Router::new()
         .route("/v1/roleplay/scripts", get(scripts::list).post(scripts::create))
         .route(
-            "/v1/roleplay/scripts/:id",
+            "/v1/roleplay/scripts/{id}",
             get(scripts::get_one).patch(scripts::patch).delete(scripts::del),
         )
-        .route("/v1/roleplay/scripts/:id/start", post(start::start))
+        .route("/v1/roleplay/scripts/{id}/start", post(start::start))
         .layer(from_fn_with_state(state.clone(), require_user::<AppState>));
 
     Router::new()
