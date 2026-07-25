@@ -731,28 +731,37 @@ class KnowledgeClient:
                 "error": "mcp tool backend unavailable: mcp package not installed",
             }
 
+        # str() every id header value: session_id / project_id / book_id can arrive as a
+        # uuid.UUID OBJECT from asyncpg (session_row / a suspended-run record), and httpx
+        # refuses a non-str/bytes header value with "Header value must be str or bytes, not
+        # UUID" — which silently ABORTED the whole tool call. Found live 2026-07-25 on the
+        # RESUME path (glossary_task_provide_input for an adopt-standards gate): the UUID
+        # project_id killed the provide-input transport, so the accepted gate never ran its
+        # write and the book's ontology kinds were never created. Same UUID-not-str class as
+        # the _inject_context_ids fix; coerced HERE at the transport boundary so it holds for
+        # every caller (fresh turn + resume) regardless of where the id originated.
         if admin_token:
             # System-tier admin tool: separate endpoint, RS256 authority, NO X-User-Id.
             mcp_url = f"{self._tools_base_url}/mcp/admin"
             headers = {
                 "X-Internal-Token": self._http.headers["X-Internal-Token"],
                 "X-Admin-Token": admin_token,
-                "X-Session-Id": session_id,
+                "X-Session-Id": str(session_id),
             }
         else:
             mcp_url = f"{self._tools_base_url}/mcp"
             headers = {
                 "X-Internal-Token": self._http.headers["X-Internal-Token"],
-                "X-User-Id": user_id,
-                "X-Session-Id": session_id,
+                "X-User-Id": str(user_id),
+                "X-Session-Id": str(session_id),
             }
         if project_id and not admin_token:
-            headers["X-Project-Id"] = project_id
+            headers["X-Project-Id"] = str(project_id)
         # Studio context binding (spec 2026-07-22) — forward the session's AMBIENT book as
         # X-Book-Id so book-scoped tools resolve book_id when the model omits it (ResolveBookScope).
         # A scope HINT, never authz (the tool still grant-checks it). Non-admin only.
         if book_id and not admin_token:
-            headers["X-Book-Id"] = book_id
+            headers["X-Book-Id"] = str(book_id)
         # K7e — mirror execute_tool: forward the caller's trace_id so
         # knowledge-service stitches its logs to the originating chat turn.
         # Omit when empty so knowledge-service mints its own.
