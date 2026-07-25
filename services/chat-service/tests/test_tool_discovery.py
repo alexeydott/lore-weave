@@ -743,6 +743,64 @@ class TestGenericFrontendTools:
         assert [t["function"]["name"] for t in base] == [t["function"]["name"] for t in supp]
 
 
+class TestRailActionGateIntegration:
+    """Action-space GATING (2026-07-26) — the rail-gate suppression set feeds the SAME
+    `suppress_names` chokepoint as oneshot-deadvertise, so a finished rail step's tool is
+    dropped from the advertised wire. These prove the two halves COMPOSE end-to-end (the
+    SDK gate logic itself is pinned in the SDK's test_rail_gate.py)."""
+
+    def _prog(self, steps, next_index):
+        from app.services.rail_progress import BookState, RailProgress, StepProgress
+        sp = [
+            StepProgress(index=i, step_id=f"s{i}", tool=t, done=d, reason="", repeat=r)
+            for i, (t, d, r) in enumerate(steps, 1)
+        ]
+        return RailProgress(slug="demo", steps=sp, next_index=next_index, state=BookState())
+
+    def test_done_suppress_gate_drops_a_finished_step_from_the_wire(self):
+        from app.services.rail_progress import GATE_DONE_SUPPRESS, rail_gate_suppressions
+        from app.services.stream_service import _advertise_discovery_tools, _catalog_index
+        # step 1 (book_create) DONE, step 2 (translation_start_job) not — book_create must drop
+        prog = self._prog(
+            [("book_create", True, False), ("translation_start_job", False, False)], 2
+        )
+        supp = rail_gate_suppressions([prog], set(), GATE_DONE_SUPPRESS)
+        assert supp == {"book_create"}
+        cat = _catalog_index(_MIXED_CATALOG)
+        active = {"book_create", "book_list", "translation_start_job"}
+        names = [
+            t["function"]["name"]
+            for t in _advertise_discovery_tools(
+                cat, active, frontend_tool_defs(editor=False, book_scoped=False),
+                suppress_names=supp,
+            )
+        ]
+        assert "book_create" not in names          # the finished step's tool is gone
+        assert "translation_start_job" in names     # the current step's tool survives
+        assert "book_list" in names                 # an unrelated active tool untouched
+        assert "tool_list" in names                 # the discovery core is never gated
+
+    def test_step_lock_gate_leaves_only_the_current_step_tool(self):
+        from app.services.rail_progress import GATE_STEP_LOCK, rail_gate_suppressions
+        from app.services.stream_service import _advertise_discovery_tools, _catalog_index
+        prog = self._prog(
+            [("book_create", True, False), ("translation_start_job", False, False),
+             ("composition_outline_create", False, False)], 2
+        )
+        supp = rail_gate_suppressions([prog], set(), GATE_STEP_LOCK)
+        assert supp == {"book_create", "composition_outline_create"}
+        cat = _catalog_index(_MIXED_CATALOG)
+        active = {"book_create", "translation_start_job", "composition_outline_create"}
+        names = [
+            t["function"]["name"]
+            for t in _advertise_discovery_tools(cat, active, [], suppress_names=supp)
+        ]
+        assert names.count("translation_start_job") == 1   # only the current step's tool
+        assert "book_create" not in names
+        assert "composition_outline_create" not in names
+        assert "tool_list" in names                          # core still reachable
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # C-FT hot set + lazy tail — per-surface domain scoping (the standard)
 # ════════════════════════════════════════════════════════════════════════════

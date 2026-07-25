@@ -1,5 +1,31 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## ✅ RAIL ACTION-SPACE GATING — built, measured, shipped (2026-07-26)
+**The reliable-workflow move the user asked for.** The rail state machine was already externalized
+(`compute_rail_progress` reads the book) + re-injected each turn (`render_progress_block`), but that
+re-injection is **advisory** — a weak model reads "ALREADY DONE — do NOT repeat" and repeats anyway.
+Now the verdict is **binding**: a proven-done step's tool is dropped from the advertised set at the
+single advertise chokepoint ("do NOT repeat" → "cannot call"). New pure SDK fn
+`rail_gate_suppressions(progress, turn_succeeded, mode)` (`loreweave_agent_control/rail.py`),
+workflow-agnostic, unioned into `_suppress` in `stream_service.py` (fresh + resume paths).
+- **Studied Dify first** (`D:\Works\source\dify`): agent mode = full flat toolset + iteration cap
+  (our exact limitation); workflow mode = engine owns control flow, LLM demoted to a per-node
+  function; newest `dify-agent-runtime` externalizes state + narrows tools but does **no** per-step
+  gating. Our gate is the middle path none of the three does. **No new library needed** — our
+  declarative workflow engine already exists (`agent-registry-service` stores tiered workflows as
+  data; adding one is a registry row, not code).
+- **3 modes** behind `RAIL_ACTION_GATE_MODE`, **measured** (weak qwen2.5-7b reproduces the loop;
+  gemma-4-26b = regression control): `off` 13-21 propose attempts/1.6-3.8M tok; **`done_suppress`
+  1-5 attempts/14K-277K tok, NO gemma regression (3/3 entities)**; `step_lock` 0 wander but
+  **regresses gemma (0 entities + `propose_entity_edit` ×59)** → disqualified. **Default =
+  `done_suppress`** (reactive beats pre-emptive, same lesson as oneshot `existence`). Table:
+  `docs/eval/e2e-newcomer/2026-07-25-newcomer-run.md` (2026-07-26 section).
+- **Verify:** SDK 31 + chat 1905 green; provider-gate OK; live cross-service smoke = 15 real turns
+  across 2 models. chat-service redeployed, default confirmed live.
+- **Residual (tracked, not blocking):** `done_suppress` doesn't stop a weak model **jumping to a
+  future step** and looping there (1/3 weak runs, e.g. `book_chapter_save_draft` ×24) — smaller harm
+  than `off`'s spiral; revisit if it recurs on mid-tier models.
+
 ## 🚨 GLOSSARY FEDERATION OUTAGE — FOUND + FIXED + GATED (2026-07-23)
 The catalog-unification (Part B) shipped a schema that **de-federated the entire glossary provider**.
 `glossary_curation_list` declared its union payload as `Items any`; the go-sdk reflector renders `any` as

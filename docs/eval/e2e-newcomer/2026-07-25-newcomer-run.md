@@ -288,3 +288,52 @@ lets the model mark the step done, and *then* the tool leaves the surface. **Def
 causally the attempt count (each attempt is a loop iteration re-sending the growing context).
 `off`/`existence`/`session`/`per_turn` remain env-selectable (`ONESHOT_DEADVERTISE_MODE`) for
 future re-tuning.
+
+---
+
+## Rail action-space GATING — `rail_action_gate_mode` A/B (2026-07-26)
+
+**Motivation (the user's framing):** the state machine is already externalized
+(`compute_rail_progress` reads the book) and re-injected each turn (`render_progress_block`:
+*"ALREADY DONE — do NOT repeat"*), but that re-injection is **advisory** — a weak model reads it
+and repeats anyway. So bind the rail's progress verdict into the **advertised action space**:
+"do NOT repeat" → **"cannot call"** (schema-gating at the single advertise chokepoint, reusing the
+`suppress_names` plumbing from the oneshot work above). Studied against Dify (agent mode = full flat
+toolset + iteration cap = the same limitation; workflow mode = engine owns control flow, model
+demoted to a per-node function; newest `dify-agent-runtime` externalizes state + narrows tools but
+does **no** per-step gating). Our gate is the middle path none of Dify's three modes does.
+
+Implemented **all three** modes behind `rail_action_gate_mode` and measured. Because the prior fix
+stack already tamed **gemma-4-26b** on this turn (it no longer wanders — see the clean baseline),
+the weak **qwen2.5-7b** is used to *reproduce* the loop, and gemma is the **regression control**
+(it completes fully under `off`, so the default must not break it). Turn = "propose a sensible
+ontology (adopt the standard kinds), then seed the core entities Elara, the Reality Maps, and the
+Known World." 3 runs/cell.
+
+**WEAK qwen2.5-7b** — `glossary_propose_entities` attempts · cumulative prompt tok · entities (of 3):
+
+| mode | propose attempts (3 runs) | prompt tok | entities | note |
+|---|---|---|---|---|
+| off | 13 / 21 / 9 | 1.6–3.8M | 0–1 | severe; one run also spiraled into `book_chapter_save_draft` ×24 |
+| **done_suppress** | **1 / 1 / 5** | **14K–277K** | 0 | propose loop killed, ~10–100× cheaper |
+| step_lock | 0 / 0 / 0 | ~25K | 0 | zero wander, adopts the full 13-kind ontology deterministically, then stops at the step boundary |
+
+**MID gemma-4-26b** — the regression control (`off` completes fully):
+
+| mode | propose | prompt tok | kinds | entities | verdict |
+|---|---|---|---|---|---|
+| off | 1 | ~372K | 6 | 3 | ✅ baseline |
+| **done_suppress** | 1 | ~342K | 5 | 3 | ✅ **NO regression** — identical completion, marginally cheaper |
+| step_lock | 0 | 0.36–3M | 6 | 0 | ❌ **REGRESSION**: 0 entities + `glossary_propose_entity_edit` ×**59** |
+
+**Finding → DEFAULT = `done_suppress`.** `step_lock` is **disqualified**: advertising *only* the
+current step's tool starves a rail-driven model of the tools it expects, so it **substitutes a
+non-rail tool and loops on that** (gemma: `propose_entity_edit` ×59, 0 entities) — the *same* failure
+class as the oneshot `existence` mode. **Reactive** suppression (drop a step's tool once it is
+*proven done*) beats **pre-emptive** suppression again, same causal reason: a terminal DONE state is
+what lets the model move on, and only then is the tool removed. `done_suppress` is a pure safety net —
+**inert until a proven-done step would repeat**, so the clean mid-tier path is byte-unchanged while a
+weak model's repeat spiral is capped 10–100×. Residual (tracked, not fixed): `done_suppress` does not
+stop a weak model **jumping to a future step** and looping there (1/3 weak runs) — a smaller harm than
+`off`'s 3.8M-token spiral; `step_lock` "fixes" it only by breaking the good model. All three stay
+env-selectable via `RAIL_ACTION_GATE_MODE`.

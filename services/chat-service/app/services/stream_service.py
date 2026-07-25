@@ -110,7 +110,7 @@ from app.services.skill_registry import (
     LOAD_SKILL_TOOL,
     load_skill_result,
 )
-from app.services.rail_progress import user_abandoned_rail
+from app.services.rail_progress import rail_gate_suppressions, user_abandoned_rail
 from app.services.subagent_runtime import (
     RUN_SUBAGENT_NAME,
     SUBAGENT_MAX_ITERATIONS,
@@ -581,27 +581,31 @@ async def _compute_rail_drive_context(
 ):
     """Fetch the pinned workflows + grant + turn-start counts + async set for a book, so the
     RESUME path can keep DRIVING the rail past a confirm suspend (the fresh path computes this
-    inline). Returns ``(rail_specs, grant_ok, turn_start_counts, async_tools)`` or the inert
-    ``([], False, None, frozenset())`` on any failure — the resume then simply does not drive.
+    inline). Returns ``(rail_specs, grant_ok, turn_start_counts, async_tools, rail_progress)`` or
+    the inert ``([], False, None, frozenset(), [])`` on any failure — the resume then simply does
+    not drive. ``rail_progress`` (turn-start RailProgress objects, parallel to rail_specs) feeds
+    the advertise chokepoint's action-space gating; empty ⇒ gating inert on resume.
     """
     try:
         from app.client.grant_client import GrantLevel, get_grant_client
         from app.client.registry_workflows_client import get_workflows_client
         from app.db.tool_call_history import succeeded_tool_counts
+        from app.services.book_state_probe import probe_book_state
+        from app.services.rail_progress import compute_rail_progress
 
         wfs = await get_workflows_client().get_workflows(
             str(user_id), book_id=str(book_id), surface="book", mode=permission_mode,
         )
         binding = wfs.mode_binding
         if not (binding and binding.inject_workflows):
-            return [], False, None, frozenset()
+            return [], False, None, frozenset(), []
         visible = {w.get("slug") for w in wfs.workflows if w.get("slug")}
         pinned = [s for s in binding.inject_workflows if s in visible]
         if not pinned:
-            return [], False, None, frozenset()
+            return [], False, None, frozenset(), []
         lvl, _ = await get_grant_client().resolve_access(UUID(str(book_id)), UUID(str(user_id)))
         if lvl < GrantLevel.VIEW:
-            return [], False, None, frozenset()
+            return [], False, None, frozenset(), []
         counts = await succeeded_tool_counts(pool, str(session_id))
         catalog = await knowledge_client.get_tool_definitions(user_id=user_id)
         async_tools = frozenset(
@@ -613,10 +617,19 @@ async def _compute_rail_drive_context(
             steps = wf.get("steps") if isinstance(wf, dict) else None
             if isinstance(steps, list) and steps:
                 rail_specs.append((slug, steps))
-        return rail_specs, True, counts, async_tools
+        # Turn-start progress for action-space gating on resume — best-effort; a probe failure
+        # leaves progress empty (gating inert) but the rail still drives on counts.
+        rail_progress: list = []
+        try:
+            _bstate = await probe_book_state(str(book_id), str(user_id))
+            for slug, steps in rail_specs:
+                rail_progress.append(compute_rail_progress(slug, steps, _bstate, counts))
+        except Exception:  # noqa: BLE001 — gating is never load-bearing
+            rail_progress = []
+        return rail_specs, True, counts, async_tools, rail_progress
     except Exception:  # noqa: BLE001 — the driver is never load-bearing
         logger.warning("resume rail-drive context failed — rail not driven on resume", exc_info=True)
-        return [], False, None, frozenset()
+        return [], False, None, frozenset(), []
 
 
 # ACP A2 (RW-3): `_maybe_redrive_rail` (the fresh-probe drive selector) + the inline enforcement
@@ -1468,6 +1481,11 @@ async def _stream_with_tools(
     rail_grant_ok: bool = False,
     rail_turn_start_counts=None,
     rail_async_tools: frozenset[str] = frozenset(),
+    # Action-space gating (2026-07-26) — the turn-start RailProgress objects for the pinned
+    # rails, used with `settings.rail_action_gate_mode` to bind the ADVERTISED tool set to the
+    # rail's progress (drop a finished step's tool so a weak model can't repeat it). None/empty
+    # ⇒ no gating (the advertise surface is byte-identical). See rail_gate_suppressions.
+    rail_progress: list | None = None,
     # True on a RESUME that suspended mid-rail: the rail is definitionally in flight, so the
     # driver may fire even though this turn's only action was the (frontend) confirm — which
     # executes off the backend chokepoint and so is not in turn_succeeded.
@@ -1630,6 +1648,9 @@ async def _stream_with_tools(
         # "session" removes the tool from activation_state instead (persists across turns).
         oneshot_suppress: set[str] = set()
         _oneshot_mode = settings.oneshot_deadvertise_mode
+        # Action-space gating mode (2026-07-26) — read once; drives rail_gate_suppressions at the
+        # advertise chokepoint below. "off" ⇒ inert. Only ever suppresses a rail STEP tool.
+        _rail_gate_mode = settings.rail_action_gate_mode
         # F18 — tool_list exhaustion state (see TOOL_LIST_CATEGORY_CAP). tool_list returns the
         # WHOLE category at once, so a re-list is a loop; track per-category list counts + the
         # per-turn total so a repeat switches to auto-load+steer and a persistent spammer gets
@@ -1780,6 +1801,16 @@ async def _stream_with_tools(
                         _suppress = oneshot_suppress
                     else:
                         _suppress = frozenset()
+                    # rail action-space gating (2026-07-26) — bind the advertised tool set to the
+                    # rail's progress, advanced by THIS turn's successes (turn_succeeded), so a
+                    # finished step's tool leaves the wire mid-turn — the intra-turn repeat killer.
+                    # Union with the oneshot suppression; "off" returns empty (byte-identical).
+                    if _rail_gate_mode != "off" and rail_progress:
+                        _rail_suppress = rail_gate_suppressions(
+                            rail_progress, turn_succeeded, _rail_gate_mode
+                        )
+                        if _rail_suppress:
+                            _suppress = set(_suppress) | _rail_suppress
                     advertised = _advertise_discovery_tools(
                         cat_index, active_tool_names, extra_fe,
                         permission_mode=permission_mode,
@@ -4660,6 +4691,10 @@ async def stream_response(
     _rail_specs: list[tuple[str, list]] = []
     _rail_turn_start_counts = None
     _rail_grant_ok = False
+    # Action-space gating — the turn-start RailProgress objects for the pinned rails, passed to
+    # _stream_with_tools so the advertise chokepoint can drop finished steps' tools. Empty ⇒
+    # inert (no gating). Parallel to _rail_specs, populated in the same probe block.
+    _rail_progress_objs: list = []
     # M2 (all-tracks-clear) — INTENT pinning. The mode binding pins ONE rail per mode
     # (write→vision-to-book), so the OTHER rails (entity-triage, canon-check, kg-build, …) a
     # mid-tier model must DISCOVER, and measured it does so unreliably (S03 0/3, S04 1/3, S09
@@ -4754,6 +4789,7 @@ async def stream_response(
                                 continue
                             _rail_specs.append((_slug, _steps))
                             _prog = compute_rail_progress(_slug, _steps, _bstate, _ran)
+                            _rail_progress_objs.append(_prog)
                             _progress_by_slug[_slug] = render_progress_block(_prog)
                             logger.info(
                                 "rail %s: %d/%d steps done, next=%s (book=%s)",
@@ -5138,6 +5174,9 @@ async def stream_response(
         rail_grant_ok=_rail_grant_ok,
         rail_turn_start_counts=_rail_turn_start_counts,
         rail_async_tools=_turn_async_tools,
+        # Action-space gating — turn-start RailProgress for the pinned rails (parallel to
+        # _rail_specs); the advertise chokepoint drops finished steps' tools per the gate mode.
+        rail_progress=_rail_progress_objs or None,
     ):
         yield line
 
@@ -5357,6 +5396,9 @@ async def _emit_chat_turn(
     rail_turn_start_counts=None,
     rail_async_tools: frozenset[str] = frozenset(),
     rail_in_flight: bool = False,
+    # Action-space gating — turn-start RailProgress objects for the pinned rails (parallel to
+    # rail_specs); forwarded to the tool loop's advertise chokepoint. None on the resume caller.
+    rail_progress: list | None = None,
 ) -> AsyncGenerator[str, None]:
     """Shared Stream→persist→finish body for a chat turn (fresh OR C6 resume).
 
@@ -5692,6 +5734,7 @@ async def _emit_chat_turn(
                 rail_async_tools=rail_async_tools,
                 rail_in_flight=rail_in_flight,
                 rail_user_abandoned=user_abandoned_rail(user_message_content),
+                rail_progress=rail_progress,
             )
         else:
             chunk_stream = _stream_via_gateway(
@@ -6777,8 +6820,11 @@ async def resume_stream_response(
     # the cast, connections, plan, draft). Without this the rail stalls at the confirm (measured
     # 2/5). Degrade-safe: no book / any failure ⇒ inert, resume behaves as before.
     _r_rail_specs, _r_rail_grant, _r_rail_counts, _r_rail_async = [], False, None, frozenset()
+    _r_rail_progress: list = []
     if settings.rail_driver_enabled and susp.book_id:
-        _r_rail_specs, _r_rail_grant, _r_rail_counts, _r_rail_async = await _compute_rail_drive_context(
+        (
+            _r_rail_specs, _r_rail_grant, _r_rail_counts, _r_rail_async, _r_rail_progress,
+        ) = await _compute_rail_drive_context(
             pool, user_id, susp.book_id, susp.permission_mode, session_id, knowledge_client,
         )
 
@@ -6843,6 +6889,8 @@ async def resume_stream_response(
         # exists to prevent). The suspended tool must be one of the rail's own step tools.
         rail_in_flight=bool(_r_rail_specs)
         and (susp.pending_tool_call or {}).get("name") in set(susp.pinned_step_tools or []),
+        # Action-space gating on resume — turn-start progress recomputed by the rail-drive context.
+        rail_progress=_r_rail_progress or None,
         # NB: the rail_user_abandoned flag is computed INSIDE _emit_chat_turn from its
         # user_message_content (= susp.user_message_content, passed above) before it calls
         # _stream_with_tools — the resume path needs no extra arg here.

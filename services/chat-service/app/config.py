@@ -303,6 +303,44 @@ class Settings(BaseSettings):
     #   attempt is a loop iteration re-sending the growing context).
     oneshot_deadvertise_mode: str = "session"
 
+    # `rail_action_gate_mode` — bind the ADVERTISED ACTION SPACE to the pinned rail's computed
+    # progress, so a weak model cannot repeat a finished step or wander off-step. The rail's
+    # state is already externalized (compute_rail_progress reads the book) and re-injected each
+    # turn (render_progress_block: "ALREADY DONE — do NOT repeat"), but that re-injection is
+    # ADVISORY — the model reads it and repeats anyway (glossary_propose_entities ×8). This makes
+    # the verdict BINDING at the single advertise chokepoint (schema-gating, not instruction).
+    # Union'd with `oneshot_deadvertise_mode`; only ever drops a rail STEP tool (never a meta/
+    # discovery/answer tool), so it cannot strand the turn. A/B modes measured 2026-07-26
+    # (docs/eval/e2e-newcomer); the winner is set as the default.
+    #   "off"           — advisory only (byte-identical to pre-gating): the re-injected block
+    #                     tells the model what's done; nothing stops it re-doing it.
+    #   "done_suppress" — drop a step's tool once that step is effectively DONE (turn-start
+    #                     artifact/call-log OR a this-turn success), unless the step is `repeat`
+    #                     or the same tool is still owed by a not-done step. Kills repeat-a-
+    #                     finished-step loops (cross-turn AND intra-turn) while staying
+    #                     conversational — the model keeps discovery + off-rail tools.
+    #   "step_lock"     — advertise ONLY the current step's tool; every other rail step tool is
+    #                     dropped. Maximally deterministic (Dify-Workflow shape), least
+    #                     conversational — an off-rail aside has no tool to answer it.
+    # MEASURED (2026-07-26, world-setup turn "propose ontology + seed entities", 3 runs/cell,
+    # docs/eval/e2e-newcomer). Weak model = qwen2.5-7b (reproduces the loop), mid = gemma-4-26b
+    # (the real target — the prior fix stack already tamed it, so it's the REGRESSION control):
+    #   WEAK qwen2.5-7b   glossary_propose_entities attempts · cumulative prompt tok · entities/3
+    #     off            13 / 21 / 9   · 1.6–3.8M · 0–1   (also spirals into chapter-save ×24)
+    #     done_suppress   1 /  1 / 5   · 14K–277K · 0     ← propose loop killed, ~10–100× cheaper
+    #     step_lock       0 /  0 / 0   · ~25K     · 0     (zero wander, full 13-kind ontology)
+    #   MID gemma-4-26b (off completes fully = must NOT regress):
+    #     off             1 · ~372K · 3/3   ✅ baseline
+    #     done_suppress   1 · ~342K · 3/3   ✅ NO regression (identical, marginally cheaper)
+    #     step_lock       0 · 0.36–3M · 0/3 ❌ REGRESSION: 0 entities + glossary_propose_entity_edit ×59
+    # ⇒ DEFAULT = done_suppress. step_lock is DISQUALIFIED: pre-emptively starving a rail-driven
+    #   model's action space makes it SUBSTITUTE a non-rail tool and loop on THAT (the same failure
+    #   mode as oneshot "existence"). done_suppress is a pure REACTIVE safety net — inert until a
+    #   proven-DONE step would repeat, so the clean mid-tier path is byte-unchanged while a weak
+    #   model's repeat spiral is capped. (Residual: it does not stop a weak model JUMPING to a
+    #   future step and looping there — a smaller harm than off's spiral, tracked for later.)
+    rail_action_gate_mode: str = "done_suppress"
+
     # D-T2-03 — degraded-mode fallback when knowledge-service is unreachable
     # or returns an error. Must agree with knowledge-service's Mode 1 + Mode 2
     # `recent_message_count` (which also defaults to 50). Both services read
