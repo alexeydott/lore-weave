@@ -141,4 +141,31 @@ Fix (A) live-verified vs real bge-m3. Single-service diff (chat-service) → no 
 live-smoke mandated. Residual: the live-BEHAVIORAL confirm that a weak model OBEYS the (B) steer
 (vs the read-breaker precedent, same error-framing, already proven live) rides the next E2E run.
 
-### Steps 6–8 — pending (compile / plan-hub review / write)
+## 🔴→✅ LIVE RE-RUN after fixes (2026-07-25, rebuilt chat-service image)
+
+Both fixes deployed (image rebuilt + healthy; `grep ROUTER_MAX_ADDITIONS`/`IDEMPOTENT_NOOP_WRITE_CAP`
+= present in the running container) and verified live on the real gemma-4-26b stack ($0):
+
+- **(A) deployed router returns top-2** (real bge-m3, `route_additional_skills` in-container):
+  `update-desc → +[translation, knowledge]`, `ontology → +[knowledge, glossary_shaping]`,
+  `compile → +[plan_forge, composition]` — **3 bodies (~3.5–4.7K tok)** every turn, vs the
+  pre-fix flood of ~10 bodies (15,517 tok). ~70–75% cut, correct skill always present.
+- **(B) breaker FIRES LIVE on gemma's real loop.** Drove "call kg_project_create … then seed
+  the entities" on a book whose KG project already exists. chat-service log:
+  ```
+  idempotent-no-op-write breaker: kg_project_create returned created=false already this turn — short-circuited the repeat   (×2)
+  ```
+  Trajectory: `kg_project_create` dispatched to the backend **ONCE** (created=false) → the 2nd
+  and 3rd identical calls **short-circuited** with the forward steer → the model **obeyed and
+  moved on** to `kg_project_entities_to_nodes` (which minted a confirm card → `awaiting_input`,
+  the normal studio flow). Pre-fix this was up to 5 backend dispatches + the redundant
+  "Apply kg_project_create again?" card. **Loop bounded; weak model steered forward.**
+
+**Caveat (honest):** an end-to-end per-call n_tokens isolation from the LM Studio server log was
+NOT cleanly attributable — that shared local server also serves unrelated external agents (a
+308-tool `/v1/responses` client, 99K-tok tool block, 689-char instructions — NOT chat-service,
+whose system prompt is far larger and uses a different request shape), so the log interleaves
+traffic. The skill-body reduction (the dominant lever) is proven deterministically against the
+deployed code; the loop fix is proven in chat-service's own logs.
+
+## Steps 6–8 — pending (compile / plan-hub review / write)
