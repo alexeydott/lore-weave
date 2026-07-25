@@ -276,6 +276,33 @@ class Settings(BaseSettings):
     # the model to load the rail's real detail on demand.
     lazy_workflow_directive: bool = True
 
+    # `oneshot_deadvertise_mode` — how a COMPLETED one-shot create tool (one whose target
+    # already exists, e.g. kg_project_create on a book that already has a KG project) is kept
+    # off the agent surface so a weak model can't loop on it (the (B) idempotent-write breaker
+    # only short-circuits each *call*; this stops the model *attempting*). A/B modes measured
+    # 2026-07-25 (docs/eval/e2e-newcomer): the winner is set as the default.
+    #   "off"       — advertise as today; only the runtime short-circuit breaker bounds the loop.
+    #   "existence" — DETERMINISTIC: don't advertise the create when the turn's context already
+    #                 carries the resource id it would produce (decided ONCE per turn at
+    #                 surface-build → prefix-cache-stable, the Manus lesson; never advertised so
+    #                 the model never attempts — schema-gating, the strongest "can't call it").
+    #   "session"   — REACTIVE + persistent: on the first `created:false`, drop the tool from the
+    #                 session hot-set (activated_tools) so it never returns this session.
+    #   "per_turn"  — REACTIVE + transient: on the breaker firing, de-advertise for the rest of
+    #                 the turn only (resets next user message / resume pass — weakest).
+    # MEASURED (2026-07-25, gemma bootstrap turn, project pre-exists = the loop condition):
+    #   off        57 kg_project_create attempts, ~1.72M cumulative prompt tok
+    #   existence  57 attempts, ~1.80M tok  ← NO help: the workflow rail NAMES the tool, so a
+    #              weak model HALLUCINATES the call even when it is de-advertised (and dispatch
+    #              executes unadvertised calls). Pre-emptive schema-gating can't stop a rail-driven
+    #              model — the industry "logit-mask, don't remove" lesson doesn't transfer here.
+    #   session     1 attempt, ~0.35M tok   ← WINNER: one clean created:false (a terminal state)
+    #              lets the model mark the step done, THEN the tool leaves the session hot-set.
+    #   per_turn    1 attempt, ~0.37M tok   (equal, but resets each turn → session is strictly better)
+    # ⇒ session: 57→1 attempts, ~5x fewer tokens; the cost is causally the attempt count (each
+    #   attempt is a loop iteration re-sending the growing context).
+    oneshot_deadvertise_mode: str = "session"
+
     # D-T2-03 — degraded-mode fallback when knowledge-service is unreachable
     # or returns an error. Must agree with knowledge-service's Mode 1 + Mode 2
     # `recent_message_count` (which also defaults to 50). Both services read

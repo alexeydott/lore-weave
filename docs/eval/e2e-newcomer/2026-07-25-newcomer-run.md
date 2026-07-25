@@ -256,3 +256,35 @@ read-back) — outcome-based, reusable. Scratchpad: `scenario2.py`.
   the fixation entirely; tracked as a follow-up, not a blocker.
 - Step 7 (open Plan Hub UI to review) is inherently a browser step — verify via Playwright when
   UI review is in scope; the plan/structure it would show is confirmed present in the DB.
+
+## 🔬 Architecture: stopping the agent from ATTEMPTING nonsense (A/B of 3 de-advertise modes)
+
+The (B) idempotent-write breaker only short-circuits each *call* (prevents the backend dispatch)
+— it never stopped the model *attempting*, so gemma kept re-emitting `kg_project_create` (33–57×),
+burning LLM passes. The repo already had the stronger lever — **schema-gating / de-advertising**
+(the `tool_list` breaker drops the tool from the wire) — but it was NOT wired to no-op writes.
+
+**Web research first** (per the ask): Manus's context-engineering lesson is *don't remove tools
+mid-iteration — it invalidates the prefix cache; prefer logit-masking*. We can't logit-mask LM
+Studio, and the security view says schema-gating (absent from schema ⇒ "can't attempt, argue, or
+probe") is robust. So we implemented **all three** de-advertise variants behind
+`oneshot_deadvertise_mode` and **measured** on the bootstrap turn (project pre-exists = the loop
+condition), then set the winner as default:
+
+| mode | kg_project_create attempts | cumulative prompt tok | kinds | entities |
+|---|---|---|---|---|
+| off (baseline) | 57 | 1,716,477 | 5 | 3 |
+| existence (pre-emptive, at surface-build) | 57 | 1,817,669 | 6 | 3 |
+| **session** (reactive, persists via activated_tools) | **1** | **350,084** | 5 | 3 |
+| per_turn (reactive, resets each turn) | 1 | 371,718 | 6 | 3 |
+
+**Finding (contradicted the prediction):** pre-emptive `existence` did **nothing** — the workflow
+**rail NAMES `kg_project_create`**, so a weak model **hallucinates the call even when it's
+de-advertised**, and dispatch executes unadvertised calls. The Manus "don't remove, mask" framing
+doesn't transfer here: pre-removal can't stop a rail-driven model. The **reactive** modes work
+because one clean `created:false` (a *terminal state* — the research's "clear success states")
+lets the model mark the step done, and *then* the tool leaves the surface. **Default = `session`**
+(persists across turns; per_turn resets): **57→1 attempts, ~5x fewer tokens** — the cost is
+causally the attempt count (each attempt is a loop iteration re-sending the growing context).
+`off`/`existence`/`session`/`per_turn` remain env-selectable (`ONESHOT_DEADVERTISE_MODE`) for
+future re-tuning.

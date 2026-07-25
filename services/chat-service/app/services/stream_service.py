@@ -533,6 +533,15 @@ REPEAT_READ_CAP = 2
 # key and is untouched.
 IDEMPOTENT_NOOP_WRITE_CAP = 1
 
+# Completed one-shot CREATE tools → the context-id key whose PRESENCE proves the tool's
+# target already exists (so the tool is done and re-advertising it only invites a loop).
+# kg_project_create stands up a book's KG/composition project; the FE hoist puts that
+# project_id into studio_context, so `project_id` present ⇒ the project exists. Used by the
+# `oneshot_deadvertise_mode` = "existence" gate; the reactive modes key on the tool's own
+# `created:false` result instead. A small explicit registry (not a heuristic) so only
+# genuinely-idempotent one-shot setup tools are ever suppressed.
+ONESHOT_CREATE_TOOLS: dict[str, str] = {"kg_project_create": "project_id"}
+
 # ── F18: the tool_list loop breaker (dogfood round-4) ────────────────────────
 # `tool_list` returns the COMPLETE category in one shot (no cursor/paging), so a
 # re-list of a category the model already listed is provably a loop — the answer is
@@ -1031,6 +1040,7 @@ def _advertise_discovery_tools(
     permission_mode: str = "write",
     has_workflows: bool = False,
     suppress_tool_list: bool = False,
+    suppress_names: set[str] | frozenset[str] = frozenset(),
 ) -> list[dict]:
     """MCP-fanout C-FT — the tools advertised on a universal /chat pass:
     ``{always-on core} ∪ {full schemas of active_tool_names}``, with the
@@ -1105,6 +1115,12 @@ def _advertise_discovery_tools(
     # non-R tool is NOT advertised (DR-C2). Plan mode additionally advertises
     # the `plan_*` PlanForge tools regardless of tier (RAID B2).
     for name in active_tool_names:
+        # oneshot-deadvertise (2026-07-25): a COMPLETED one-shot create is dropped from the
+        # wire so a weak model cannot loop on it (schema-gating — "absent from the schema, the
+        # agent cannot attempt or probe"). find_tools/tool_load still reach it by name if a
+        # genuinely-new need arises; this only removes it from the always-visible active set.
+        if name in suppress_names:
+            continue
         td = catalog_index.get(name)
         if (
             restricted and td is not None and tool_tier(td) != "R"
@@ -1608,6 +1624,12 @@ async def _stream_with_tools(
         # burning a full tool-loop pass each time. Keyed (tool+args) -> count of no-op
         # results this turn; the 2nd identical call is short-circuited with a forward steer.
         noop_write_counts: dict[str, int] = {}
+        # oneshot-deadvertise (2026-07-25) — the per-turn set of completed one-shot creates to
+        # keep OFF the wire (mode="per_turn": populated when the no-op breaker fires; resets each
+        # invocation). mode="existence" computes its set from context at each advertise; mode=
+        # "session" removes the tool from activation_state instead (persists across turns).
+        oneshot_suppress: set[str] = set()
+        _oneshot_mode = settings.oneshot_deadvertise_mode
         # F18 — tool_list exhaustion state (see TOOL_LIST_CATEGORY_CAP). tool_list returns the
         # WHOLE category at once, so a re-list is a loop; track per-category list counts + the
         # per-turn total so a repeat switches to auto-load+steer and a persistent spammer gets
@@ -1739,11 +1761,31 @@ async def _stream_with_tools(
                 # _advertise_discovery_tools; the plain path through
                 # _filter_tools_for_ask. Write mode is a byte-identical no-op.
                 if discovery:
+                    # oneshot-deadvertise: compute which completed one-shot creates to drop
+                    # from THIS advertise, per the configured mode.
+                    #   existence — stateless, decided from context (the resource id is already
+                    #     present ⇒ the create's target exists ⇒ never advertise it). Decided
+                    #     once-per-turn-shape ⇒ prefix-cache-stable (the Manus lesson).
+                    #   per_turn  — the reactive per-invocation set the no-op breaker fills.
+                    #   session / off — no advertise-time suppression here (session removes the
+                    #     tool from active_tool_names upstream; off advertises as before).
+                    if _oneshot_mode == "existence":
+                        _suppress = {
+                            t for t, key in ONESHOT_CREATE_TOOLS.items()
+                            if (context_ids or {}).get(key)
+                        }
+                    elif _oneshot_mode in ("per_turn", "session"):
+                        # both reactive modes drop it for the rest of THIS turn once seen;
+                        # "session" ALSO removed it from activation_state so it stays gone.
+                        _suppress = oneshot_suppress
+                    else:
+                        _suppress = frozenset()
                     advertised = _advertise_discovery_tools(
                         cat_index, active_tool_names, extra_fe,
                         permission_mode=permission_mode,
                         has_workflows=bool(turn_workflows),
                         suppress_tool_list=suppress_tool_list,
+                        suppress_names=_suppress,
                     )
                 else:
                     advertised = (
@@ -3619,6 +3661,22 @@ async def _stream_with_tools(
                         noop_write_counts[_noop_write_key] = (
                             noop_write_counts.get(_noop_write_key, 0) + 1
                         )
+                        # oneshot-deadvertise reactive modes — a one-shot create just proved
+                        # its target already exists (created:false). Drop it from the surface so
+                        # the model stops SEEING it (not just stops the backend dispatch).
+                        if c["name"] in ONESHOT_CREATE_TOOLS and _oneshot_mode in ("per_turn", "session"):
+                            # transient: off the wire for the rest of THIS invocation.
+                            oneshot_suppress.add(c["name"])
+                            if _oneshot_mode == "session" and activation_state is not None:
+                                # persistent: ALSO remove from the session hot-set so it never
+                                # returns this session (the activated_tools that re-advertised
+                                # it every turn — the original root cause). dirty ⇒ persisted.
+                                _acts = activation_state.get("activated_tools")
+                                if isinstance(_acts, list) and c["name"] in _acts:
+                                    activation_state["activated_tools"] = [
+                                        t for t in _acts if t != c["name"]
+                                    ]
+                                    activation_state["dirty"] = True
                     else:
                         read_call_results.clear()
                 if ok or _MISSING_REQUIRED_ARGS_MARKER not in str(envelope.get("error") or ""):

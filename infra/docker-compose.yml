@@ -985,6 +985,10 @@ services:
       # F12 A/B (lazy skills) — on ⇒ NO full L2 skill bodies (surface/router/workflow-binding);
       # model uses the L1 index + load_skill. Measures the ~5-12K skills-lever cut.
       LW_LAZY_ALL_SKILLS: "${LW_LAZY_ALL_SKILLS:-off}"
+      # oneshot-deadvertise (2026-07-25) — how a completed one-shot create (kg_project_create
+      # once its project exists) is kept off the agent surface: off|existence|session|per_turn.
+      # MEASURED winner = session (57→1 attempts, ~5x fewer tokens; see config.py).
+      ONESHOT_DEADVERTISE_MODE: "${ONESHOT_DEADVERTISE_MODE:-session}"
       T5_INTENT_GATE_ENABLED: "${T5_INTENT_GATE_ENABLED:-false}"
       # Context Budget Law T4 (story_state Core Memory Block) + T6/D13a (reversible
       # dup-read collapse). Default OFF; flip on (with T5) for the compaction A/B —

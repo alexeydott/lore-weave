@@ -717,6 +717,31 @@ class TestGenericFrontendTools:
         # the rest of the core still lands — one missing federated tool degrades alone
         assert "tool_list" in names and "confirm_action" in names and "ui_navigate" in names
 
+    def test_suppress_names_drops_a_completed_oneshot_from_the_wire(self):
+        """oneshot-deadvertise (2026-07-25): a completed one-shot create in `suppress_names`
+        is removed from the advertised active set (schema-gating — the model can't attempt
+        it), while every OTHER active tool + the core is untouched."""
+        from app.services.stream_service import _advertise_discovery_tools, _catalog_index
+        cat = _catalog_index(_MIXED_CATALOG)
+        active = {"book_create", "book_list", "translation_start_job"}
+        adv = _advertise_discovery_tools(
+            cat, active, frontend_tool_defs(editor=False, book_scoped=False),
+            suppress_names={"book_create"},
+        )
+        names = [t["function"]["name"] for t in adv]
+        assert "book_create" not in names          # suppressed
+        assert "book_list" in names                 # sibling active tool untouched
+        assert "translation_start_job" in names     # other active tool untouched
+        assert "tool_list" in names                 # core untouched
+
+    def test_suppress_names_empty_is_a_noop(self):
+        from app.services.stream_service import _advertise_discovery_tools, _catalog_index
+        cat = _catalog_index(_MIXED_CATALOG)
+        active = {"book_create", "book_list"}
+        base = _advertise_discovery_tools(cat, active, [])
+        supp = _advertise_discovery_tools(cat, active, [], suppress_names=frozenset())
+        assert [t["function"]["name"] for t in base] == [t["function"]["name"] for t in supp]
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # C-FT hot set + lazy tail — per-surface domain scoping (the standard)
