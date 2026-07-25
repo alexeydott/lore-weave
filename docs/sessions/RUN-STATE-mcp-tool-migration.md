@@ -149,3 +149,28 @@ Branch is green + mergeable. REMAINING (human-only): push so the two CI workflow
 real GitHub Actions runner (the service-container/health-check path is the one thing not
 verifiable locally); then merge. (3 pre-existing uncommitted files — .gitignore,
 chat config.py, compact_service.py — are NOT from this session.)
+
+---
+
+## Pre-merge verification pass (2026-07-25, HEAD 736a8b0d8 — post GUI-deprecation)
+
+Consolidated green evidence after the session's ~11 commits (S3 composition unification ×5 +
+derivative + null-clear fix + 3-bug undo/restore cluster + GUI-tool deprecation + F7c cleanup).
+Branch 298 commits ahead of main.
+
+**Enforced static gates — all PASS:**
+- `ai-provider-gate.py`: OK — no direct provider SDKs / hardcoded model names
+- `db-safety-gate.py`: PASS (exit 0)
+- `context-budget-defaults-lint.py`: clean
+- `no-absolute-host-paths.py`: clean
+- `language-rule-lint.sh`: PASS
+
+**Service suites — all green:**
+- composition-service: **2378 passed / 1 skipped** (`-n auto`)
+- ai-gateway: **tsc EXIT 0**, **273 passed / 16 suites** (incl. ui-tools contract-drift + K23 discovery)
+- chat-service: **1885 passed / 0 fail** (full suite; incl. frontend-tools contract guard)
+
+**Live evidence recorded this session:** composition agent evals (arc/motif real-model, DB-verified);
+undo/restore fixes live-verified; GUI deprecation live-verified (0 ui_* in tools/list, not_found on
+tool_load, frontend_tool_defs empty of nav tools). Branch is merge-ready; remaining is human-only
+(push → the 2 CI workflows run on a real runner → merge).
