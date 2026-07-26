@@ -52,6 +52,7 @@
     "count",
     "item_type",
     "signature",
-    "status"
+    "status",
+    "suggested_actions"
   ]
 }

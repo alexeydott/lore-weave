@@ -46,6 +46,11 @@ PROJECT = uuid.UUID("dddddddd-dddd-dddd-dddd-dddddddddddd")
 CHAPTER = uuid.UUID("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
 
 EXPECTED_TOOLS = {
+    # The durable-gate resolver registered by the shared tasks kit
+    # (loreweave_mcp.tasks_wire.register_task_endpoints). It is part of this service's
+    # advertised catalog, so it belongs in the pin — its absence here was a stale
+    # expectation from before the tasks wire was mounted, not a stray tool.
+    "composition_task_provide_input",
     # Tier R
     "composition_get_work", "composition_list_outline",
     "composition_get_outline_node",
@@ -62,6 +67,10 @@ EXPECTED_TOOLS = {
     "composition_structure_template_create", "composition_structure_template_clone",
     "composition_structure_template_update", "composition_structure_template_archive",
     "composition_structure_template_restore",
+    # S3 unified (op-dispatch CRUD): 5 families → 5 *_edit tools
+    "composition_structure_template_edit", "composition_outline_node_edit",
+    "composition_canon_rule_edit", "composition_entity_override_edit",
+    "composition_scene_link_edit",
     "composition_write_prose",
     # ── S5 (D-DIVERGENCE-MCP-TOOLS) — the dị bản manage surface. ──
     "composition_list_derivatives",   # Tier R
@@ -71,6 +80,7 @@ EXPECTED_TOOLS = {
     "composition_create_derivative",  # Tier W (confirm-gated derive → composition.derive)
     # ── S-04 — post-derive delta editing (spec + overrides now mutable). Tier A (auto-write + Undo). ──
     "composition_divergence_spec_update",
+    "composition_derivative_edit",  # S3 unified (op=archive|update_spec)
     "composition_entity_override_add",
     "composition_entity_override_update",
     "composition_entity_override_delete",
@@ -89,6 +99,9 @@ EXPECTED_TOOLS = {
     "composition_authoring_run_create", "composition_authoring_run_gate",
     "composition_authoring_run_start", "composition_authoring_run_resume",
     "composition_authoring_run_revert_all",
+    # S3 unified (op-dispatch, tier-split): manage (W: create|start|resume|gate|revert_all),
+    # review (A: pause|close|accept_unit|reject_unit)
+    "composition_authoring_run_manage", "composition_authoring_run_review",
     # ── W4 narrative-motif-library tools (register on the SAME server) ──
     # Tier R (motif)
     "composition_motif_search", "composition_motif_get",
@@ -100,6 +113,9 @@ EXPECTED_TOOLS = {
     "composition_motif_patch",
     "composition_motif_bind", "composition_motif_unbind",
     "composition_motif_link_create", "composition_motif_link_delete",
+    # S3 unified (op-dispatch): motif_edit (create|patch|archive|restore),
+    # motif_link_edit (create|delete), motif_bind_edit (bind|unbind)
+    "composition_motif_edit", "composition_motif_link_edit", "composition_motif_bind_edit",
     # Tier W (motif)
     "composition_motif_adopt", "composition_motif_mine",
     "composition_arc_import_analyze", "composition_conformance_run",
@@ -110,10 +126,12 @@ EXPECTED_TOOLS = {
     "composition_arc_template_list", "composition_arc_template_get",
     "composition_arc_template_create", "composition_arc_template_update",
     "composition_arc_template_archive", "composition_arc_template_restore",
+    "composition_arc_template_edit",    # S3 unified (op=create|update|archive|restore)
     "composition_conformance_status",   # 26 IX-14 staleness read contract
     # Tier A (arc auto-writes + outline move)
     "composition_arc_create", "composition_arc_update", "composition_arc_delete",
     "composition_arc_restore", "composition_arc_move", "composition_arc_assign_chapters",
+    "composition_arc_edit",             # S3 unified (op=create|update|delete|restore|move|assign_chapters)
     "composition_arc_apply", "composition_arc_extract_template",
     "composition_outline_node_move",
     # ── PlanForge (M4) plan_* tools ──
@@ -126,6 +144,9 @@ EXPECTED_TOOLS = {
     # `plan_run_pass` refuses with its blockers named, and only `plan_review_checkpoint` (which a
     # human drives) clears a blocking pass.
     "plan_run_pass", "plan_pass_status", "plan_link",
+    # PlanForge auto-bootstrap MATERIALISE — the MCP half of the REST bootstrap gate: turn a
+    # compiled plan's planned chapters into real book chapters the drafting subagent writes into.
+    "plan_bootstrap_propose", "plan_bootstrap_apply",
     # 28 AN-2/AN-3/AN-4 — the agent's three read surfaces (the gap layer AN-1 enumerates).
     "composition_package_tree", "composition_find_references", "composition_diagnostics",
 }
@@ -357,6 +378,32 @@ async def _patched(*, grant_level=2, works_get=None, **repo_overrides):
         finally:
             for p in stack:
                 p.stop()
+
+
+async def test_list_outline_default_limit_bounds_and_signals_truncation():
+    """K37 drain (2026-07-24) — composition_list_outline once returned 146K TOKENS (the
+    documented incident). It now defaults `limit=25` (was None = the whole tree). `list_tree`
+    fetches ALL nodes and the cap runs in apply_response_contract, which sees the true total
+    → `truncated` reports the drop; it is a SIGNALLED flat prefix, never a silent cut."""
+    from types import SimpleNamespace
+
+    def _mk_node(i):
+        return SimpleNamespace(model_dump=lambda mode="json", i=i: {
+            "id": f"n{i}", "kind": "scene", "title": f"T{i}", "status": "draft",
+            "version": 1, "prose": "x" * 500,
+        })
+
+    outline = AsyncMock()
+    outline.list_tree = AsyncMock(return_value=[_mk_node(i) for i in range(30)])
+    scene_links = AsyncMock()
+    scene_links.list_by_project = AsyncMock(return_value=[])
+
+    async with _patched(grant_level=1, OutlineRepo=outline, SceneLinksRepo=scene_links) as srv:
+        res = await srv.composition_list_outline(_Ctx(), project_id=str(PROJECT))
+
+    assert len(res["nodes"]) == 25   # bounded default page (was the unbounded 146K-token dump)
+    assert res["truncated"] == 5     # the drop is SIGNALLED, never silent
+    assert res["total"] == 30
 
 
 async def test_get_work_owner_ok():
@@ -794,6 +841,10 @@ async def test_outline_node_create_returns_undo_hint():
     outline = AsyncMock()
     created = _node(id=uuid.uuid4(), title="New scene")
     outline.create_node = AsyncMock(return_value=created)
+    # K13 guard: the handler looks for an existing same-title node BEFORE inserting. A bare
+    # AsyncMock returns a truthy mock, which would send every create down the "already
+    # exists" branch — so state the real no-match answer.
+    outline.find_node_by_title = AsyncMock(return_value=None)
     async with _patched(OutlineRepo=outline):
         res = await srv.composition_outline_node_create(
             _Ctx(), srv._NodeCreateArgs(project_id=str(PROJECT), kind="scene", title="New scene"),
@@ -809,6 +860,7 @@ async def test_canon_rule_create_returns_undo_hint():
     canon = AsyncMock()
     rule = _rule(id=uuid.uuid4())
     canon.create = AsyncMock(return_value=rule)
+    canon.find_by_text = AsyncMock(return_value=None)  # K13 guard — see the outline case
     async with _patched(CanonRulesRepo=canon):
         res = await srv.composition_canon_rule_create(
             _Ctx(), srv._CanonRuleCreateArgs(project_id=str(PROJECT), text="magic costs HP"),
@@ -952,7 +1004,13 @@ async def test_archive_derivative_soft_deletes_with_restore_hint():
             _Ctx(), srv._DerivativeArchiveArgs(project_id=str(deriv.project_id), expected_version=2),
         )
     assert res["status"] == "archived"
-    assert "restore" in res["_meta"]["undo_hint"].lower()
+    # S3 undo-shape fix: a STRUCTURED {tool,args} hint to the REAL reverse op — a bare STRING
+    # (the prior value) was silently dropped by chat-service tool_undo_hint (isinstance dict).
+    hint = res["_meta"]["undo_hint"]
+    assert isinstance(hint, dict)
+    assert hint["tool"] == "composition_derivative_edit"
+    assert hint["args"]["op"] == "restore"
+    assert hint["args"]["project_id"] == str(deriv.project_id)
 
 
 async def test_archive_derivative_stale_version_is_applied_conflict():
@@ -1158,13 +1216,20 @@ async def test_switch_active_work_sets_the_per_book_pref():
     async with _patched(grant_level=2) as s:
         s.WorksRepo(None).get = AsyncMock(return_value=_work())  # a Work of BOOK
         set_pref = AsyncMock()
-        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref):
+        get_pref = AsyncMock(return_value="prior-work-id")  # the PRIOR active work
+        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref), \
+             patch("app.clients.auth_prefs_client.get_user_preference", get_pref):
             res = await srv.composition_switch_active_work(
                 _Ctx(), srv._SwitchActiveWorkArgs(book_id=str(BOOK), project_id=str(PROJECT)),
             )
     assert res["success"] is True and res["active_project_id"] == str(PROJECT)
     a = set_pref.await_args.args
     assert a[0] == TEST_USER and a[1] == f"lw_active_work.{BOOK}" and a[2] == str(PROJECT)
+    # S3 undo-shape fix: STRUCTURED {tool,args} hint restoring the PRIOR active work (a bare
+    # string was silently dropped by tool_undo_hint → the Undo affordance had vanished).
+    hint = res["_meta"]["undo_hint"]
+    assert isinstance(hint, dict) and hint["tool"] == "composition_switch_active_work"
+    assert hint["args"]["book_id"] == str(BOOK) and hint["args"]["project_id"] == "prior-work-id"
 
 
 async def test_switch_active_work_null_clears_to_canonical():
@@ -1172,7 +1237,8 @@ async def test_switch_active_work_null_clears_to_canonical():
 
     async with _patched(grant_level=2):
         set_pref = AsyncMock()
-        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref):
+        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref), \
+             patch("app.clients.auth_prefs_client.get_user_preference", AsyncMock(return_value=None)):
             res = await srv.composition_switch_active_work(
                 _Ctx(), srv._SwitchActiveWorkArgs(book_id=str(BOOK), project_id=None),
             )
@@ -1188,7 +1254,8 @@ async def test_switch_active_work_rejects_a_foreign_work():
         foreign.book_id = uuid.uuid4()  # a Work of a DIFFERENT book
         s.WorksRepo(None).get = AsyncMock(return_value=foreign)
         set_pref = AsyncMock()
-        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref):
+        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref), \
+             patch("app.clients.auth_prefs_client.get_user_preference", AsyncMock(return_value=None)):
             res = await srv.composition_switch_active_work(
                 _Ctx(), srv._SwitchActiveWorkArgs(book_id=str(BOOK), project_id=str(PROJECT)),
             )
@@ -1202,7 +1269,8 @@ async def test_switch_active_work_pref_write_unavailable():
 
     async with _patched(grant_level=2):
         set_pref = AsyncMock(side_effect=AuthPrefsError("auth down"))
-        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref):
+        with patch("app.clients.auth_prefs_client.set_user_preference", set_pref), \
+             patch("app.clients.auth_prefs_client.get_user_preference", AsyncMock(return_value=None)):
             res = await srv.composition_switch_active_work(
                 _Ctx(), srv._SwitchActiveWorkArgs(book_id=str(BOOK), project_id=None),
             )

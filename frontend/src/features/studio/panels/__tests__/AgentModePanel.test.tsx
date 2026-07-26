@@ -31,14 +31,31 @@ vi.mock('@/features/composition/authoringRuns/api', () => ({
 
 const listPlanRuns = vi.fn();
 const getPlanRun = vi.fn();
+const bootstrapPropose = vi.fn();
+const bootstrapApprove = vi.fn();
+const bootstrapApply = vi.fn();
 vi.mock('@/features/plan-forge/api', () => ({
-  planForgeApi: { listRuns: (...a: unknown[]) => listPlanRuns(...a), getRun: (...a: unknown[]) => getPlanRun(...a) },
+  planForgeApi: {
+    listRuns: (...a: unknown[]) => listPlanRuns(...a),
+    getRun: (...a: unknown[]) => getPlanRun(...a),
+    bootstrapPropose: (...a: unknown[]) => bootstrapPropose(...a),
+    bootstrapApprove: (...a: unknown[]) => bootstrapApprove(...a),
+    bootstrapApply: (...a: unknown[]) => bootstrapApply(...a),
+  },
 }));
 
 const listChapters = vi.fn();
 vi.mock('@/features/books/api', () => ({
   booksApi: { listChapters: (...a: unknown[]) => listChapters(...a), compareRevisions: vi.fn() },
 }));
+
+// The New-run form now picks a drafting model (a run fails on its first unit without one). Stub the
+// shared picker so a favourite model auto-resolves and the gate-check button enables.
+vi.mock('@/components/model-picker', () => ({
+  useUserModels: () => ({ models: [{ user_model_id: 'm1', is_favorite: true, alias: 'Gemma', capability_flags: { chat: true } }], loading: false }),
+  ModelPicker: (p: { value: string | null }) => <div data-testid="model-picker-stub" data-value={p.value ?? ''} />,
+}));
+vi.mock('@/features/ai-models/api', () => ({ isChatSafeDefault: () => true }));
 
 import { AgentModePanel } from '../AgentModePanel';
 
@@ -124,6 +141,12 @@ describe('AgentModePanel — Runs list', () => {
 });
 
 describe('AgentModePanel — D-AGENT-MODE-NOTIFY deep link', () => {
+  it('opens directly on the New-run view when mounted with {view:"new"} (the "Start drafting" handoff deep-link)', () => {
+    renderPanel(dockProps({ view: 'new' }));
+    expect(screen.getByTestId('agent-mode-tab-new').getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByTestId('agent-mode-view-new').className).not.toMatch(/hidden/);
+  });
+
   it('opens directly on Mission control when mounted with a {runId} param (terminal-notification click)', async () => {
     getRun.mockResolvedValue(runFixture({ run_id: 'run-7', status: 'closed' }));
     renderPanel(dockProps({ runId: 'run-7' }));
@@ -159,6 +182,34 @@ describe('AgentModePanel — New run config', () => {
     await waitFor(() => expect(screen.getByTestId('agent-mode-plan-empty')).toBeTruthy());
   });
 
+  it('materialise: a compiled plan with no chapters offers "Create chapters from this plan", which bootstraps them into the TOC', async () => {
+    listPlanRuns.mockResolvedValue({ items: [{ id: 'plan-1', status: 'compiled', book_id: 'b1', mode: 'rules', model_ref: null, source_checksum: null, active_job_id: null, job_status: null, error_detail: null, checkpoint_state: null, artifacts: [], created_at: '', updated_at: '' }] });
+    // The TOC is empty until bootstrap-apply materialises the chapters (stateful mock: robust to
+    // however many times the query refetches, unlike a brittle mockResolvedValueOnce ordering).
+    let materialised = false;
+    listChapters.mockImplementation(async () => (materialised
+      ? { items: [{ chapter_id: 'ch1', book_id: 'b1', title: 'The Wet Ink', original_filename: '1.txt', original_language: 'en', content_type: 'text', byte_size: 1, sort_order: 1, lifecycle_state: 'active' }], total: 1 }
+      : { items: [], total: 0 }));
+    bootstrapPropose.mockResolvedValue({ id: 'p1', status: 'pending', diff: { new_chapters: [{ title: 'The Wet Ink' }], new_glossary_entities: [] }, applied_results: {} });
+    bootstrapApprove.mockResolvedValue({ id: 'p1', status: 'approved', diff: { new_chapters: [], new_glossary_entities: [] }, applied_results: {} });
+    bootstrapApply.mockImplementation(async () => {
+      materialised = true;
+      return { id: 'p1', status: 'applied', diff: { new_chapters: [], new_glossary_entities: [] }, applied_results: { e1: { chapter_id: 'ch1', title: 'The Wet Ink' } } };
+    });
+
+    renderPanel();
+    fireEvent.click(screen.getByTestId('agent-mode-tab-new'));
+    // compiled plan + empty TOC → the in-place materialise button (NOT the Planner punt)
+    const btn = await screen.findByTestId('agent-mode-materialize');
+    fireEvent.click(btn);
+
+    // it ran the full propose→approve→apply chain...
+    await waitFor(() => expect(bootstrapApply).toHaveBeenCalledWith('b1', 'p1', 'tok'));
+    // ...and the refetched TOC now shows the created chapter + the success line
+    await waitFor(() => expect(screen.getByTestId('agent-mode-chapter-check-ch1')).toBeTruthy());
+    expect(screen.getByTestId('agent-mode-materialized-ok')).toBeTruthy();
+  });
+
   it('"Run gate check" creates then gates the run, landing on Mission control', async () => {
     createRun.mockResolvedValue(runFixture({ run_id: 'new-run', status: 'draft' }));
     gateRun.mockResolvedValue(runFixture({ run_id: 'new-run', status: 'gated' }));
@@ -169,6 +220,12 @@ describe('AgentModePanel — New run config', () => {
     await waitFor(() => expect(screen.getByTestId('agent-mode-run-gate-check')).not.toBeDisabled());
     fireEvent.click(screen.getByTestId('agent-mode-run-gate-check'));
     await waitFor(() => expect(createRun).toHaveBeenCalled());
+    // Locks the two live-caught create-body bugs: the drafting model is passed (else the run fails on
+    // its first unit) and the tool_allowlist is the valid ALLOWLISTABLE_TOOLS subset (a stray name 422s).
+    expect(createRun.mock.calls[0][0]).toMatchObject({
+      params: { model_source: 'user_model', model_ref: 'm1' },
+      tool_allowlist: ['composition_write_prose', 'composition_list_outline', 'composition_get_prose'],
+    });
     expect(gateRun).toHaveBeenCalledWith('new-run', 'tok');
     await waitFor(() => expect(screen.getByTestId('agent-mode-tab-mission').getAttribute('aria-selected')).toBe('true'));
   });

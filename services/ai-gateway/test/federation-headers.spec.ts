@@ -16,6 +16,7 @@ describe('buildEnvelopeHeaders', () => {
       sessionId: 's1',
       traceId: 't1',
       projectId: 'proj-9',
+      bookId: 'book-7',
       mcpKeyId: 'key-xyz',
       spendCapUsd: '5',
     });
@@ -25,6 +26,7 @@ describe('buildEnvelopeHeaders', () => {
       'X-Session-Id': 's1',
       'X-Trace-Id': 't1',
       'X-Project-Id': 'proj-9',
+      'X-Book-Id': 'book-7',
       'X-Mcp-Key-Id': 'key-xyz',
       'X-Mcp-Spend-Cap-Usd': '5',
     });
@@ -36,6 +38,7 @@ describe('buildEnvelopeHeaders', () => {
     expect('X-Mcp-Key-Id' in h).toBe(false);
     expect('X-Mcp-Spend-Cap-Usd' in h).toBe(false);
     expect('X-Project-Id' in h).toBe(false);
+    expect('X-Book-Id' in h).toBe(false);
     expect('X-Session-Id' in h).toBe(false);
     expect('X-Trace-Id' in h).toBe(false);
   });

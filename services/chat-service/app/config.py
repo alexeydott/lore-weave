@@ -270,27 +270,76 @@ class Settings(BaseSettings):
     # demand. The domain's TOOLS stay hot regardless (surface_hot_domains is
     # surface-driven, not skill-body-driven) — only the verbose prose defers.
     lazy_skill_bodies: bool = True
-    # `compact_studio_panel_desc` — when ON, ui_open_studio_panel advertises a
-    # compact area-grouped description (~2.4k → ~0.8k) while KEEPING the full
-    # panel_id enum (Frontend-Tool Contract: the closed set is correctness, never
-    # trimmed — only the prose guidance is compacted).
-    compact_studio_panel_desc: bool = True
     # `lazy_workflow_directive` — when ON, the WS-5 workflow-preference block lists
     # workflow SLUGS + short titles only (drops each workflow's full description,
     # ~1-2k), keeping the "call workflow_load(<slug>) FIRST" directive that steers
     # the model to load the rail's real detail on demand.
     lazy_workflow_directive: bool = True
-    # `studio_panel_intent_gated` (F7c M4) — the studio panel navigator
-    # (ui_open_studio_panel) is a click/keypress the user can do manually, yet it
-    # cost ~880 tok on EVERY studio turn. When ON, advertise it ONLY on a
-    # navigation-intent turn (a nav verb + a panel-specific noun) → ~0 tok on the
-    # common writing turn, full enum-safe capability when the user asks to open a
-    # panel. ui_focus_manuscript_unit (open a chapter, part of the writing loop)
-    # stays always-on. Off ⇒ pre-M4 behavior (always advertised). Deterministic gate,
-    # biased to PRECISION: a false-negative just means the user clicks the panel; a
-    # false-positive (opening a panel mid-write) is the harmful error, so overloaded
-    # writing words (scene/arc/plan/character) are NOT panel-noun triggers.
-    studio_panel_intent_gated: bool = True
+
+    # `oneshot_deadvertise_mode` — how a COMPLETED one-shot create tool (one whose target
+    # already exists, e.g. kg_project_create on a book that already has a KG project) is kept
+    # off the agent surface so a weak model can't loop on it (the (B) idempotent-write breaker
+    # only short-circuits each *call*; this stops the model *attempting*). A/B modes measured
+    # 2026-07-25 (docs/eval/e2e-newcomer): the winner is set as the default.
+    #   "off"       — advertise as today; only the runtime short-circuit breaker bounds the loop.
+    #   "existence" — DETERMINISTIC: don't advertise the create when the turn's context already
+    #                 carries the resource id it would produce (decided ONCE per turn at
+    #                 surface-build → prefix-cache-stable, the Manus lesson; never advertised so
+    #                 the model never attempts — schema-gating, the strongest "can't call it").
+    #   "session"   — REACTIVE + persistent: on the first `created:false`, drop the tool from the
+    #                 session hot-set (activated_tools) so it never returns this session.
+    #   "per_turn"  — REACTIVE + transient: on the breaker firing, de-advertise for the rest of
+    #                 the turn only (resets next user message / resume pass — weakest).
+    # MEASURED (2026-07-25, gemma bootstrap turn, project pre-exists = the loop condition):
+    #   off        57 kg_project_create attempts, ~1.72M cumulative prompt tok
+    #   existence  57 attempts, ~1.80M tok  ← NO help: the workflow rail NAMES the tool, so a
+    #              weak model HALLUCINATES the call even when it is de-advertised (and dispatch
+    #              executes unadvertised calls). Pre-emptive schema-gating can't stop a rail-driven
+    #              model — the industry "logit-mask, don't remove" lesson doesn't transfer here.
+    #   session     1 attempt, ~0.35M tok   ← WINNER: one clean created:false (a terminal state)
+    #              lets the model mark the step done, THEN the tool leaves the session hot-set.
+    #   per_turn    1 attempt, ~0.37M tok   (equal, but resets each turn → session is strictly better)
+    # ⇒ session: 57→1 attempts, ~5x fewer tokens; the cost is causally the attempt count (each
+    #   attempt is a loop iteration re-sending the growing context).
+    oneshot_deadvertise_mode: str = "session"
+
+    # `rail_action_gate_mode` — bind the ADVERTISED ACTION SPACE to the pinned rail's computed
+    # progress, so a weak model cannot repeat a finished step or wander off-step. The rail's
+    # state is already externalized (compute_rail_progress reads the book) and re-injected each
+    # turn (render_progress_block: "ALREADY DONE — do NOT repeat"), but that re-injection is
+    # ADVISORY — the model reads it and repeats anyway (glossary_propose_entities ×8). This makes
+    # the verdict BINDING at the single advertise chokepoint (schema-gating, not instruction).
+    # Union'd with `oneshot_deadvertise_mode`; only ever drops a rail STEP tool (never a meta/
+    # discovery/answer tool), so it cannot strand the turn. A/B modes measured 2026-07-26
+    # (docs/eval/e2e-newcomer); the winner is set as the default.
+    #   "off"           — advisory only (byte-identical to pre-gating): the re-injected block
+    #                     tells the model what's done; nothing stops it re-doing it.
+    #   "done_suppress" — drop a step's tool once that step is effectively DONE (turn-start
+    #                     artifact/call-log OR a this-turn success), unless the step is `repeat`
+    #                     or the same tool is still owed by a not-done step. Kills repeat-a-
+    #                     finished-step loops (cross-turn AND intra-turn) while staying
+    #                     conversational — the model keeps discovery + off-rail tools.
+    #   "step_lock"     — advertise ONLY the current step's tool; every other rail step tool is
+    #                     dropped. Maximally deterministic (Dify-Workflow shape), least
+    #                     conversational — an off-rail aside has no tool to answer it.
+    # MEASURED (2026-07-26, world-setup turn "propose ontology + seed entities", 3 runs/cell,
+    # docs/eval/e2e-newcomer). Weak model = qwen2.5-7b (reproduces the loop), mid = gemma-4-26b
+    # (the real target — the prior fix stack already tamed it, so it's the REGRESSION control):
+    #   WEAK qwen2.5-7b   glossary_propose_entities attempts · cumulative prompt tok · entities/3
+    #     off            13 / 21 / 9   · 1.6–3.8M · 0–1   (also spirals into chapter-save ×24)
+    #     done_suppress   1 /  1 / 5   · 14K–277K · 0     ← propose loop killed, ~10–100× cheaper
+    #     step_lock       0 /  0 / 0   · ~25K     · 0     (zero wander, full 13-kind ontology)
+    #   MID gemma-4-26b (off completes fully = must NOT regress):
+    #     off             1 · ~372K · 3/3   ✅ baseline
+    #     done_suppress   1 · ~342K · 3/3   ✅ NO regression (identical, marginally cheaper)
+    #     step_lock       0 · 0.36–3M · 0/3 ❌ REGRESSION: 0 entities + glossary_propose_entity_edit ×59
+    # ⇒ DEFAULT = done_suppress. step_lock is DISQUALIFIED: pre-emptively starving a rail-driven
+    #   model's action space makes it SUBSTITUTE a non-rail tool and loop on THAT (the same failure
+    #   mode as oneshot "existence"). done_suppress is a pure REACTIVE safety net — inert until a
+    #   proven-DONE step would repeat, so the clean mid-tier path is byte-unchanged while a weak
+    #   model's repeat spiral is capped. (Residual: it does not stop a weak model JUMPING to a
+    #   future step and looping there — a smaller harm than off's spiral, tracked for later.)
+    rail_action_gate_mode: str = "done_suppress"
 
     # D-T2-03 — degraded-mode fallback when knowledge-service is unreachable
     # or returns an error. Must agree with knowledge-service's Mode 1 + Mode 2

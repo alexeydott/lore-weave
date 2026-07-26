@@ -59,6 +59,8 @@ from loreweave_mcp import (
     require_book_owner,
     require_meta,
     require_user_scope,
+    resolve_book_scope,
+    resolve_project_scope,
     uniform_not_accessible,
 )
 
@@ -104,7 +106,7 @@ from app.db.repositories.scene_links import SceneLinksRepo
 from app.db.repositories.structure import StructureConflictError, StructureRepo
 from app.db.repositories.derivatives import DerivativesRepo
 from app.db.repositories.works import WorksRepo
-from app.deps import get_authoring_run_service
+from app.deps import get_authoring_run_service, get_bootstrap_service
 from app.packer.pack import build_derivative_context
 from app.grant_client import GrantLevel, get_grant_client
 from app.mcp.service_bearer import mint_service_bearer
@@ -135,6 +137,10 @@ from loreweave_mcp.tasks_wire import (  # noqa: E402
 # Defined here (ahead of the other confirm descriptors below) because the durable-gate
 # store is constructed at import time and needs the derive descriptor as its resolver key.
 _DERIVE_DESCRIPTOR = "composition.derive"
+# PlanForge auto-bootstrap MATERIALISE — the confirm-gated apply that turns a compiled
+# plan's planned chapters into REAL book chapters (executed in actions.py). Mirrors the
+# REST /plan/bootstrap/{id}/apply gate so the agent can drive materialisation via MCP.
+_BOOTSTRAP_APPLY_DESCRIPTOR = "composition.bootstrap_apply"
 
 
 async def _resolve_derive(owner_user_id: str, payload: dict, _inputs: dict):
@@ -334,6 +340,27 @@ def _ctx(ctx: MCPContext) -> ToolContext:
     return build_tool_context(ctx, settings.internal_service_token)
 
 
+def _resolve_bid(tc: ToolContext, book_id: str | None) -> UUID:
+    """Studio context binding — resolve a book-scoped tool's book_id from the arg OR the ambient
+    X-Book-Id (tc.book_id). A 1-line drop-in for UUID(book_id); the caller grant-checks it as usual."""
+    scope = resolve_book_scope(book_id, tc)
+    if scope is None:
+        raise ValueError("book_id is required")
+    return scope.id
+
+
+def _resolve_pid(tc: ToolContext, project_id: str | None) -> UUID:
+    """Studio context binding (spec 2026-07-22) — resolve a project-scoped tool's project_id from the
+    arg OR the ambient X-Project-Id (tc.project_id, which chat-service derives book->Work->project_id
+    and forwards). A 1-line drop-in for UUID(args.project_id). The resolved project is grant-checked by
+    the caller (via _book_or_deny) exactly like an explicit arg — the ambient is a scope hint, not authz.
+    Only use it on a tool tagged ambient_project (its project_id arg must be Optional)."""
+    scope = resolve_project_scope(project_id, tc)
+    if scope is None:
+        raise ValueError("project_id is required")
+    return scope.id
+
+
 def _grant_resolver() -> GrantResolver:
     """Adapt composition's GrantClient to the kit's GrantResolver shape
     (`(book_id, user_id) -> int`). The client is fail-closed (a book-service
@@ -490,6 +517,8 @@ def _mine_estimate(*, scope: str) -> dict[str, Any]:
             "composition work", "authoring context", "get work",
             "resolve project id", "the book's authoring workspace",
         ],
+        ambient_book=True,
+        ambient_project=True,
         tool_name="composition_get_work",
     ),
 )
@@ -500,6 +529,17 @@ async def composition_get_work(
 ) -> dict:
     tc = _ctx(ctx)
     works = WorksRepo(get_pool())
+    # Ambient (studio context binding, spec 2026-07-22): when the model passes NEITHER id, fall
+    # back to the envelope — X-Project-Id first (the bound book's Work), else X-Book-Id. So a
+    # studio agent needn't hand over any id. Grant-checked below exactly like an explicit arg.
+    if not project_id and not book_id:
+        pscope = resolve_project_scope(None, tc)
+        if pscope is not None:
+            project_id = str(pscope.id)
+        else:
+            bscope = resolve_book_scope(None, tc)
+            if bscope is not None:
+                book_id = str(bscope.id)
     if project_id:
         pid = UUID(project_id)
         await _book_or_deny(works, tc, pid, GrantLevel.VIEW)
@@ -563,13 +603,13 @@ async def composition_list_outline(
     detail: Annotated[
         Literal["summary", "full"],
         "summary = refs only (id/kind/title/status/version, no prose); full = every field.",
-    ] = "full",
+    ] = "summary",  # K37 drain: OUT-2 small-shape default
     limit: Annotated[
         int | None,
-        "Coarse cap on nodes returned (a flat prefix of the tree — may drop later "
-        "arcs' scenes; `truncated` reports how many). To read ONE node use "
-        "composition_get_outline_node, not pagination.",
-    ] = None,
+        "Coarse cap on nodes returned, a flat prefix of the tree (default 25 — may drop "
+        "later arcs' scenes; `truncated` reports how many). Raise it, or read ONE node via "
+        "composition_get_outline_node.",
+    ] = 25,  # K37 drain: OUT-2 bounded default (list_tree fetches all → apply_response_contract caps + signals truncated, never a silent drop)
     include_archived: Annotated[bool, "Include soft-archived nodes."] = False,
 ) -> dict:
     tc = _ctx(ctx)
@@ -944,7 +984,8 @@ async def composition_create_work(
 
 
 class _NodeCreateArgs(ForbidExtra):
-    project_id: str
+    # project_id OPTIONAL (ambient_project) — omitted inside a studio, resolves from X-Project-Id.
+    project_id: str | None = None
     # BPS-4 (F6): outline_node is now CHAPTER/SCENE only — arcs live on
     # structure_node (composition_arc_create), beats are verified-dead. A closed
     # Literal turns a mid-tier model's `kind:"Arc"` into a clean 422 at the schema
@@ -982,15 +1023,34 @@ class _NodeCreateArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["add scene", "add chapter", "create outline node", "add outline chapter"],
+        ambient_project=True,
+        visibility="legacy", superseded_by="composition_outline_node_edit",  # S3
         tool_name="composition_outline_node_create",
     ),
 )
 async def composition_outline_node_create(ctx: MCPContext, args: _NodeCreateArgs) -> dict:
     tc = _ctx(ctx)
     works = WorksRepo(get_pool())
-    pid = UUID(args.project_id)
+    pid = _resolve_pid(tc, args.project_id)
     await _book_or_deny(works, tc, pid, GrantLevel.EDIT)
     outline = OutlineRepo(get_pool())
+    # K13 (2026-07-23) — idempotency guard against an agent double-fire. LIVE-PROBED: two
+    # byte-identical calls made TWO outline nodes; `outline_node`'s uniques only cover the
+    # plan-provenance and decompile paths, so a plain agent create had no protection.
+    # Keyed on (project, kind, parent, title) so a same-titled node under a DIFFERENT
+    # parent — a real outlining case — still creates.
+    if (args.title or "").strip():
+        dup = await outline.find_node_by_title(
+            pid, kind=args.kind, title=args.title.strip(),
+            parent_id=UUID(args.parent_id) if args.parent_id else None,
+        )
+        if dup is not None:
+            out = dup.model_dump(mode="json")
+            out["_meta"] = {"undo_hint": _undo(
+                "composition_outline_node_delete", project_id=args.project_id, node_id=str(dup.id),
+            )}
+            out["note"] = "an outline node with this title already exists here — returning it."
+            return out
     try:
         node = await outline.create_node(
             pid, kind=args.kind, parent_id=UUID(args.parent_id) if args.parent_id else None,
@@ -1047,6 +1107,7 @@ class _NodeUpdateArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["edit scene", "update node", "rename chapter", "set status", "edit beat"],
+        visibility="legacy", superseded_by="composition_outline_node_edit",  # S3
         tool_name="composition_outline_node_update",
     ),
 )
@@ -1130,6 +1191,7 @@ async def composition_outline_node_update(ctx: MCPContext, args: _NodeUpdateArgs
     meta=require_meta(
         "A", "book",
         synonyms=["delete scene", "remove node", "archive chapter", "delete beat"],
+        visibility="legacy", superseded_by="composition_outline_node_edit",  # S3
         tool_name="composition_outline_node_delete",
     ),
 )
@@ -1168,6 +1230,7 @@ async def composition_outline_node_delete(
     meta=require_meta(
         "A", "book",
         synonyms=["restore scene", "undelete node", "unarchive chapter"],
+        visibility="legacy", superseded_by="composition_outline_node_edit",  # S3
         tool_name="composition_outline_node_restore",
     ),
 )
@@ -1216,6 +1279,7 @@ class _SceneLinkCreateArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["link scenes", "setup payoff", "connect scenes", "add scene link"],
+        visibility="legacy", superseded_by="composition_scene_link_edit",  # S3
         tool_name="composition_scene_link_create",
     ),
 )
@@ -1248,6 +1312,7 @@ async def composition_scene_link_create(ctx: MCPContext, args: _SceneLinkCreateA
     meta=require_meta(
         "A", "book",
         synonyms=["unlink scenes", "remove scene link", "delete edge"],
+        visibility="legacy", superseded_by="composition_scene_link_edit",  # S3
         tool_name="composition_scene_link_delete",
     ),
 )
@@ -1274,7 +1339,11 @@ async def composition_scene_link_delete(
 class _CanonRuleCreateArgs(ForbidExtra):
     project_id: str
     text: str
-    scope: str = "world"
+    # K20 — the DB enforces CHECK (scope IN ('world','entity','reveal_gate')), but the arg was
+    # a bare `str` with NO description at all: the model had zero signal and any near-miss
+    # ("global", "book") became a 23514 check violation it could not have foreseen. The schema
+    # now declares exactly what the table already requires.
+    scope: Annotated[Literal["world", "entity", "reveal_gate"], "world | entity | reveal_gate"] = "world"
     entity_id: str | None = None
     from_order: int | None = None
     until_order: int | None = None
@@ -1377,13 +1446,14 @@ async def composition_get_derivative_context(
     name="composition_archive_derivative",
     description=(
         "Archive a what-if derivative (dị bản) — a REVERSIBLE soft-delete (its chapters + "
-        "knowledge partition survive; restore by setting status active). Requires "
+        "knowledge partition survive; restore via composition_derivative_edit op=restore). Requires "
         "`expected_version` (optimistic concurrency; stale → applied_conflict). EDIT "
         "required. Rejects the canonical Work (only a derivative can be archived here)."
     ),
     meta=require_meta(
         "A", "book",
         synonyms=["archive dị bản", "archive derivative", "delete what-if branch", "remove branch"],
+        visibility="legacy", superseded_by="composition_derivative_edit",  # S3
         tool_name="composition_archive_derivative",
     ),
 )
@@ -1408,7 +1478,13 @@ async def composition_archive_derivative(ctx: MCPContext, args: _DerivativeArchi
     if updated is None:
         raise uniform_not_accessible()
     out = updated.model_dump(mode="json")
-    out["_meta"] = {"undo_hint": "restore by PATCH status=active"}
+    # C-ACTIVITY: a STRUCTURED hint to the REAL reverse op (composition_derivative_edit op=restore).
+    # The prior value was a bare string ("restore by PATCH status=active") — silently dropped by
+    # chat-service tool_undo_hint AND naming an operation no tool exposed (the archive claimed
+    # reversibility that was unreachable; op=restore now delivers it).
+    out["_meta"] = {"undo_hint": _undo(
+        "composition_derivative_edit", op="restore",
+        project_id=args.project_id, expected_version=updated.version)}
     return out
 
 
@@ -1535,6 +1611,7 @@ async def _require_derivative(works: WorksRepo, tc, project_id: UUID):
     meta=require_meta(
         "A", "book",
         synonyms=["edit dị bản spec", "update divergence spec", "change branch taxonomy", "edit what-if spec"],
+        visibility="legacy", superseded_by="composition_derivative_edit",  # S3
         tool_name="composition_divergence_spec_update",
     ),
 )
@@ -1591,6 +1668,7 @@ class _EntityOverrideAddArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["add dị bản override", "override entity", "add entity override", "override another entity"],
+        visibility="legacy", superseded_by="composition_entity_override_edit",  # S3
         tool_name="composition_entity_override_add",
     ),
 )
@@ -1632,6 +1710,7 @@ class _EntityOverrideUpdateArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["edit dị bản override", "update entity override", "change override fields"],
+        visibility="legacy", superseded_by="composition_entity_override_edit",  # S3
         tool_name="composition_entity_override_update",
     ),
 )
@@ -1671,6 +1750,7 @@ class _EntityOverrideDeleteArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["remove dị bản override", "delete entity override", "revert override to canon"],
+        visibility="legacy", superseded_by="composition_entity_override_edit",  # S3
         tool_name="composition_entity_override_delete",
     ),
 )
@@ -1783,15 +1863,27 @@ async def composition_switch_active_work(ctx: MCPContext, args: _SwitchActiveWor
         if w is None or w.book_id != bid:
             return {"success": False, "error": "NOT_A_WORK_OF_THIS_BOOK"}
         target = str(w.project_id) if w.project_id else args.project_id
-    from app.clients.auth_prefs_client import AuthPrefsError, set_user_preference
+    from app.clients.auth_prefs_client import (
+        AuthPrefsError, get_user_preference, set_user_preference,
+    )
+    pref_key = f"lw_active_work.{bid}"  # the SAME key the FE's useActiveWorkId reads
+    # Capture the PRIOR active-work FIRST so Undo restores exactly it (not always canonical) —
+    # best-effort: a read failure just falls back to canonical (project_id=None) in the hint.
     try:
-        # The SAME key + store the FE's useActiveWorkId reads (lw_active_work.<book>).
-        await set_user_preference(tc.user_id, f"lw_active_work.{bid}", target)
+        prior = await get_user_preference(tc.user_id, pref_key)
+    except AuthPrefsError:
+        prior = None
+    try:
+        await set_user_preference(tc.user_id, pref_key, target)
     except AuthPrefsError:
         return {"success": False, "error": "PREF_WRITE_UNAVAILABLE"}
     return {
         "success": True, "book_id": str(bid), "active_project_id": target,
-        "_meta": {"undo_hint": "composition_switch_active_work with project_id=null → back to canonical"},
+        # C-ACTIVITY: a STRUCTURED {tool,args} hint — a bare STRING is silently dropped by
+        # chat-service `tool_undo_hint` (isinstance dict check), so the Undo affordance vanished.
+        "_meta": {"undo_hint": _undo(
+            "composition_switch_active_work", book_id=str(bid),
+            project_id=prior if isinstance(prior, str) else None)},
     }
 
 
@@ -1804,6 +1896,7 @@ async def composition_switch_active_work(ctx: MCPContext, args: _SwitchActiveWor
     meta=require_meta(
         "A", "book",
         synonyms=["add canon rule", "new invariant", "add constraint", "declare lore rule"],
+        visibility="legacy", superseded_by="composition_canon_rule_edit",  # S3
         tool_name="composition_canon_rule_create",
     ),
 )
@@ -1815,6 +1908,23 @@ async def composition_canon_rule_create(ctx: MCPContext, args: _CanonRuleCreateA
     if args.from_order is not None and args.until_order is not None and args.from_order > args.until_order:
         return {"success": False, "error": "from_order must not exceed until_order"}
     canon = CanonRulesRepo(get_pool())
+    # K13 (2026-07-23) — idempotency guard against an agent double-fire, same shape as the
+    # arc/N6 guards. LIVE-PROBED: two byte-identical calls made TWO canon rules, and
+    # `canon_rule` carries no natural-key unique (only the PK). Keyed on the rule TEXT
+    # within the project + scope, which is what "the same rule" means here; a
+    # deliberately-repeated text under a different scope/entity still creates.
+    if (args.text or "").strip():
+        dup = await canon.find_by_text(
+            pid, args.text.strip(), scope=args.scope,
+            entity_id=UUID(args.entity_id) if args.entity_id else None,
+        )
+        if dup is not None:
+            out = dup.model_dump(mode="json")
+            out["_meta"] = {"undo_hint": _undo(
+                "composition_canon_rule_delete", project_id=args.project_id, rule_id=str(dup.id),
+            )}
+            out["note"] = "this canon rule already exists — returning it instead of duplicating."
+            return out
     rule = await canon.create(
         pid, args.text, scope=args.scope,
         entity_id=UUID(args.entity_id) if args.entity_id else None,
@@ -1846,6 +1956,7 @@ class _CanonRuleUpdateArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["edit canon rule", "update invariant", "toggle canon rule", "disable rule"],
+        visibility="legacy", superseded_by="composition_canon_rule_edit",  # S3
         tool_name="composition_canon_rule_update",
     ),
 )
@@ -1892,6 +2003,7 @@ async def composition_canon_rule_update(ctx: MCPContext, args: _CanonRuleUpdateA
     meta=require_meta(
         "A", "book",
         synonyms=["delete canon rule", "remove invariant", "archive rule"],
+        visibility="legacy", superseded_by="composition_canon_rule_edit",  # S3
         tool_name="composition_canon_rule_delete",
     ),
 )
@@ -1936,6 +2048,7 @@ async def composition_canon_rule_delete(
     meta=require_meta(
         "A", "book",
         synonyms=["restore canon rule", "un-archive rule", "undo delete rule"],
+        visibility="legacy", superseded_by="composition_canon_rule_edit",  # S3
         tool_name="composition_canon_rule_restore",
     ),
 )
@@ -2019,6 +2132,7 @@ class _StructTemplateIdArgs(ForbidExtra):
         "A", "user",
         synonyms=["create story structure", "new structure template", "author a beat sheet",
                   "define a custom structure"],
+        visibility="legacy", superseded_by="composition_structure_template_edit",  # S3
         tool_name="composition_structure_template_create",
     ),
 )
@@ -2042,6 +2156,7 @@ async def composition_structure_template_create(ctx: MCPContext, args: _StructTe
     meta=require_meta(
         "A", "user",
         synonyms=["clone structure", "copy a story structure", "customise a built-in structure"],
+        visibility="legacy", superseded_by="composition_structure_template_edit",  # S3
         tool_name="composition_structure_template_clone",
     ),
 )
@@ -2066,6 +2181,7 @@ async def composition_structure_template_clone(ctx: MCPContext, args: _StructTem
     meta=require_meta(
         "A", "user",
         synonyms=["edit story structure", "update structure template", "change beats"],
+        visibility="legacy", superseded_by="composition_structure_template_edit",  # S3
         tool_name="composition_structure_template_update",
     ),
 )
@@ -2090,6 +2206,7 @@ async def composition_structure_template_update(ctx: MCPContext, args: _StructTe
     meta=require_meta(
         "A", "user",
         synonyms=["archive structure", "delete story structure", "remove structure template"],
+        visibility="legacy", superseded_by="composition_structure_template_edit",  # S3
         tool_name="composition_structure_template_archive",
     ),
 )
@@ -2108,6 +2225,7 @@ async def composition_structure_template_archive(ctx: MCPContext, args: _StructT
     meta=require_meta(
         "A", "user",
         synonyms=["restore structure", "unarchive story structure"],
+        visibility="legacy", superseded_by="composition_structure_template_edit",  # S3
         tool_name="composition_structure_template_restore",
     ),
 )
@@ -2618,6 +2736,7 @@ class _AuthoringRunCreateArgs(TolerantArgs):
         "W", "book",
         synonyms=["start autonomous run", "agent mode", "autonomous authoring",
                   "draft chapters unattended", "mission control", "create authoring run"],
+        visibility="legacy", superseded_by="composition_authoring_run_manage",  # S3
         tool_name="composition_authoring_run_create",
     ),
 )
@@ -2687,6 +2806,7 @@ class _AuthoringRunIdArgs(TolerantArgs):
         "W", "book",
         synonyms=["gate authoring run", "start gate check", "validate authoring run",
                   "run start-gate"],
+        visibility="legacy", superseded_by="composition_authoring_run_manage",  # S3
         tool_name="composition_authoring_run_gate",
     ),
 )
@@ -2746,6 +2866,7 @@ class _AuthoringRunStartArgs(TolerantArgs):
         synonyms=["start authoring run", "begin autonomous drafting", "run gated run",
                   "kick off agent mode"],
         async_job=True,
+        visibility="legacy", superseded_by="composition_authoring_run_manage",  # S3
         tool_name="composition_authoring_run_start",
     ),
 )
@@ -2806,6 +2927,7 @@ class _AuthoringRunResumeArgs(TolerantArgs):
         synonyms=["resume authoring run", "continue autonomous drafting",
                   "unpause agent mode", "keep drafting"],
         async_job=True,
+        visibility="legacy", superseded_by="composition_authoring_run_manage",  # S3
         tool_name="composition_authoring_run_resume",
     ),
 )
@@ -2861,6 +2983,7 @@ async def composition_authoring_run_resume(ctx: MCPContext, args: _AuthoringRunR
         "A", "book",
         synonyms=["pause authoring run", "stop agent mode", "halt autonomous drafting",
                   "pause my run"],
+        visibility="legacy", superseded_by="composition_authoring_run_review",  # S3
         tool_name="composition_authoring_run_pause",
     ),
 )
@@ -2895,6 +3018,7 @@ async def composition_authoring_run_pause(ctx: MCPContext, args: _AuthoringRunId
         "A", "book",
         synonyms=["close authoring run", "end agent mode", "cancel autonomous run",
                   "stop autonomous run", "kill the run", "release run slot"],
+        visibility="legacy", superseded_by="composition_authoring_run_review",  # S3
         tool_name="composition_authoring_run_close",
     ),
 )
@@ -2933,6 +3057,7 @@ class _AuthoringRunUnitArgs(TolerantArgs):
         "A", "book",
         synonyms=["accept chapter draft", "approve unit", "keep this chapter",
                   "accept authoring unit"],
+        visibility="legacy", superseded_by="composition_authoring_run_review",  # S3
         tool_name="composition_authoring_run_accept_unit",
     ),
 )
@@ -2978,6 +3103,7 @@ async def composition_authoring_run_accept_unit(
         "A", "book",
         synonyms=["reject chapter draft", "discard unit", "undo this chapter",
                   "reject authoring unit", "revert chapter"],
+        visibility="legacy", superseded_by="composition_authoring_run_review",  # S3
         tool_name="composition_authoring_run_reject_unit",
     ),
 )
@@ -3050,6 +3176,7 @@ async def composition_authoring_run_reject_unit(
         "W", "book",
         synonyms=["revert all chapters", "undo entire run", "roll back authoring run",
                   "discard all drafted chapters"],
+        visibility="legacy", superseded_by="composition_authoring_run_manage",  # S3
         tool_name="composition_authoring_run_revert_all",
     ),
 )
@@ -3087,6 +3214,120 @@ async def composition_authoring_run_revert_all(ctx: MCPContext, args: _Authoring
     )
 
 
+# ── S3 catalog-unification (2026-07-25): 2 unified authoring-run op-tools SUPERSEDE the 9
+# per-op write tools above (all marked visibility=legacy). The split is by TIER, and the tier
+# boundary is BEHAVIORAL, not cosmetic: the W ops (create/start/resume/gate/revert_all) MINT a
+# confirm-token (human-gated, cost-bearing), the A ops (pause/close/accept_unit/reject_unit)
+# AUTO-APPLY immediately. Merging W+A into one tool would force confirm-gating onto the immediate
+# ops OR bypass the cost gate on the gated ops — so two tier-coherent tools is the only safe
+# unification. get/list reads stay separate. Delegates to the SAME handlers (no logic moved). ──
+class _AuthoringRunManageArgs(ForbidExtra):
+    """Flat superset for composition_authoring_run_manage (W/book — each op mints a confirm-token)."""
+
+    op: Literal["create", "start", "resume", "gate", "revert_all"]
+    book_id: str
+    run_id: str | None = None                 # start, resume, gate, revert_all (NOT create)
+    plan_run_id: str | None = None            # create (required)
+    scope: list[str] | None = None            # create
+    level: Literal[3, 4] | None = None        # create
+    budget_usd: Decimal | None = None         # create (required)
+    tool_allowlist: list[Literal[ALLOWLISTABLE_TOOLS]] | None = None  # create
+    pause_after_each_unit: bool | None = None  # create (required) / start, resume (optional)
+    params: dict[str, Any] | None = None      # create
+
+
+@mcp_server.tool(
+    name="composition_authoring_run_manage",
+    description=(
+        "Drive the GATED lifecycle of an autonomous authoring run — the unified entry point for "
+        "the run actions that mint a confirm-token (human-approved, cost-bearing). "
+        "op=create sets up a run (needs plan_run_id + budget_usd + pause_after_each_unit; optional "
+        "scope/level/tool_allowlist/params). op=start begins a created run (needs run_id; optional "
+        "pause_after_each_unit). op=resume continues a paused run (needs run_id). op=gate runs the "
+        "start-gate check draft→gated (needs run_id). op=revert_all rolls back all accepted units "
+        "(needs run_id). Each returns a confirm-token to approve. Read with "
+        "composition_authoring_run_get / _list; immediate controls are composition_authoring_run_review."
+    ),
+    meta=require_meta(
+        "W", "book",
+        synonyms=["create authoring run", "start authoring run", "resume run", "run gate check",
+                  "revert authoring run", "manage authoring run", "begin autopilot"],
+        tool_name="composition_authoring_run_manage",
+    ),
+)
+async def composition_authoring_run_manage(ctx: MCPContext, args: _AuthoringRunManageArgs) -> dict:
+    """Unified gated-run dispatch — delegates to the SAME per-op handlers (no logic moved)."""
+    if args.op == "create":
+        if not args.plan_run_id or args.budget_usd is None or args.pause_after_each_unit is None:
+            raise ValueError("op=create requires plan_run_id, budget_usd, and pause_after_each_unit")
+        return await composition_authoring_run_create(ctx, _AuthoringRunCreateArgs(
+            book_id=args.book_id, plan_run_id=args.plan_run_id, budget_usd=args.budget_usd,
+            pause_after_each_unit=args.pause_after_each_unit,
+            **_present(scope=args.scope, level=args.level, tool_allowlist=args.tool_allowlist,
+                       params=args.params),
+        ))
+    if not args.run_id:
+        raise ValueError(f"op={args.op} requires run_id")
+    if args.op == "start":
+        return await composition_authoring_run_start(ctx, _AuthoringRunStartArgs(
+            book_id=args.book_id, run_id=args.run_id,
+            **_present(pause_after_each_unit=args.pause_after_each_unit)))
+    if args.op == "resume":
+        return await composition_authoring_run_resume(ctx, _AuthoringRunResumeArgs(
+            book_id=args.book_id, run_id=args.run_id,
+            **_present(pause_after_each_unit=args.pause_after_each_unit)))
+    if args.op == "gate":
+        return await composition_authoring_run_gate(
+            ctx, _AuthoringRunIdArgs(book_id=args.book_id, run_id=args.run_id))
+    # op == "revert_all"
+    return await composition_authoring_run_revert_all(
+        ctx, _AuthoringRunIdArgs(book_id=args.book_id, run_id=args.run_id))
+
+
+class _AuthoringRunReviewArgs(ForbidExtra):
+    """Flat superset for composition_authoring_run_review (A/book — each op applies immediately)."""
+
+    op: Literal["pause", "close", "accept_unit", "reject_unit"]
+    book_id: str
+    run_id: str
+    unit_index: int | None = None  # accept_unit, reject_unit (required for those)
+
+
+@mcp_server.tool(
+    name="composition_authoring_run_review",
+    description=(
+        "Apply an IMMEDIATE control to an authoring run — the unified entry point for the "
+        "auto-applied (no confirm-token) actions. op=pause pauses a running run (needs run_id). "
+        "op=close ends a run (needs run_id). op=accept_unit accepts a generated unit (needs run_id "
+        "+ unit_index ≥ 0). op=reject_unit rejects one (needs run_id + unit_index). Gated actions "
+        "(create/start/resume/gate/revert) are composition_authoring_run_manage; read with "
+        "composition_authoring_run_get / _list."
+    ),
+    meta=require_meta(
+        "A", "book",
+        synonyms=["pause authoring run", "close authoring run", "accept unit", "reject unit",
+                  "approve draft unit", "review authoring run", "stop run"],
+        tool_name="composition_authoring_run_review",
+    ),
+)
+async def composition_authoring_run_review(ctx: MCPContext, args: _AuthoringRunReviewArgs) -> dict:
+    """Unified immediate-run-control dispatch — delegates to the SAME per-op handlers."""
+    if args.op == "pause":
+        return await composition_authoring_run_pause(
+            ctx, _AuthoringRunIdArgs(book_id=args.book_id, run_id=args.run_id))
+    if args.op == "close":
+        return await composition_authoring_run_close(
+            ctx, _AuthoringRunIdArgs(book_id=args.book_id, run_id=args.run_id))
+    if args.unit_index is None:
+        raise ValueError(f"op={args.op} requires unit_index")
+    if args.op == "accept_unit":
+        return await composition_authoring_run_accept_unit(ctx, _AuthoringRunUnitArgs(
+            book_id=args.book_id, run_id=args.run_id, unit_index=args.unit_index))
+    # op == "reject_unit"
+    return await composition_authoring_run_reject_unit(ctx, _AuthoringRunUnitArgs(
+        book_id=args.book_id, run_id=args.run_id, unit_index=args.unit_index))
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # W4 — NARRATIVE MOTIF LIBRARY MCP TOOLS (spec §R2.8 / §13 · domain owns its tools;
 # ai-gateway federates the `composition_` prefix). 4 R · 4 A · 4 W-confirm · 1 R
@@ -3109,10 +3350,9 @@ class _MotifSearchArgs(ForbidExtra):
     status: Literal["draft", "active", "archived"] | None = None
     language: str | None = None
     limit: int = 20
-    # L1/L2 reference-first (Context Budget Law §6b). Default "full" (versioned
-    # migration — federated/legacy callers unchanged); the chat-compiler passes
-    # "summary" for a lightweight ref list (no roles/beats/preconditions/effects).
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first (Context Budget Law §6b). Default "summary" (K38 — OUT-2; a
+    # lightweight ref list, no roles/beats/preconditions/effects); "full" is an opt-in.
+    detail: Literal["summary", "full"] = "summary"
 
 
 @mcp_server.tool(
@@ -3228,11 +3468,11 @@ async def composition_motif_book_list(
     q: Annotated[str | None, "Free-text filter on name/summary."] = None,
     status: Annotated[Literal["draft", "active", "archived"] | None, "Status filter."] = "active",
     language: Annotated[str | None, "Language filter."] = None,
-    limit: Annotated[int, "Max rows."] = 50,
+    limit: Annotated[int, "Max rows (a small default page; raise for more)."] = 25,
     detail: Annotated[
         Literal["summary", "full"],
         "summary = refs only (id/code/name/kind/summary/badges, no roles/beats); full = every field.",
-    ] = "full",
+    ] = "summary",  # K37 drain: OUT-2 small-shape default
 ) -> dict:
     tc = _ctx(ctx)
     bid = UUID(book_id)
@@ -3278,7 +3518,7 @@ async def composition_motif_suggest_for_chapter(
         Literal["summary", "full"],
         "summary = each candidate's motif is refs only (no roles/beats); full = every field. "
         "score + match_reason are kept at both levels.",
-    ] = "full",
+    ] = "summary",  # K37 drain: OUT-2 small-shape default
 ) -> dict:
     tc = _ctx(ctx)
     works = WorksRepo(get_pool())
@@ -3348,7 +3588,7 @@ async def composition_arc_suggest(
         Literal["summary", "full"],
         "summary = each candidate's arc_template is refs only (no threads/layout/pacing); "
         "full = every field. score + match_reason are kept at both levels.",
-    ] = "full",
+    ] = "summary",  # K37 drain: OUT-2 small-shape default
 ) -> dict:
     tc = _ctx(ctx)
     works = WorksRepo(get_pool())
@@ -3438,6 +3678,7 @@ class _MotifCreateArgs(ForbidExtra):
         "A", "user",
         synonyms=["create motif", "new trope", "author a motif", "define pattern",
                   "add motif to my library", "make a beat"],
+        visibility="legacy", superseded_by="composition_motif_edit",  # S3 2026-07-25
         tool_name="composition_motif_create",
     ),
 )
@@ -3494,6 +3735,7 @@ async def composition_motif_create(ctx: MCPContext, args: _MotifCreateArgs) -> d
     meta=require_meta(
         "A", "user",
         synonyms=["archive motif", "delete motif", "retire trope", "remove a motif from my library"],
+        visibility="legacy", superseded_by="composition_motif_edit",  # S3 2026-07-25
         tool_name="composition_motif_archive",
     ),
 )
@@ -3540,6 +3782,7 @@ async def composition_motif_archive(
     meta=require_meta(
         "A", "user",
         synonyms=["restore motif", "unarchive motif", "un-retire trope", "bring back a motif"],
+        visibility="legacy", superseded_by="composition_motif_edit",  # S3 2026-07-25
         tool_name="composition_motif_restore",
     ),
 )
@@ -3614,6 +3857,7 @@ _MOTIF_PATCH_META = {"motif_id", "expected_version", "book_id"}
         "A", "user",
         synonyms=["edit motif", "update motif", "rename motif", "change motif summary",
                   "edit trope", "fix motif beats", "edit shared motif"],
+        visibility="legacy", superseded_by="composition_motif_edit",  # S3 2026-07-25
         tool_name="composition_motif_patch",
     ),
 )
@@ -3712,7 +3956,9 @@ class _MotifLinkCreateArgs(ForbidExtra):
 async def composition_motif_link_list(
     ctx: MCPContext,
     motif_id: Annotated[str, "The motif whose edges to list (must be visible to you)."],
-    direction: Annotated[str, "'out', 'in', or 'both'."] = "both",
+    # K20 — see the Literal note on composition_arc_template_list: a runtime-checked closed
+    # set must be declared in the schema, not only enforced after the call arrives.
+    direction: Annotated[Literal["out", "in", "both"], "'out', 'in', or 'both'."] = "both",
     kinds: Annotated[list[str] | None, "Optional filter, e.g. ['precedes']."] = None,
     book_id: Annotated[
         str | None,
@@ -3752,6 +3998,7 @@ async def composition_motif_link_list(
         "A", "user",
         synonyms=["link motifs", "connect motifs", "add motif edge", "compose pattern",
                   "set succession", "mark variant", "relate tropes"],
+        visibility="legacy", superseded_by="composition_motif_link_edit",  # S3 2026-07-25
         tool_name="composition_motif_link_create",
     ),
 )
@@ -3796,6 +4043,7 @@ async def composition_motif_link_create(ctx: MCPContext, args: _MotifLinkCreateA
     meta=require_meta(
         "A", "user",
         synonyms=["unlink motifs", "remove motif edge", "delete motif link", "disconnect motifs"],
+        visibility="legacy", superseded_by="composition_motif_link_edit",  # S3 2026-07-25
         tool_name="composition_motif_link_delete",
     ),
 )
@@ -3841,6 +4089,7 @@ class _MotifBindArgs(ForbidExtra):
         "A", "book",
         synonyms=["bind motif", "apply motif", "use this trope", "attach pattern to chapter",
                   "swap motif", "set chapter motif"],
+        visibility="legacy", superseded_by="composition_motif_bind_edit",  # S3 2026-07-25
         tool_name="composition_motif_bind",
     ),
 )
@@ -3918,6 +4167,7 @@ async def composition_motif_bind(ctx: MCPContext, args: _MotifBindArgs) -> dict:
     meta=require_meta(
         "A", "book",
         synonyms=["unbind motif", "remove motif", "clear chapter motif", "detach pattern"],
+        visibility="legacy", superseded_by="composition_motif_bind_edit",  # S3 2026-07-25
         tool_name="composition_motif_unbind",
     ),
 )
@@ -3975,6 +4225,188 @@ async def composition_motif_unbind(
         "new_scene_ids": res.new_scene_ids,
         "undo_token": res.undo_token,
     }
+
+
+# ── S3 catalog-unification (2026-07-25): 3 unified motif op-tools SUPERSEDE the 8 per-op
+# motif write tools above (all marked visibility=legacy). Grouped by TIER+SCOPE (an op tool
+# is single-tier): motif_edit (A/user CRUD ×4), motif_link_edit (A/user link ×2),
+# motif_bind_edit (A/book chapter-binding ×2). adopt (W/user) + mine (W/book) stay separate
+# (different tier), as do all reads. Delegates to the SAME handlers (no logic moved); mirrors
+# the arc-family S3·arc pattern + KG's op-dispatch. ────────────────────────────────────────
+class _MotifEditArgs(ForbidExtra):
+    """Flat superset for composition_motif_edit (A/user); each op reads only its own fields."""
+
+    op: Literal["create", "patch", "archive", "restore"]
+    motif_id: str | None = None          # patch, archive, restore
+    book_id: str | None = None           # all (shared-tier variant)
+    expected_version: int | None = None  # patch (required)
+    target: Literal["user", "book_shared"] | None = None  # create
+    code: str | None = None              # create (required)
+    name: str | None = None              # create (required), patch
+    language: str | None = None          # create
+    kind: _MotifKind | None = None       # create, patch
+    category: str | None = None          # patch
+    summary: str | None = None           # create, patch
+    genre_tags: list[str] | None = None  # create, patch
+    roles: list[dict[str, Any]] | None = None         # create, patch
+    beats: list[dict[str, Any]] | None = None         # create, patch
+    preconditions: list[dict[str, Any]] | None = None  # create, patch
+    effects: list[dict[str, Any]] | None = None       # create, patch
+    examples: list[dict[str, Any]] | None = None      # create
+    annotations: dict[str, Any] | None = None         # patch
+    tension_target: int | None = None    # create, patch
+    emotion_target: str | None = None    # create, patch
+    visibility: Literal["private", "unlisted"] | None = None       # create
+    status: Literal["draft", "active", "archived"] | None = None   # patch
+
+
+@mcp_server.tool(
+    name="composition_motif_edit",
+    description=(
+        "Create, edit, archive, or restore a motif in YOUR library (a reusable plot pattern — "
+        "sequence/situation/hook/emotion_arc/trope/pattern/scheme) — the unified motif-CRUD entry point. "
+        "op=create mints a PRIVATE motif (needs code + name; optional kind/summary/roles/beats/"
+        "preconditions/effects/genre_tags/tension_target/emotion_target/examples; target='book_shared'+"
+        "book_id authors into a book's shared tier). op=patch edits your own (needs motif_id + "
+        "expected_version — optimistic concurrency; only the fields you pass change; book_id edits a "
+        "shared row). op=archive soft-archives yours (needs motif_id; reversible via op=restore; book_id "
+        "for a shared row). op=restore un-archives yours (needs motif_id). Auto-applied with an Undo hint. "
+        "To publish/adopt/bind use composition_motif_adopt / composition_motif_bind_edit; read with "
+        "composition_motif_get / composition_motif_search."
+    ),
+    meta=require_meta(
+        "A", "user",
+        synonyms=["edit motif", "create motif", "new trope", "author a motif", "define pattern",
+                  "update motif", "rename motif", "archive motif", "restore motif", "manage motif"],
+        tool_name="composition_motif_edit",
+    ),
+)
+async def composition_motif_edit(ctx: MCPContext, args: _MotifEditArgs) -> dict:
+    """Unified motif-CRUD dispatch — delegates to the SAME per-op handlers (no logic moved)."""
+    if args.op == "create":
+        if not args.code or not args.name:
+            raise ValueError("op=create requires code and name")
+        return await composition_motif_create(ctx, _MotifCreateArgs(
+            code=args.code, name=args.name,
+            **_present(
+                target=args.target, book_id=args.book_id, language=args.language, kind=args.kind,
+                summary=args.summary, genre_tags=args.genre_tags, roles=args.roles, beats=args.beats,
+                preconditions=args.preconditions, effects=args.effects, examples=args.examples,
+                tension_target=args.tension_target, emotion_target=args.emotion_target,
+                visibility=args.visibility,
+            ),
+        ))
+    if args.op == "patch":
+        if not args.motif_id or args.expected_version is None:
+            raise ValueError("op=patch requires motif_id and expected_version")
+        # PATCH semantics: motif_patch builds its SET clause from model_fields_set +
+        # model_dump(exclude_unset=True), so an EXPLICIT null clears the column. Forward by the
+        # caller's own model_fields_set (`_passed`), NOT _present — else an explicit
+        # `emotion_target=null` (clear) is dropped and the unified tool can't clear a nullable
+        # field the legacy motif_patch can. (S3 null-clear fix, 2026-07-25.)
+        return await composition_motif_patch(ctx, _MotifPatchToolArgs(
+            motif_id=args.motif_id, expected_version=args.expected_version,
+            **_passed(
+                args, "book_id", "name", "kind", "category", "summary", "genre_tags", "roles",
+                "beats", "preconditions", "effects", "annotations", "tension_target",
+                "emotion_target", "status",
+            ),
+        ))
+    if args.op == "archive":
+        if not args.motif_id:
+            raise ValueError("op=archive requires motif_id")
+        return await composition_motif_archive(ctx, motif_id=args.motif_id, book_id=args.book_id)
+    # op == "restore"
+    if not args.motif_id:
+        raise ValueError("op=restore requires motif_id")
+    return await composition_motif_restore(ctx, motif_id=args.motif_id, book_id=args.book_id)
+
+
+class _MotifLinkEditArgs(ForbidExtra):
+    """Flat superset for composition_motif_link_edit (A/user)."""
+
+    op: Literal["create", "delete"]
+    from_motif_id: str | None = None  # create
+    to_motif_id: str | None = None    # create
+    kind: Literal["composed_of", "precedes", "variant_of"] | None = None  # create
+    ord: int | None = None            # create
+    link_id: str | None = None        # delete
+    book_id: str | None = None        # both (shared-tier variant)
+
+
+@mcp_server.tool(
+    name="composition_motif_link_edit",
+    description=(
+        "Create or delete a relationship edge between two motifs — the unified motif-link entry point. "
+        "op=create adds an edge (needs from_motif_id + to_motif_id + kind ∈ composed_of|precedes|"
+        "variant_of; optional ord; both endpoints must be YOUR own motifs, or pass book_id to link two "
+        "SHARED motifs of that book). op=delete removes an edge (needs link_id; book_id for a shared "
+        "edge). A duplicate/self-link/cycle is refused. Read with composition_motif_link_list."
+    ),
+    meta=require_meta(
+        "A", "user",
+        synonyms=["link motifs", "connect motifs", "add motif edge", "unlink motifs",
+                  "remove motif edge", "compose pattern", "set succession", "mark variant"],
+        tool_name="composition_motif_link_edit",
+    ),
+)
+async def composition_motif_link_edit(ctx: MCPContext, args: _MotifLinkEditArgs) -> dict:
+    """Unified motif-link dispatch — delegates to the SAME per-op handlers (no logic moved)."""
+    if args.op == "create":
+        if not args.from_motif_id or not args.to_motif_id or not args.kind:
+            raise ValueError("op=create requires from_motif_id, to_motif_id, and kind")
+        return await composition_motif_link_create(ctx, _MotifLinkCreateArgs(
+            from_motif_id=args.from_motif_id, to_motif_id=args.to_motif_id, kind=args.kind,
+            **_present(ord=args.ord, book_id=args.book_id),
+        ))
+    # op == "delete"
+    if not args.link_id:
+        raise ValueError("op=delete requires link_id")
+    return await composition_motif_link_delete(ctx, link_id=args.link_id, book_id=args.book_id)
+
+
+class _MotifBindEditArgs(ForbidExtra):
+    """Flat superset for composition_motif_bind_edit (A/book — chapter binding)."""
+
+    op: Literal["bind", "unbind"]
+    project_id: str | None = None   # both
+    node_id: str | None = None      # both
+    motif_id: str | None = None     # bind
+    role_bindings: dict[str, str] | None = None  # bind
+    undo_token: dict | None = None  # unbind
+
+
+@mcp_server.tool(
+    name="composition_motif_bind_edit",
+    description=(
+        "Bind a motif to a chapter or unbind it — the unified chapter-motif-binding entry point. "
+        "op=bind instantiates the motif's beats as scene nodes + maps roles to glossary entities "
+        "(needs project_id + node_id + motif_id; optional role_bindings {role_key: entity_id}; "
+        "re-binding archives the prior scenes, reversible). op=unbind archives the binding + derived "
+        "scenes (needs project_id + node_id; pass the bind's undo_token to do the EXACT inverse, omit "
+        "to CLEAR the chapter's motif). EDIT on the book required; auto-applied with an Undo hint."
+    ),
+    meta=require_meta(
+        "A", "book",
+        synonyms=["bind motif", "apply motif", "attach pattern to chapter", "set chapter motif",
+                  "unbind motif", "remove motif", "clear chapter motif", "swap motif"],
+        tool_name="composition_motif_bind_edit",
+    ),
+)
+async def composition_motif_bind_edit(ctx: MCPContext, args: _MotifBindEditArgs) -> dict:
+    """Unified chapter-motif-binding dispatch — delegates to the SAME per-op handlers."""
+    if args.op == "bind":
+        if not args.project_id or not args.node_id or not args.motif_id:
+            raise ValueError("op=bind requires project_id, node_id, and motif_id")
+        return await composition_motif_bind(ctx, _MotifBindArgs(
+            project_id=args.project_id, node_id=args.node_id, motif_id=args.motif_id,
+            **_present(role_bindings=args.role_bindings),
+        ))
+    # op == "unbind"
+    if not args.project_id or not args.node_id:
+        raise ValueError("op=unbind requires project_id and node_id")
+    return await composition_motif_unbind(
+        ctx, project_id=args.project_id, node_id=args.node_id, undo_token=args.undo_token)
 
 
 # ── Tier W — motif confirm-token ops (cost/tenancy-gated) ─────────────────────
@@ -4806,6 +5238,98 @@ async def plan_link(
         return {"success": False, "error": "cannot link", "detail": str(exc)[:300]}
 
 
+# ── PlanForge auto-bootstrap MATERIALISE — the MCP half of the REST bootstrap gate ─────────────
+#
+# `plan_compile` + the passes build the composition spec tree (structure_node + outline_node), but
+# the manuscript chapters the drafting subagent writes into are BOOK-service rows the compiler never
+# creates. The bootstrap gate (BootstrapService.propose→approve→apply) is what turns a compiled
+# plan's planned chapters into real book chapters (and stamps outline_node.chapter_id so the scenes
+# hang off them). It shipped REST-only, so an AGENT could not drive it — which broke the "chat builds
+# the foundation, then hands compile+draft to the subagent" handoff (MCP-first invariant). These two
+# tools are the agent surface: PREVIEW (propose, writes nothing) then a CONFIRM-gated CREATE (apply).
+
+
+@mcp_server.tool(
+    name="plan_bootstrap_propose",
+    description=(
+        "PlanForge: PREVIEW the real book chapters (and any glossary seeds) a COMPILED plan would "
+        "create — the bridge from a compiled plan to draftable chapters. Deterministic, no LLM, and "
+        "writes NOTHING to the book: it diffs the plan's chapters against the ones that already exist "
+        "and records the gap as a proposal. The run must be compiled first (plan_compile). Follow with "
+        "plan_bootstrap_apply (using the returned proposal_id) to actually create the chapters. Returns "
+        "proposal_id + the chapter titles it would create. EDIT on the book required."
+    ),
+    meta=require_meta(
+        "A", "book",
+        synonyms=["preview chapters from plan", "materialize plan chapters", "what chapters will this make",
+                  "bridge plan to chapters"],
+        tool_name="plan_bootstrap_propose",
+    ),
+)
+async def plan_bootstrap_propose(
+    ctx: MCPContext,
+    book_id: Annotated[str, "The book (UUID)."],
+    run_id: Annotated[str, "The compiled plan run (UUID)."],
+) -> dict:
+    tc = _ctx(ctx)
+    bid = UUID(book_id)
+    await _gate(tc, bid, GrantLevel.EDIT)
+    svc = await get_bootstrap_service()
+    bearer = mint_service_bearer(tc.user_id, settings.jwt_secret)
+    try:
+        rec = await svc.propose(tc.user_id, bid, UUID(run_id), bearer)
+    except LookupError:
+        raise uniform_not_accessible()
+    except ValueError as exc:
+        # e.g. "run has no compiled package yet — call compile() first"
+        return {"success": False, "error": "cannot preview", "detail": str(exc)[:300]}
+    diff = rec.diff or {}
+    chapters = diff.get("new_chapters", [])
+    return {
+        "proposal_id": str(rec.id),
+        "status": rec.status,
+        "new_chapters_count": len(chapters),
+        "new_chapters": [{"title": c.get("title"), "ordinal": c.get("ordinal")} for c in chapters],
+        "new_glossary_entities_count": len(diff.get("new_glossary_entities", [])),
+    }
+
+
+@mcp_server.tool(
+    name="plan_bootstrap_apply",
+    description=(
+        "PlanForge: CREATE the real book chapters a plan_bootstrap_propose previewed (and seed any "
+        "proposed glossary entities), turning the compiled plan into chapters the drafting subagent can "
+        "write into. This WRITES to the book (new chapters), so it is CONFIRM-GATED: it returns a "
+        "`confirm_token` + descriptor and creates nothing until confirmed. Deterministic, no LLM. Pass "
+        "the proposal_id from plan_bootstrap_propose. EDIT on the book required."
+    ),
+    meta=require_meta(
+        "A", "book",
+        synonyms=["create the chapters", "make the plan real", "apply materialize", "build the chapters"],
+        tool_name="plan_bootstrap_apply",
+    ),
+)
+async def plan_bootstrap_apply(
+    ctx: MCPContext,
+    book_id: Annotated[str, "The book (UUID)."],
+    proposal_id: Annotated[str, "The proposal from plan_bootstrap_propose (UUID)."],
+) -> dict:
+    tc = _ctx(ctx)
+    bid = UUID(book_id)
+    await _gate(tc, bid, GrantLevel.EDIT)
+    pid = UUID(proposal_id)  # validate shape before minting
+    payload = {"book_id": str(bid), "proposal_id": str(pid)}
+    confirm_token = mint_confirm_token(
+        settings.confirm_token_signing_secret, tc.user_id, bid, _BOOTSTRAP_APPLY_DESCRIPTOR, payload,
+    )
+    return {
+        "confirm_token": confirm_token,
+        "descriptor": _BOOTSTRAP_APPLY_DESCRIPTOR,
+        "book_id": str(bid),
+        "proposal_id": str(pid),
+    }
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # 28 AN-2/AN-3/AN-4 — THE AGENT'S THREE READ SURFACES.
 #
@@ -5153,16 +5677,17 @@ def _arc_conflict(exc: StructureConflictError) -> dict[str, Any]:
         "R", "book",
         synonyms=["list arcs", "arc tree", "story structure", "sagas", "book architecture",
                   "spec tree", "arc grouping"],
+        ambient_book=True,
         tool_name="composition_arc_list",
     ),
 )
 async def composition_arc_list(
     ctx: MCPContext,
-    book_id: Annotated[str, "The book whose spec tree to list (you need VIEW on it)."],
+    book_id: Annotated[str | None, "The book whose spec tree to list. Omit inside a book studio — the current book is used."] = None,
     include_archived: Annotated[bool, "Include soft-archived arcs."] = False,
 ) -> dict:
     tc = _ctx(ctx)
-    bid = UUID(book_id)
+    bid = _resolve_bid(tc, book_id)
     await _gate(tc, bid, GrantLevel.VIEW)
     structures = StructureRepo(get_pool())
     nodes = await structures.list_tree(bid, include_archived=include_archived)
@@ -5264,6 +5789,7 @@ class _ArcCreateArgs(ForbidExtra):
         "A", "book",
         synonyms=["create arc", "new saga", "add arc", "author an arc", "start a saga",
                   "add sub-arc", "create story arc"],
+        visibility="legacy", superseded_by="composition_arc_edit",  # S3 2026-07-25
         tool_name="composition_arc_create",
     ),
 )
@@ -5274,6 +5800,27 @@ async def composition_arc_create(ctx: MCPContext, args: _ArcCreateArgs) -> dict:
     # book_id IS the scope; a cross-book parent_arc_id is caught by the trigger).
     await _gate(tc, bid, GrantLevel.EDIT)
     structures = StructureRepo(get_pool())
+    # K13 (2026-07-23) — idempotency guard against the agent double-firing this Tier-A
+    # create. LIVE-PROBED: two byte-identical calls made TWO arcs. The agent loop was
+    # measured re-issuing an identical Tier-A write across iterations even after an
+    # explicit success result, and Tier-A auto-commits are bounded only by
+    # TIER_A_SAME_OP_CAP (5/turn) — so one intent could mint five arcs. Same shape as
+    # book-service's N6 chapter guard: sequential tool calls make a pre-insert lookup on
+    # the non-empty natural key sufficient, and a DB unique is avoided because two arcs
+    # legitimately sharing a title (different parents/tracks) is a real authoring case.
+    if (args.title or "").strip():
+        existing = await structures.find_node_by_title(
+            bid, args.kind, args.title.strip(),
+            parent_id=UUID(args.parent_arc_id) if args.parent_arc_id else None,
+        )
+        if existing is not None:
+            out = existing.model_dump(mode="json")
+            out["_meta"] = {"undo_hint": _undo("composition_arc_delete", node_id=str(existing.id))}
+            out["note"] = (
+                "an arc with this title already exists at this level — returning it "
+                "instead of creating a duplicate."
+            )
+            return out
     try:
         node = await structures.create_node(
             bid,
@@ -5324,6 +5871,7 @@ class _ArcUpdateArgs(ForbidExtra):
         "A", "book",
         synonyms=["edit arc", "update arc", "rename saga", "set arc status",
                   "edit tracks", "update roster"],
+        visibility="legacy", superseded_by="composition_arc_edit",  # S3 2026-07-25
         tool_name="composition_arc_update",
     ),
 )
@@ -5378,6 +5926,7 @@ async def composition_arc_update(ctx: MCPContext, args: _ArcUpdateArgs) -> dict:
     meta=require_meta(
         "A", "book",
         synonyms=["delete arc", "archive saga", "remove arc", "delete story arc"],
+        visibility="legacy", superseded_by="composition_arc_edit",  # S3 2026-07-25
         tool_name="composition_arc_delete",
     ),
 )
@@ -5406,6 +5955,7 @@ async def composition_arc_delete(
     meta=require_meta(
         "A", "book",
         synonyms=["restore arc", "unarchive saga", "undelete arc"],
+        visibility="legacy", superseded_by="composition_arc_edit",  # S3 2026-07-25
         tool_name="composition_arc_restore",
     ),
 )
@@ -5447,6 +5997,7 @@ class _ArcMoveArgs(ForbidExtra):
     meta=require_meta(
         "A", "book",
         synonyms=["move arc", "reparent arc", "reorder arc", "nest arc", "restructure book"],
+        visibility="legacy", superseded_by="composition_arc_edit",  # S3 2026-07-25
         tool_name="composition_arc_move",
     ),
 )
@@ -5493,6 +6044,7 @@ class _ArcAssignChaptersArgs(ForbidExtra):
         "A", "book",
         synonyms=["assign chapters", "attach chapters to arc", "arc membership",
                   "add chapters to arc", "group chapters under arc"],
+        visibility="legacy", superseded_by="composition_arc_edit",  # S3 2026-07-25
         tool_name="composition_arc_assign_chapters",
     ),
 )
@@ -5512,6 +6064,130 @@ async def composition_arc_assign_chapters(
         "assigned": count, "structure_node_id": args.structure_node_id,
         "_meta": {"undo_hint": None},
     }
+
+
+# ── S3 catalog-unification (2026-07-25): composition_arc_edit (op=create|update|delete|
+# restore|move|assign_chapters) SUPERSEDES the 6 per-op arc-CRUD tools above (kept,
+# visibility:legacy — still callable for cached workflows/schemas, hidden from the default
+# discovery surface). Same tier (A/book), same cores: it DELEGATES to the legacy handlers
+# (NO logic moved), so every guard, Undo hint, and conflict shape is preserved verbatim.
+# Mirrors KG's kg_view_edit / kg_ontology_propose op-dispatch. Reads stay separate
+# (composition_arc_get / composition_arc_list) — different response contracts. ──────────
+def _present(**kwargs: Any) -> dict[str, Any]:
+    """Keep only the args the caller actually supplied (drop None) so each sub-Args model
+    applies its OWN defaults. A flat-superset op tool must never force None onto a field
+    whose default is a non-None value (e.g. _ArcCreateArgs.status='outline' — passing None
+    would fail the Literal validation). Use for CREATE and for updates whose handler treats
+    None as 'unchanged' (the `if value is not None` pattern)."""
+    return {k: v for k, v in kwargs.items() if v is not None}
+
+
+def _passed(args: Any, *names: str) -> dict[str, Any]:
+    """Forward only the fields the caller EXPLICITLY set (via `model_fields_set`), INCLUDING an
+    explicit None. Unlike `_present` (drop-None), this PRESERVES null-as-clear semantics for a
+    PATCH handler that builds its SET clause from `model_fields_set` / `model_dump(exclude_unset=
+    True)` — e.g. `motif_patch` clears `emotion_target` on an explicit null. A flat op superset
+    otherwise collapses absent-vs-null (both arrive None); routing the caller's own
+    `model_fields_set` is what keeps the two distinguishable through the wrapper."""
+    fs = args.model_fields_set
+    return {n: getattr(args, n) for n in names if n in fs}
+
+
+class _ArcEditArgs(ForbidExtra):
+    """Flat superset for composition_arc_edit; each op reads only its own fields. Wrapped
+    (like KgOntologyProposeArgs) so Pydantic stays the single validation truth; FastMCP
+    flattens it on the wire (K16)."""
+
+    op: Literal["create", "update", "delete", "restore", "move", "assign_chapters"]
+    book_id: str | None = None          # create, assign_chapters
+    node_id: str | None = None          # update, delete, restore, move
+    kind: Literal["saga", "arc"] | None = None   # create
+    parent_arc_id: str | None = None    # create
+    title: str | None = None            # create, update
+    summary: str | None = None          # create, update
+    goal: str | None = None             # create, update
+    status: _ArcStatus | None = None    # create, update
+    tracks: list[dict[str, Any]] | None = None          # create, update
+    roster: list[dict[str, Any]] | None = None          # create, update
+    roster_bindings: dict[str, Any] | None = None       # create, update
+    arc_template_id: str | None = None  # create, update
+    template_version: int | None = None  # create, update
+    expected_version: int | None = None  # update (required)
+    new_parent_arc_id: str | None = None  # move
+    after_id: str | None = None         # move
+    structure_node_id: str | None = None  # assign_chapters (null unassigns)
+    chapter_node_ids: list[str] | None = None  # assign_chapters
+
+
+@mcp_server.tool(
+    name="composition_arc_edit",
+    description=(
+        "Create, edit, delete, restore, move, or (re)assign chapters to a saga/arc in a "
+        "book's SPEC tree — the unified arc-CRUD entry point. "
+        "op=create mints a saga/arc (needs book_id; optional kind + title/summary/goal/"
+        "status/parent_arc_id/tracks/roster/roster_bindings/arc_template_id/template_version). "
+        "op=update edits its content (needs node_id + expected_version — optimistic "
+        "concurrency, a stale version is rejected). op=delete soft-archives it + its subtree "
+        "(needs node_id; reversible via op=restore). op=restore un-archives it (needs node_id). "
+        "op=move reparents+reorders it (needs node_id; new_parent_arc_id=null → root, "
+        "after_id=null → first). op=assign_chapters attaches CHAPTER nodes to an arc (needs "
+        "book_id + chapter_node_ids; structure_node_id=null UNASSIGNS them). EDIT on the book "
+        "required; auto-applied with an Undo hint. Read with composition_arc_get / composition_arc_list."
+    ),
+    meta=require_meta(
+        "A", "book",
+        synonyms=["edit arc", "create arc", "new saga", "delete arc", "archive arc",
+                  "restore arc", "move arc", "reparent arc", "reorder arc",
+                  "assign chapters to arc", "manage arc", "author an arc"],
+        tool_name="composition_arc_edit",
+    ),
+)
+async def composition_arc_edit(ctx: MCPContext, args: _ArcEditArgs) -> dict:
+    """Unified arc-CRUD dispatch — delegates to the SAME per-op handlers (no logic moved).
+    Per-op required fields are validated here with a clear ValueError (→ isError)."""
+    if args.op == "create":
+        if not args.book_id:
+            raise ValueError("op=create requires book_id")
+        return await composition_arc_create(ctx, _ArcCreateArgs(
+            book_id=args.book_id,
+            **_present(
+                kind=args.kind, parent_arc_id=args.parent_arc_id, title=args.title,
+                summary=args.summary, goal=args.goal, status=args.status, tracks=args.tracks,
+                roster=args.roster, roster_bindings=args.roster_bindings,
+                arc_template_id=args.arc_template_id, template_version=args.template_version,
+            ),
+        ))
+    if args.op == "update":
+        if not args.node_id or args.expected_version is None:
+            raise ValueError("op=update requires node_id and expected_version")
+        return await composition_arc_update(ctx, _ArcUpdateArgs(
+            node_id=args.node_id, expected_version=args.expected_version,
+            **_present(
+                title=args.title, summary=args.summary, goal=args.goal, status=args.status,
+                tracks=args.tracks, roster=args.roster, roster_bindings=args.roster_bindings,
+                arc_template_id=args.arc_template_id, template_version=args.template_version,
+            ),
+        ))
+    if args.op == "delete":
+        if not args.node_id:
+            raise ValueError("op=delete requires node_id")
+        return await composition_arc_delete(ctx, node_id=args.node_id)
+    if args.op == "restore":
+        if not args.node_id:
+            raise ValueError("op=restore requires node_id")
+        return await composition_arc_restore(ctx, node_id=args.node_id)
+    if args.op == "move":
+        if not args.node_id:
+            raise ValueError("op=move requires node_id")
+        return await composition_arc_move(ctx, _ArcMoveArgs(
+            node_id=args.node_id, new_parent_arc_id=args.new_parent_arc_id,
+            after_id=args.after_id))
+    # op == "assign_chapters"
+    if not args.book_id or args.chapter_node_ids is None:
+        raise ValueError("op=assign_chapters requires book_id and chapter_node_ids")
+    return await composition_arc_assign_chapters(ctx, _ArcAssignChaptersArgs(
+        book_id=args.book_id, structure_node_id=args.structure_node_id,
+        chapter_node_ids=args.chapter_node_ids))
 
 
 # ── B2 — template ops. ⚠ CORRECTION (O-3, close-21-28): the prior comment here said
@@ -5728,9 +6404,13 @@ async def composition_arc_template_drift(
 )
 async def composition_arc_template_list(
     ctx: MCPContext,
-    scope: Annotated[str, "mine | system | all"] = "all",
+    # K20 — Literal, not `str`. These were runtime-checked closed sets advertised as bare
+    # strings: the handler rejected anything else, but the model was never TOLD the set, so a
+    # near-miss ("user", "published") was a hard error it had no way to avoid. A Literal makes
+    # FastMCP emit a real `enum`, which is the only form the validator reads.
+    scope: Annotated[Literal["mine", "system", "all"], "mine | system | all"] = "all",
     genre: Annotated[str | None, "filter by genre tag"] = None,
-    status: Annotated[str, "draft | active | archived"] = "active",
+    status: Annotated[Literal["draft", "active", "archived"], "draft | active | archived"] = "active",
     q: Annotated[str | None, "text search over name/summary"] = None,
     language: Annotated[str | None, "language code filter"] = None,
     limit: Annotated[int, "1..100"] = 50,
@@ -5741,11 +6421,28 @@ async def composition_arc_template_list(
     if status not in ("draft", "active", "archived"):
         return {"error": "status must be one of: draft, active, archived"}
     repo = ArcTemplateRepo(get_pool())
+    # K25 (2026-07-24) — OUT-5: this returned ONLY the capped slice, no total/more flag, so a
+    # caller with 31 templates asking limit=5 read "you have 5 templates" — a silent
+    # truncation. Fetch limit+1 and report `more` (the same signal kg_project_list uses:
+    # "the repo fetches limit+1 to signal more"), which is honest without a second COUNT.
+    capped = max(1, min(100, limit))
     rows = await repo.list_for_caller(
         tc.user_id, scope=("user" if scope == "mine" else scope), genre=genre,
-        status=status, q=q, language=language, limit=max(1, min(100, limit)),
+        status=status, q=q, language=language, limit=capped + 1,
     )
-    return {"arc_templates": [a.model_dump(mode="json") for a in rows], "scope": scope}
+    more = len(rows) > capped
+    rows = rows[:capped]
+    return {
+        "arc_templates": [a.model_dump(mode="json") for a in rows],
+        "scope": scope,
+        "returned": len(rows),
+        "more": more,
+        "guidance": (
+            f"showing {len(rows)} — more exist; raise `limit` or narrow with "
+            "scope/genre/status/q. Do NOT assume this is all of them."
+            if more else f"complete — all {len(rows)} matching templates returned."
+        ),
+    }
 
 
 @mcp_server.tool(
@@ -5776,6 +6473,7 @@ async def composition_arc_template_get(
     ),
     meta=require_meta("W", "book",
                       synonyms=["create arc template", "new arc template", "save arc skeleton"],
+                      visibility="legacy", superseded_by="composition_arc_template_edit",  # S3
                       tool_name="composition_arc_template_create"),
 )
 async def composition_arc_template_create(ctx: MCPContext, args: ArcTemplateCreateArgs) -> dict:
@@ -5806,6 +6504,7 @@ class _ArcTemplateUpdateArgs(ArcTemplatePatchArgs):
     ),
     meta=require_meta("W", "book",
                       synonyms=["update arc template", "edit arc template", "patch arc template"],
+                      visibility="legacy", superseded_by="composition_arc_template_edit",  # S3
                       tool_name="composition_arc_template_update"),
 )
 async def composition_arc_template_update(ctx: MCPContext, args: _ArcTemplateUpdateArgs) -> dict:
@@ -5834,6 +6533,7 @@ async def composition_arc_template_update(ctx: MCPContext, args: _ArcTemplateUpd
     ),
     meta=require_meta("W", "book",
                       synonyms=["archive arc template", "delete arc template", "remove arc template"],
+                      visibility="legacy", superseded_by="composition_arc_template_edit",  # S3
                       tool_name="composition_arc_template_archive"),
 )
 async def composition_arc_template_archive(
@@ -5855,6 +6555,7 @@ async def composition_arc_template_archive(
     ),
     meta=require_meta("W", "book",
                       synonyms=["restore arc template", "unarchive arc template"],
+                      visibility="legacy", superseded_by="composition_arc_template_edit",  # S3
                       tool_name="composition_arc_template_restore"),
 )
 async def composition_arc_template_restore(
@@ -5868,6 +6569,89 @@ async def composition_arc_template_restore(
     out = arc.model_dump(mode="json")
     out["_meta"] = {"undo_hint": _undo("composition_arc_template_archive", arc_id=arc_id)}
     return out
+
+
+# ── S3 catalog-unification (2026-07-25): composition_arc_template_edit (op=create|update|
+# archive|restore) SUPERSEDES the 4 per-op arc-TEMPLATE-CRUD tools above (kept,
+# visibility:legacy). Same tier (W/book), delegates to the SAME handlers (no logic moved).
+# Reads stay separate (composition_arc_template_get / composition_arc_template_list). ───────
+class _ArcTemplateEditArgs(ForbidExtra):
+    """Flat superset for composition_arc_template_edit; each op reads only its own fields.
+    Wrapped so Pydantic validates/coerces the rich sub-models (threads/layout/pacing/
+    arc_roster from plain dicts); FastMCP flattens on the wire (K16)."""
+
+    op: Literal["create", "update", "archive", "restore"]
+    arc_id: str | None = None           # update, archive, restore
+    expected_version: int | None = None  # update (optional optimistic concurrency)
+    code: str | None = None             # create (required)
+    name: str | None = None             # create (required), update
+    language: str | None = None         # create
+    summary: str | None = None          # create, update
+    genre_tags: list[str] | None = None  # create, update
+    chapter_span: int | None = None     # create, update
+    threads: list[dict[str, Any]] | None = None   # create, update
+    layout: list[dict[str, Any]] | None = None    # create, update
+    pacing: list[dict[str, Any]] | None = None    # create, update
+    arc_roster: list[dict[str, Any]] | None = None  # create, update
+    visibility: str | None = None       # create, update (only 'private' accepted here)
+    status: str | None = None           # update
+
+
+@mcp_server.tool(
+    name="composition_arc_template_edit",
+    description=(
+        "Create, edit, archive, or restore one of YOUR arc templates (reusable arc "
+        "skeletons — threads, layout, pacing, roster) — the unified template-CRUD entry point. "
+        "op=create mints a PRIVATE template (needs code + name; optional language/summary/"
+        "genre_tags/chapter_span/threads/layout/pacing/arc_roster; a duplicate code+language → "
+        "409). op=update edits your own (needs arc_id; optional expected_version for optimistic "
+        "concurrency; only the fields you pass change; a foreign/system row → 404). op=archive "
+        "soft-archives yours (needs arc_id; reversible via op=restore). op=restore un-archives "
+        "yours (needs arc_id). Publishing/sharing (visibility other than private) is a deliberate "
+        "studio action — refused here. Read with composition_arc_template_get / composition_arc_template_list."
+    ),
+    meta=require_meta(
+        "W", "book",
+        synonyms=["edit arc template", "create arc template", "new arc template",
+                  "update arc template", "archive arc template", "restore arc template",
+                  "save arc skeleton", "manage arc template"],
+        tool_name="composition_arc_template_edit",
+    ),
+)
+async def composition_arc_template_edit(ctx: MCPContext, args: _ArcTemplateEditArgs) -> dict:
+    """Unified arc-template CRUD dispatch — delegates to the SAME per-op handlers (no logic
+    moved). Per-op required fields validated here with a clear ValueError (→ isError)."""
+    if args.op == "create":
+        if not args.code or not args.name:
+            raise ValueError("op=create requires code and name")
+        return await composition_arc_template_create(ctx, ArcTemplateCreateArgs(
+            code=args.code, name=args.name,
+            **_present(
+                language=args.language, summary=args.summary, genre_tags=args.genre_tags,
+                chapter_span=args.chapter_span, threads=args.threads, layout=args.layout,
+                pacing=args.pacing, arc_roster=args.arc_roster, visibility=args.visibility,
+            ),
+        ))
+    if args.op == "update":
+        if not args.arc_id:
+            raise ValueError("op=update requires arc_id")
+        return await composition_arc_template_update(ctx, _ArcTemplateUpdateArgs(
+            arc_id=args.arc_id, expected_version=args.expected_version,
+            **_present(
+                name=args.name, summary=args.summary, genre_tags=args.genre_tags,
+                chapter_span=args.chapter_span, threads=args.threads, layout=args.layout,
+                pacing=args.pacing, arc_roster=args.arc_roster, visibility=args.visibility,
+                status=args.status,
+            ),
+        ))
+    if args.op == "archive":
+        if not args.arc_id:
+            raise ValueError("op=archive requires arc_id")
+        return await composition_arc_template_archive(ctx, arc_id=args.arc_id)
+    # op == "restore"
+    if not args.arc_id:
+        raise ValueError("op=restore requires arc_id")
+    return await composition_arc_template_restore(ctx, arc_id=args.arc_id)
 
 
 # ── B3 — the missing outline reorder (F6): a human has full drag-reorder
@@ -5899,6 +6683,7 @@ class _OutlineNodeMoveArgs(ForbidExtra):
         "A", "book",
         synonyms=["move node", "reorder scene", "reparent chapter", "drag reorder",
                   "reorder outline node"],
+        visibility="legacy", superseded_by="composition_outline_node_edit",  # S3
         tool_name="composition_outline_node_move",
     ),
 )
@@ -5950,6 +6735,351 @@ async def composition_outline_node_move(ctx: MCPContext, args: _OutlineNodeMoveA
 # returns the completed result synchronously — so no `tasks/get` polling is needed for
 # the confirm gate. `enable_task_results` stays available for a future protocol-pure /
 # external-MCP-tasks-client path.
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# S3 catalog-unification (2026-07-25): 5 clean single-tier CRUD families → 5 unified
+# op-tools. Each SUPERSEDES its per-op write tools (all marked visibility=legacy above,
+# still callable, hidden from tool_list default). Same tier per family; delegates to the
+# SAME handlers (no logic moved); per-op required-field guards raise ValueError→isError;
+# _present() drops omitted None so each sub-Args applies its own defaults. Mirrors S3·arc.
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class _StructTemplateEditArgs(ForbidExtra):
+    op: Literal["create", "update", "clone", "archive", "restore"]
+    template_id: str | None = None       # update, clone, archive, restore
+    expected_version: int | None = None  # update
+    name: str | None = None              # create (req), update, clone
+    kind: str | None = None              # create, update
+    beats: list[dict[str, Any]] | None = None  # create, update
+
+
+@mcp_server.tool(
+    name="composition_structure_template_edit",
+    description=(
+        "Create, edit, clone, archive, or restore one of YOUR structure templates (reusable "
+        "beat skeletons) — the unified template-CRUD entry point. op=create (needs name; optional "
+        "kind/beats). op=update your own (needs template_id + expected_version; only passed fields "
+        "change). op=clone copies one (needs template_id; optional new name). op=archive soft-archives "
+        "(needs template_id; reversible via op=restore). op=restore un-archives (needs template_id)."
+    ),
+    meta=require_meta("A", "user",
+                      synonyms=["edit structure template", "create structure template",
+                                "clone template", "archive structure template", "manage structure template"],
+                      tool_name="composition_structure_template_edit"),
+)
+async def composition_structure_template_edit(ctx: MCPContext, args: _StructTemplateEditArgs) -> dict:
+    if args.op == "create":
+        if not args.name:
+            raise ValueError("op=create requires name")
+        return await composition_structure_template_create(ctx, _StructTemplateCreateArgs(
+            name=args.name, **_present(kind=args.kind, beats=args.beats)))
+    if args.op == "update":
+        if not args.template_id or args.expected_version is None:
+            raise ValueError("op=update requires template_id and expected_version")
+        return await composition_structure_template_update(ctx, _StructTemplateUpdateArgs(
+            template_id=args.template_id, expected_version=args.expected_version,
+            **_present(name=args.name, kind=args.kind, beats=args.beats)))
+    if args.op == "clone":
+        if not args.template_id:
+            raise ValueError("op=clone requires template_id")
+        return await composition_structure_template_clone(ctx, _StructTemplateCloneArgs(
+            template_id=args.template_id, **_present(name=args.name)))
+    if args.op == "archive":
+        if not args.template_id:
+            raise ValueError("op=archive requires template_id")
+        return await composition_structure_template_archive(
+            ctx, _StructTemplateIdArgs(template_id=args.template_id))
+    # op == "restore"
+    if not args.template_id:
+        raise ValueError("op=restore requires template_id")
+    return await composition_structure_template_restore(
+        ctx, _StructTemplateIdArgs(template_id=args.template_id))
+
+
+class _OutlineNodeEditArgs(ForbidExtra):
+    op: Literal["create", "update", "delete", "restore", "move"]
+    project_id: str | None = None        # all (create: optional)
+    node_id: str | None = None           # update, delete, restore, move
+    expected_version: int | None = None  # update (req), move (opt)
+    kind: Literal["chapter", "scene"] | None = None  # create (req)
+    parent_id: str | None = None         # create
+    title: str | None = None             # create, update
+    goal: str | None = None              # create, update
+    synopsis: str | None = None          # create, update
+    status: Literal["empty", "outline", "drafting", "done"] | None = None  # create, update
+    chapter_id: str | None = None        # create
+    location_entity_id: str | None = None  # create, update
+    story_time: str | None = None        # create, update
+    conflict: str | None = None          # create, update
+    outcome: str | None = None           # create, update
+    value_shift: int | None = None       # create, update
+    stakes: str | None = None            # create, update
+    target_words: int | None = None      # create, update
+    exit_state: SceneExitState | None = None  # create, update
+    new_parent_id: str | None = None     # move
+    after_id: str | None = None          # move
+
+
+@mcp_server.tool(
+    name="composition_outline_node_edit",
+    description=(
+        "Create, edit, delete, restore, or move an outline node (chapter/scene) — the unified "
+        "outline-CRUD entry point. op=create (needs kind ∈ chapter|scene; optional parent_id/title/"
+        "goal/synopsis/status/chapter_id/scene fields). op=update (needs project_id + node_id + "
+        "expected_version; only passed fields change). op=delete soft-archives (needs project_id + "
+        "node_id; reversible via op=restore). op=restore un-archives. op=move reparents+reorders "
+        "(needs project_id + node_id; new_parent_id/after_id, optional expected_version). EDIT required."
+    ),
+    meta=require_meta("A", "book",
+                      synonyms=["edit outline node", "create chapter", "create scene", "delete scene",
+                                "move scene", "reorder outline", "restore scene", "manage outline node"],
+                      tool_name="composition_outline_node_edit"),
+)
+async def composition_outline_node_edit(ctx: MCPContext, args: _OutlineNodeEditArgs) -> dict:
+    if args.op == "create":
+        if not args.kind:
+            raise ValueError("op=create requires kind")
+        return await composition_outline_node_create(ctx, _NodeCreateArgs(
+            kind=args.kind,
+            **_present(project_id=args.project_id, parent_id=args.parent_id, title=args.title,
+                       goal=args.goal, synopsis=args.synopsis, status=args.status,
+                       chapter_id=args.chapter_id, location_entity_id=args.location_entity_id,
+                       story_time=args.story_time, conflict=args.conflict, outcome=args.outcome,
+                       value_shift=args.value_shift, stakes=args.stakes,
+                       target_words=args.target_words, exit_state=args.exit_state)))
+    if args.op == "update":
+        if not args.project_id or not args.node_id or args.expected_version is None:
+            raise ValueError("op=update requires project_id, node_id, and expected_version")
+        return await composition_outline_node_update(ctx, _NodeUpdateArgs(
+            project_id=args.project_id, node_id=args.node_id, expected_version=args.expected_version,
+            **_present(title=args.title, goal=args.goal, synopsis=args.synopsis, status=args.status,
+                       location_entity_id=args.location_entity_id, story_time=args.story_time,
+                       conflict=args.conflict, outcome=args.outcome, value_shift=args.value_shift,
+                       stakes=args.stakes, target_words=args.target_words, exit_state=args.exit_state)))
+    if args.op == "delete":
+        if not args.project_id or not args.node_id:
+            raise ValueError("op=delete requires project_id and node_id")
+        return await composition_outline_node_delete(ctx, project_id=args.project_id, node_id=args.node_id)
+    if args.op == "restore":
+        if not args.project_id or not args.node_id:
+            raise ValueError("op=restore requires project_id and node_id")
+        return await composition_outline_node_restore(ctx, project_id=args.project_id, node_id=args.node_id)
+    # op == "move"
+    if not args.project_id or not args.node_id:
+        raise ValueError("op=move requires project_id and node_id")
+    return await composition_outline_node_move(ctx, _OutlineNodeMoveArgs(
+        project_id=args.project_id, node_id=args.node_id,
+        **_present(new_parent_id=args.new_parent_id, after_id=args.after_id,
+                   expected_version=args.expected_version)))
+
+
+class _CanonRuleEditArgs(ForbidExtra):
+    op: Literal["create", "update", "delete", "restore"]
+    project_id: str | None = None        # all
+    rule_id: str | None = None           # update, delete, restore
+    expected_version: int | None = None  # update
+    text: str | None = None              # create (req), update
+    scope: Literal["world", "entity", "reveal_gate"] | None = None  # create
+    entity_id: str | None = None         # create
+    from_order: int | None = None        # create
+    until_order: int | None = None       # create
+    kind: str | None = None              # create
+    active: bool | None = None           # update
+
+
+@mcp_server.tool(
+    name="composition_canon_rule_edit",
+    description=(
+        "Create, edit, delete, or restore a canon rule (a constraint the generator must honor) — "
+        "the unified canon-rule-CRUD entry point. op=create (needs project_id + text; optional scope ∈ "
+        "world|entity|reveal_gate, entity_id, from_order/until_order, kind). op=update (needs project_id + "
+        "rule_id + expected_version; text/active). op=delete soft-deletes (needs project_id + rule_id; "
+        "reversible via op=restore). op=restore un-deletes. EDIT required."
+    ),
+    meta=require_meta("A", "book",
+                      synonyms=["edit canon rule", "add canon rule", "delete canon rule",
+                                "restore canon rule", "set constraint", "manage canon rule"],
+                      tool_name="composition_canon_rule_edit"),
+)
+async def composition_canon_rule_edit(ctx: MCPContext, args: _CanonRuleEditArgs) -> dict:
+    if args.op == "create":
+        if not args.project_id or not args.text:
+            raise ValueError("op=create requires project_id and text")
+        return await composition_canon_rule_create(ctx, _CanonRuleCreateArgs(
+            project_id=args.project_id, text=args.text,
+            **_present(scope=args.scope, entity_id=args.entity_id, from_order=args.from_order,
+                       until_order=args.until_order, kind=args.kind)))
+    if args.op == "update":
+        if not args.project_id or not args.rule_id or args.expected_version is None:
+            raise ValueError("op=update requires project_id, rule_id, and expected_version")
+        return await composition_canon_rule_update(ctx, _CanonRuleUpdateArgs(
+            project_id=args.project_id, rule_id=args.rule_id, expected_version=args.expected_version,
+            **_present(text=args.text, active=args.active)))
+    if args.op == "delete":
+        if not args.project_id or not args.rule_id:
+            raise ValueError("op=delete requires project_id and rule_id")
+        return await composition_canon_rule_delete(ctx, project_id=args.project_id, rule_id=args.rule_id)
+    # op == "restore"
+    if not args.project_id or not args.rule_id:
+        raise ValueError("op=restore requires project_id and rule_id")
+    return await composition_canon_rule_restore(ctx, project_id=args.project_id, rule_id=args.rule_id)
+
+
+class _EntityOverrideEditArgs(ForbidExtra):
+    op: Literal["add", "update", "delete"]
+    project_id: str | None = None        # all
+    target_entity_id: str | None = None  # add
+    override_id: str | None = None       # update, delete
+    overridden_fields: dict[str, Any] | None = None  # add, update
+
+
+@mcp_server.tool(
+    name="composition_entity_override_edit",
+    description=(
+        "Add, update, or delete a per-Work entity override (book-local field changes on a glossary "
+        "entity) — the unified entity-override-CRUD entry point. op=add (needs project_id + "
+        "target_entity_id; overridden_fields). op=update (needs project_id + override_id; "
+        "overridden_fields). op=delete (needs project_id + override_id). EDIT required."
+    ),
+    meta=require_meta("A", "book",
+                      synonyms=["add entity override", "edit entity override", "delete entity override",
+                                "override entity field", "manage entity override"],
+                      tool_name="composition_entity_override_edit"),
+)
+async def composition_entity_override_edit(ctx: MCPContext, args: _EntityOverrideEditArgs) -> dict:
+    if args.op == "add":
+        if not args.project_id or not args.target_entity_id:
+            raise ValueError("op=add requires project_id and target_entity_id")
+        return await composition_entity_override_add(ctx, _EntityOverrideAddArgs(
+            project_id=args.project_id, target_entity_id=args.target_entity_id,
+            **_present(overridden_fields=args.overridden_fields)))
+    if args.op == "update":
+        if not args.project_id or not args.override_id:
+            raise ValueError("op=update requires project_id and override_id")
+        return await composition_entity_override_update(ctx, _EntityOverrideUpdateArgs(
+            project_id=args.project_id, override_id=args.override_id,
+            **_present(overridden_fields=args.overridden_fields)))
+    # op == "delete"
+    if not args.project_id or not args.override_id:
+        raise ValueError("op=delete requires project_id and override_id")
+    return await composition_entity_override_delete(ctx, _EntityOverrideDeleteArgs(
+        project_id=args.project_id, override_id=args.override_id))
+
+
+class _SceneLinkEditArgs(ForbidExtra):
+    op: Literal["create", "delete"]
+    project_id: str | None = None       # both
+    from_node_id: str | None = None     # create
+    to_node_id: str | None = None       # create
+    kind: LinkKind | None = None        # create
+    label: str | None = None            # create
+    link_id: str | None = None          # delete
+
+
+@mcp_server.tool(
+    name="composition_scene_link_edit",
+    description=(
+        "Create or delete a scene-link edge (setup_payoff / foreshadow / callback between outline "
+        "nodes) — the unified scene-link entry point. op=create (needs project_id + from_node_id + "
+        "to_node_id; optional kind, label). op=delete (needs project_id + link_id). EDIT required."
+    ),
+    meta=require_meta("A", "book",
+                      synonyms=["link scenes", "connect scenes", "add scene link", "delete scene link",
+                                "set setup payoff", "manage scene link"],
+                      tool_name="composition_scene_link_edit"),
+)
+async def composition_scene_link_edit(ctx: MCPContext, args: _SceneLinkEditArgs) -> dict:
+    if args.op == "create":
+        if not args.project_id or not args.from_node_id or not args.to_node_id:
+            raise ValueError("op=create requires project_id, from_node_id, and to_node_id")
+        return await composition_scene_link_create(ctx, _SceneLinkCreateArgs(
+            project_id=args.project_id, from_node_id=args.from_node_id, to_node_id=args.to_node_id,
+            **_present(kind=args.kind, label=args.label)))
+    # op == "delete"
+    if not args.project_id or not args.link_id:
+        raise ValueError("op=delete requires project_id and link_id")
+    return await composition_scene_link_delete(ctx, project_id=args.project_id, link_id=args.link_id)
+
+
+# ── S3 catalog-unification (2026-07-25): the derivative CRUD pair. Surfaced by the deep-dive
+# of the "leave separate" calls — my prefix-based survey missed it because these two ops don't
+# share a name prefix (`archive_derivative` + `divergence_spec_update`), yet both are A/book,
+# both keyed by the derivative's own project_id, both reject the canonical Work: they are
+# soft-DELETE + UPDATE on the SAME entity (a derivative). op=update_spec uses `_passed` so the
+# documented `pov_anchor=null` clear survives (the same null-clear the motif fix preserved).
+# create_derivative stays separate (W/confirm-gated); switch_active_work stays separate (a
+# per-user active-work PREF keyed by book_id, over any Work, not derivative-CRUD). ─────────────
+class _DerivativeEditArgs(ForbidExtra):
+    op: Literal["archive", "restore", "update_spec"]
+    project_id: str                      # all (the derivative's project_id)
+    expected_version: int | None = None  # archive (required) / restore (optional OCC)
+    taxonomy: Literal["pov_shift", "character_transform", "au"] | None = None  # update_spec
+    pov_anchor: str | None = None        # update_spec (explicit null CLEARS it)
+    canon_rule: list[str] | None = None  # update_spec
+
+
+@mcp_server.tool(
+    name="composition_derivative_edit",
+    description=(
+        "Update, archive, or restore a what-if derivative (dị bản) — the unified derivative-CRUD entry "
+        "point. op=update_spec edits the divergence spec AFTER derive (taxonomy ∈ pov_shift|"
+        "character_transform|au, pov_anchor, canon_rule[]; only the fields you pass change; pass "
+        "pov_anchor=null to CLEAR it). op=archive soft-deletes the derivative (needs expected_version; "
+        "its chapters + knowledge survive). op=restore un-archives it (sets status active; optional "
+        "expected_version). All reject the canonical Work. To CREATE a derivative use "
+        "composition_create_derivative; to switch which is active use composition_switch_active_work. "
+        "EDIT on the book required."
+    ),
+    meta=require_meta(
+        "A", "book",
+        synonyms=["edit derivative", "update divergence spec", "archive derivative",
+                  "delete derivative", "restore derivative", "unarchive derivative",
+                  "edit dị bản", "manage derivative"],
+        tool_name="composition_derivative_edit",
+    ),
+)
+async def composition_derivative_edit(ctx: MCPContext, args: _DerivativeEditArgs) -> dict:
+    """Unified derivative-CRUD dispatch. archive/update_spec delegate to the SAME legacy handlers;
+    op=restore is NEW behavior (there was no un-archive tool — the archive advertised a
+    reversibility no path delivered), implemented here over the same WorksRepo.update the archive
+    uses (status→active), EDIT-gated + derivative-only + OCC, mirroring the archive."""
+    if args.op == "archive":
+        if args.expected_version is None:
+            raise ValueError("op=archive requires expected_version")
+        return await composition_archive_derivative(ctx, _DerivativeArchiveArgs(
+            project_id=args.project_id, expected_version=args.expected_version))
+    if args.op == "restore":
+        tc = _ctx(ctx)
+        works = WorksRepo(get_pool())
+        pid = UUID(args.project_id)
+        await _book_or_deny(works, tc, pid, GrantLevel.EDIT)
+        work = await works.get(pid)
+        if work is None:
+            raise uniform_not_accessible()
+        if work.source_work_id is None:
+            return {"success": False,
+                    "error": "NOT_A_DERIVATIVE — restore applies only to a dị bản, not the canonical Work"}
+        try:
+            updated = await works.update(
+                pid, {"status": "active"}, created_by=tc.user_id,
+                expected_version=args.expected_version)
+        except VersionMismatchError as exc:
+            return {"success": False, "outcome": "applied_conflict",
+                    "error": "stale expected_version — refetch and retry",
+                    "current_version": exc.current.version}
+        if updated is None:
+            raise uniform_not_accessible()
+        out = updated.model_dump(mode="json")
+        out["_meta"] = {"undo_hint": _undo(
+            "composition_derivative_edit", op="archive",
+            project_id=args.project_id, expected_version=updated.version)}
+        return out
+    # op == "update_spec" — _passed preserves the documented pov_anchor=null clear
+    return await composition_divergence_spec_update(ctx, _DivergenceSpecUpdateArgs(
+        project_id=args.project_id,
+        **_passed(args, "taxonomy", "pov_anchor", "canon_rule")))
 
 
 # ── ASGI factory ──────────────────────────────────────────────────────────────

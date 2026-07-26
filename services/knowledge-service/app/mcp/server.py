@@ -47,7 +47,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 
-from loreweave_mcp import patch_convert_result, require_meta
+from loreweave_mcp import make_stateless_fastmcp, require_meta
 from pydantic import Field, ValidationError
 
 from app.clients.book_client import get_book_client
@@ -104,36 +104,19 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["mcp_server", "build_mcp_app"]
 
-# External MCP discoverability audit #9 — every structured tool result used
-# to duplicate its full payload into content[0].text (already-JSON-parsed
-# structuredContent sitting right next to a JSON-STRINGIFIED copy of the same
-# data). knowledge-service builds its own FastMCP instance directly (unlike
-# composition/jobs/translation/lore-enrichment-service, which go through the
-# shared `loreweave_mcp.make_stateless_fastmcp` chokepoint and get this for
-# free) — this service already ships `loreweave_mcp` as a dependency (it's
-# installed via `pip install /sdk` in the Dockerfile) even though it doesn't
-# use the rest of the kit, so this is a plain function import, not a new
-# dependency. See sdks/python/loreweave_mcp/compact_content.py for the fix
-# itself (a defensive FastMCP monkeypatch — never raises even if a future mcp
-# release changes the shape it targets).
-patch_convert_result()
-
-# Module-level FastMCP instance. build_mcp_app() converts it to an ASGI
-# app for mounting in main.py. stateless_http=True + path="/" so the
-# mount at "/mcp" exposes the endpoint at exactly "/mcp".
-mcp_server = FastMCP(
-    "knowledge-memory",
-    stateless_http=True,
-    streamable_http_path="/",
-    # ARCH-2 D-ARCH2-MCP-LIVE-SMOKE: this is an INTERNAL service-to-service MCP
-    # endpoint (chat-service → knowledge-service over the docker/private network,
-    # authed by X-Internal-Token). The MCP SDK's DNS-rebinding protection only
-    # allows localhost Host headers by default, so a cross-process call with
-    # Host "knowledge-service:8092" gets 421 Misdirected Request. Disable it —
-    # the trust boundary here is the private network + internal token, not the
-    # Host header (which matters for browser-facing servers, not this one).
-    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
-)
+# K19 (2026-07-23) — this service used to build its own FastMCP instance and hand-import a
+# SINGLE kit patch (patch_convert_result). That silently opted it out of every OTHER fix
+# applied at the shared chokepoint, and the drift was measured, not theorised: after K16/K17/
+# K19 shipped, translation/plan/jobs went to 0% undocumented args while kg stayed at 128/128
+# (100%) — the patches simply never ran here. It is the same shape as `closedSetSchemaFor`
+# being glossary-only while book-service shipped four enum-less closed sets.
+#
+# The construction below was byte-identical to `make_stateless_fastmcp` (stateless_http,
+# streamable_http_path="/", DNS-rebinding protection off for this internal service-to-service
+# endpoint — see ARCH-2 D-ARCH2-MCP-LIVE-SMOKE: chat-service calls it with
+# Host "knowledge-service:8092", which the SDK's localhost-only allowlist would 421). So it
+# now goes through the chokepoint and inherits the patches like every sibling service.
+mcp_server = make_stateless_fastmcp("knowledge-memory")
 
 
 # ── W0 #4b — model-directed validation errors ─────────────────────────
@@ -197,17 +180,19 @@ _PROJECT_ID_ARG = Annotated[
 ]
 
 # L1/L2 reference-first `detail` arg (Context Budget Law §6b). Enum-locked Literal
-# so a weak local model can't send a free-string value; versioned default "full"
-# (legacy callers unchanged). Advertised on the SET-returning tools; the FastMCP
+# so a weak local model can't send a free-string value. The PER-TOOL default varies
+# (K37 drain, OUT-2): the search tools default "summary", others still "full" pending
+# their own drain — so this SHARED description is default-NEUTRAL and each signature
+# carries the real default. Advertised on the SET-returning tools; the FastMCP
 # signature MUST carry it or FastMCP strips it from the forwarded args (the
 # three-schema-source lockstep — definitions/graph_schema_tools + this signature +
 # the executor handler). Mirrored into the bespoke OpenAI schema (_DETAIL_PROP).
 _DETAIL_ARG = Annotated[
     Literal["summary", "full"],
-    "Response granularity. 'full' (default) = every field; 'summary' = a compact "
-    "reference projection (ids/title/snippet/score; heavy bodies dropped) for "
-    "cheap scanning — re-read specifics at full detail or via a get-by-id sibling. "
-    "Result `meta` reports total/returned/truncated.",
+    "Response granularity. 'summary' = a compact reference projection "
+    "(ids/title/snippet/score; heavy bodies dropped) for cheap scanning; 'full' = "
+    "every field. Pass 'full' to opt into heavy fields, or re-read specifics via a "
+    "get-by-id sibling. Result `meta` reports total/returned/truncated.",
 ]
 
 
@@ -385,16 +370,25 @@ async def _dispatch(ctx: MCPContext, tool_name: str, tool_args: dict) -> dict:
 @mcp_server.tool(
     name="story_search",
     description=(
-        "Search the book's manuscript for text or ideas — the universal find "
-        "tool. Use it to LOCATE where something appears before reading or "
-        "editing: an exact phrase/name (mode=exact), a concept described in "
-        "your own words (mode=semantic), or both fused (mode=hybrid, default, "
-        "best for most queries). granularity=chapter tells you WHICH chapters "
-        "match; granularity=block drills into the matching passages with "
-        "snippets. Follow up with book_get_chapter to read."
+        # K26 (2026-07-24) — was "the universal find tool", which over-claimed cross-store
+        # reach it does not have: this searches MANUSCRIPT PROSE only. A model reading
+        # "universal find" would use it to look for a character and, getting prose hits,
+        # conclude it had searched everything — never calling glossary_search / memory_search
+        # (a false negative). The tests always documented the intent as "universal MANUSCRIPT
+        # search"; the word "manuscript" had simply dropped out of the prose. Scope restored +
+        # an explicit redirect to the sibling stores.
+        "Search the book's MANUSCRIPT PROSE for text or ideas — where something is WRITTEN, "
+        "not what is known about it. The universal way to search the prose: LOCATE where "
+        "something appears before reading or editing — an exact phrase/name (mode=exact), a "
+        "concept in your own words (mode=semantic), or both fused (mode=hybrid, default, best "
+        "for most queries). granularity=chapter tells you WHICH chapters match; "
+        "granularity=block drills into the matching passages with snippets. Follow up with "
+        "book_get_chapter to read. Prose ONLY — for a glossary entity use glossary_search; "
+        "for known facts about a character/place use memory_search."
     ),
     meta=require_meta(
         "R", "project",
+        ambient_project=True,  # resolves project from X-Project-Id when omitted (already backend-resolved)
         tool_name="story_search",
     ),
 )
@@ -414,7 +408,7 @@ async def story_search(
         Field(ge=1, le=SEARCH_LIMIT_MAX),
         f"Max hits to return (default {SEARCH_LIMIT_DEFAULT}, max {SEARCH_LIMIT_MAX}).",
     ] = SEARCH_LIMIT_DEFAULT,
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
     project_id: _PROJECT_ID_ARG = None,
     before_chapter_id: Annotated[
         str | None,
@@ -446,6 +440,7 @@ async def story_search(
     ),
     meta=require_meta(
         "R", "project",
+        ambient_project=True,  # resolves project from X-Project-Id when omitted (already backend-resolved)
         tool_name="memory_search",
     ),
 )
@@ -463,7 +458,7 @@ async def memory_search(
         "Optional — restrict to one source: 'chapter', 'chat', or "
         "'glossary'. Omit to search all.",
     ] = None,
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
     project_id: _PROJECT_ID_ARG = None,
 ) -> dict:
     args: dict[str, Any] = {"query": query, "limit": limit, "detail": detail}
@@ -531,7 +526,7 @@ async def memory_timeline(
         f"Max events to return (default {TIMELINE_LIMIT_DEFAULT}, "
         f"max {TIMELINE_LIMIT_MAX}).",
     ] = TIMELINE_LIMIT_DEFAULT,
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
     project_id: _PROJECT_ID_ARG = None,
 ) -> dict:
     args: dict[str, Any] = {"limit": limit, "detail": detail}
@@ -708,13 +703,16 @@ async def kg_project_set_embedding_model(
 # (D-KG-LF-KM6 cleared 2026-06-21).
 
 
+# kg_graph_query is UNIFIED by scope (catalog-unification 2026-07-22): scope=world|multi
+# supersede the legacy kg_world_query / kg_multi_query tools (kept below, visibility:legacy).
 @mcp_server.tool(
     name="kg_graph_query",
     description=(
-        "Read the current project's knowledge graph as nodes + edges, "
-        "optionally narrowed to a named view (lens) and to a point in the "
-        "story via a chapter ordinal. Use this to see who relates to whom as "
-        "of a given chapter. Returns nodes, edges, and any warnings."
+        "Read a knowledge graph as nodes + edges. scope=project (default) reads the CURRENT "
+        "project (optionally narrowed to a named view/lens and to a chapter ordinal — who "
+        "relates to whom as of a chapter); scope=world reads a whole WORLD rolled up (pass "
+        "world_id); scope=multi reads an ARBITRARY SET of your projects (pass project_ids). "
+        "Use world/multi to synthesize ACROSS books. Returns nodes, edges, and any warnings."
     ),
     meta=require_meta(
         "R", "project",
@@ -723,29 +721,53 @@ async def kg_project_set_embedding_model(
 )
 async def kg_graph_query(
     ctx: MCPContext,
+    scope: Annotated[
+        Literal["project", "world", "multi"],
+        "project (default) = the current project; world = a whole world (needs world_id); "
+        "multi = a set of your projects (needs project_ids).",
+    ] = "project",
     view: Annotated[
         str | None,
-        "Optional view code (a saved lens). Omit to read the whole graph.",
+        "scope=project: optional view code (a saved lens). Omit to read the whole graph.",
     ] = None,
     as_of_chapter: Annotated[
         int | None,
         Field(ge=0),
-        "Optional chapter ordinal — the graph as it stood at that chapter. "
+        "scope=project: optional chapter ordinal — the graph as it stood at that chapter. "
         "Omit for the latest state.",
     ] = None,
     limit: Annotated[
         int,
         Field(ge=1, le=GRAPH_LIMIT_MAX),
-        f"Max edges to scan (default {GRAPH_LIMIT_DEFAULT}).",
+        f"Max edges/nodes to scan (default {GRAPH_LIMIT_DEFAULT}).",
     ] = GRAPH_LIMIT_DEFAULT,
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
+    world_id: Annotated[
+        str | None,
+        "scope=world: the world to roll up (you must own it).",
+    ] = None,
+    project_ids: Annotated[
+        list[str] | None,
+        Field(max_length=16),
+        "scope=multi: the project ids to union (1–16; you must own each).",
+    ] = None,
+    unify: Annotated[
+        Literal["off", "by_name", "semantic"],
+        "scope=world|multi: cross-book entity unification. 'off' (default) = the raw per-book "
+        "forest; 'by_name' matches the same entity across books by name/alias; 'semantic' also "
+        "matches by meaning (embeddings). Both add unification_clusters + SAME_AS bridge_edges.",
+    ] = "off",
     project_id: _PROJECT_ID_ARG = None,
 ) -> dict:
-    args: dict[str, Any] = {"limit": limit, "detail": detail}
+    args: dict[str, Any] = {"scope": scope, "limit": limit, "detail": detail, "unify": unify}
     if view is not None:
         args["view"] = view
     if as_of_chapter is not None:
         args["as_of_chapter"] = as_of_chapter
+    if world_id is not None:
+        args["world_id"] = world_id
+    if project_ids is not None:
+        args["project_ids"] = project_ids
     if project_id is not None:
         args["project_id"] = project_id
     return await _dispatch(ctx, "kg_graph_query", args)
@@ -760,8 +782,10 @@ async def kg_graph_query(
         "relationships), not one project at a time. Owner-only: partitions owned by "
         "others are skipped and reported in partitions_unreadable."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_graph_query (scope=world).
     meta=require_meta(
         "R", "project",
+        visibility="legacy",
         tool_name="kg_world_query",
     ),
 )
@@ -775,8 +799,9 @@ async def kg_world_query(
     limit: Annotated[
         int,
         Field(ge=1, le=GRAPH_LIMIT_MAX),
-        "Max nodes in the union (default 200).",
-    ] = 200,
+        f"Max nodes in the union (default {GRAPH_LIMIT_DEFAULT}; a bigger union is signalled "
+        "via meta.truncated — raise it, up to the max).",
+    ] = GRAPH_LIMIT_DEFAULT,
     unify: Annotated[
         Literal["off", "by_name", "semantic"],
         "Cross-book entity unification. 'off' (default) = the raw per-book forest. "
@@ -784,7 +809,7 @@ async def kg_world_query(
         "matches by meaning (embeddings, catching renames). Both add "
         "unification_clusters + inferred SAME_AS bridge_edges (one connected graph).",
     ] = "off",
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
 ) -> dict:
     return await _dispatch(
         ctx, "kg_world_query",
@@ -801,8 +826,10 @@ async def kg_world_query(
         "you name the exact project_ids. Owner-only: ids you don't own are skipped and "
         "reported in partitions_unreadable (the result also carries partitions_read)."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_graph_query (scope=multi).
     meta=require_meta(
         "R", "user",
+        visibility="legacy",
         tool_name="kg_multi_query",
     ),
 )
@@ -817,8 +844,9 @@ async def kg_multi_query(
     limit: Annotated[
         int,
         Field(ge=1, le=GRAPH_LIMIT_MAX),
-        "Max nodes in the union (default 200).",
-    ] = 200,
+        f"Max nodes in the union (default {GRAPH_LIMIT_DEFAULT}; a bigger union is signalled "
+        "via meta.truncated — raise it, up to the max).",
+    ] = GRAPH_LIMIT_DEFAULT,
     unify: Annotated[
         Literal["off", "by_name", "semantic"],
         "Cross-book entity unification. 'off' (default) = the raw per-book forest. "
@@ -826,7 +854,7 @@ async def kg_multi_query(
         "matches by meaning (embeddings, catching renames). Both add "
         "unification_clusters + inferred SAME_AS bridge_edges (one connected graph).",
     ] = "off",
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
 ) -> dict:
     return await _dispatch(
         ctx, "kg_multi_query",
@@ -856,7 +884,7 @@ async def kg_entity_edge_timeline(
         Field(ge=1, le=KG_TIMELINE_LIMIT_MAX),
         f"Max instances (default {KG_TIMELINE_LIMIT_DEFAULT}).",
     ] = KG_TIMELINE_LIMIT_DEFAULT,
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
 ) -> dict:
     # No project_id arg: this tool scopes by the ENTITY (resolved to its owner +
     # OD-8-gated in the handler), so a project_id here would be a no-op.
@@ -990,7 +1018,7 @@ async def kg_triage_list(
         Field(ge=1, le=TRIAGE_LIMIT_MAX),
         f"Max signature groups (default {TRIAGE_LIMIT_DEFAULT}).",
     ] = TRIAGE_LIMIT_DEFAULT,
-    detail: _DETAIL_ARG = "full",
+    detail: _DETAIL_ARG = "summary",  # K37 drain: OUT-2 small-shape default
     project_id: _PROJECT_ID_ARG = None,
 ) -> dict:
     args: dict[str, Any] = {"status": status, "limit": limit, "detail": detail}
@@ -1084,6 +1112,52 @@ async def kg_propose_edge(
     return await _dispatch(ctx, "kg_propose_edge", args)
 
 
+# kg_add_nodes (mode=manual|from_glossary) supersedes kg_create_node +
+# kg_project_entities_to_nodes (kept below, visibility:legacy). Catalog-unification 2026-07-22.
+@mcp_server.tool(
+    name="kg_add_nodes",
+    description=(
+        "Add entity node(s) to the current project's knowledge graph. Pick mode: 'manual' = "
+        "create ONE node (needs name + kind) — use this BEFORE kg_propose_edge when a "
+        "relationship's endpoint isn't in the graph yet; 'from_glossary' = project the book's "
+        "recorded glossary entities into the graph as nodes (optional entity_ids; omit for the "
+        "whole active glossary). Both are idempotent (re-running adds no duplicates)."
+    ),
+    meta=require_meta(
+        "A", "project",
+        tool_name="kg_add_nodes",
+    ),
+)
+async def kg_add_nodes(
+    ctx: MCPContext,
+    mode: Annotated[
+        Literal["manual", "from_glossary"],
+        "manual = create one node (name+kind); from_glossary = project the book's glossary "
+        "entities into the graph.",
+    ],
+    name: Annotated[str | None, "mode=manual: the entity's name."] = None,
+    kind: Annotated[
+        AuthorableKind | None, "mode=manual: the entity kind (closed set)."
+    ] = None,
+    entity_ids: Annotated[
+        list[str] | None,
+        "mode=from_glossary: optional specific glossary entity ids; omit for the whole "
+        "active glossary.",
+    ] = None,
+    project_id: _PROJECT_ID_ARG = None,
+) -> dict:
+    args: dict[str, Any] = {"mode": mode}
+    if name is not None:
+        args["name"] = name
+    if kind is not None:
+        args["kind"] = kind
+    if entity_ids is not None:
+        args["entity_ids"] = entity_ids
+    if project_id is not None:
+        args["project_id"] = project_id
+    return await _dispatch(ctx, "kg_add_nodes", args)
+
+
 @mcp_server.tool(
     name="kg_project_entities_to_nodes",
     description=(
@@ -1095,8 +1169,10 @@ async def kg_propose_edge(
         "proposing edges between entities (an edge needs both endpoints to be "
         "nodes first)."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_add_nodes (mode=from_glossary).
     meta=require_meta(
         "A", "project",
+        visibility="legacy",
         tool_name="kg_project_entities_to_nodes",
     ),
 )
@@ -1126,7 +1202,8 @@ async def kg_project_entities_to_nodes(
         "parked and later fails. Idempotent: the same name+kind returns the existing "
         "node. Returns the entity_id to use as an edge endpoint."
     ),
-    meta=require_meta("A", "project", tool_name="kg_create_node"),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_add_nodes (mode=manual).
+    meta=require_meta("A", "project", visibility="legacy", tool_name="kg_create_node"),
 )
 async def kg_create_node(
     ctx: MCPContext,
@@ -1143,6 +1220,52 @@ async def kg_create_node(
     return await _dispatch(ctx, "kg_create_node", args)
 
 
+# kg_view_edit (op=upsert|delete) supersedes kg_view_upsert + kg_view_delete (kept below,
+# visibility:legacy). Catalog-unification 2026-07-22.
+@mcp_server.tool(
+    name="kg_view_edit",
+    description=(
+        "Create, replace, or delete one of YOUR saved views (a named lens of edge-type + "
+        "node-kind codes) for the current project. Owner-scoped (only ever your own view). "
+        "op=upsert creates/replaces it (needs code + name; optional description/edge_type_codes/"
+        "node_kind_codes); op=delete removes it (needs code; reversible — recreate with upsert)."
+    ),
+    meta=require_meta(
+        "A", "user",
+        tool_name="kg_view_edit",
+    ),
+)
+async def kg_view_edit(
+    ctx: MCPContext,
+    op: Annotated[
+        Literal["upsert", "delete"],
+        "upsert = create/replace the view; delete = remove it.",
+    ],
+    code: Annotated[str, "The view's stable code (slug)."],
+    name: Annotated[str | None, "op=upsert: a human-readable view name."] = None,
+    description: Annotated[str | None, "op=upsert: optional description."] = None,
+    edge_type_codes: Annotated[
+        list[str] | None, "op=upsert: edge-type codes the view includes (empty = all)."
+    ] = None,
+    node_kind_codes: Annotated[
+        list[str] | None, "op=upsert: node-kind codes the view includes (empty = all)."
+    ] = None,
+    project_id: _PROJECT_ID_ARG = None,
+) -> dict:
+    args: dict[str, Any] = {"op": op, "code": code}
+    if name is not None:
+        args["name"] = name
+    if description is not None:
+        args["description"] = description
+    if edge_type_codes is not None:
+        args["edge_type_codes"] = edge_type_codes
+    if node_kind_codes is not None:
+        args["node_kind_codes"] = node_kind_codes
+    if project_id is not None:
+        args["project_id"] = project_id
+    return await _dispatch(ctx, "kg_view_edit", args)
+
+
 @mcp_server.tool(
     name="kg_view_upsert",
     description=(
@@ -1150,8 +1273,10 @@ async def kg_create_node(
         "edge-type + node-kind codes) for the current project. Owner-scoped: "
         "only ever touches your own view."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_view_edit (op=upsert).
     meta=require_meta(
         "A", "user",
+        visibility="legacy",
         tool_name="kg_view_upsert",
     ),
 )
@@ -1186,8 +1311,10 @@ async def kg_view_upsert(
         "Delete one of the caller's saved views by code for the current "
         "project. Owner-scoped and reversible (recreate with kg_view_upsert)."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_view_edit (op=delete).
     meta=require_meta(
         "A", "user",
+        visibility="legacy",
         tool_name="kg_view_delete",
     ),
 )
@@ -1237,6 +1364,78 @@ async def kg_triage_resolve(
 # ── KG ontology class-C tools (KM6) — PROPOSE only ─────────────────────
 # Each mints a confirm-token + summary (no write); a human redeems it via
 # POST /v1/kg/actions/confirm (browser-JWT). See the catalog note above.
+# Catalog-unification 2026-07-22: kg_ontology_propose (op=schema_edit|adopt_template|
+# sync_apply) supersedes the 3 legacy single-purpose tools below (visibility:legacy).
+
+
+@mcp_server.tool(
+    name="kg_ontology_propose",
+    description=(
+        "Change THIS project's ontology — ADD or DEPRECATE an edge/fact type, ADOPT a "
+        "template, or SYNC upstream template changes. High-impact, so it does NOT apply "
+        "immediately: it returns a confirm_token + summary and a human confirms on the review "
+        "surface. Pick op: 'schema_edit' = add/deprecate an edge_type or fact_type (needs verb, "
+        "level, code); 'adopt_template' = copy a system/user ontology template down (needs "
+        "source_schema_id from kg_list_templates); 'sync_apply' = pull upstream template changes "
+        "with per-change keep_mine/take_theirs (needs base_source_hash from kg_sync_available, "
+        "and decisions)."
+    ),
+    meta=require_meta(
+        "W", "project",
+        tool_name="kg_ontology_propose",
+    ),
+)
+async def kg_ontology_propose(
+    ctx: MCPContext,
+    op: Annotated[
+        Literal["schema_edit", "adopt_template", "sync_apply"],
+        "schema_edit = add/deprecate a type; adopt_template = copy a template down; "
+        "sync_apply = pull upstream template changes.",
+    ],
+    verb: Annotated[
+        Literal["add", "deprecate"] | None,
+        "op=schema_edit: add a new type, or deprecate an existing one.",
+    ] = None,
+    level: Annotated[
+        Literal["edge_type", "fact_type"] | None,
+        "op=schema_edit: which kind of ontology element to change.",
+    ] = None,
+    code: Annotated[
+        str | None, "op=schema_edit: the type's code (e.g. WORSHIPS, prophecy)."
+    ] = None,
+    label: Annotated[
+        str | None, "op=schema_edit: human-readable label (defaults to the code)."
+    ] = None,
+    source_schema_id: Annotated[
+        str | None, "op=adopt_template: the template id to adopt (from kg_list_templates)."
+    ] = None,
+    base_source_hash: Annotated[
+        str | None, "op=sync_apply: the upstream hash from kg_sync_available (drift guard)."
+    ] = None,
+    decisions: Annotated[
+        list[KgSyncDecision] | None,
+        "op=sync_apply: per-change keep_mine/take_theirs decisions (omit for none).",
+    ] = None,
+    project_id: _PROJECT_ID_ARG = None,
+) -> dict:
+    args: dict[str, Any] = {"op": op}
+    if verb is not None:
+        args["verb"] = verb
+    if level is not None:
+        args["level"] = level
+    if code is not None:
+        args["code"] = code
+    if label is not None:
+        args["label"] = label
+    if source_schema_id is not None:
+        args["source_schema_id"] = source_schema_id
+    if base_source_hash is not None:
+        args["base_source_hash"] = base_source_hash
+    if decisions is not None:
+        args["decisions"] = [d.model_dump() for d in decisions]
+    if project_id is not None:
+        args["project_id"] = project_id
+    return await _dispatch(ctx, "kg_ontology_propose", args)
 
 
 @mcp_server.tool(
@@ -1248,8 +1447,10 @@ async def kg_triage_resolve(
         "confirm_token and a summary; a human must confirm it on the review "
         "surface. Requires the project to have adopted its own ontology first."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_ontology_propose (op=schema_edit).
     meta=require_meta(
         "W", "project",
+        visibility="legacy",
         tool_name="kg_schema_edit",
     ),
 )
@@ -1284,8 +1485,10 @@ async def kg_schema_edit(
         "confirm_token and a summary, and a human confirms on the review "
         "surface. Pick a source_schema_id from kg_list_templates."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_ontology_propose (op=adopt_template).
     meta=require_meta(
         "W", "project",
+        visibility="legacy",
         tool_name="kg_adopt_template",
     ),
 )
@@ -1311,8 +1514,10 @@ async def kg_adopt_template(
         "+ bumps the schema version), so it returns a confirm_token and summary; "
         "a human confirms on the review surface."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_ontology_propose (op=sync_apply).
     meta=require_meta(
         "W", "project",
+        visibility="legacy",
         tool_name="kg_sync_apply",
     ),
 )
@@ -1417,9 +1622,84 @@ async def kg_triage_schema_write(
 
 
 # ── Cost-gated job triggers (KM6) — PROPOSE only ──────────────────────
-# kg_build_graph mints a confirm-token carrying a cost estimate; the human
-# confirms via /v1/kg/actions/confirm and the extraction job starts there
-# (D-KG-LF-BUILDKG-MCP). Nothing is spent at mint time.
+# kg_build (target=graph|wiki) mints a confirm-token carrying a cost estimate; the
+# human confirms via /v1/kg/actions/confirm and the job starts there. Nothing is spent
+# at mint time. Catalog-unification 2026-07-22: kg_build supersedes the two legacy
+# kg_build_graph / kg_build_wiki tools (which stay registered, visibility:legacy).
+
+
+@mcp_server.tool(
+    name="kg_build",
+    description=(
+        "Build the knowledge GRAPH, or generate the WIKI, for the current project — an "
+        "EXPENSIVE job that does NOT run immediately: it returns a confirm_token + summary "
+        "and a human confirms on the review surface (which shows the cost). Pick target: "
+        "'graph' = extract the KG from the book's chapters (needs llm_model); 'wiki' = "
+        "generate wiki articles for the book's entities (needs model_ref; omit entity_ids "
+        "for all). target=graph requires an embedding model configured — if missing, call "
+        "kg_project_set_embedding_model then kg_run_benchmark first. Pick models from "
+        "settings_list_models."
+    ),
+    meta=require_meta(
+        "W", "project",
+        async_job=True,
+        tool_name="kg_build",
+    ),
+)
+async def kg_build(
+    ctx: MCPContext,
+    target: Annotated[
+        Literal["graph", "wiki"],
+        "graph = extract the KG from the book's chapters; wiki = generate wiki articles.",
+    ],
+    llm_model: Annotated[
+        str | None, "target=graph: the extraction LLM model ref (required for graph)."
+    ] = None,
+    scope: Annotated[
+        Literal["all", "chapters", "chat", "glossary_sync"] | None,
+        "target=graph: what to extract (default 'all').",
+    ] = None,
+    chapter_from: Annotated[
+        int | None, Field(ge=0), "target=graph: optional inclusive lower chapter ordinal."
+    ] = None,
+    chapter_to: Annotated[
+        int | None, Field(ge=0), "target=graph: optional inclusive upper chapter ordinal."
+    ] = None,
+    model_ref: Annotated[
+        str | None, "target=wiki: the wiki-generation LLM model ref (required for wiki)."
+    ] = None,
+    model_source: Annotated[
+        str | None, "target=wiki: model source (default 'user_model')."
+    ] = None,
+    entity_ids: Annotated[
+        list[str] | None,
+        "target=wiki: optional explicit entity ids; omit to generate for ALL book entities.",
+    ] = None,
+    reasoning_effort: Annotated[
+        Literal["none", "low", "medium", "high"],
+        "Model reasoning effort (default 'none'; clamped to your grant — Edit caps at "
+        "medium, Manage/owner at high).",
+    ] = "none",
+    project_id: _PROJECT_ID_ARG = None,
+) -> dict:
+    args: dict[str, Any] = {"target": target, "reasoning_effort": reasoning_effort}
+    if llm_model is not None:
+        args["llm_model"] = llm_model
+    if scope is not None:
+        args["scope"] = scope
+    if chapter_from is not None:
+        args["chapter_from"] = chapter_from
+    if chapter_to is not None:
+        args["chapter_to"] = chapter_to
+    if model_ref is not None:
+        args["model_ref"] = model_ref
+    if model_source is not None:
+        args["model_source"] = model_source
+    if entity_ids is not None:
+        args["entity_ids"] = entity_ids
+    if project_id is not None:
+        args["project_id"] = project_id
+    return await _dispatch(ctx, "kg_build", args)
 
 
 @mcp_server.tool(
@@ -1433,9 +1713,12 @@ async def kg_triage_schema_write(
         "then kg_run_benchmark first, rather than sending the user to the UI. Pick "
         "the extraction llm_model from settings_list_models."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_build (target=graph). Kept
+    # registered (visibility:legacy) for existing callers; still declares async (job-starter).
     meta=require_meta(
         "W", "project",
         async_job=True,
+        visibility="legacy",
         tool_name="kg_build_graph",
     ),
 )
@@ -1487,9 +1770,12 @@ async def kg_build_graph(
         "book's glossary entities (extract the glossary first); pick the model_ref from "
         "settings_list_models."
     ),
+    # LEGACY (catalog-unification 2026-07-22): superseded by kg_build (target=wiki). Kept
+    # registered (visibility:legacy) for existing callers; still declares async (job-starter).
     meta=require_meta(
         "W", "project",
         async_job=True,
+        visibility="legacy",
         tool_name="kg_build_wiki",
     ),
 )
@@ -1561,7 +1847,11 @@ async def kg_run_benchmark(
         "window_available is false the reader's position couldn't be pinned so nothing "
         "is shown."
     ),
-    meta=require_meta("R", "project", tool_name="lore_ask"),
+    # LEGACY (catalog-unification 2026-07-22): reader-audience tool (spoiler-safe, for a
+    # READER's chat agent) — hidden from the author co-writer hot-set + fuzzy discovery, still
+    # tool_load-able for a reader context. It bleeds into the author catalog only because there
+    # is no reader surface yet (lore_→glossary alias hot-seeds it on book/editor).
+    meta=require_meta("R", "project", visibility="legacy", tool_name="lore_ask"),
 )
 async def lore_ask(
     ctx: MCPContext,
@@ -1588,7 +1878,9 @@ async def lore_ask(
         "— spoiler-windowed to their furthest-read chapter. A reader whose position "
         "can't be pinned gets an empty list, never the whole cast."
     ),
-    meta=require_meta("R", "project", tool_name="lore_browse_entities"),
+    # LEGACY (catalog-unification 2026-07-22): reader-audience tool — hidden from the author
+    # hot-set, still tool_load-able for a reader context.
+    meta=require_meta("R", "project", visibility="legacy", tool_name="lore_browse_entities"),
 )
 async def lore_browse_entities(
     ctx: MCPContext,
@@ -1614,7 +1906,9 @@ async def lore_browse_entities(
         "One entity's spoiler-windowed status + known facts, bounded to the reader's "
         "furthest-read chapter (facts established later are hidden)."
     ),
-    meta=require_meta("R", "project", tool_name="lore_entity"),
+    # LEGACY (catalog-unification 2026-07-22): reader-audience tool — hidden from the author
+    # hot-set, still tool_load-able for a reader context.
+    meta=require_meta("R", "project", visibility="legacy", tool_name="lore_entity"),
 )
 async def lore_entity(
     ctx: MCPContext,
@@ -1635,7 +1929,9 @@ async def lore_entity(
         "The sequence of events up to the reader's position — spoiler-windowed so "
         "later events are hidden. Empty when the reader's position can't be pinned."
     ),
-    meta=require_meta("R", "project", tool_name="lore_timeline"),
+    # LEGACY (catalog-unification 2026-07-22): reader-audience tool — hidden from the author
+    # hot-set, still tool_load-able for a reader context.
+    meta=require_meta("R", "project", visibility="legacy", tool_name="lore_timeline"),
 )
 async def lore_timeline(
     ctx: MCPContext,

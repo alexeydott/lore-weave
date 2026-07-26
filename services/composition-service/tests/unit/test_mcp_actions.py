@@ -118,6 +118,11 @@ def client():
         patch("app.main.create_pool", new_callable=AsyncMock),
         patch("app.main.close_pool", new_callable=AsyncMock),
         patch("app.main.get_pool", return_value=spy_pool),
+        # Same separate-binding trap: app.deps does `from app.db.pool import get_pool` at
+        # import, so its dep factories (get_grounding_pins_repo, get_structure_repo, …) hold
+        # their OWN get_pool binding the app.db.pool patch misses. _execute_generate resolves
+        # those factories, so without this patch it raises "pool not initialised" mid-confirm.
+        patch("app.deps.get_pool", return_value=spy_pool),
         patch("app.main.run_migrations", new_callable=AsyncMock),
         patch("app.main.mcp_server", _mcp_stub),
         patch("app.main.get_grant_client", MagicMock()),

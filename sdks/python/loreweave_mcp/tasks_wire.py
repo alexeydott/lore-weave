@@ -304,7 +304,40 @@ def register_task_endpoints(
     # driver) calls by NAME; the LLM must never discover it via find_tools. Legacy ⇒
     # excluded from the discoverable set on both surfaces (tool_discovery.py +
     # find-tools.ts), still registered + callable. Mirrors the Go kit's WithVisibility.
-    @fastmcp.tool(name=provide_input_name, meta={"visibility": "legacy"})
+    # TIER IS LOAD-BEARING, not decoration. Accepting a gate RUNS the gated action, so this
+    # is an ACTION tool. It previously carried visibility only, and chat-service's
+    # `tool_tier()` defaults a missing tier to "R" (inert) — by design, so an untiered tool
+    # can never auto-commit. The consequence was the opposite of intended: every
+    # `*_task_provide_input` passed the ask-mode read-only filter (which keeps tier-R), so a
+    # read-only turn could still drive a pending gate to completion — the very write ask
+    # mode exists to withhold. Measured 2026-07-23 against the live catalog; the Go kit
+    # Scope USER, not none: the gate is owned by the PROPOSING user and the wire-level
+    # owner check enforces exactly that, so `user` is both semantically right and
+    # consistent with the domains' own meta conventions (composition asserts every tool is
+    # book- or user-scoped).
+    # DESCRIPTION + SYNONYMS were absent here while the Go kit's identical tool carried a
+    # description — a kit-parity gap, not a cosmetic one. FastMCP registered
+    # `description=''`, which reds every domain convention test that requires one
+    # (composition asserts description + synonyms on every tool: three of its unit
+    # failures traced to this single registration). Keep the two kits' metadata in step.
+    @fastmcp.tool(
+        name=provide_input_name,
+        description=(
+            "Resolve a pending durable-gate task: accept to run the gated action, "
+            "or decline."
+        ),
+        meta={
+            "visibility": "legacy",
+            "tier": "A",
+            "scope": "user",
+            "synonyms": [
+                "resolve the pending task",
+                "accept the pending action",
+                "decline the pending action",
+                "answer the confirmation",
+            ],
+        },
+    )
     async def task_provide_input(  # noqa: D401 — the input step (interim for tasks/update)
         ctx: MCPContext, task_id: str, accepted: bool = True,
         inputs: dict[str, Any] | None = None,

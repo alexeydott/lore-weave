@@ -112,11 +112,25 @@ __all__ = [
 # Result-size + addressing caps (mirror the HTTP routers' query bounds so the
 # MCP surface is byte-for-byte as bounded as the bespoke routes — design D7).
 GRAPH_LIMIT_MAX = 2000
-GRAPH_LIMIT_DEFAULT = 500
+# K37/OUT-5 (2026-07-24): default 500→25, then confirmed by a LIVE seed+measure (a real MCP
+# call on a seeded 150-edge graph): old default full/500 = 49,032 B; summary/60 was still
+# 14,671 B (OVER the 8 KB warn — my first "conscious 60" was wrong); summary/25 = 6,703 B
+# (UNDER warn). So 25 — the same flat-list ceiling — fits a graph too; no conscious exception
+# needed. The handler over-fetches limit+1 and stamps `meta.truncated`, so a bigger graph is
+# SIGNALLED (raise `limit` up to MAX, or narrow with a view/scope) — never a silent cut.
+GRAPH_LIMIT_DEFAULT = 25
 TIMELINE_LIMIT_MAX = 2000
-TIMELINE_LIMIT_DEFAULT = 500
+# K37/OUT-5 (2026-07-24): kg_entity_edge_timeline default lowered 500→25. A temporal chain
+# is a FLAT list (unlike a graph), so the ≤25 page ceiling applies. The handler over-fetches
+# limit+1 and stamps `meta.truncated`, so a longer chain is SIGNALLED (raise limit up to MAX),
+# never a silent cut. Only this tool reads it (memory_timeline uses definitions'.=20).
+TIMELINE_LIMIT_DEFAULT = 25
 TRIAGE_LIMIT_MAX = 500
-TRIAGE_LIMIT_DEFAULT = 100
+# K37 drain (2026-07-24): default lowered 100→25 (OUT-2). The repo over-fetches limit+1 and
+# returns a REAL `has_more`, so a bounded default page is signalled, never a silent drop; the
+# agent raises `limit` (up to MAX) or pages. Not shared with any REST endpoint — the three
+# lockstep schema sources (MCP signature + KgTriageListArgs + the OpenAI schema) all read this.
+TRIAGE_LIMIT_DEFAULT = 25
 _CODE_MAX = 120  # SchemaCode/view code slug cap (ontology_models.SchemaCode)
 _NAME_MAX = 200
 
@@ -164,16 +178,22 @@ SUBGRAPH_EDGE_REF_FIELDS = ("id", "source", "target", "predicate")
 # temporal window; DROP evidence_chapter_id/schema_version/target_glossary_entity_id/
 # target_label_localized.
 TIMELINE_INSTANCE_REF_FIELDS = ("target_id", "target_label", "valid_from", "valid_to")
-# kg_triage_list groups: keep the signature + type/count/status; DROP the heavy
-# `sample_payload` blob + the `suggested_actions` list.
-TRIAGE_GROUP_REF_FIELDS = ("signature", "item_type", "count", "status")
+# kg_triage_list groups: keep the signature + type/count/status + `suggested_actions`
+# (small + ACTIONABLE — OUT-1 keeps what the caller acts on to resolve); DROP only the
+# heavy `sample_payload` blob. (K37 first dropped suggested_actions too, which forced a
+# second detail=full call just to resolve — a pre-merge integration test caught it.)
+TRIAGE_GROUP_REF_FIELDS = ("signature", "item_type", "count", "status", "suggested_actions")
 
 
-def _project_graph(out: dict, detail: str, *, node_ref, edge_ref) -> dict:
+def _project_graph(out: dict, detail: str, *, node_ref, edge_ref, truncated: bool = False) -> dict:
     """Apply the L1/L2 field projection to a graph result's `nodes` + `edges` lists
-    in place and stamp coverage `meta`. The tool's own `limit` already bounds ROW
-    counts (in the Cypher); `detail` is the per-item FIELD lever, so summary
-    projects fields but never silently drops rows — meta reports both totals."""
+    in place and stamp coverage `meta`. `detail` is the per-item FIELD lever, so summary
+    projects fields but never silently drops rows — meta reports both totals.
+
+    `truncated` (K37, OUT-5) — the Cypher `LIMIT` caps EDGES, and until now that cap was
+    SILENT (the response couldn't tell the agent the graph had more). The caller now
+    over-fetches `limit+1` and passes `truncated=True` when the edge cap actually bit, so
+    `meta.truncated` tells the agent to raise `limit` or narrow (a view/scope)."""
     nodes_p, nmeta = apply_response_contract(
         out.get("nodes", []), ref_fields=node_ref, detail=detail,
     )
@@ -188,6 +208,7 @@ def _project_graph(out: dict, detail: str, *, node_ref, edge_ref) -> dict:
         "nodes_returned": nmeta["returned"],
         "edges_total": emeta["total"],
         "edges_returned": emeta["returned"],
+        "truncated": truncated,
     }
     return out
 
@@ -196,13 +217,23 @@ def _project_graph(out: dict, detail: str, *, node_ref, edge_ref) -> dict:
 
 
 class KgGraphQueryArgs(ProjectScopedArgs):
-    """`kg_graph_query` — nodes+edges for a view, as-of a chapter."""
+    """`kg_graph_query` — nodes+edges. Unified by SCOPE (catalog-unification 2026-07-22):
+    scope=project (default) reads the current project; scope=world reads a whole world
+    (world_id); scope=multi reads an arbitrary set of your projects (project_ids). world/multi
+    DELEGATE to the same _handle_kg_world_query / _handle_kg_multi_query cores (no logic moved)."""
 
+    scope: Literal["project", "world", "multi"] = "project"
     view: str | None = Field(default=None, max_length=_CODE_MAX)
     as_of_chapter: int | None = Field(default=None, ge=0)
     limit: int = Field(default=GRAPH_LIMIT_DEFAULT, ge=1, le=GRAPH_LIMIT_MAX)
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
+    # scope=world — the world to roll up (owner-only).
+    world_id: str | None = Field(default=None, max_length=200)
+    # scope=multi — an arbitrary set of your own projects to union (1–16).
+    project_ids: list[str] | None = Field(default=None, max_length=16)
+    # scope=world|multi — cross-book entity unification.
+    unify: Literal["off", "by_name", "semantic"] = "off"
 
 
 class KgWorldQueryArgs(BaseModel):
@@ -215,10 +246,10 @@ class KgWorldQueryArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     world_id: str = Field(min_length=1, max_length=200)
-    limit: int = Field(default=200, ge=1, le=GRAPH_LIMIT_MAX)
+    limit: int = Field(default=GRAPH_LIMIT_DEFAULT, ge=1, le=GRAPH_LIMIT_MAX)  # K37: 200→60, signalled via node_cap_hit
     unify: Literal["off", "by_name", "semantic"] = "off"
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
 
 
 class KgMultiQueryArgs(BaseModel):
@@ -235,10 +266,10 @@ class KgMultiQueryArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     project_ids: list[str] = Field(min_length=1, max_length=16)
-    limit: int = Field(default=200, ge=1, le=GRAPH_LIMIT_MAX)
+    limit: int = Field(default=GRAPH_LIMIT_DEFAULT, ge=1, le=GRAPH_LIMIT_MAX)  # K37: 200→60, signalled via node_cap_hit
     unify: Literal["off", "by_name", "semantic"] = "off"
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
 
 
 class KgEntityEdgeTimelineArgs(BaseModel):
@@ -255,8 +286,8 @@ class KgEntityEdgeTimelineArgs(BaseModel):
     entity_id: str = Field(min_length=1, max_length=200)
     edge_type: str = Field(min_length=1, max_length=_CODE_MAX)
     limit: int = Field(default=TIMELINE_LIMIT_DEFAULT, ge=1, le=TIMELINE_LIMIT_MAX)
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
 
 
 class KgSchemaReadArgs(ProjectScopedArgs):
@@ -284,8 +315,8 @@ class KgTriageListArgs(ProjectScopedArgs):
 
     status: Literal["pending", "pending_glossary", "resolved", "dismissed"] = "pending"
     limit: int = Field(default=TRIAGE_LIMIT_DEFAULT, ge=1, le=TRIAGE_LIMIT_MAX)
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
 
 
 class KgProposeFactArgs(ProjectScopedArgs):
@@ -353,6 +384,39 @@ class KgViewDeleteArgs(ProjectScopedArgs):
     code: str = Field(min_length=1, max_length=_CODE_MAX)
 
 
+class KgViewEditArgs(ProjectScopedArgs):
+    """`kg_view_edit` — UNIFIED per-user view CRUD (catalog-unification 2026-07-22).
+    op=upsert creates/replaces a view (code+name, optional description/edge/node codes);
+    op=delete removes it (code). Delegates to the same _handle_kg_view_upsert /
+    _handle_kg_view_delete cores (both Tier-A, reversible)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    op: Literal["upsert", "delete"]
+    code: str = Field(min_length=1, max_length=_CODE_MAX)  # required for both ops
+    name: str | None = Field(default=None, max_length=_NAME_MAX)  # op=upsert (required)
+    description: str | None = Field(default=None, max_length=2000)
+    edge_type_codes: list[str] | None = Field(default=None, max_length=200)
+    node_kind_codes: list[str] | None = Field(default=None, max_length=200)
+
+
+async def _handle_kg_view_edit(ctx: "ToolContext", args: KgViewEditArgs) -> dict:
+    """Unified view CRUD dispatch — delegates to the SAME cores (no logic moved)."""
+    from app.tools.executor import ToolExecutionError
+
+    if args.op == "upsert":
+        if not args.name:
+            raise ToolExecutionError("op=upsert requires name")
+        return await _handle_kg_view_upsert(ctx, KgViewUpsertArgs(
+            project_id=args.project_id, code=args.code, name=args.name,
+            description=args.description or "",
+            edge_type_codes=args.edge_type_codes or [],
+            node_kind_codes=args.node_kind_codes or []))
+    # op == "delete"
+    return await _handle_kg_view_delete(ctx, KgViewDeleteArgs(
+        project_id=args.project_id, code=args.code))
+
+
 class KgTriageResolveArgs(ProjectScopedArgs):
     """`kg_triage_resolve` — resolve a triage signature with a KG-LOCAL action.
 
@@ -411,6 +475,52 @@ class KgSyncApplyArgs(ProjectScopedArgs):
 
     base_source_hash: str = Field(min_length=1, max_length=128)
     decisions: list[KgSyncDecision] = Field(default_factory=list)
+
+
+class KgOntologyProposeArgs(ProjectScopedArgs):
+    """`kg_ontology_propose` — UNIFIED class-C ontology-change proposal (catalog-unification
+    2026-07-22). op ∈ {schema_edit, adopt_template, sync_apply}; each MINTS a confirm-token
+    (no write) and DELEGATES to the same core (kg_schema_edit / kg_adopt_template /
+    kg_sync_apply). A flat superset keyed by op; each op reads only its own fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    op: Literal["schema_edit", "adopt_template", "sync_apply"]
+    # op=schema_edit
+    verb: Literal["add", "deprecate"] | None = None
+    level: Literal["edge_type", "fact_type"] | None = None
+    code: str | None = Field(default=None, max_length=_CODE_MAX)
+    label: str | None = Field(default=None, max_length=_NAME_MAX)
+    # op=adopt_template
+    source_schema_id: str | None = Field(default=None, max_length=64)
+    # op=sync_apply
+    base_source_hash: str | None = Field(default=None, max_length=128)
+    decisions: list[KgSyncDecision] | None = None
+
+
+async def _handle_kg_ontology_propose(ctx: "ToolContext", args: KgOntologyProposeArgs) -> dict:
+    """Unified ontology-propose dispatch — delegates to the SAME cores as the legacy
+    kg_schema_edit / kg_adopt_template / kg_sync_apply (no logic moved). Per-op required
+    fields validated with an explicit ToolExecutionError."""
+    from app.tools.executor import ToolExecutionError
+
+    if args.op == "schema_edit":
+        if not (args.verb and args.level and args.code):
+            raise ToolExecutionError("op=schema_edit requires verb, level, and code")
+        return await _handle_kg_schema_edit(ctx, KgSchemaEditArgs(
+            project_id=args.project_id, verb=args.verb, level=args.level,
+            code=args.code, label=args.label or ""))
+    if args.op == "adopt_template":
+        if not args.source_schema_id:
+            raise ToolExecutionError("op=adopt_template requires source_schema_id")
+        return await _handle_kg_adopt_template(ctx, KgAdoptTemplateArgs(
+            project_id=args.project_id, source_schema_id=args.source_schema_id))
+    # op == "sync_apply"
+    if not args.base_source_hash:
+        raise ToolExecutionError("op=sync_apply requires base_source_hash")
+    return await _handle_kg_sync_apply(ctx, KgSyncApplyArgs(
+        project_id=args.project_id, base_source_hash=args.base_source_hash,
+        decisions=args.decisions or []))
 
 
 class KgTriagePlaceEdgeArgs(ProjectScopedArgs):
@@ -482,6 +592,46 @@ class KgCreateNodeArgs(ProjectScopedArgs):
         return self
 
 
+class KgAddNodesArgs(ProjectScopedArgs):
+    """`kg_add_nodes` — UNIFIED node creation (catalog-unification 2026-07-22).
+    mode=manual creates ONE node (name+kind); mode=from_glossary projects the book's
+    glossary entities into the graph as nodes (optional entity_ids; omit for all).
+    Delegates to the same _handle_kg_create_node / _handle_kg_project_entities_to_nodes
+    cores (both Tier-A, idempotent, reversible)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["manual", "from_glossary"]
+    # mode=manual
+    name: str | None = Field(default=None, max_length=200)
+    kind: str | None = Field(default=None, max_length=100)
+    # mode=from_glossary
+    entity_ids: list[str] | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def _gate_manual_kind(self) -> "KgAddNodesArgs":
+        # mode=manual mirrors kg_create_node's closed-set kind gate (ONE home:
+        # neo4j_repos.entities.AUTHORABLE_KINDS, lazily imported). from_glossary needs no kind.
+        if self.mode == "manual":
+            if not self.name or not self.kind:
+                raise ValueError("mode=manual requires name and kind")
+            from app.db.neo4j_repos.entities import AUTHORABLE_KINDS
+            if self.kind.strip() not in AUTHORABLE_KINDS:
+                raise ValueError(f"kind must be one of {sorted(AUTHORABLE_KINDS)}")
+        return self
+
+
+async def _handle_kg_add_nodes(ctx: "ToolContext", args: KgAddNodesArgs) -> dict:
+    """Unified node-creation dispatch — delegates to the SAME cores (no logic moved)."""
+    if args.mode == "manual":
+        # name+kind presence + kind validity already enforced by the model validator.
+        return await _handle_kg_create_node(ctx, KgCreateNodeArgs(
+            project_id=args.project_id, name=args.name, kind=args.kind))
+    # mode == "from_glossary"
+    return await _handle_kg_project_entities_to_nodes(ctx, KgProjectEntitiesToNodesArgs(
+        project_id=args.project_id, entity_ids=args.entity_ids))
+
+
 GRAPH_SCHEMA_ARG_MODELS: dict[str, type[BaseModel]] = {
     # ── R (read) ──────────────────────────────────────────────────────
     "kg_graph_query": KgGraphQueryArgs,
@@ -496,15 +646,18 @@ GRAPH_SCHEMA_ARG_MODELS: dict[str, type[BaseModel]] = {
     # ── W (low-impact, reversible, owner/grant-gated) ─────────────────
     "kg_propose_fact": KgProposeFactArgs,
     "kg_propose_edge": KgProposeEdgeArgs,
-    "kg_project_entities_to_nodes": KgProjectEntitiesToNodesArgs,  # WS-4B: A, deterministic projection
-    "kg_create_node": KgCreateNodeArgs,  # W10-M1: A, manual single-node create (unblocks kg_propose_edge)
-    "kg_view_upsert": KgViewUpsertArgs,
-    "kg_view_delete": KgViewDeleteArgs,
+    "kg_add_nodes": KgAddNodesArgs,  # unified (2026-07-22): mode=manual|from_glossary
+    "kg_project_entities_to_nodes": KgProjectEntitiesToNodesArgs,  # LEGACY → kg_add_nodes (from_glossary)
+    "kg_create_node": KgCreateNodeArgs,  # LEGACY → kg_add_nodes (manual)
+    "kg_view_edit": KgViewEditArgs,  # unified (2026-07-22): op=upsert|delete
+    "kg_view_upsert": KgViewUpsertArgs,  # LEGACY → kg_view_edit (upsert)
+    "kg_view_delete": KgViewDeleteArgs,  # LEGACY → kg_view_edit (delete)
     "kg_triage_resolve": KgTriageResolveArgs,
     # ── C (confirm-token) — KM6 confirm machinery ─────────────────────
-    "kg_schema_edit": KgSchemaEditArgs,    # KM6-M1: mints a confirm-token (no write)
-    "kg_adopt_template": KgAdoptTemplateArgs,  # KM6-M2: mints a confirm-token (no write)
-    "kg_sync_apply": KgSyncApplyArgs,      # KM6-M3: mints a confirm-token (no write)
+    "kg_ontology_propose": KgOntologyProposeArgs,  # unified (2026-07-22): op=schema_edit|adopt_template|sync_apply
+    "kg_schema_edit": KgSchemaEditArgs,    # LEGACY → kg_ontology_propose (op=schema_edit)
+    "kg_adopt_template": KgAdoptTemplateArgs,  # LEGACY → kg_ontology_propose (op=adopt_template)
+    "kg_sync_apply": KgSyncApplyArgs,      # LEGACY → kg_ontology_propose (op=sync_apply)
     "kg_triage_place_edge": KgTriagePlaceEdgeArgs,  # E2: mints a confirm-token (no write)
     "kg_triage_schema_write": KgTriageSchemaWriteArgs,  # E3: mints a confirm-token (no write)
     # kg_triage_resolve (schema-mutating actions) # KM3/KM4 class-C — deferred to KM6 confirm machinery (D-KG-LF-KM6)
@@ -547,17 +700,16 @@ _PROJECT_ID_PROP = {
 }
 
 # L1/L2 reference-first `detail` enum (§6b) shared by the SET-returning kg-read
-# tools. Enum-locked + versioned-default "full" (see definitions._DETAIL_PROP).
+# tools. Enum-locked + default "summary" (K38 — migration complete; see definitions._DETAIL_PROP).
 _DETAIL_PROP = {
     "type": "string",
     "enum": ["summary", "full"],
     "description": (
-        "Response granularity. 'full' (default) = every field of each node/edge/"
-        "item. 'summary' = a compact reference projection (ids + names + the "
-        "relation triple; localized labels, glossary anchors, scores and heavy "
-        "payloads dropped) — scan a large graph cheaply, then re-read specifics "
-        "with a get-by-id sibling (e.g. memory_recall_entity / "
-        "kg_entity_edge_timeline). `meta` reports the node/edge totals."
+        "Response granularity. 'summary' (default) = a compact reference projection "
+        "(ids + names + the relation triple; localized labels, glossary anchors, scores "
+        "and heavy payloads dropped) — scan a large graph cheaply, then re-read specifics "
+        "with a get-by-id sibling (e.g. memory_recall_entity / kg_entity_edge_timeline). "
+        "'full' = every field of each node/edge/item. `meta` reports the node/edge totals."
     ),
 }
 
@@ -578,17 +730,26 @@ _UNIFY_PROP = {
 }
 
 GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
+    # UNIFIED by scope (catalog-unification 2026-07-22): scope=world|multi supersede
+    # kg_world_query + kg_multi_query (which stay for existing callers).
     _tool(
         "kg_graph_query",
-        "Read the current project's knowledge graph as nodes + edges, "
-        "optionally narrowed to a named view (lens) and to a point in the "
-        "story via a chapter ordinal. Use this to see who relates to whom "
-        "as of a given chapter. Returns nodes, edges, and any warnings.",
+        "Read a knowledge graph as nodes + edges. scope=project (default) reads the CURRENT "
+        "project (optionally narrowed to a named view/lens and to a chapter ordinal — who "
+        "relates to whom as of a chapter); scope=world reads a whole WORLD rolled up (pass "
+        "world_id); scope=multi reads an ARBITRARY SET of your projects (pass project_ids). Use "
+        "world/multi to synthesize ACROSS books. Returns nodes, edges, and any warnings.",
         {
+            "scope": {
+                "type": "string",
+                "enum": ["project", "world", "multi"],
+                "description": "project (default) = the current project; world = a whole world "
+                               "(needs world_id); multi = a set of your projects (needs project_ids).",
+            },
             "view": {
                 "type": "string",
                 "description": (
-                    "Optional view code (a saved lens of edge/node kinds). "
+                    "scope=project: optional view code (a saved lens of edge/node kinds). "
                     "Omit to read the whole graph."
                 ),
             },
@@ -596,7 +757,7 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
                 "type": "integer",
                 "minimum": 0,
                 "description": (
-                    "Optional chapter ordinal — show the graph as it stood at "
+                    "scope=project: optional chapter ordinal — show the graph as it stood at "
                     "that chapter. Omit for the latest state."
                 ),
             },
@@ -604,9 +765,20 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
                 "type": "integer",
                 "minimum": 1,
                 "maximum": GRAPH_LIMIT_MAX,
-                "description": f"Max edges to scan (default {GRAPH_LIMIT_DEFAULT}).",
+                "description": f"Max edges/nodes to scan (default {GRAPH_LIMIT_DEFAULT}).",
             },
             "detail": _DETAIL_PROP,
+            "world_id": {
+                "type": "string",
+                "description": "scope=world: the world to roll up (you must own it).",
+            },
+            "project_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 16,
+                "description": "scope=multi: the project ids to union (1–16; you must own each).",
+            },
+            "unify": _UNIFY_PROP,
             "project_id": _PROJECT_ID_PROP,
         },
         [],
@@ -628,7 +800,7 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
                 "type": "integer",
                 "minimum": 1,
                 "maximum": GRAPH_LIMIT_MAX,
-                "description": "Max nodes in the union (default 200).",
+                "description": "Max nodes in the union (default 25; a bigger union is signalled via meta.truncated — raise it).",
             },
             "unify": _UNIFY_PROP,
             "detail": _DETAIL_PROP,
@@ -655,7 +827,7 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
                 "type": "integer",
                 "minimum": 1,
                 "maximum": GRAPH_LIMIT_MAX,
-                "description": "Max nodes in the union (default 200).",
+                "description": "Max nodes in the union (default 25; a bigger union is signalled via meta.truncated — raise it).",
             },
             "unify": _UNIFY_PROP,
             "detail": _DETAIL_PROP,
@@ -821,6 +993,43 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
         },
         ["source_entity_id", "target_entity_id", "edge_type"],
     ),
+    # UNIFIED node creation (catalog-unification 2026-07-22): mode supersedes kg_create_node
+    # + kg_project_entities_to_nodes (which stay for existing callers).
+    _tool(
+        "kg_add_nodes",
+        "Add entity node(s) to the current project's knowledge graph. Pick mode: 'manual' = "
+        "create ONE node (needs name + kind) — use this BEFORE kg_propose_edge when a "
+        "relationship's endpoint isn't in the graph yet; 'from_glossary' = project the book's "
+        "recorded glossary entities into the graph as nodes (optional entity_ids; omit for the "
+        "whole active glossary) — the structured, prose-less way to seed the graph. Both are "
+        "idempotent (re-running adds no duplicates).",
+        {
+            "mode": {
+                "type": "string",
+                "enum": ["manual", "from_glossary"],
+                "description": "manual = create one node (name+kind); from_glossary = project "
+                               "the book's glossary entities into the graph.",
+            },
+            "name": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "mode=manual: the entity's name.",
+            },
+            "kind": {
+                "type": "string",
+                "enum": ["character", "location", "organization", "concept", "item"],
+                "description": "mode=manual: the entity kind (closed set).",
+            },
+            "entity_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "mode=from_glossary: optional specific glossary entity ids; omit "
+                               "to project the book's whole active glossary.",
+            },
+            "project_id": _PROJECT_ID_PROP,
+        },
+        ["mode"],
+    ),
     _tool(
         "kg_project_entities_to_nodes",
         "Project this book's recorded glossary entities into the knowledge "
@@ -865,6 +1074,49 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
             "project_id": _PROJECT_ID_PROP,
         },
         ["name", "kind"],
+    ),
+    # UNIFIED view CRUD (catalog-unification 2026-07-22): op supersedes kg_view_upsert +
+    # kg_view_delete (which stay for existing callers).
+    _tool(
+        "kg_view_edit",
+        "Create, replace, or delete one of YOUR saved views (a named lens of edge-type + "
+        "node-kind codes) for the current project. Owner-scoped (only ever your own view). "
+        "op=upsert creates/replaces it (needs code + name; optional description/edge_type_codes/"
+        "node_kind_codes); op=delete removes it (needs code; reversible — recreate with upsert).",
+        {
+            "op": {
+                "type": "string",
+                "enum": ["upsert", "delete"],
+                "description": "upsert = create/replace the view; delete = remove it.",
+            },
+            "code": {
+                "type": "string",
+                "maxLength": _CODE_MAX,
+                "description": "The view's stable code (slug).",
+            },
+            "name": {
+                "type": "string",
+                "maxLength": _NAME_MAX,
+                "description": "op=upsert: a human-readable view name.",
+            },
+            "description": {
+                "type": "string",
+                "maxLength": 2000,
+                "description": "op=upsert: optional description.",
+            },
+            "edge_type_codes": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "op=upsert: edge-type codes the view includes (empty = all).",
+            },
+            "node_kind_codes": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "op=upsert: node-kind codes the view includes (empty = all).",
+            },
+            "project_id": _PROJECT_ID_PROP,
+        },
+        ["op", "code"],
     ),
     _tool(
         "kg_view_upsert",
@@ -936,6 +1188,74 @@ GRAPH_SCHEMA_TOOL_DEFINITIONS: list[dict] = [
             "project_id": _PROJECT_ID_PROP,
         },
         ["signature", "action"],
+    ),
+    # UNIFIED ontology-change proposal (catalog-unification 2026-07-22): op supersedes
+    # kg_schema_edit + kg_adopt_template + kg_sync_apply (which stay for existing callers).
+    _tool(
+        "kg_ontology_propose",
+        "Change THIS project's ontology — ADD or DEPRECATE an edge/fact type, ADOPT a "
+        "template, or SYNC upstream template changes. High-impact, so it does NOT apply "
+        "immediately: it returns a confirm_token + summary and a human confirms on the review "
+        "surface. Pick op: 'schema_edit' = add/deprecate an edge_type or fact_type (needs verb, "
+        "level, code); 'adopt_template' = copy a system/user ontology template down (needs "
+        "source_schema_id from kg_list_templates); 'sync_apply' = pull upstream template changes "
+        "with per-change keep_mine/take_theirs (needs base_source_hash from kg_sync_available, "
+        "and decisions).",
+        {
+            "op": {
+                "type": "string",
+                "enum": ["schema_edit", "adopt_template", "sync_apply"],
+                "description": "schema_edit = add/deprecate a type; adopt_template = copy a "
+                               "template down; sync_apply = pull upstream template changes.",
+            },
+            "verb": {
+                "type": "string",
+                "enum": ["add", "deprecate"],
+                "description": "op=schema_edit: add a new type, or deprecate an existing one.",
+            },
+            "level": {
+                "type": "string",
+                "enum": ["edge_type", "fact_type"],
+                "description": "op=schema_edit: which kind of ontology element to change.",
+            },
+            "code": {
+                "type": "string",
+                "maxLength": _CODE_MAX,
+                "description": "op=schema_edit: the type's code (e.g. WORSHIPS, prophecy).",
+            },
+            "label": {
+                "type": "string",
+                "maxLength": _NAME_MAX,
+                "description": "op=schema_edit: human-readable label (defaults to the code).",
+            },
+            "source_schema_id": {
+                "type": "string",
+                "maxLength": 64,
+                "description": "op=adopt_template: the template id to adopt (from kg_list_templates).",
+            },
+            "base_source_hash": {
+                "type": "string",
+                "maxLength": 128,
+                "description": "op=sync_apply: the upstream hash from kg_sync_available (drift guard).",
+            },
+            "decisions": {
+                "type": "array",
+                "description": "op=sync_apply: per-change keep_mine/take_theirs decisions.",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "node_type": {"type": "string", "description": "edge_type | fact_type | node_kind | vocab_value."},
+                        "code": {"type": "string", "description": "The child's code."},
+                        "parent_code": {"type": "string", "description": "Parent code (vocab_value only)."},
+                        "choice": {"type": "string", "enum": ["keep_mine", "take_theirs"]},
+                    },
+                    "required": ["node_type", "code", "choice"],
+                },
+            },
+            "project_id": _PROJECT_ID_PROP,
+        },
+        ["op"],
     ),
     _tool(
         "kg_schema_edit",
@@ -1178,6 +1498,23 @@ async def _active_project_schema_id(ctx: "ToolContext", project_id: str):
 
 
 async def _handle_kg_graph_query(ctx: "ToolContext", args: KgGraphQueryArgs) -> dict:
+    # Unified scope dispatch (catalog-unification 2026-07-22): world/multi delegate to the
+    # SAME cores as the legacy kg_world_query / kg_multi_query. Per-scope required fields are
+    # validated with an explicit ToolExecutionError. scope=project falls through to the
+    # existing project logic below (unchanged).
+    if args.scope == "world":
+        from app.tools.executor import ToolExecutionError
+        if not args.world_id:
+            raise ToolExecutionError("scope=world requires world_id (the world to roll up)")
+        return await _handle_kg_world_query(ctx, KgWorldQueryArgs(
+            world_id=args.world_id, limit=args.limit, unify=args.unify, detail=args.detail))
+    if args.scope == "multi":
+        from app.tools.executor import ToolExecutionError
+        if not args.project_ids:
+            raise ToolExecutionError("scope=multi requires project_ids (the projects to union)")
+        return await _handle_kg_multi_query(ctx, KgMultiQueryArgs(
+            project_ids=args.project_ids, limit=args.limit, unify=args.unify, detail=args.detail))
+
     owner = await _resolve_project_owner(ctx, GrantLevel.VIEW)
     project_str = str(ctx.project_id)
 
@@ -1196,9 +1533,15 @@ async def _handle_kg_graph_query(ctx: "ToolContext", args: KgGraphQueryArgs) -> 
             _GRAPH_READ_CYPHER,
             user_id=str(owner),
             project_id=project_str,
-            limit=args.limit,
+            # OUT-5 (K37): over-fetch ONE edge past the cap so we can tell the agent the
+            # graph had MORE (the Cypher LIMIT was a silent cap before). Isolated to this
+            # MCP handler — the shared _GRAPH_READ_CYPHER + the REST caller are untouched.
+            limit=args.limit + 1,
         )
         records = await _records(result)
+
+    edges_truncated = len(records) > args.limit
+    records = records[: args.limit]  # drop the sentinel over-fetch row
 
     deprecated = await _deprecated_edge_codes(ctx.graph_schemas_repo, project_str)
     slice_ = build_graph_slice(
@@ -1214,6 +1557,7 @@ async def _handle_kg_graph_query(ctx: "ToolContext", args: KgGraphQueryArgs) -> 
     return _project_graph(
         out, args.detail,
         node_ref=GRAPH_NODE_REF_FIELDS, edge_ref=GRAPH_EDGE_REF_FIELDS,
+        truncated=edges_truncated,
     )
 
 
@@ -1303,6 +1647,9 @@ async def _handle_kg_world_query(ctx: "ToolContext", args: KgWorldQueryArgs) -> 
     return _project_graph(
         out, args.detail,
         node_ref=SUBGRAPH_NODE_REF_FIELDS, edge_ref=SUBGRAPH_EDGE_REF_FIELDS,
+        # OUT-5 (K37): get_world_subgraph already flags `node_cap_hit` when the union re-cap
+        # (or any member) trimmed — surface it as the uniform `meta.truncated` (NOT a silent cut).
+        truncated=bool(out.get("node_cap_hit")),
     )
 
 
@@ -1385,6 +1732,9 @@ async def _handle_kg_multi_query(ctx: "ToolContext", args: KgMultiQueryArgs) -> 
     return _project_graph(
         out, args.detail,
         node_ref=SUBGRAPH_NODE_REF_FIELDS, edge_ref=SUBGRAPH_EDGE_REF_FIELDS,
+        # OUT-5 (K37): get_world_subgraph already flags `node_cap_hit` when the union re-cap
+        # (or any member) trimmed — surface it as the uniform `meta.truncated` (NOT a silent cut).
+        truncated=bool(out.get("node_cap_hit")),
     )
 
 
@@ -1416,17 +1766,22 @@ async def _handle_kg_entity_edge_timeline(
             user_id=str(ctx.user_id),
             entity_id=args.entity_id,
             edge_type=args.edge_type,
-            limit=args.limit,
+            # OUT-5 (K37): over-fetch ONE past the cap so we can tell the agent the chain had
+            # MORE (the Cypher LIMIT was a silent cap). Mirrors kg_graph_query.
+            limit=args.limit + 1,
         )
         records = await _records(result)
+    truncated = len(records) > args.limit
+    records = records[: args.limit]  # drop the sentinel over-fetch row
     out = build_timeline(args.entity_id, args.edge_type, records).model_dump(mode="json")
     # L1/L2 reference-first (§6b): at detail="summary" project each temporal
     # instance to target + window, dropping evidence_chapter_id/schema_version/
-    # localized/glossary fields. `meta` reports the instance total/returned.
+    # localized/glossary fields. `meta` reports the instance total/returned + truncation.
     instances, meta = apply_response_contract(
         out.get("instances", []),
         ref_fields=TIMELINE_INSTANCE_REF_FIELDS, detail=args.detail,
     )
+    meta["truncated"] = truncated
     out["instances"] = instances
     out["meta"] = meta
     return out
@@ -2119,9 +2474,12 @@ GRAPH_SCHEMA_HANDLERS = {
     "kg_propose_edge": _handle_kg_propose_edge,
     "kg_project_entities_to_nodes": _handle_kg_project_entities_to_nodes,
     "kg_create_node": _handle_kg_create_node,
+    "kg_add_nodes": _handle_kg_add_nodes,  # unified (delegates to create_node / entities_to_nodes)
+    "kg_view_edit": _handle_kg_view_edit,  # unified (delegates to view_upsert / view_delete)
     "kg_view_upsert": _handle_kg_view_upsert,
     "kg_view_delete": _handle_kg_view_delete,
     "kg_triage_resolve": _handle_kg_triage_resolve,
+    "kg_ontology_propose": _handle_kg_ontology_propose,  # unified (delegates to the 3 below)
     "kg_schema_edit": _handle_kg_schema_edit,
     "kg_adopt_template": _handle_kg_adopt_template,
     "kg_sync_apply": _handle_kg_sync_apply,

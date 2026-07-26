@@ -7,7 +7,7 @@ same way the mode binding pins vision-to-book.
 from app.services.intent_workflows import intent_pinned_workflows
 
 ALL = {"entity-triage", "canon-check", "kg-build", "build-a-book", "translation-pass",
-       "autonomous-drafting", "vision-to-book", "draw-a-map"}
+       "autonomous-drafting", "vision-to-book", "draw-a-map", "chapter-compose"}
 
 
 def pins(text: str):
@@ -38,6 +38,21 @@ def test_build_a_book_from_the_s07_prompt():
 def test_translation_and_autonomous():
     assert "translation-pass" in pins("translate what needs it so English readers can read it")
     assert "autonomous-drafting" in pins("draft the next few chapters for me while I'm away")
+
+
+def test_chapter_compose_from_single_write_requests():
+    # the measured step-8 phrasing (write ONE scene/chapter once the world is built)
+    assert "chapter-compose" in pins("Please write the opening scene of chapter 1 now.")
+    assert "chapter-compose" in pins("draft chapter 3")
+    assert "chapter-compose" in pins("put down a first version of this scene")
+    assert "chapter-compose" in pins("write this next part")
+
+
+def test_chapter_compose_does_not_fire_on_world_building_or_planning():
+    # must NOT steal vision-to-book's bootstrap or a planning turn
+    assert "chapter-compose" not in pins("I want to write a novel about a cartographer.")
+    assert "chapter-compose" not in pins("set up the world knowledge and seed the core entities")
+    assert "chapter-compose" not in pins("propose a story plan with an arc and beats")
 
 
 # ── it must NOT over-fire (a false pin is bounded, but avoid it anyway) ────────────────────

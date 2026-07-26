@@ -14,6 +14,11 @@ export interface UseBootstrap {
   approve: () => Promise<void>;
   reject: () => Promise<void>;
   apply: () => Promise<void>;
+  /** One-shot propose→approve→apply for a caller that just wants the chapters created (the
+   * Agent-Mode "Create chapters from this plan" handoff), NOT the step-by-step review card.
+   * Chains on the RETURNED proposals — never the `proposal` state, which does not update within
+   * one handler tick — and returns the applied proposal (or null on error, with `error` set). */
+  materialize: (runId: string) => Promise<BootstrapProposal | null>;
   /** Back to "not proposed yet" — e.g. after a reject, so the writer can review a fresh
    * propose without the old (rejected) card lingering. Local UI state only. */
   reset: () => void;
@@ -91,10 +96,30 @@ export function useBootstrap(bookId: string, token: string | null): UseBootstrap
     }
   }, [bookId, token, proposal]);
 
+  const materialize = useCallback(async (runId: string): Promise<BootstrapProposal | null> => {
+    if (!token) return null;
+    setBusy(true);
+    setError(null);
+    try {
+      // Chain on the RETURNED objects, not the `proposal` state (which would still be null/stale
+      // this tick), so approve/apply act on the just-created proposal.
+      const proposed = await planForgeApi.bootstrapPropose(bookId, runId, token);
+      const approved = await planForgeApi.bootstrapApprove(bookId, proposed.id, token);
+      const applied = await planForgeApi.bootstrapApply(bookId, approved.id, token);
+      setProposal(applied);
+      return applied;
+    } catch (e) {
+      setError(errorMessage(e));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [bookId, token]);
+
   const reset = useCallback(() => {
     setProposal(null);
     setError(null);
   }, []);
 
-  return { proposal, busy, error, propose, approve, reject, apply, reset };
+  return { proposal, busy, error, propose, approve, reject, apply, materialize, reset };
 }

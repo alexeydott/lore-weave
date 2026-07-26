@@ -7,8 +7,9 @@ TEST_KNOWLEDGE_DB_URL (the shared `pool` fixture skips otherwise).
 
 The project is seeded book-less + owned by the caller, so the grant gate passes
 via owner==caller WITHOUT consulting a grant client (resolve-to-owner). This is
-the proof that `kg_propose_edge` parks to the triage inbox (never Neo4j),
-`kg_triage_resolve` transitions PG state, and the view tools are owner-scoped.
+the proof that `kg_propose_edge` parks to the triage inbox (never WRITING Neo4j —
+INV-K1; it does READ it for the WS-4B endpoint precheck), `kg_triage_resolve`
+transitions PG state, and the view tools are owner-scoped.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from app.db.repositories.ontology_mutations import OntologyMutationsRepo
 from app.db.repositories.pending_facts import PendingFactsRepo
 from app.db.repositories.projects import ProjectsRepo
 from app.db.repositories.triage import TriageRepo
+from app.db.neo4j_repos.entities import merge_entity
 from app.ontology.resolver import OntologyResolver
 from app.tools.executor import ToolContext, execute_tool
 
@@ -94,14 +96,91 @@ async def test_view_upsert_read_delete_roundtrip_live(pool):
     assert read2.result["count"] == 0
 
 
-async def test_propose_edge_parks_to_triage_then_resolve_live(pool):
+async def test_propose_edge_parks_to_triage_then_resolve_live(pool, neo4j_driver):
+    # K27 (2026-07-24) — this test drives kg_propose_edge through execute_tool, which reaches
+    # the Neo4j graph, so it needs `neo4j_driver`: without it the test wasn't gated on
+    # TEST_NEO4J_URI and FAILED with "Neo4j driver not initialised" in a Postgres-only run.
+    # Requesting the fixture makes it SKIP cleanly when Neo4j is absent and RUN (with the
+    # global driver set) when it is.
+    #
+    # It ALSO has to seed its two endpoints as real :Entity nodes. WS-4B (70fc8b549,
+    # 2026-07-09) added a fail-fast precheck AHEAD of the park: an edge whose endpoints
+    # aren't graph nodes is rejected with KG_ENDPOINT_NOT_NODE rather than parked, because
+    # the confirm-time write matches endpoints by `Entity.id` and would dead-end two steps
+    # later. This test predates that gate and used phantom ids ("ent-a"/"ent-b"), so it was
+    # asserting a path the endpoints could never reach. Park-to-triage itself is INTACT —
+    # seeding real nodes restores the coverage instead of skipping it. See RUN-STATE K27.
     owner = uuid4()
     project_id = await _seed_project(pool, owner=owner)
     ctx = _ctx(pool, owner=owner, project_id=project_id)
 
-    # No project schema adopted → resolves to the seeded `general` template (or
-    # degenerate allow_free_edges). With free edges allowed, an unknown edge is
-    # on-schema → parks as edge_cardinality_conflict (still inbox, never Neo4j).
+    async with neo4j_driver.session() as session:
+        src = await merge_entity(
+            session, user_id=str(owner), project_id=project_id,
+            name="Alice", kind="character", source_type="chat_turn", confidence=0.9,
+        )
+        tgt = await merge_entity(
+            session, user_id=str(owner), project_id=project_id,
+            name="Bob", kind="character", source_type="chat_turn", confidence=0.9,
+        )
+
+    try:
+        # No project schema adopted → resolves to the seeded `general` template (or
+        # degenerate allow_free_edges). With free edges allowed, an unknown edge is
+        # on-schema → parks as a `proposed_edge` draft (still inbox, never Neo4j).
+        res = await execute_tool(
+            ctx, "kg_propose_edge",
+            {
+                "source_entity_id": src.id,
+                "target_entity_id": tgt.id,
+                "edge_type": "allies_with",
+                "valid_from": 7,
+            },
+        )
+        assert res.success, res.error
+        assert res.result["parked"] is True
+        signature = res.result["signature"]
+
+        # The parked proposal shows up in the triage queue. K37: kg_triage_list defaults to
+        # detail=summary (OUT-2), which keeps `suggested_actions` (small + actionable) and
+        # drops only the heavy sample_payload — so the default reply is enough to resolve.
+        listed = await execute_tool(ctx, "kg_triage_list", {})
+        assert listed.success
+        sigs = {g["signature"] for g in listed.result["groups"]}
+        assert signature in sigs
+
+        # Resolve it with a KG-local action valid for its item_type. The parked
+        # item_type drives which actions are legal; pick the first suggested one.
+        group = next(g for g in listed.result["groups"] if g["signature"] == signature)
+        kg_local = {"map", "re_target", "drop_edge", "close_previous", "dismiss"}
+        action = next(a for a in group["suggested_actions"] if a in kg_local)
+        resolved = await execute_tool(
+            ctx, "kg_triage_resolve", {"signature": signature, "action": action},
+        )
+        assert resolved.success, resolved.error
+        assert resolved.result["status"] == "resolved"
+        assert resolved.result["affected"] >= 1
+
+        # It is gone from the pending queue (transitioned to 'resolved').
+        listed2 = await execute_tool(ctx, "kg_triage_list", {})
+        assert signature not in {g["signature"] for g in listed2.result["groups"]}
+    finally:
+        # Scoped to this test's throwaway owner (a fresh uuid4) — never a global sweep.
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MATCH (e:Entity {user_id: $uid}) DETACH DELETE e", uid=str(owner),
+            )
+
+
+async def test_propose_edge_rejects_endpoints_that_are_not_nodes_live(pool, neo4j_driver):
+    """WS-4B fail-fast, proven live: an edge naming ids that aren't graph nodes is
+    rejected UP FRONT with KG_ENDPOINT_NOT_NODE and NOTHING is parked. The unit test
+    for this stubs `existing_entity_node_ids`; this one runs the real Cypher, so it
+    also proves the precheck's owner-scoped lookup actually matches by `Entity.id`."""
+    owner = uuid4()
+    project_id = await _seed_project(pool, owner=owner)
+    ctx = _ctx(pool, owner=owner, project_id=project_id)
+
     res = await execute_tool(
         ctx, "kg_propose_edge",
         {
@@ -111,31 +190,13 @@ async def test_propose_edge_parks_to_triage_then_resolve_live(pool):
             "valid_from": 7,
         },
     )
-    assert res.success, res.error
-    assert res.result["parked"] is True
-    signature = res.result["signature"]
+    assert not res.success
+    assert res.code == "KG_ENDPOINT_NOT_NODE"
+    assert set(res.detail["missing"]) == {"ent-a", "ent-b"}
 
-    # The parked proposal shows up in the triage queue.
+    # Fail-fast means fail-fast — the triage inbox stays empty.
     listed = await execute_tool(ctx, "kg_triage_list", {})
-    assert listed.success
-    sigs = {g["signature"] for g in listed.result["groups"]}
-    assert signature in sigs
-
-    # Resolve it with a KG-local action valid for its item_type. The parked
-    # item_type drives which actions are legal; pick the first suggested one.
-    group = next(g for g in listed.result["groups"] if g["signature"] == signature)
-    kg_local = {"map", "re_target", "drop_edge", "close_previous", "dismiss"}
-    action = next(a for a in group["suggested_actions"] if a in kg_local)
-    resolved = await execute_tool(
-        ctx, "kg_triage_resolve", {"signature": signature, "action": action},
-    )
-    assert resolved.success, resolved.error
-    assert resolved.result["status"] == "resolved"
-    assert resolved.result["affected"] >= 1
-
-    # It is gone from the pending queue (transitioned to 'resolved').
-    listed2 = await execute_tool(ctx, "kg_triage_list", {})
-    assert signature not in {g["signature"] for g in listed2.result["groups"]}
+    assert listed.result["groups"] == []
 
 
 async def test_propose_fact_queues_into_pending_inbox_live(pool):

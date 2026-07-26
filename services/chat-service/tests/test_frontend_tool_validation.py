@@ -141,3 +141,43 @@ def test_generic_resolver_def_validates():
         td,
     )
     assert ok is None
+
+
+# ── UUID-shaped id args: the placeholder-id silent no-op (measured 2026-07-22) ────
+# S00b real-stack E2E: asked to "Add a character called Lâm Uyên", gemma called
+# glossary_propose_entity_edit 13× with entity_id="new_entity_id_placeholder" —
+# effectful_tool_calls=0, book unchanged (DB-verified). Nothing rejected the placeholder,
+# so the model got no signal and repeated the identical call. The id args now carry a UUID
+# pattern so this is rejected BEFORE the suspend, with an explicit, re-routable message.
+
+
+def _incident_args(**over):
+    args = {
+        "base_version": "0",
+        "book_id": "current_book_id_placeholder",
+        "entity_id": "new_entity_id_placeholder",
+        "changes": [{"field_label": "Name", "new_value": "Lâm Uyên",
+                     "old_value": "", "target": "short_description"}],
+        "rationale": "Adding a new character to the book.",
+    }
+    args.update(over)
+    return args
+
+
+def test_placeholder_ids_are_rejected_before_suspend():
+    from app.services.frontend_tools import frontend_tool_def_by_name, validate_frontend_tool_args
+    name = "glossary_propose_entity_edit"
+    err = validate_frontend_tool_args(name, _incident_args(), frontend_tool_def_by_name(name))
+    assert err, "a placeholder entity_id must NOT sail through to a suspend (silent no-op)"
+    assert "entity_id must be a real UUID" in err
+    assert "new_entity_id_placeholder" in err  # names the offending value
+    # and it must RE-ROUTE, not just complain — the create path is a different tool
+    assert "glossary_propose_entities" in err
+
+
+def test_real_uuids_still_validate():
+    from app.services.frontend_tools import frontend_tool_def_by_name, validate_frontend_tool_args
+    name = "glossary_propose_entity_edit"
+    ok = _incident_args(book_id="019f84e1-8716-7c05-9696-1ebf2bde68fc",
+                        entity_id="019f82b6-c31b-72e9-bf2a-3f37f4c8a847")
+    assert validate_frontend_tool_args(name, ok, frontend_tool_def_by_name(name)) is None

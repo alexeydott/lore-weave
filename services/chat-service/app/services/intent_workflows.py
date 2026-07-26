@@ -74,6 +74,19 @@ _INTENT_PATTERNS: list[tuple[str, list[str]]] = [
         r"write.*(several|multiple|the\s+next\s+few).*chapter",
         r"draft.*while\s+i",
     ]),
+    # Single-chapter/scene writing (chapter-compose: outline → get-chapter → draft). This is the
+    # rail for "write THIS scene/chapter" once the world is built — the continued-writing case the
+    # bootstrap vision-to-book rail does NOT cover (its write-opening drafts only the FIRST chapter,
+    # then reads 12/12 done). Pinning it makes book_chapter_save_draft HOT + gives the read-version-
+    # then-draft sequence, so a weak model stops reaching for book_update_details to "write" (the
+    # measured step-8 failure: it clobbered the book description). Kept narrow — needs an explicit
+    # write verb + a chapter/scene/opening object, so it never fires on "write my novel"
+    # (vision-to-book) or a non-writing turn. The multi-chapter case stays with autonomous-drafting.
+    ("chapter-compose", [
+        r"\b(write|draft|pen)\b[^.?!\n]{0,40}\b(chapter|scene|opening|passage|prologue)\b",
+        r"put\s+down.*(first\s+version|draft|scene)",
+        r"write\s+(this|the)\s+(next\s+)?(part|section|bit|scene)\b",
+    ]),
     ("draw-a-map", [
         r"\bmake\s+a\s+map\b",
         r"\bdraw\s+a\s+map\b",

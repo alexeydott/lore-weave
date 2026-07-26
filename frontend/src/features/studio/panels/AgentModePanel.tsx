@@ -25,7 +25,10 @@ import { MissionControlView } from './agentMode/MissionControlView';
 
 type AgentModeView = 'list' | 'new' | 'mission';
 
-interface AgentModeParams { runId?: unknown }
+// `runId` deep-links Mission control (terminal-notification click); `view:'new'` deep-links the
+// New-run config (the co-writer "Start drafting →" handoff — a user/code-driven open, never an agent
+// nav tool: ui_open_studio_panel was de-advertised 2026-07-25, GUI control is code-driven).
+interface AgentModeParams { runId?: unknown; view?: unknown }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
 
@@ -34,7 +37,10 @@ export function AgentModePanel(props: IDockviewPanelProps) {
   const { t } = useTranslation('composition');
   const host = useStudioHost();
   const initialRunId = str((props.params as AgentModeParams | undefined)?.runId);
-  const [view, setView] = useState<AgentModeView>(initialRunId ? 'mission' : 'list');
+  const initialView = str((props.params as AgentModeParams | undefined)?.view);
+  const [view, setView] = useState<AgentModeView>(
+    initialRunId ? 'mission' : initialView === 'new' ? 'new' : 'list',
+  );
   const [selectedRunId, setSelectedRunId] = useState<string | null>(initialRunId);
 
   const openMission = (runId: string) => { setSelectedRunId(runId); setView('mission'); };
@@ -42,7 +48,10 @@ export function AgentModePanel(props: IDockviewPanelProps) {
   useEffect(() => {
     const d = props.api.onDidParametersChange?.((next: Record<string, unknown> | undefined) => {
       const runId = str((next as AgentModeParams | undefined)?.runId);
-      if (runId) openMission(runId);
+      if (runId) { openMission(runId); return; }
+      // DOCK-6 retarget for an already-open singleton: a later "Start drafting →" click flips the
+      // open panel to the New-run view.
+      if (str((next as AgentModeParams | undefined)?.view) === 'new') setView('new');
     });
     return () => d?.dispose?.();
   }, [props.api]);

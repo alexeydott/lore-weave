@@ -231,36 +231,23 @@ func TestMCP_UndoResult_CarriesHint(t *testing.T) {
 	}
 }
 
-// ── H8: book_chapter_save_draft REQUIRES base_version ─────────────────────────
+// ── book_chapter_save_draft input validation (base_version now OPTIONAL) ──────
 
-func TestMCP_SaveDraft_RequiresBaseVersion(t *testing.T) {
+// base_version is now OPTIONAL (2026-07-26 unify): omitting it means "use the chapter's current
+// version" (the backend resolves it), so a missing base_version must NO LONGER be rejected before
+// DB access — it proceeds to resolution. (The stale-version protection still fires when a caller
+// DOES pass a base_version; that path is covered by the DB-gated idempotency tests.)
+func TestMCP_SaveDraft_RequiresBody(t *testing.T) {
 	s := mcpTestServer(GrantOwner)
 	ctx := identityCtxForTest(t, uuid.New())
 	in := saveDraftIn{
-		BookID:      uuid.NewString(),
-		ChapterID:   uuid.NewString(),
-		BaseVersion: 0, // missing → must be rejected before any DB access
-		Body:        "some prose",
+		BookID:    uuid.NewString(),
+		ChapterID: uuid.NewString(),
+		Body:      "   ", // blank prose → rejected before any DB access
 	}
 	_, _, err := s.toolChapterSaveDraft(ctx, nil, in)
-	if err == nil || !strings.Contains(err.Error(), "base_version is required") {
-		t.Fatalf("err = %v, want 'base_version is required'", err)
-	}
-}
-
-// A negative base_version is also rejected (H8 — only a positive version read
-// from the draft is acceptable).
-func TestMCP_SaveDraft_RejectsNonPositiveBaseVersion(t *testing.T) {
-	s := mcpTestServer(GrantOwner)
-	ctx := identityCtxForTest(t, uuid.New())
-	in := saveDraftIn{
-		BookID:      uuid.NewString(),
-		ChapterID:   uuid.NewString(),
-		BaseVersion: -3,
-		Body:        "some prose",
-	}
-	if _, _, err := s.toolChapterSaveDraft(ctx, nil, in); err == nil || !strings.Contains(err.Error(), "base_version is required") {
-		t.Fatalf("err = %v, want base_version rejection", err)
+	if err == nil || !strings.Contains(err.Error(), "body is required") {
+		t.Fatalf("err = %v, want 'body is required'", err)
 	}
 }
 

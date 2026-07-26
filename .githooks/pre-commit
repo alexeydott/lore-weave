@@ -17,10 +17,23 @@ command -v python >/dev/null 2>&1 || PY=python3
 "$PY" "$ROOT/scripts/ai-provider-gate.py" --staged
 "$PY" "$ROOT/scripts/knowledge-access-gate.py" --staged
 "$PY" "$ROOT/scripts/knowledge-http-surface-gate.py" --staged
+# Context Budget Law OUT-2 — a LIST-returning MCP tool (has both `detail` + `limit`) must
+# DEFAULT to the small shape (detail=summary, limit<=25); full/big-limit are opt-ins. The
+# runtime size gate only WARNS (nobody acted → jobs_list dumped 45.6 KB for weeks, K36); this
+# makes the defaults that produce those payloads a commit failure. Exemptions: ALLOW in the
+# gate (current offenders seeded as FLIP-PENDING debt, K37).
+"$PY" "$ROOT/scripts/context-budget-defaults-lint.py" --staged
 # Destructive DB ops in tests — block an unscoped DELETE/TRUNCATE/DROP in a test file, or a
 # *_TEST_*_URL pointing at a bare production DB name (the loreweave_book wipe). CLAUDE.md ›
 # "Destructive DB ops in tests". Exempt a real false positive with a `db-safety-gate: ok` pragma.
 "$PY" "$ROOT/scripts/db-safety-gate.py" --staged
+
+# No ABSOLUTE HOST PATH hardcoded in committed code. Such a path resolves on exactly one
+# machine; everywhere else the script dies or — worse — the path happens to exist and it
+# silently reads a STALE COPY from a sibling checkout (four POC exporters pointed at a
+# different repo, `lore-weave-mvp`). In-repo target -> derive from __file__; external
+# target -> os.environ.get(VAR, default) AND fail loudly when absent.
+"$PY" "$ROOT/scripts/no-absolute-host-paths.py"
 
 # ML-7 (multilingual.md) — locale completeness. When an i18n locale JSON is staged, every uiLocale
 # must carry the full `en` key-set for the touched namespace(s): i.e. `en` copy was regenerated via

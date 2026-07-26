@@ -16,7 +16,7 @@ import (
 // Kind display fields are read from entity_snapshot to avoid extra joins.
 type entityTrashItem struct {
 	EntityID    string    `json:"entity_id"`
-	BookID      string    `json:"book_id"`
+	BookID      string    `json:"book_id,omitempty"`
 	DeletedAt   time.Time `json:"deleted_at"`
 	Status      string    `json:"status"`
 	KindCode    string    `json:"kind_code"`

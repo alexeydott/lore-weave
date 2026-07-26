@@ -571,6 +571,7 @@ async def test_t2_m0_2_refuses_two_pending_works(legacy_pool):
     assert "M0.2" in str(exc.value)
 
 
+@pytest.mark.skip(reason="K27: STALE — kind='beat' was removed from outline_node (outline_node_kind_check now allows chapter/scene only), so the fixture insert violates the CHECK before the test logic runs. Not a regression; the beat concept moved. See RUN-STATE K27.")
 async def test_t2_m0_3_refuses_beat_rows(legacy_pool):
     async with legacy_pool.acquire() as c:
         seed = await _seed_legacy(c)

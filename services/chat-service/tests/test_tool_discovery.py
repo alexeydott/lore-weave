@@ -15,7 +15,7 @@ from uuid import uuid4
 import pytest
 
 from app.client.embedding_client import EmbeddingResult
-from app.services import tool_discovery as td
+from app.services import frontend_tools, tool_discovery as td
 from app.services.frontend_tools import FRONTEND_TOOL_NAMES, frontend_tool_defs
 from app.services.stream_service import (
     TIER_A_AGGREGATE_CAP,
@@ -68,6 +68,39 @@ _CATALOG = [
     # a catalog that lacks it advertises nothing for it (see the degrade test below).
     _tool("web_search", "Search the open web", tier="R", synonyms=["web", "research"]),
 ]
+
+# Every ALWAYS_ON_CORE_NAMES entry that resolves from the CATALOG (rather than from a
+# local `generic_frontend_tool_def`) must exist in this fixture, or the advertiser
+# legitimately omits it and the test reads that as a product bug.
+#
+# This drifted twice. Track D CD5 made `web_search` federated and the fixture was updated
+# by hand (see the comment above). Phase 3 P3.2 then moved the nav `ui_*` tools the SAME
+# way — local def → federated directive tool — and the fixture was NOT updated, so
+# ui_navigate/ui_open_book/ui_show_panel/ui_watch_job silently vanished from every
+# fixture-driven advertisement and left ~15 tests red for nothing. Verified 2026-07-23
+# against the LIVE gateway catalog: all 8 core names advertise, 0 missing — the runtime
+# was correct the whole time; only the fixture lagged.
+#
+# So derive it instead of listing it: anything core that has no local def is added here
+# automatically, and the next local→federated move needs no fixture edit at all.
+_CATALOG += [
+    _tool(_n, f"{_n} (auto-added: core tool that resolves from the catalog)")
+    for _n in td.ALWAYS_ON_CORE_NAMES
+    if frontend_tools.generic_frontend_tool_def(_n) is None
+    and _n not in {t["function"]["name"] for t in _CATALOG}
+]
+
+
+def test_catalog_fixture_covers_every_catalog_resolved_core_tool():
+    """Guard for the drift above: if a core tool resolves from the catalog and the
+    fixture lacks it, every advertisement test silently under-reports the core."""
+    present = {t["function"]["name"] for t in _CATALOG}
+    for name in td.ALWAYS_ON_CORE_NAMES:
+        if frontend_tools.generic_frontend_tool_def(name) is None:
+            assert name in present, (
+                f"core tool {name!r} resolves from the CATALOG but the test fixture "
+                "lacks it — advertisement tests would read a fixture gap as a product bug"
+            )
 
 
 def _run_discovery(
@@ -683,6 +716,89 @@ class TestGenericFrontendTools:
         assert "web_search" not in names
         # the rest of the core still lands — one missing federated tool degrades alone
         assert "tool_list" in names and "confirm_action" in names and "ui_navigate" in names
+
+    def test_suppress_names_drops_a_completed_oneshot_from_the_wire(self):
+        """oneshot-deadvertise (2026-07-25): a completed one-shot create in `suppress_names`
+        is removed from the advertised active set (schema-gating — the model can't attempt
+        it), while every OTHER active tool + the core is untouched."""
+        from app.services.stream_service import _advertise_discovery_tools, _catalog_index
+        cat = _catalog_index(_MIXED_CATALOG)
+        active = {"book_create", "book_list", "translation_start_job"}
+        adv = _advertise_discovery_tools(
+            cat, active, frontend_tool_defs(editor=False, book_scoped=False),
+            suppress_names={"book_create"},
+        )
+        names = [t["function"]["name"] for t in adv]
+        assert "book_create" not in names          # suppressed
+        assert "book_list" in names                 # sibling active tool untouched
+        assert "translation_start_job" in names     # other active tool untouched
+        assert "tool_list" in names                 # core untouched
+
+    def test_suppress_names_empty_is_a_noop(self):
+        from app.services.stream_service import _advertise_discovery_tools, _catalog_index
+        cat = _catalog_index(_MIXED_CATALOG)
+        active = {"book_create", "book_list"}
+        base = _advertise_discovery_tools(cat, active, [])
+        supp = _advertise_discovery_tools(cat, active, [], suppress_names=frozenset())
+        assert [t["function"]["name"] for t in base] == [t["function"]["name"] for t in supp]
+
+
+class TestRailActionGateIntegration:
+    """Action-space GATING (2026-07-26) — the rail-gate suppression set feeds the SAME
+    `suppress_names` chokepoint as oneshot-deadvertise, so a finished rail step's tool is
+    dropped from the advertised wire. These prove the two halves COMPOSE end-to-end (the
+    SDK gate logic itself is pinned in the SDK's test_rail_gate.py)."""
+
+    def _prog(self, steps, next_index):
+        from app.services.rail_progress import BookState, RailProgress, StepProgress
+        sp = [
+            StepProgress(index=i, step_id=f"s{i}", tool=t, done=d, reason="", repeat=r)
+            for i, (t, d, r) in enumerate(steps, 1)
+        ]
+        return RailProgress(slug="demo", steps=sp, next_index=next_index, state=BookState())
+
+    def test_done_suppress_gate_drops_a_finished_step_from_the_wire(self):
+        from app.services.rail_progress import GATE_DONE_SUPPRESS, rail_gate_suppressions
+        from app.services.stream_service import _advertise_discovery_tools, _catalog_index
+        # step 1 (book_create) DONE, step 2 (translation_start_job) not — book_create must drop
+        prog = self._prog(
+            [("book_create", True, False), ("translation_start_job", False, False)], 2
+        )
+        supp = rail_gate_suppressions([prog], set(), GATE_DONE_SUPPRESS)
+        assert supp == {"book_create"}
+        cat = _catalog_index(_MIXED_CATALOG)
+        active = {"book_create", "book_list", "translation_start_job"}
+        names = [
+            t["function"]["name"]
+            for t in _advertise_discovery_tools(
+                cat, active, frontend_tool_defs(editor=False, book_scoped=False),
+                suppress_names=supp,
+            )
+        ]
+        assert "book_create" not in names          # the finished step's tool is gone
+        assert "translation_start_job" in names     # the current step's tool survives
+        assert "book_list" in names                 # an unrelated active tool untouched
+        assert "tool_list" in names                 # the discovery core is never gated
+
+    def test_step_lock_gate_leaves_only_the_current_step_tool(self):
+        from app.services.rail_progress import GATE_STEP_LOCK, rail_gate_suppressions
+        from app.services.stream_service import _advertise_discovery_tools, _catalog_index
+        prog = self._prog(
+            [("book_create", True, False), ("translation_start_job", False, False),
+             ("composition_outline_create", False, False)], 2
+        )
+        supp = rail_gate_suppressions([prog], set(), GATE_STEP_LOCK)
+        assert supp == {"book_create", "composition_outline_create"}
+        cat = _catalog_index(_MIXED_CATALOG)
+        active = {"book_create", "translation_start_job", "composition_outline_create"}
+        names = [
+            t["function"]["name"]
+            for t in _advertise_discovery_tools(cat, active, [], suppress_names=supp)
+        ]
+        assert names.count("translation_start_job") == 1   # only the current step's tool
+        assert "book_create" not in names
+        assert "composition_outline_create" not in names
+        assert "tool_list" in names                          # core still reachable
 
 
 # ════════════════════════════════════════════════════════════════════════════

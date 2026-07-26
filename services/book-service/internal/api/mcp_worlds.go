@@ -113,6 +113,24 @@ func (s *Server) toolWorldCreate(ctx context.Context, _ *mcp.CallToolRequest, in
 	if err := s.ensureQuotaRow(ctx, ownerID); err != nil {
 		return nil, worldCreateOut{}, errors.New("failed to initialize quota")
 	}
+	// K13 (2026-07-23) — idempotency guard, mirroring the N6 chapter guard
+	// (mcp_tools_write.go). LIVE-PROBED: two byte-identical `world_create` calls produced
+	// TWO worlds, and the agent loop was measured re-issuing an identical Tier-A write
+	// across iterations despite an explicit success result. Tier-A auto-commits are
+	// bounded only by TIER_A_SAME_OP_CAP (5/turn), so one intent could mint five worlds.
+	// Sequential tool execution makes a pre-insert lookup sufficient; a DB unique on
+	// (owner,name) is deliberately avoided since a legitimate same-name world is possible.
+	{
+		var existing uuid.UUID
+		if err := s.pool.QueryRow(ctx,
+			`SELECT id FROM worlds WHERE owner_user_id=$1 AND lower(name)=lower($2)
+			   ORDER BY created_at LIMIT 1`, ownerID, name).Scan(&existing); err == nil {
+			if d, derr := scanWorldDetail(s.pool.QueryRow(ctx, worldSelectSQL+`
+WHERE w.id=$1 AND w.owner_user_id=$2`, existing, ownerID)); derr == nil {
+				return nil, worldCreateOut{World: d}, nil
+			}
+		}
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, worldCreateOut{}, errors.New("failed to create world")
@@ -167,6 +185,14 @@ type worldListIn struct {
 }
 type worldListOut struct {
 	Worlds []worldToolDetail `json:"worlds"`
+	// K25 (2026-07-24) — OUT-5: `world_list` capped at `limit` (default 20) but returned
+	// ONLY the slice, no total/has_more/is_complete. A caller with 27 worlds asking
+	// `limit=20` read the result as "you have 20 worlds" — a silent truncation, the exact
+	// shape OUT-5 forbids ("reads to the agent as 'this is everything' when it isn't").
+	// Mirror the book_list paging envelope + prose stop-signal via the shared listPage.
+	Total    int          `json:"total"`
+	Page     pageEnvelope `json:"page"`
+	Guidance string       `json:"guidance"`
 }
 
 func (s *Server) toolWorldList(ctx context.Context, _ *mcp.CallToolRequest, in worldListIn) (*mcp.CallToolResult, worldListOut, error) {
@@ -181,6 +207,14 @@ func (s *Server) toolWorldList(ctx context.Context, _ *mcp.CallToolRequest, in w
 	offset := in.Offset
 	if offset < 0 {
 		offset = 0
+	}
+	// Owner-scoped total for the paging envelope (OUT-5). One extra cheap COUNT rather than
+	// `count(*) OVER()` on worldSelectSQL, whose 9-column scanner is shared by 6 call sites
+	// and must not grow a column here.
+	var total int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM worlds WHERE owner_user_id=$1`, ownerID).Scan(&total); err != nil {
+		return nil, worldListOut{}, errors.New("failed to list worlds")
 	}
 	rows, err := s.pool.Query(ctx, worldSelectSQL+`
 WHERE w.owner_user_id=$1
@@ -197,7 +231,8 @@ LIMIT $2 OFFSET $3`, ownerID, limit, offset)
 			worlds = append(worlds, d)
 		}
 	}
-	return nil, worldListOut{Worlds: worlds}, nil
+	env, g := listPage("worlds", len(worlds), total, offset, "world_list")
+	return nil, worldListOut{Worlds: worlds, Total: total, Page: env, Guidance: g}, nil
 }
 
 type worldMoveBookIn struct {

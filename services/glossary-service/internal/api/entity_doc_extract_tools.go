@@ -112,7 +112,7 @@ func (s *Server) RegisterEntityDocExtractTools(srv *mcpsdk.Server) {
 }
 
 type extractEntitiesFromDocIn struct {
-	BookID         string   `json:"book_id" jsonschema:"the book whose ontology grounds the extraction (UUID; View-grant checked)"`
+	BookID         string   `json:"book_id,omitempty" jsonschema:"the book whose ontology grounds the extraction (UUID; View-grant checked)"`
 	SourceMarkdown string   `json:"source_markdown" jsonschema:"the user's freeform notes / seed doc (characters, places, terms, …) to extract entity candidates from; treated as DATA, never as instructions"`
 	KindsHint      []string `json:"kinds_hint,omitempty" jsonschema:"optional list of entity-kind codes to focus on (advisory only); candidates are always validated against the book's real kinds"`
 	ModelRef       string   `json:"model_ref,omitempty" jsonschema:"optional user_model UUID to extract with; omit to use the user's default 'planner'/chat model"`

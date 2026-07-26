@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from fnmatch import fnmatch
 
-from app.services.frontend_tools import is_frontend_tool
+from app.services.frontend_tools import is_browser_executed
 
 __all__ = [
     "RUN_SUBAGENT_NAME",
@@ -90,8 +90,13 @@ def tool_name_of(tool_def: object) -> str | None:
 
 def _is_scopeable(name: str) -> bool:
     """A tool may be scoped to a subagent iff it is neither a meta/loop tool nor
-    a frontend/UI tool (headless nested loop — a UI tool would hang/no-op)."""
-    return name not in SUBAGENT_META_EXCLUDE and not is_frontend_tool(name)
+    a browser-executed tool (headless nested loop — a UI tool would hang/no-op).
+
+    Must ask is_browser_executed, NOT is_frontend_tool: when P2.2/P3.2 moved
+    `propose_edit` and the `ui_*` tools to ai-gateway they left FRONTEND_TOOL_NAMES,
+    so this stopped excluding them and a subagent could be scoped a tool whose effect
+    only happens in a browser that is not attached to a delegated run."""
+    return name not in SUBAGENT_META_EXCLUDE and not is_browser_executed(name)
 
 
 def resolve_scoped_tools(catalog: list[dict], tool_scope: list) -> list[dict]:

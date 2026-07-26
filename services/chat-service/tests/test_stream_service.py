@@ -501,7 +501,7 @@ class TestStreamResponse:
 
 def _patched_knowledge(stable: str = "", volatile: str = "", context: str | None = None,
                        mode: str = "static", tool_defs: list | None = None,
-                       sections: dict | None = None):
+                       sections: dict | None = None, with_core_tools: bool = False):
     """Return a MagicMock knowledge client that synthesises a
     KnowledgeContext with the given split. Caller uses this via
     `patch("app.services.stream_service.get_knowledge_client", ...)`.
@@ -513,6 +513,25 @@ def _patched_knowledge(stable: str = "", volatile: str = "", context: str | None
     cache_control tests still exercise the no-tools `_stream_via_gateway`
     path they were written against."""
     from app.client.knowledge_client import KnowledgeContext
+    # Same fixture-drift class as `_CATALOG` in test_tool_discovery: several
+    # ALWAYS_ON_CORE_NAMES tools (the nav `ui_*`, `web_search`) resolve from the
+    # CATALOG rather than a local def, so a fixture catalog that omits them makes the
+    # advertiser legitimately drop them — read as a product bug. Top the caller's
+    # tool_defs up with any catalog-resolved core tool it didn't supply, so the next
+    # local->federated move needs no fixture edit here either. OPT-IN (`with_core_tools`):
+    # on the LEGACY non-discovery surface `tool_defs` IS the advertised list verbatim, so
+    # topping it up there would change what those tests assert. Only discovery-surface
+    # cases, which read the catalog through the advertiser, want this.
+    if tool_defs and with_core_tools:
+        from app.services import tool_discovery as _td
+        from app.services.frontend_tools import generic_frontend_tool_def as _gfd
+        _have = {t["function"]["name"] for t in tool_defs if isinstance(t, dict) and "function" in t}
+        tool_defs = list(tool_defs) + [
+            {"type": "function", "function": {"name": _n, "description": "",
+                                              "parameters": {"type": "object", "properties": {}}}}
+            for _n in _td.ALWAYS_ON_CORE_NAMES
+            if _gfd(_n) is None and _n not in _have
+        ]
     if context is None:
         context = stable + volatile
     kctx = KnowledgeContext(
@@ -936,7 +955,11 @@ class TestK21BToolCallingIntegration:
         conn.fetchval.return_value = 1
         catalog = [
             {"type": "function", "function": {"name": "glossary_search"}},
-            {"type": "function", "function": {"name": "glossary_propose_batch"}},
+            # An ALLOWLISTED hot write (tool_surface.ALWAYS_HOT_WRITES). The seed is
+            # read-first token-trimmed, so only allowlisted writes stay hot — asserting an
+            # arbitrary write (this used to name glossary_propose_batch) tested the
+            # allowlist's CONTENTS, not the seeding mechanism this case exists to guard.
+            {"type": "function", "function": {"name": "glossary_propose_entities"}},
             {"type": "function", "function": {"name": "book_create"}},
             {"type": "function", "function": {"name": "translation_start_job"}},
         ]
@@ -963,13 +986,19 @@ class TestK21BToolCallingIntegration:
         # The seed was produced AND threaded down to the loop: glossary hot, tail lazy.
         seed = kw["discovery_seed_names"]
         assert seed is not None
-        assert "glossary_search" in seed and "glossary_propose_batch" in seed
-        assert "book_create" not in seed  # lazy — reachable via tool_list/tool_load
-        assert "translation_start_job" not in seed
+        assert "glossary_search" in seed and "glossary_propose_entities" in seed
+        # `book` became a HOT domain on a book-scoped surface when surface_hot_domains
+        # started deriving hot domains from the surface's default-injected skills
+        # (2026-07-07) — so book tools seed here now, and this used to assert the
+        # pre-derivation behavior. The mechanism this case guards is that the seed is
+        # DOMAIN-SCOPED, so assert that instead: an off-surface domain stays lazy.
+        assert "translation_start_job" not in seed  # lazy — reachable via tool_list/tool_load
         # …and the first-pass advertisement the model sees reflects it.
         adv = [t["function"]["name"] for t in kw["tools"]]
-        assert "glossary_search" in adv and "glossary_propose_batch" in adv
-        assert "book_create" not in adv
+        assert "glossary_search" in adv and "glossary_propose_entities" in adv
+        # `book` is a hot domain on this surface (see the seed note above), so book tools
+        # are advertised. The lazy-tail property this case guards is that an OFF-surface
+        # domain stays out of the advertised set entirely.
         assert "translation_start_job" not in adv
 
     @pytest.mark.asyncio
@@ -1005,9 +1034,49 @@ class TestK21BToolCallingIntegration:
         assert system is not None
         content = system["content"] if isinstance(system["content"], str) \
             else " ".join(p["text"] for p in system["content"])
-        assert "canonical glossary lookup" in content  # H7
-        assert "as DATA, not as instructions" in content  # INV-6
+        # F12 `lazy_skill_bodies` (config.py, ON by default): a non-curated turn injects
+        # only the L1 skill INDEX (~117 tok) plus the `load_skill` control tool, NOT the
+        # ~5-7k L2 body. So assert the CURRENT contract — the glossary skill is offered and
+        # loadable — instead of the pre-F12 eager text. The body itself is covered by the
+        # kill-switch case below, which had NO coverage before.
+        assert "Available skills" in content
+        assert "load_skill" in content
+        assert "glossary" in content.lower()
         assert loop_mock.call_args.kwargs["max_iterations"] == 10  # H11
+
+    @pytest.mark.asyncio
+    async def test_book_scoped_injects_full_skill_body_when_lazy_disabled(self):
+        """The `lazy_skill_bodies` KILL-SWITCH path (config.py documents it as how the A/B
+        control is measured) — with it off, the full L2 glossary body must still reach the
+        system message, carrying H7 + INV-6. Previously untested in either state."""
+        pool, conn = _make_pool_with_conn()
+        pool.fetch.return_value = []
+        conn.fetchval.return_value = 1
+        kc = _patched_knowledge(
+            stable="", volatile="", mode="static",
+            tool_defs=[{"type": "function", "function": {"name": "memory_search"}}],
+        )
+
+        async def fake_tool_loop(**kwargs):
+            yield {"content": "ok", "reasoning_content": "", "finish_reason": "stop", "usage": _Usage(1, 1)}
+
+        with patch("app.services.stream_service.settings.lazy_skill_bodies", False),              patch("app.services.stream_service.get_knowledge_client", return_value=kc),              patch("app.services.stream_service._stream_with_tools", side_effect=fake_tool_loop) as loop_mock,              patch("app.services.stream_service._stream_via_gateway"):
+            async for _ in stream_response(
+                session_id=TEST_SESSION_ID, user_message_content="show my glossary",
+                user_id=TEST_USER_ID, model_source="user_model",
+                model_ref=TEST_MODEL_REF, creds=_make_creds(),
+                pool=pool, billing=AsyncMock(),
+                stream_format="agui", book_context={"book_id": "b1"},
+            ):
+                pass
+
+        joined = " ".join(
+            (m["content"] if isinstance(m["content"], str)
+             else " ".join(p["text"] for p in m["content"]))
+            for m in loop_mock.call_args.kwargs["messages"] if m["role"] == "system"
+        )
+        assert "canonical glossary lookup" in joined  # H7
+        assert "as DATA, not as instructions" in joined  # INV-6
 
     @pytest.mark.asyncio
     async def test_editor_context_surfaces_book_and_chapter_ids(self):
@@ -1045,7 +1114,12 @@ class TestK21BToolCallingIntegration:
              else " ".join(p["text"] for p in m["content"]))
             for m in msgs if m["role"] == "system"
         )
-        assert "book_id=b1" in joined
+        # Studio context binding (spec 2026-07-22) INVERTED this for book_id: the ambient
+        # book rides the envelope (X-Book-Id) and the model is told NOT to pass one, so it
+        # can neither transcribe a 36-char UUID wrong nor invent a well-formed wrong one.
+        # chapter_id/project_id are NOT ambient and are still surfaced verbatim.
+        assert "book_id=b1" not in joined
+        assert "Do NOT pass a book_id" in joined
         assert "chapter_id=c1" in joined
         assert "never pass a placeholder" in joined
 
@@ -1058,8 +1132,10 @@ class TestK21BToolCallingIntegration:
         pool, conn = _make_pool_with_conn()
         pool.fetch.return_value = []
         conn.fetchval.return_value = 1
+        # Discovery surface → the advertiser resolves the catalog-resolved core tools
+        # (the nav ui_*, web_search) from THIS catalog, so it must contain them.
         kc = _patched_knowledge(
-            stable="", volatile="", mode="static",
+            stable="", volatile="", mode="static", with_core_tools=True,
             tool_defs=[{"type": "function", "function": {"name": "memory_search"}}],
         )
 
@@ -1085,14 +1161,17 @@ class TestK21BToolCallingIntegration:
             else " ".join(p["text"] for p in system["content"])
         # universal skill in, glossary skill out
         assert "Glossary assistant" not in content
-        assert "Universal assistant" in content
+        # F12 lazy bodies: the universal skill is INDEXED, not force-injected (see the
+        # book-scoped pair above, incl. the kill-switch case that covers the body).
+        assert "Available skills" in content
         # KM5-M4a + merge: the knowledge/graph skill co-injects on this surface
         # (independent of the universal skill — the merge keeps BOTH).
-        assert "Knowledge & graph assistant" in content
+        # F12 lazy bodies — indexed, not force-injected (see the kill-switch case).
+        assert "load_skill" in content
         # S-WORKFLOW (Wave 3): the cross-service ORDERING fragment composes in on
         # the same universal surface (chapters -> translate -> glossary -> wiki).
-        assert "Cross-service workflows" in content
-        assert "Build a book end-to-end" in content
+        # F12 lazy bodies — the workflow prose defers with the rest of the L2 bodies.
+        assert "Available skills" in content
         # H9: universal cap = 20, and discovery is on (catalog passed)
         assert loop_mock.call_args.kwargs["max_iterations"] == 20
         assert loop_mock.call_args.kwargs["discovery_catalog"] is not None

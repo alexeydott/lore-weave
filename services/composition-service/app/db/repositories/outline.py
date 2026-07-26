@@ -182,6 +182,30 @@ class OutlineRepo:
                 f"reparenting under descendant {new_parent_id} would create a cycle"
             )
 
+    async def find_node_by_title(
+        self, project_id, *, kind: str, title: str, parent_id=None
+    ):
+        """K13 — a LIVE outline node with this title at the same level, or None.
+
+        Read-only; backs the agent-side idempotency guard on
+        `composition_outline_node_create`, which was live-probed minting a duplicate on a
+        byte-identical double-fire. `outline_node`'s uniques only cover the plan-provenance
+        and decompile paths, so a plain agent create had nothing protecting it. Scoped to
+        (project, kind, parent) so a same-titled node under a DIFFERENT parent still creates.
+        """
+        query = f"""
+        SELECT {_SELECT_COLS} FROM outline_node
+        WHERE project_id = $1 AND kind = $2 AND lower(title) = lower($3)
+          AND NOT is_archived
+          AND ($4::uuid IS NULL OR parent_id = $4)
+          AND ($4::uuid IS NOT NULL OR parent_id IS NULL)
+        ORDER BY created_at
+        LIMIT 1
+        """
+        async with self._pool.acquire() as c:
+            row = await c.fetchrow(query, project_id, kind, title, parent_id)
+        return _row_to_node(row) if row else None
+
     async def create_node(
         self,
         project_id: UUID,

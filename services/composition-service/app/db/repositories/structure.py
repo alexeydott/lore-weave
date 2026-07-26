@@ -210,6 +210,30 @@ class StructureRepo:
             row = await c.fetchrow(query, book_id, run_id, arc_id)
         return _row_to_node(row) if row else None
 
+    async def find_node_by_title(
+        self, book_id: UUID, kind: str, title: str, *, parent_id: UUID | None = None
+    ) -> Any:
+        """K13 — a LIVE arc with this exact title at the same level, or None.
+
+        Read-only; added for the agent-side idempotency guard on `composition_arc_create`
+        (`app/mcp/server.py`), which was live-probed minting a duplicate arc on a
+        byte-identical double-fire. Scoped to (book, kind, parent) so two same-titled arcs
+        under DIFFERENT parents — a legitimate authoring case — still both create.
+        `NOT is_archived` for the same reason the sibling reads carry it: an archived arc
+        is a tombstone, and matching one would resurrect it as the "existing" node.
+        """
+        query = f"""
+        SELECT {_SELECT_COLS} FROM structure_node
+        WHERE book_id = $1 AND kind = $2 AND lower(title) = lower($3) AND NOT is_archived
+          AND ($4::uuid IS NULL OR parent_id = $4)
+          AND ($4::uuid IS NOT NULL OR parent_id IS NULL)
+        ORDER BY rank
+        LIMIT 1
+        """
+        async with self._pool.acquire() as c:
+            row = await c.fetchrow(query, book_id, kind, title, parent_id)
+        return _row_to_node(row) if row else None
+
     async def linked_structure_state(self, book_id: UUID) -> dict[str, Any]:
         """"Did a COMPILE actually write linked structure for this book?" — the governance
         effect-probe's durable truth (Phase G · G0, spec 2026-07-15 D2/D3), in ONE round-trip.

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -111,6 +112,45 @@ func TestStreamGuard_UsageCostUSD(t *testing.T) {
 	// 1000/1e6·2 + (500+100)/1e6·10 = 0.002 + 0.006 = 0.008.
 	if got := g.usageCostUSD(u); got != 0.008 {
 		t.Fatalf("usageCostUSD: got %v want 0.008", got)
+	}
+}
+
+// Cache-read tokens must bill at the DISCOUNT, not the full input rate (the LiteLLM
+// #19681 overcharge class; validated against OpenAI's own dashboard: cached input is a
+// separate, cheaper line). Default cached rate = 0.5×input when unset.
+func TestStreamGuard_UsageCostUSD_CacheReadDiscount(t *testing.T) {
+	g := &streamGuard{pricing: billing.Pricing{InputPerMTok: ptr(2), OutputPerMTok: ptr(10)}}
+	read, creation := 3000, 0
+	u := provider.StreamChunk{
+		Kind: provider.StreamChunkUsage, InputTokens: 4000, OutputTokens: 100,
+		CacheReadTokens: &read, CacheCreationTokens: &creation,
+	}
+	// uncached=1000@2 + read=3000@1(=2·0.5) + out=100@10 = 0.002+0.003+0.001 = 0.006
+	if got := g.usageCostUSD(u); math.Abs(got-0.006) > 1e-9 {
+		t.Fatalf("cache-read discount: got %v want 0.006", got)
+	}
+	fullRate := 4000.0/1e6*2 + 100.0/1e6*10 // 0.009 — the pre-fix overcharge
+	if g.usageCostUSD(u) >= fullRate {
+		t.Fatalf("cached turn must be cheaper than full-rate %v", fullRate)
+	}
+	// no cache activity (LM Studio) → reduces exactly to full input rate (no regression)
+	if got := g.usageCostUSD(provider.StreamChunk{Kind: provider.StreamChunkUsage, InputTokens: 4000, OutputTokens: 100}); math.Abs(got-fullRate) > 1e-9 {
+		t.Fatalf("no-cache path must equal full rate %v, got %v", fullRate, got)
+	}
+}
+
+// Anthropic cache WRITES bill at the 1.25× premium; an explicit CachedInputPerMTok wins.
+func TestStreamGuard_UsageCostUSD_CacheWritePremium_And_Override(t *testing.T) {
+	g := &streamGuard{pricing: billing.Pricing{InputPerMTok: ptr(2), OutputPerMTok: ptr(10), CachedInputPerMTok: ptr(0.2)}}
+	read, creation := 1000, 400
+	u := provider.StreamChunk{
+		Kind: provider.StreamChunkUsage, InputTokens: 2000, OutputTokens: 0,
+		CacheReadTokens: &read, CacheCreationTokens: &creation,
+	}
+	// uncached=600@2 + read=1000@0.2(override) + creation=400@2.5(=2·1.25)
+	// = 0.0012 + 0.0002 + 0.001 = 0.0024
+	if got := g.usageCostUSD(u); got != 0.0024 {
+		t.Fatalf("cache-write premium + override: got %v want 0.0024", got)
 	}
 }
 
@@ -362,6 +402,83 @@ func TestStreamGuard_Settle_RecordUsage_RecordsWithTallyWhenNoUsageChunk(t *test
 	}
 	if out, _ := cap.recordBody["output_tokens"].(float64); int(out) != 100 {
 		t.Errorf("output_tokens: got %v want 100 (tally: 350 chars → 100 tokens)", cap.recordBody["output_tokens"])
+	}
+}
+
+// TestStreamGuard_Settle_ZeroBillOnPreflightProviderError. D-BILL-NO-USAGE-ON-PREFLIGHT-ERROR:
+// a chat provider_error that produced NEITHER a usage chunk NOR any output delta is a
+// pre-processing rejection (the provider — e.g. real OpenAI returning a 400 for an
+// unsupported param — billed us nothing). settle MUST still write the audit row (for
+// error observability) but with 0 input/output tokens + $0 cost, NEVER the up-front
+// input-token ESTIMATE, which would fabricate spend the user never incurred and inflate
+// the user-facing spend summary.
+func TestStreamGuard_Settle_ZeroBillOnPreflightProviderError(t *testing.T) {
+	srv, cap := newUsageStub(t)
+	gc := billing.NewGuardrailClient(srv.URL, "tok", nil)
+
+	g := &streamGuard{
+		guardrail: gc, reservationID: uuid.New(),
+		jobID: uuid.New(), ownerUserID: uuid.New(),
+		modelSource: "user_model", modelRef: uuid.New(),
+		op:      "chat",
+		pricing: billing.Pricing{InputPerMTok: ptr(2), OutputPerMTok: ptr(10)},
+		// Repro: preflight stamped the estimate, but the provider 400'd before
+		// streaming — no usage chunk, no output delta.
+		inputCostUSD:  0.001923,
+		inputTokens:   12820,
+		outChars:      0,
+		requestStatus: "provider_error",
+		// finalUsage intentionally nil
+	}
+	g.settle(context.Background())
+
+	if cap.reconcileCount != 1 {
+		t.Fatalf("expected 1 reconcile (always runs), got %d", cap.reconcileCount)
+	}
+	if cap.recordCount != 1 {
+		t.Fatalf("a rejected turn MUST still record an audit row (observability), got %d", cap.recordCount)
+	}
+	if in, _ := cap.recordBody["input_tokens"].(float64); int(in) != 0 {
+		t.Errorf("input_tokens: got %v want 0 — the provider consumed no prefill, must NOT bill the estimate", cap.recordBody["input_tokens"])
+	}
+	if out, _ := cap.recordBody["output_tokens"].(float64); int(out) != 0 {
+		t.Errorf("output_tokens: got %v want 0", cap.recordBody["output_tokens"])
+	}
+	if cost, ok := cap.recordBody["total_cost_usd"].(float64); !ok || cost != 0 {
+		t.Errorf("total_cost_usd: got %v want 0 (a rejected request bills nothing)", cap.recordBody["total_cost_usd"])
+	}
+	if cap.recordBody["request_status"] != "provider_error" {
+		t.Errorf("request_status: got %v want provider_error", cap.recordBody["request_status"])
+	}
+}
+
+// TestStreamGuard_Settle_MidStreamProviderErrorStillBills. The scope guard for the fix
+// above: a provider_error that arrived AFTER real output already streamed (outChars>0)
+// DID spend tokens — it must bill the delta tally, NOT be refunded. This is what keeps
+// the zero-bill narrowly targeted at pre-processing rejections.
+func TestStreamGuard_Settle_MidStreamProviderErrorStillBills(t *testing.T) {
+	srv, cap := newUsageStub(t)
+	gc := billing.NewGuardrailClient(srv.URL, "tok", nil)
+
+	g := &streamGuard{
+		guardrail: gc, reservationID: uuid.New(),
+		jobID: uuid.New(), ownerUserID: uuid.New(),
+		modelSource: "user_model", modelRef: uuid.New(),
+		op:            "chat",
+		pricing:       billing.Pricing{OutputPerMTok: ptr(10)},
+		inputCostUSD:  0.005,
+		inputTokens:   42,
+		outChars:      350, // real output streamed before the error → 100 tokens
+		requestStatus: "provider_error",
+		// finalUsage nil (errored before the usage chunk) but output DID stream
+	}
+	g.settle(context.Background())
+
+	if in, _ := cap.recordBody["input_tokens"].(float64); int(in) != 42 {
+		t.Errorf("input_tokens: got %v want 42 — real mid-stream usage stays billed", cap.recordBody["input_tokens"])
+	}
+	if out, _ := cap.recordBody["output_tokens"].(float64); int(out) != 100 {
+		t.Errorf("output_tokens: got %v want 100 (tally)", cap.recordBody["output_tokens"])
 	}
 }
 

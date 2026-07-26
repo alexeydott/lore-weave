@@ -572,6 +572,31 @@ class ProjectsRepo:
             row = await conn.fetchrow(query, book_id)
         return _row_to_project(row) if row else None
 
+    async def find_by_name(self, user_id: UUID, name: str) -> Project | None:
+        """K13 — a user's LIVE, book-less project with this name, or None.
+
+        Read-only; added for the agent-side idempotency guard on `kg_project_create`
+        (`app/tools/project_tools.py`). `create_or_get` deliberately always inserts on the
+        book-less path so the FE "new project" UX is unchanged — that is correct for a
+        human, and wrong for the agent loop, which was measured re-issuing a byte-identical
+        Tier-A write across iterations. The guard therefore lives on the tool and reads
+        through here; no existing caller's behaviour changes.
+
+        Excludes archived / derivative / assistant projects for the same reasons
+        `get_by_book` does: none of them is the thing a plain `kg_project_create` means.
+        """
+        query = f"""
+        SELECT {_SELECT_COLS}
+        FROM knowledge_projects
+        WHERE user_id = $1 AND lower(name) = lower($2) AND book_id IS NULL
+          AND NOT is_archived AND NOT is_derivative AND NOT is_assistant
+        ORDER BY created_at
+        LIMIT 1
+        """
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, user_id, name)
+        return _row_to_project(row) if row else None
+
     async def update(
         self,
         user_id: UUID,

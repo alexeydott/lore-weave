@@ -221,6 +221,11 @@ class _FakeStore:
 
     async def list_jobs(self, conn, owner_user_id, **kw):
         mine = [j for j in self._jobs if j["owner_user_id"] == owner_user_id]
+        # Faithfully honor `limit` like the real keyset SQL does (K36 budget test
+        # depends on it; existing tests seed ≤2 owned rows so [:limit] is a no-op there).
+        limit = kw.get("limit")
+        if isinstance(limit, int) and limit >= 0:
+            mine = mine[:limit]
         return mine, None
 
     async def count_summary(self, conn, owner_user_id):
@@ -301,7 +306,11 @@ async def test_jobs_list_shape_and_owner_scope():
     async with _patched(_seed()) as (srv, _ctx):
         res = await srv.jobs_list(_ctx(UUID(TEST_USER)))
     assert set(res) == {"items", "next_cursor", "detail"}
-    assert res["detail"] == "full"  # versioned-default migration (spec §6b)
+    # K24/K36 (2026-07-24) — the versioned-default migration (spec §6b) is now COMPLETE:
+    # the federated `jobs_list` defaults to `summary`, honoring OUT-2 ("default to the
+    # smaller shape"). `detail=full` remains an explicit opt-in (proven below), so a caller
+    # that wants every field still gets it — the T1 "consumer can still get full" criterion.
+    assert res["detail"] == "summary"
     # Only the TEST_USER's two jobs — never OTHER_USER's.
     ids = {j["job_id"] for j in res["items"]}
     assert ids == {
@@ -329,6 +338,53 @@ async def test_jobs_list_summary_drops_heavy_params(seed_params=None):
     assert "params" not in running_summ          # summary drops it
     assert "control_caps" in running_summ        # ref field kept
     assert summ["detail"] == "summary"
+
+
+async def test_jobs_list_default_reply_fits_the_context_budget():
+    """K24/K36 (2026-07-24) — the CONTEXT-BUDGET GATE, proving the fix by EFFECT
+    (the §6b `@small_return` honesty check the standard names as "planned").
+
+    The DEFAULT (no-arg) `jobs_list` reply must fit the kit's context-budget warning
+    (`result_warn_bytes()`, 8 KB) even when the user has FAR more jobs than a page, each
+    with fat `params`/`error`. It's bounded by TWO defaults working together — a small
+    page `limit` AND `detail=summary` (heavy fields dropped). This test reds if EITHER
+    regresses: bump the default `limit` back to 50, or flip the default to `full`, and the
+    projected default reply blows past 8 KB again (the measured 45.6 KB / 21.7 KB bloat).
+    """
+    import json
+    from uuid import UUID
+
+    from loreweave_mcp.compact_content import result_warn_bytes
+    from app.mcp.server import MCP_LIST_DEFAULT_LIMIT
+
+    # 30 owned jobs (3× a page), each carrying a fat params blob + a long error traceback —
+    # the exact heavy fields the summary projection is supposed to drop.
+    fat = {"model": "x", "estimated_llm_calls": 200, "blob": "y" * 1200}
+    jobs = [
+        {
+            "owner_user_id": TEST_USER,
+            "service": "translation",
+            "job_id": f"{i:08d}-1111-1111-1111-111111111111",
+            "kind": "translation:book",
+            "status": "running" if i % 2 else "completed",
+            "params": dict(fat),
+            "error": "Traceback (most recent call last):\n" + ("  frame\n" * 40),
+        }
+        for i in range(30)
+    ]
+    async with _patched(_FakeStore(jobs)) as (srv, _ctx):
+        res = await srv.jobs_list(_ctx(UUID(TEST_USER)))
+
+    # the default page is small + summary...
+    assert len(res["items"]) <= MCP_LIST_DEFAULT_LIMIT
+    assert res["detail"] == "summary"
+    # ...so the whole reply fits the context budget, heavy fields dropped.
+    size = len(json.dumps(res, default=str))
+    warn = result_warn_bytes()
+    assert size < warn, (
+        f"default jobs_list reply is {size} B, over the {warn} B context-budget warning — "
+        "a caller asking 'what's running' must not be handed a context-crowding dump"
+    )
 
 
 async def test_jobs_list_foreign_user_sees_nothing():

@@ -27,6 +27,8 @@ and commit the new JSON alongside the matching FE resolver change.
 """
 from __future__ import annotations
 
+import pathlib
+import re
 import json
 import os
 from pathlib import Path
@@ -210,4 +212,52 @@ class TestResidualAdvertisedDefsMatchContract:
         # silent-no-op bug. Both variants must normalize to the SAME contract slice.
         assert _normalize(_studio_panel_tool(compact=True)) == _normalize(
             _studio_panel_tool(compact=False)
+        )
+
+
+class TestResidualAdvertisedDescriptionsMatchAiGateway:
+    """The contract SoT pins ARGS; nothing pinned the DESCRIPTION — and it had drifted.
+
+    K10 (2026-07-23). ai-gateway owns these tools since P2.2 and its source says the prose
+    "moves here from frontend_tools.py (a MOVE, not a duplication — Phase 4 removes
+    chat-service's copy)". Phase 4 has not landed, so a second copy still lives here, and a
+    live diff found `propose_edit` already diverged: chat said "the user's current
+    selection", ai-gateway says "the current selection".
+
+    Seven characters, semantically identical — and exactly the point. The schema slice was
+    IDENTICAL because `TestResidualAdvertisedDefsMatchContract` pins it; the description
+    diverged because nothing did. A description decides WHEN the model reaches for a tool,
+    so an unpinned copy is a real one-name-two-behaviours surface, not a typo.
+
+    Reads ai-gateway's TypeScript source directly (the owner), rather than the contract
+    JSON, because the JSON slice deliberately carries no prose.
+    """
+
+    _TS = (
+        pathlib.Path(__file__).resolve().parents[2]   # services/
+        / "ai-gateway" / "src" / "mcp" / "propose-edit-tool.ts"
+    )
+
+    def _ai_gateway_description(self) -> str:
+        src = self._TS.read_text(encoding="utf-8")
+        # The TS literal is several adjacent single-quoted strings joined by `+`, ending at
+        # the line before `inputSchema:`. Slice that block, then collect the quoted parts —
+        # simpler and less escape-fragile than one clever regex over the whole file.
+        start = src.index("description:")
+        end = src.index("inputSchema:", start)
+        block = src[start:end]
+        parts = re.findall(r"'([^']*)'", block)
+        assert parts, f"could not read the description literal from {self._TS}"
+        return "".join(parts).strip()
+
+    def test_ts_source_is_present(self):
+        # Guard the guard: a moved/renamed file must fail loudly, not silently skip.
+        assert self._TS.is_file(), f"ai-gateway propose-edit source not found at {self._TS}"
+
+    def test_description_matches_ai_gateway(self):
+        local = (PROPOSE_EDIT_TOOL["function"]["description"] or "").strip()
+        assert local == self._ai_gateway_description(), (
+            "propose_edit's advertised description has drifted from ai-gateway's copy "
+            "(the owner since P2.2). Either re-sync this const, or finish Phase 4 and "
+            "source the advertisement from the catalog so the copy disappears."
         )

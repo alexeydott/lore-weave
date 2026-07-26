@@ -617,20 +617,28 @@ class ExtractionJobsRepo:
                 cc_idx = len(params) - 2   # $N for cur_completed_at
                 cr_idx = len(params) - 1   # $N for cur_created_at
                 cj_idx = len(params)       # $N for cur_job_id
+                # K27 (2026-07-24) — every ${cc_idx} carries an explicit ::timestamptz cast.
+                # cur_completed_at is nullable, and its FIRST textual use is `${cc_idx} IS NOT
+                # NULL` — a context from which Postgres cannot infer the parameter's type at
+                # PREPARE time, so asyncpg raised `AmbiguousParameterError: could not determine
+                # data type of parameter $N` on EVERY second page of history pagination (a live
+                # bug: the endpoint 500s past page 1). Unit tests mock the SQL so never saw it;
+                # the integration test that would have never ran in CI (K28). The cast makes the
+                # type determinable regardless of branch. (feedback_asyncpg_case_branch_needs_explicit_cast)
                 cursor_clause = f"""
                   AND (
                     -- cursor and row both non-null: seek lower completed_at
                     -- or (equal AND lower tiebreak).
-                    (j.completed_at IS NOT NULL AND ${cc_idx} IS NOT NULL
-                      AND j.completed_at < ${cc_idx})
-                    OR (j.completed_at IS NOT NULL AND ${cc_idx} IS NOT NULL
-                      AND j.completed_at = ${cc_idx}
+                    (j.completed_at IS NOT NULL AND ${cc_idx}::timestamptz IS NOT NULL
+                      AND j.completed_at < ${cc_idx}::timestamptz)
+                    OR (j.completed_at IS NOT NULL AND ${cc_idx}::timestamptz IS NOT NULL
+                      AND j.completed_at = ${cc_idx}::timestamptz
                       AND (j.created_at, j.job_id) < (${cr_idx}, ${cj_idx}))
                     -- cursor non-null, row null: null ranks after non-null
                     -- under NULLS LAST so the null row is "after" the cursor.
-                    OR (j.completed_at IS NULL AND ${cc_idx} IS NOT NULL)
+                    OR (j.completed_at IS NULL AND ${cc_idx}::timestamptz IS NOT NULL)
                     -- both null: tiebreak by (created_at, job_id).
-                    OR (j.completed_at IS NULL AND ${cc_idx} IS NULL
+                    OR (j.completed_at IS NULL AND ${cc_idx}::timestamptz IS NULL
                       AND (j.created_at, j.job_id) < (${cr_idx}, ${cj_idx}))
                   )
                 """

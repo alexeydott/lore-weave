@@ -41,6 +41,13 @@ export const GROUP_DIRECTORY: Readonly<Record<string, string>> = {
   // reach the raw catalog but are NOT enumerable by group and are excluded from
   // `book`. Keep in lockstep with chat-service tool_discovery.py GROUP_DIRECTORY.
   world: 'Worldbuilding containers + reference maps — world create/get/list/move, plus map/marker/region authoring (world_*, world_map_*).',
+  // K23 (2026-07-23) — the CONSUMER-LOCAL tools (tool_list/tool_load, ui_*, propose_edit) had
+  // no group, so `domainOf` bucketed them under 'tool'/'ui'/'propose' — names absent from this
+  // directory and from CATEGORY_ENUM. They were served by tools/list but INVISIBLE to the
+  // discovery pair: tool_list never listed them and tool_load answered `not_found`, which
+  // states the tool does not EXIST. Giving them a home makes them enumerable like everything
+  // else. Keep in lockstep with chat-service tool_discovery.py GROUP_DIRECTORY.
+  meta: 'The tools the assistant itself uses — tool discovery (tool_list, tool_load), browser navigation (ui_*), and the editor edit-proposal card (propose_edit).',
   jobs: 'Job status/cancel for any long-running operation.',
   catalog: 'Public catalog browsing (published books, discovery).',
   registry: 'Agent/tool registry administration.',
@@ -234,6 +241,11 @@ const DOMAIN_ALIASES: Readonly<Record<string, string>> = {
   memory: 'knowledge',
   lore: 'glossary',
   web: 'research',
+  // K23 — the consumer-local trio. `propose_edit` has no underscore-delimited prefix of its
+  // own beyond `propose`, so it aliases like the rest.
+  tool: 'meta',
+  ui: 'meta',
+  propose: 'meta',
 };
 
 function domainOf(name: string): string {
@@ -422,8 +434,9 @@ export const TOOL_LIST_TOOL = {
       },
       include_deprecated: {
         type: 'boolean',
-        description: 'Include deprecated tools (shown labeled). Default true.',
-        default: true,
+        description: 'Include deprecated tools (shown labeled with their replacement). Default false — ' +
+          'omit to see only the CURRENT tools; set true only when migrating off an old tool name.',
+        default: false,
       },
     },
     additionalProperties: false,
@@ -466,19 +479,48 @@ export const TOOL_LOAD_TOOL = {
 export function toolListResult(
   catalog: McpTool[],
   category?: string | null,
-  includeDeprecated = true,
+  includeDeprecated = false,
   exclude: ReadonlySet<string> = new Set(),
+  unavailableProviders: readonly string[] = [],
 ): { payload: Record<string, unknown> } {
   if (category == null || category === 'all') {
     const tools = visibleTools(catalog, null, includeDeprecated, exclude);
     const categories: Record<string, VisibleTool[]> = {};
     for (const t of tools) (categories[domainOf(t.name)] ??= []).push(t);
-    return { payload: { categories, count: tools.length } };
+    return { payload: stampIncomplete({ categories, count: tools.length }, unavailableProviders) };
   }
   const tools = visibleTools(catalog, category, includeDeprecated, exclude);
   const payload: Record<string, unknown> = { category, count: tools.length, tools };
   if (tools.length === 0) payload.reason = 'no tools currently available in this category';
-  return { payload };
+  return { payload: stampIncomplete(payload, unavailableProviders) };
+}
+
+/**
+ * Mark a discovery payload as an INCOMPLETE view of the catalog when ≥1 provider failed to
+ * federate. Without this a `tool_list` during an outage reads as a complete, healthy answer:
+ * measured 2026-07-23 with glossary down, `tool_list("glossary")` returned `count: 1` and no
+ * hint anything was missing — the live agent then told the user it had "loaded the glossary
+ * tools", advertised a capability set built from the single surviving tool, and finally blamed
+ * the USER ("I don't have any details about her") for a failure that was a platform outage.
+ *
+ * The availability signal already existed (H10) but was wired ONLY into `find_tools`, which F17
+ * retired from the LLM's view — so it reached nothing the model could still call. This is the
+ * missing half of that wiring.
+ */
+function stampIncomplete(
+  payload: Record<string, unknown>,
+  unavailableProviders: readonly string[],
+): Record<string, unknown> {
+  if (unavailableProviders.length === 0) return payload;
+  payload.unavailable_providers = [...unavailableProviders].sort();
+  payload.incomplete = true;
+  payload.note =
+    `This listing is INCOMPLETE — ${[...unavailableProviders].sort().join(', ')} ` +
+    'is temporarily unavailable, so its tools are missing from the catalog right now. ' +
+    'If the capability you need is not listed, tell the user that service is temporarily ' +
+    "down and to try again shortly — do NOT conclude the capability doesn't exist, and do " +
+    'NOT substitute an unrelated tool.';
+  return payload;
 }
 
 interface LoadedTool extends VisibleTool {
@@ -491,6 +533,7 @@ interface LoadedTool extends VisibleTool {
 export function toolLoadResult(
   catalog: McpTool[],
   opts: { name?: string | null; names?: string[] | null; category?: string | null },
+  unavailableProviders: readonly string[] = [],
 ): { payload: Record<string, unknown>; loadedNames: string[] } {
   const want = new Set<string>();
   if (opts.name) want.add(opts.name);
@@ -520,8 +563,32 @@ export function toolLoadResult(
     loaded.push(entry);
   }
   const payload: Record<string, unknown> = { tools: loaded };
-  const missing = [...want].filter((n) => !seen.has(n));
-  if (missing.length) payload.not_found = missing.sort();
+  const missing = [...want].filter((n) => !seen.has(n)).sort();
+  if (missing.length) {
+    // `not_found` is an ASSERTION that no such tool exists. During an outage the gateway
+    // cannot know that: a down provider's tools are absent from the catalog entirely, so an
+    // unresolvable name is indistinguishable from one that simply went missing with its
+    // provider. Asserting `not_found` there is a LIE, and it cost us a real incident —
+    // 2026-07-23, glossary down, `tool_load("glossary_propose_entities")` answered
+    // `not_found`; the model reasoned correctly from that false premise and gave up on a
+    // tool that exists. So only assert non-existence when the catalog is COMPLETE;
+    // otherwise report `unavailable` and steer to a retry.
+    // NOTE the key is `provider_unavailable`, NOT `unavailable`: the Python twin already
+    // uses `unavailable` for CD4 BROKEN tools (a tool that exists but reliably fails). Two
+    // different conditions must never share one name — that is the one-name-one-concept rule
+    // the frontend-tool contract exists to enforce.
+    if (unavailableProviders.length > 0) {
+      payload.provider_unavailable = missing;
+      payload.unavailable_providers = [...unavailableProviders].sort();
+      payload.note =
+        `Could not load ${missing.join(', ')}. This does NOT mean the tool does not exist — ` +
+        `${[...unavailableProviders].sort().join(', ')} is temporarily unavailable, so its tools ` +
+        'are missing from the catalog right now. Tell the user that service is temporarily down ' +
+        'and to try again shortly.';
+    } else {
+      payload.not_found = missing;
+    }
+  }
   return { payload, loadedNames: loaded.map((t) => t.name) };
 }
 
@@ -706,6 +773,19 @@ export function findToolsResult(
     // Signals to the caller (and to tests) that this list is the full, unranked domain
     // enumeration, not a scored search result.
     payload.enumerated = true;
+  }
+  // A partial catalog is worth saying even when SOME matches came back — that is the case
+  // that actually occurs (measured 2026-07-23: glossary down, yet the "glossary" category
+  // still returned a surviving stray, so the old `matches.length === 0` gate stayed silent
+  // and the agent reported the domain as healthy). Report unavailability independently of
+  // whether the search happened to hit something.
+  if (matches.length > 0 && unavailableProviders.length > 0) {
+    payload.unavailable_providers = [...unavailableProviders].sort();
+    payload.incomplete = true;
+    payload.note =
+      'These results are INCOMPLETE — one or more services are temporarily unavailable, so ' +
+      'their tools are missing. If none of these is the right tool, tell the user the ' +
+      "capability exists but to try again shortly; do NOT say you can't do it.";
   }
   if (matches.length === 0) {
     if (unavailableProviders.length > 0) {

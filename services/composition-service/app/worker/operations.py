@@ -480,6 +480,7 @@ async def run_chapter_generate(
             k=1, prompt_est=prompt_estimate, max_tokens=max_out,
             temperature=settings.compose_diverge_temperature, reasoning_effort=effort_arg,
             cancel_check=cancel_check,
+            target_words=input.get("target_words"),  # scene LENGTH directive (else drafts short)
         )
     except Exception as exc:  # noqa: BLE001 — no candidate / transport → terminal fail
         raise ValueError(f"chapter generate failed: {exc}") from exc

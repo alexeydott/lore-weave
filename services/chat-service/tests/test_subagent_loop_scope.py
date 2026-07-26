@@ -188,9 +188,13 @@ class TestWriteDelegation:
         kc.mcp_execute_tool.return_value = _envelope(success=True, result={"book_id": "b"})
         check = AsyncMock(return_value="allow")  # all allowlisted → they auto-commit
         frags = []
+        # DISTINCT args per call. They used to be byte-identical, which now collapses to a
+        # single execution before the cap is ever consulted (D-TOOLCALL-DUP-IDENTICAL —
+        # emitting the same create 6x in one pass must make ONE book, not five). The volume
+        # cap governs repeated SAME-OP writes, so exercise it with a genuine batch.
         for i in range(6):  # TIER_A_SAME_OP_CAP=5 → the 6th trips the per-op cap
             frags.append(tool_frag(index=i, id=f"c{i}", name="book_create"))
-            frags.append(tool_frag(index=i, arguments_delta='{"title":"X"}'))
+            frags.append(tool_frag(index=i, arguments_delta='{"title":"X%d"}' % i))
         frags.append(done("tool_calls"))
         scripts = [frags, [tok("summarized"), done("stop")]]
         with _patch_client(scripts):
@@ -237,3 +241,33 @@ class TestRunSubagentAdvertisement:
             ))
         offered = {t["function"]["name"] for t in _FakeClient.instances[0].requests[0].tools}
         assert "run_subagent" not in offered
+
+
+    @pytest.mark.asyncio
+    async def test_identical_same_pass_writes_collapse_before_the_volume_cap(self):
+        """Guards the interaction between the two mechanisms.
+
+        The per-op volume cap bounds repeated same-op writes; the same-pass collapse
+        (D-TOOLCALL-DUP-IDENTICAL) removes byte-identical repeats BEFORE execution. Order
+        matters: 6 identical `book_create` calls in one emission must create ONE book, not
+        five-then-a-cap-error. Written after the collapse changed this file's sibling case
+        from 5 writes to 1 — the correct outcome, but one that must be pinned, not implied.
+        """
+        kc = AsyncMock()
+        kc.get_catalog_meta = MagicMock(return_value={})
+        kc.mcp_execute_tool.return_value = _envelope(success=True, result={"book_id": "b"})
+        check = AsyncMock(return_value="allow")
+        frags = []
+        for i in range(6):
+            frags.append(tool_frag(index=i, id=f"c{i}", name="book_create"))
+            frags.append(tool_frag(index=i, arguments_delta='{"title":"X"}'))
+        frags.append(done("tool_calls"))
+        scripts = [frags, [tok("summarized"), done("stop")]]
+        with _patch_client(scripts):
+            chunks = await _drain(_run(
+                scripts, knowledge_client=kc, permission_mode="write",
+                decision_check=check,
+                allowed_tool_names={"book_create"}, subagent_depth=1,
+            ))
+        assert kc.mcp_execute_tool.await_count == 1, "identical same-pass writes must execute once"
+        assert not [c for c in chunks if "suspend" in c]

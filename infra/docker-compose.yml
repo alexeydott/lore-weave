@@ -978,6 +978,18 @@ services:
       # surface, tool decisions) — the monitor for "why did the agent do/refuse X" bugs.
       # Override to WARNING for a quiet prod deploy.
       LOG_LEVEL: "${CHAT_LOG_LEVEL:-INFO}"
+      # F12 (measured 2026-07-21) — hot-seed token budget. LOWERED 4000→2000: warm-cache A/B
+      # showed ~17-24% smaller prefix/turn, no extra discovery passes, no quality loss, still
+      # fully cache-hitting. 0 restores the ORIGINAL index-only design; 4000 the prior default.
+      LW_HOT_SEED_TOKEN_BUDGET: "${LW_HOT_SEED_TOKEN_BUDGET:-2000}"
+      # F12 A/B (lazy skills) — on ⇒ NO full L2 skill bodies (surface/router/workflow-binding);
+      # model uses the L1 index + load_skill. Measures the ~5-12K skills-lever cut.
+      LW_LAZY_ALL_SKILLS: "${LW_LAZY_ALL_SKILLS:-off}"
+      # oneshot-deadvertise (2026-07-25) — how a completed one-shot create (kg_project_create
+      # once its project exists) is kept off the agent surface: off|existence|session|per_turn.
+      # MEASURED winner = session (57→1 attempts, ~5x fewer tokens; see config.py).
+      ONESHOT_DEADVERTISE_MODE: "${ONESHOT_DEADVERTISE_MODE:-session}"
+      RAIL_ACTION_GATE_MODE: "${RAIL_ACTION_GATE_MODE:-done_suppress}"
       T5_INTENT_GATE_ENABLED: "${T5_INTENT_GATE_ENABLED:-false}"
       # Context Budget Law T4 (story_state Core Memory Block) + T6/D13a (reversible
       # dup-read collapse). Default OFF; flip on (with T5) for the compaction A/B —

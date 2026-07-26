@@ -26,6 +26,17 @@ from app.db.migrate import run_migrations
 _DSN = os.environ.get("TEST_COMPOSITION_DB_URL")
 
 pytestmark = [
+    # K27 (2026-07-24) — OBSOLETE: all 4 T7 tests rehearse a SHIPPED one-time migration.
+    # They build "the post-M3 shape (kind='arc' still allowed in outline_node)" via
+    # `run_migrations`, then run the M4/M5 arc-lift. But M4/M5 were folded INTO
+    # `run_migrations` and shipped, and it has no target-version param — so a fresh migrate
+    # now lands PAST M3 (at M5, which swaps the CHECK to forbid kind='arc'), and the fixture
+    # can no longer construct its own precondition (CheckViolation: outline_node_kind_check).
+    # This is a stale REHEARSAL for a completed migration, NOT a live bug — verified against
+    # the code 2026-07-24. It surfaced only because the DB-integration suite never ran in CI
+    # (K28). Un-skip only if a target-version migration capability is added AND re-rehearsing a
+    # shipped migration is worth it (it is not). See RUN-STATE K27/K28.
+    pytest.mark.skip(reason="K27: obsolete — rehearses the shipped M4/M5 arc-lift; pre-M5 shape no longer constructible"),
     pytest.mark.skipif(not _DSN, reason="set TEST_COMPOSITION_DB_URL to a throwaway DB to run"),
     pytest.mark.xdist_group("pg"),
 ]

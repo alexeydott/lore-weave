@@ -195,6 +195,70 @@ async def _handle_kg_build_wiki(ctx: "ToolContext", args: KgBuildWikiArgs) -> di
     }
 
 
+class KgBuildArgs(ProjectScopedArgs):
+    """`kg_build` — unified cost-gated build (catalog-unification 2026-07-22). Start an
+    EXPENSIVE extraction (target=graph) or wiki-generation (target=wiki) job; mints a
+    confirm-token (no spend until a human confirms). A flat superset keyed by `target`;
+    each target reads only its own fields and DELEGATES to the same graph/wiki cores
+    (no logic moved — kg_build_graph / kg_build_wiki stay the single source of truth)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    target: Literal["graph", "wiki"] = Field(
+        description="What to build: graph = extract the KG from the book's chapters; "
+                    "wiki = generate wiki articles for the book's entities.")
+    # target=graph
+    llm_model: str | None = Field(
+        default=None, max_length=200,
+        description="target=graph: the extraction LLM model ref (from settings_list_models). "
+                    "REQUIRED for target=graph.")
+    scope: Literal["all", "chapters", "chat", "glossary_sync"] | None = Field(
+        default=None, description="target=graph: what to extract (default 'all').")
+    chapter_from: int | None = Field(default=None, ge=0)
+    chapter_to: int | None = Field(default=None, ge=0)
+    # target=wiki
+    model_ref: str | None = Field(
+        default=None, max_length=200,
+        description="target=wiki: the wiki-generation LLM model ref (from settings_list_models). "
+                    "REQUIRED for target=wiki.")
+    model_source: str | None = Field(default=None, max_length=40)
+    entity_ids: list[str] | None = Field(
+        default=None, max_length=2000,
+        description="target=wiki: optional explicit entity ids; omit to generate for ALL book entities.")
+    # shared
+    reasoning_effort: Literal["none", "low", "medium", "high"] = Field(
+        default="none", description=_EFFORT_DESC)
+
+
+async def _handle_kg_build(ctx: "ToolContext", args: KgBuildArgs) -> dict:
+    """Unified build dispatch — delegates to the SAME graph/wiki cores as the legacy
+    kg_build_graph / kg_build_wiki tools (no logic moved). Per-target required fields are
+    validated with an explicit ToolExecutionError (never a silent wrong-build)."""
+    from app.tools.executor import ToolExecutionError
+
+    if args.target == "graph":
+        if not args.llm_model:
+            raise ToolExecutionError("target=graph requires llm_model (the extraction LLM model ref)")
+        return await _handle_kg_build_graph(ctx, KgBuildGraphArgs(
+            project_id=args.project_id,
+            llm_model=args.llm_model,
+            scope=args.scope or "all",
+            chapter_from=args.chapter_from,
+            chapter_to=args.chapter_to,
+            reasoning_effort=args.reasoning_effort,
+        ))
+    # target == "wiki"
+    if not args.model_ref:
+        raise ToolExecutionError("target=wiki requires model_ref (the wiki-generation LLM model ref)")
+    return await _handle_kg_build_wiki(ctx, KgBuildWikiArgs(
+        project_id=args.project_id,
+        model_ref=args.model_ref,
+        model_source=args.model_source or "user_model",
+        entity_ids=args.entity_ids,
+        reasoning_effort=args.reasoning_effort,
+    ))
+
+
 class KgRunBenchmarkArgs(ProjectScopedArgs):
     """`kg_run_benchmark` — R4 (D-JOURNEY-KG-BENCHMARK-UX). Run the K17.9 golden-set
     embedding benchmark for the project's configured embedding model. No args — the
@@ -265,12 +329,14 @@ async def _handle_kg_run_benchmark(ctx: "ToolContext", args: KgRunBenchmarkArgs)
 
 
 BUILD_TOOL_ARG_MODELS: dict[str, type[BaseModel]] = {
-    "kg_build_graph": KgBuildGraphArgs,
-    "kg_build_wiki": KgBuildWikiArgs,
+    "kg_build": KgBuildArgs,  # unified (catalog-unification 2026-07-22)
+    "kg_build_graph": KgBuildGraphArgs,  # legacy — folded into kg_build (target=graph)
+    "kg_build_wiki": KgBuildWikiArgs,  # legacy — folded into kg_build (target=wiki)
     "kg_run_benchmark": KgRunBenchmarkArgs,
 }
 
 BUILD_TOOL_HANDLERS = {
+    "kg_build": _handle_kg_build,  # delegates to the graph/wiki cores below
     "kg_build_graph": _handle_kg_build_graph,
     "kg_build_wiki": _handle_kg_build_wiki,
     "kg_run_benchmark": _handle_kg_run_benchmark,

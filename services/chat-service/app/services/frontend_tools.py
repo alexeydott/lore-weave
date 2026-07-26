@@ -17,7 +17,6 @@ carry editor_context); other clients never have these tools advertised.
 """
 from __future__ import annotations
 
-import re as _re
 from copy import deepcopy
 
 from jsonschema import Draft202012Validator
@@ -82,11 +81,20 @@ PROPOSE_EDIT_TOOL: dict = {
     "type": "function",
     "function": {
         "name": "propose_edit",
+        # K10 — MUST stay byte-identical to ai-gateway's copy
+        # (src/mcp/propose-edit-tool.ts), which owns this tool since P2.2 and whose own
+        # comment calls the prose "a MOVE, not a duplication — Phase 4 removes
+        # chat-service's copy". The move never finished, and the leftover copy had already
+        # drifted: this text said "the user's current selection" where ai-gateway says
+        # "the current selection". Harmless in itself, but the DESCRIPTION is what decides
+        # WHEN the model reaches for a tool, and it is the one field the contract SoT does
+        # not pin (it slices args + required only). Pinned by
+        # TestResidualAdvertisedDefsMatchContract::test_description_matches_ai_gateway.
         "description": (
             "Propose an edit to the chapter the user is currently writing. The "
             "edit is shown to the user with an Apply button and is NOT applied "
             "automatically — the user reviews it first. Use this to suggest "
-            "inserting new prose at the cursor, or rewriting the user's current "
+            "inserting new prose at the cursor, or rewriting the current "
             "selection. After the user decides, you receive whether they applied "
             "or dismissed it."
         ),
@@ -118,6 +126,14 @@ PROPOSE_EDIT_TOOL: dict = {
 }
 
 
+# Id-shaped frontend-tool args are UUIDs by contract. Without a pattern they accept ANY
+# string, so a model that doesn't have a real id sends a placeholder and the call sails
+# through to a suspend that can never do anything — the silent no-op the Frontend-Tool-
+# Contract forbids. Measured 2026-07-22 (S00b real-stack E2E): 13 identical calls carrying
+# entity_id="new_entity_id_placeholder", effectful_tool_calls=0, book unchanged. The pattern
+# makes `validate_frontend_tool_args` reject it BEFORE the suspend, with an explicit error.
+_UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+
 # OpenAI function-calling schema for the glossary edit-existing write-back tool
 # (ARCH glossary-assistant P3). Like propose_edit it SUSPENDS the run and is
 # executed in the browser, but its "execution" is the user reviewing a diff card
@@ -142,18 +158,29 @@ GLOSSARY_PROPOSE_EDIT_TOOL: dict = {
             "`applied_saved` (the edit was saved), `applied_conflict` (the entity changed "
             "since you read it — call glossary_get_entity again and propose afresh), "
             "`applied_error` (the save failed), or `dismissed` (the user declined). State "
-            "that the change was made ONLY when the outcome is `applied_saved`."
+            "that the change was made ONLY when the outcome is `applied_saved`. "
+            # Measured 2026-07-22 (S00b real-stack E2E): asked to "Add a character called X",
+            # gemma called THIS tool 13× with entity_id="new_entity_id_placeholder" — an EDIT
+            # tool has no target for a CREATE. Say so where the model is actually looking.
+            "This tool ONLY EDITS an entity that ALREADY EXISTS. To CREATE a new entity that "
+            "does not exist yet, call `tool_load(name='glossary_propose_entities')` and use "
+            "that instead — do NOT call this with a made-up or placeholder entity_id."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "book_id": {
                     "type": "string",
+                    "pattern": _UUID_PATTERN,
                     "description": "The book the entity belongs to (UUID).",
                 },
                 "entity_id": {
                     "type": "string",
-                    "description": "The entity to edit (UUID).",
+                    "pattern": _UUID_PATTERN,
+                    "description": (
+                        "The entity to edit (UUID, from glossary_get_entity/glossary_search). "
+                        "MUST be a real existing entity's id — never a placeholder."
+                    ),
                 },
                 "base_version": {
                     "type": "string",
@@ -429,14 +456,12 @@ UI_OPEN_STUDIO_PANEL_TOOL: dict = {
     },
 }
 
-# F7c (2026-07-19) — compact variant of ui_open_studio_panel. The full per-panel prose
-# above is ~2.4k tokens on EVERY studio turn though a panel is opened rarely. This variant
-# KEEPS the exact panel_id enum (Frontend-Tool Contract: the closed set is correctness — a
-# free-string panel_id was the original silent-no-op bug; never trim the enum) and replaces
-# the prose with a terse area-grouped guide (~0.7k). Most enum ids are self-describing
-# (`kg-timeline`, `quality-critic`, `motif-graph`); the groups orient the model, and it can
-# still pass any id. Gated by settings.compact_studio_panel_desc (default ON — the
-# ~1.7k-tok saving is safe because the enum is kept; toggle OFF for the verbose A/B).
+# F7c (2026-07-19) — compact variant of ui_open_studio_panel's panel_id description. KEEPS the
+# exact panel_id enum (Frontend-Tool Contract: the closed set is correctness — a free-string
+# panel_id was the original silent-no-op bug; never trim the enum) and replaces the prose with a
+# terse area-grouped guide. DEPRECATED 2026-07-25 — ui_open_studio_panel is no longer advertised,
+# so this variant is unused at runtime; _studio_panel_tool + this constant remain only as the
+# compact-schema CONTRACT guard (the wire schema is ai-gateway-owned).
 _COMPACT_PANEL_DESC = (
     "The studio panel to open (pass one panel_id from the enum). Panels by area — "
     "WRITE: compose (AI co-writer chat), scene-compose, chapter-assemble, editor, agent-mode "
@@ -464,45 +489,11 @@ _COMPACT_PANEL_DESC = (
 )
 
 
-# F7c M4 — deterministic navigation-intent gate for ui_open_studio_panel. The panel
-# navigator is a click/keypress the user can do manually, so it is advertised (paying its
-# ~880 tok) ONLY when the turn actually asks to open/see a panel. Biased to PRECISION: a
-# missed nav request just means the user clicks the panel; a FALSE POSITIVE (opening a panel
-# on a plain writing turn) is the harmful error. So the trigger is a nav VERB *and* a
-# PANEL-SPECIFIC noun — and the overloaded writing words (scene/arc/plan/chapter/character/
-# beat) are deliberately NOT panel nouns, so "write a scene" / "plan the arc" never fire.
-_NAV_VERBS: tuple[str, ...] = (
-    "open", "show", "view", "display", "navigate", "go to", "goto", "bring up",
-    "pull up", "switch to", "jump to", "take me to", "let me see", "let me open",
-    "where is", "where can i", "i want to see", "manage", "let me manage",
-    "import", "upload",  # the book-import panel's own opener verbs
-)
-_PANEL_NOUNS: frozenset[str] = frozenset({
-    # panel-shape words (rare in prose-writing instructions)
-    "panel", "tab", "dock", "matrix", "canvas", "inspector", "browser", "timeline",
-    "graph", "leaderboard", "dashboard", "hub", "shelf", "codex",
-    # panel-name words (a view, not a writing noun)
-    "glossary", "wiki", "ontology", "settings", "notifications", "translation",
-    "translations", "enrichment", "motif", "motifs", "quality", "critic", "coverage",
-    "conformance", "divergence", "what-if", "whatif", "kg", "knowledge", "world",
-    "map", "cast", "editor", "compose", "planner", "import", "proposals", "workflow",
-    "workflows", "steering", "usage", "trash", "sharing", "flywheel", "promises",
-    "leaderboards", "wireframe",
-})
-
-
-def _is_panel_nav_intent(message: str | None) -> bool:
-    """True when the turn reads as a request to OPEN/SEE a studio panel (nav verb +
-    panel-specific noun). Deterministic; precision-biased (see the note above)."""
-    m = (message or "").lower()
-    if not m.strip():
-        return False
-    if not any(v in m for v in _NAV_VERBS):
-        return False
-    # word-ish token scan so "map" doesn't match "roadmap"; the [a-z\-]* class keeps
-    # hyphenated panel nouns ("what-if") intact as a single token.
-    tokens = set(_re.findall(r"[a-z][a-z\-]*", m))
-    return bool(tokens & _PANEL_NOUNS)
+# DEPRECATED 2026-07-25 — the F7c navigation-intent gate (_NAV_VERBS/_PANEL_NOUNS/
+# _is_panel_nav_intent) was removed with the ui_open_studio_panel advertisement it gated.
+# GUI control is user/logic-driven; nothing advertises the studio panel navigator now.
+# The schema constants + _studio_panel_tool remain as chat-service's schema-of-record for the
+# frontend-tool CONTRACT cross-check (ai-gateway is the authoritative owner of the wire schema).
 
 
 def _studio_panel_tool(*, compact: bool) -> dict:
@@ -660,27 +651,20 @@ def frontend_tool_defs(
     *,
     editor: bool = False,
     book_scoped: bool = False,
-    studio: bool = False,
-    compact_studio_panel: bool = False,
-    studio_panel_nav: bool = True,
 ) -> list[dict]:
     """Frontend tool schemas to advertise, by surface.
 
     ``editor`` — the chapter editor panel (book_id + chapter_id): adds the prose
     write-back ``propose_edit``.
     ``book_scoped`` — any book-scoped chat (editor OR a glossary-page/reader chat
-    carrying a book context): adds ``glossary_propose_entity_edit``.
-    ``studio`` — the Writing Studio compose panel (studio_context): adds the studio
-    dock-navigation tools (open panel / focus manuscript unit — #09 Lane A).
-    ``compact_studio_panel`` (F7c) — advertise ui_open_studio_panel with the compact
-    area-grouped description instead of the full per-panel prose (same enum). Off ⇒
-    byte-identical to pre-F7c.
-    ``studio_panel_nav`` (F7c M4) — include the ui_open_studio_panel NAVIGATOR this turn.
-    Pass False on a plain writing turn (no navigation intent) to omit its ~880 tok;
-    ui_focus_manuscript_unit (open a chapter, part of the writing loop) is unaffected.
-    Default True ⇒ pre-M4 behavior.
+    carrying a book context): adds ``glossary_propose_entity_edit`` + confirm.
 
     The flags are independent: a glossary-page chat is book_scoped but not editor.
+
+    NOTE (2026-07-25): the studio GUI-navigation tools (ui_open_studio_panel /
+    ui_focus_manuscript_unit) are NO LONGER advertised — GUI control is user/logic-driven,
+    so agent-driven nav only cost tokens. They stay dispatchable via ai-gateway's handleUiTool
+    + the FE resolvers if a cached directive arrives; the model simply never sees them.
     """
     defs: list[dict] = []
     if editor:
@@ -688,15 +672,47 @@ def frontend_tool_defs(
     if book_scoped:
         defs.append(GLOSSARY_PROPOSE_EDIT_TOOL)
         defs.append(GLOSSARY_CONFIRM_ACTION_TOOL)
-    if studio:
-        if studio_panel_nav:
-            defs.append(_studio_panel_tool(compact=compact_studio_panel))
-        defs.append(UI_FOCUS_MANUSCRIPT_UNIT_TOOL)
     return defs
 
 
 def is_frontend_tool(name: str) -> bool:
+    """Does chat-service INTERCEPT this tool (suspend the run, hand it to the FE)?
+
+    Membership of ``FRONTEND_TOOL_NAMES`` — i.e. "chat-service owns this schema and
+    short-circuits the call". NOT the same question as {@link is_browser_executed}; see
+    that docstring for why conflating the two produced a real bug.
+    """
     return name in FRONTEND_TOOL_NAMES
+
+
+# Browser-executed tools that chat-service does NOT intercept: their schema lives in
+# ai-gateway and the call routes there, but what comes back is a DIRECTIVE the browser
+# performs. `ui_*` moved this way in Phase 3 P3.2, `propose_edit` in Phase 2 P2.2.
+_BROWSER_EXECUTED_EXTRA: frozenset[str] = frozenset({"propose_edit"})
+
+
+def is_browser_executed(name: str) -> bool:
+    """Does this tool's EFFECT happen in the browser (rather than on a server)?
+
+    Deliberately separate from :func:`is_frontend_tool`. Those two questions used to be
+    answered by the same set, and when P2.2/P3.2 moved `propose_edit` and the `ui_*` tools
+    out of ``FRONTEND_TOOL_NAMES`` (correct — chat-service stopped intercepting them), every
+    consumer asking "is this browser-executed?" silently started answering *no*:
+
+      * ``agent_surface.server_key_for_tool`` grouped every navigation / panel / watch call
+        under ``"other"`` instead of ``"ui"``;
+      * the advertised-surface split in ``stream_service`` counted them as ``activated``
+        instead of ``frontend``, so the Agent-runtime panel under-reported the UI surface
+        and the frontend/mcp schema-token split was wrong.
+
+    Neither is fatal, which is exactly why it went unnoticed — it only corrupts the numbers
+    you would use to diagnose something else. One predicate, one home, both consumers.
+    """
+    return (
+        name in FRONTEND_TOOL_NAMES
+        or name in _BROWSER_EXECUTED_EXTRA
+        or name.startswith("ui_")
+    )
 
 
 # ── Phase 0 (frontend-tools → MCP migration) — the MCP-native validation seam ──
@@ -765,6 +781,23 @@ def validate_frontend_tool_args(
     extra = next((e for e in errors if e.validator == "additionalProperties"), None)
     if extra is not None:
         parts.append(extra.message)
+    # A `pattern` failure on an id arg is ALWAYS a placeholder/made-up id (measured: 13×
+    # entity_id="new_entity_id_placeholder"). The raw jsonschema message is a regex dump the
+    # model can't act on — say what is wrong and what to do instead, so the call is repaired
+    # (or re-routed) on the NEXT attempt instead of repeated verbatim.
+    if not parts:
+        for pat in (e for e in errors if e.validator == "pattern"):
+            loc = "/".join(str(p) for p in pat.absolute_path) or "(root)"
+            got = pat.instance if isinstance(pat.instance, str) else ""
+            hint = ""
+            if loc.endswith("entity_id"):
+                # The re-route must be ACTIONABLE: glossary_propose_entities is a LAZY tool, so
+                # naming it alone leaves the model unable to act (measured: it retried the edit
+                # 3× then gave up). Name the discovery hop too — tool_load is proven reliable.
+                hint = (" — this tool only EDITS an entity that ALREADY EXISTS. To CREATE a new "
+                        "one, call tool_load(name='glossary_propose_entities') and then call "
+                        "glossary_propose_entities. Do NOT retry this edit tool.")
+            parts.append(f"{loc} must be a real UUID, got {got!r}{hint}")
     if not parts:
         e0 = errors[0]
         loc = "/".join(str(p) for p in e0.absolute_path) or "(root)"

@@ -284,12 +284,12 @@ async def translation_list_versions(
         Literal["summary", "full"],
         "summary = id/version_num/target_language/status/is_active only (drops model "
         "refs, job id, token counts, authored_by); full = every field.",
-    ] = "full",
+    ] = "summary",  # K37 drain: OUT-2 small-shape default
     limit: Annotated[
         int | None,
-        "Coarse cap on versions returned (a flat prefix across all languages; "
-        "`truncated` reports how many were dropped). Omit for all.",
-    ] = None,
+        "Coarse cap on versions returned, a flat prefix across all languages (default 25; "
+        "`truncated` reports how many were dropped). Raise it, or omit for all.",
+    ] = 25,  # K37 drain: OUT-2 bounded default (the SQL fetches all → apply_response_contract caps + signals truncated, never a silent drop)
 ) -> dict:
     tc = _ctx(ctx)
     await _require_view(tc, _uuid(book_id))
@@ -335,12 +335,12 @@ async def translation_job_status(
         Literal["summary", "full"],
         "summary = per-chapter chapter_id/status/version_num only (drops the heavy "
         "error_message + token counts); full = every field.",
-    ] = "full",
+    ] = "summary",  # K37 drain: OUT-2 small-shape default
     limit: Annotated[
         int | None,
-        "Coarse cap on the per-chapter rows returned (`truncated` reports how many "
-        "were dropped). Omit for all chapters.",
-    ] = None,
+        "Coarse cap on the per-chapter rows returned (default 25; `truncated` reports how "
+        "many were dropped). Raise it, or omit for all chapters.",
+    ] = 25,  # K37 drain: OUT-2 bounded default (the SQL fetches all → apply_response_contract caps + signals truncated, never a silent drop)
 ) -> dict:
     tc = _ctx(ctx)
     db = get_pool()

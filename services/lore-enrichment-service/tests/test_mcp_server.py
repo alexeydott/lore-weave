@@ -52,9 +52,21 @@ def _free_port() -> int:
 
 @pytest.fixture(scope="module")
 def mcp_base_url():
-    from app.mcp.server import build_mcp_app
+    from app.mcp import server as mcp_srv
 
-    app = build_mcp_app()
+    # K27 (2026-07-24) — this loopback needs its OWN, un-consumed StreamableHTTP
+    # session manager. `app.main` mounts `build_mcp_app()` at import time (creating
+    # the shared `mcp_server`'s session manager), and any API test that enters the
+    # full app lifespan (e.g. `with TestClient(main.app)` in test_health.py) runs
+    # that manager — and `StreamableHTTPSessionManager.run()` may be called only
+    # ONCE per instance. Whichever test hit the lifespan first thus poisoned the
+    # singleton, so this fixture failed with "MCP loopback server did not start"
+    # only in full-suite order (it passed when this file ran alone). Reset the cached
+    # manager so `streamable_http_app()` lazily builds a fresh one, run exactly once
+    # by our uvicorn instance below. (knowledge-service's twin never hit this — its
+    # API tests don't enter the app lifespan; ours do.)
+    mcp_srv.mcp_server._session_manager = None
+    app = mcp_srv.build_mcp_app()
     port = _free_port()
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
     server = uvicorn.Server(config)

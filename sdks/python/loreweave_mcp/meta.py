@@ -85,6 +85,8 @@ def require_meta(
     synonyms: list[str] | None = None,
     async_job: bool = False,
     paid: bool = False,
+    ambient_book: bool = False,
+    ambient_project: bool = False,
     visibility: str | None = None,
     superseded_by: str | None = None,
     tool_name: str = "",
@@ -120,6 +122,14 @@ def require_meta(
         meta["async"] = True
     if paid:
         meta["paid"] = True
+    # Studio context binding (spec 2026-07-22) — the tool resolves its book_id / project_id
+    # from the envelope (X-Book-Id / X-Project-Id) when the model omits it (resolve_book_scope /
+    # resolve_project_scope). The chat-service surface builder reads these to drop the id from
+    # `required`; only set on a tool that ACTUALLY resolves it (migration atomicity).
+    if ambient_book:
+        meta["ambient_book"] = True
+    if ambient_project:
+        meta["ambient_project"] = True
     if visibility is not None:
         meta["visibility"] = visibility
     if superseded_by is not None:

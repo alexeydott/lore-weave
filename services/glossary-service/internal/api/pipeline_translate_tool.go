@@ -61,7 +61,7 @@ type translateItem struct {
 }
 
 type proposeTranslationToolIn struct {
-	BookID       string          `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID       string          `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	LanguageCode string          `json:"language_code" jsonschema:"target language (BCP-47, e.g. en | vi)"`
 	Items        []translateItem `json:"items" jsonschema:"the entities + their translated names"`
 }
@@ -174,7 +174,7 @@ type aliasItem struct {
 }
 
 type proposeAliasesToolIn struct {
-	BookID       string      `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID       string      `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	LanguageCode string      `json:"language_code" jsonschema:"target language (BCP-47, e.g. en | vi)"`
 	Items        []aliasItem `json:"items" jsonschema:"the entities + their alias sets in this language"`
 }

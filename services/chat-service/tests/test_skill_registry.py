@@ -9,6 +9,7 @@ import pytest
 from app.services import tool_discovery as td
 from app.services.skill_registry import (
     SYSTEM_SKILLS,
+    _is_world_setup_intent,
     catalog_items,
     resolve_skills_to_inject,
     resolve_skills_to_inject_async,
@@ -701,7 +702,12 @@ class TestF2TracedWebResearchBugRemainsFixed:
         # (always-on core), not the superseded glossary alias.
         assert "web_search" in prompt
         assert "glossary_web_search" not in prompt
-        assert "find_tools" in prompt
+        # F17 (2026-07-20): the universal skill steers to the DETERMINISTIC discovery pair;
+        # find_tools was retired from the LLM's view, so naming it here would teach a tool
+        # the model can never see. The F2 property under test — a general web-research
+        # intent resolves via the static universal skill, not a glossary-specific alias —
+        # is unaffected.
+        assert "tool_list" in prompt
 
 
 class TestN5aScopeRestraint:
@@ -753,3 +759,75 @@ class TestN5aScopeRestraint:
         ids = {item["id"] for item in catalog_items()}
         assert "glossary" in ids
         assert "glossary_shaping" not in ids
+
+
+class TestWorldSetupBootstrapGate:
+    """The 2026-07-25 world-setup gate: glossary_shaping (the "adopt ontology kinds
+    BEFORE seeding entities" guidance) must reach the model DETERMINISTICALLY on a
+    world/ontology-setup turn — the router's top-K cap ranked it out for such a turn,
+    so gemma seeded entities of kinds that didn't exist yet and looped on `unknown
+    kind`. The gate must NOT fire on a plain co-writing turn (N5a regression guard)."""
+
+    def test_marker_helper_matches_setup_intents(self):
+        for s in (
+            "Propose an ontology and seed the core entities",
+            "adopt the standard kinds for this book",
+            "help me set up the world and its glossary",
+            "build the codex / taxonomy for my novel",
+            "let's do some worldbuilding",
+        ):
+            assert _is_world_setup_intent(s), s
+
+    def test_marker_helper_rejects_plain_writing_intents(self):
+        # N5a: glossary_shaping must never ride a plain co-writing turn.
+        for s in (
+            "write the first chapter",
+            "draft the opening scene",
+            "continue the prose where we left off",
+            "make the dialogue punchier",
+            "",
+        ):
+            assert not _is_world_setup_intent(s), s
+
+    @pytest.mark.asyncio
+    async def test_setup_intent_injects_glossary_shaping_even_when_router_adds_nothing(self):
+        # Router returns [] (its top-K missed glossary_shaping — the live failure mode);
+        # the deterministic gate must still inject glossary_shaping + glossary.
+        with patch(
+            "app.services.skill_router.route_additional_skills",
+            new=AsyncMock(return_value=[]),
+        ):
+            codes = await resolve_skills_to_inject_async(
+                enabled_skills=[],
+                stream_format="agui",
+                disable_tools=False,
+                tool_calling_enabled=True,
+                editor=False,
+                book_scoped=True,
+                admin=False,
+                studio=True,
+                intent_text="Propose a sensible ontology and seed the core entities Elara and the Maps.",
+                user_id="u1", model_source="user_model", model_ref="m1",
+            )
+        assert "glossary_shaping" in codes
+        assert "glossary" in codes
+
+    @pytest.mark.asyncio
+    async def test_plain_writing_intent_does_NOT_inject_glossary_shaping(self):
+        with patch(
+            "app.services.skill_router.route_additional_skills",
+            new=AsyncMock(return_value=[]),
+        ):
+            codes = await resolve_skills_to_inject_async(
+                enabled_skills=[],
+                stream_format="agui",
+                disable_tools=False,
+                tool_calling_enabled=True,
+                editor=False,
+                book_scoped=True,
+                admin=False,
+                studio=True,
+                intent_text="write the first chapter of the novel",
+                user_id="u1", model_source="user_model", model_ref="m1",
+            )
+        assert "glossary_shaping" not in codes

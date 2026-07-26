@@ -25,6 +25,13 @@ const (
 	// MetaKeySupersededBy — the tool that replaces a `legacy` one. Consumers already
 	// read it (`tool_list`/`tool_load` label it); until now NOTHING produced it.
 	MetaKeySupersededBy = "superseded_by"
+	// MetaKeyAmbientBook — true ⇒ the tool resolves `book_id` from the envelope
+	// (X-Book-Id) when the arg is omitted (ResolveBookScope). The chat-service
+	// surface builder reads this to DROP book_id from `required` on a book-bound
+	// surface (so the model never transcribes the UUID). Schema-drop and
+	// envelope-resolve are thus coupled per-tool — a tool without this flag keeps
+	// book_id required, unchanged (migration atomicity, spec §2.4).
+	MetaKeyAmbientBook = "ambient_book"
 )
 
 // Visibility is the CAT-4 catalog-hygiene enum. Absent (zero value) reads as
@@ -75,6 +82,18 @@ func WithAsync(m mcp.Meta) mcp.Meta {
 //	Meta: lwmcp.WithPaid(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeNone, nil, nil))
 func WithPaid(m mcp.Meta) mcp.Meta {
 	m[MetaKeyPaid] = true
+	return m
+}
+
+// WithAmbientBook returns a copy of m with _meta.ambient_book=true — the tool resolves
+// book_id from the envelope (X-Book-Id) when the arg is omitted (ResolveBookScope). Only a
+// tool that ACTUALLY calls ResolveBookScope may carry this flag: the chat-service surface
+// builder drops book_id from `required` for flagged tools, so an un-resolving tool would
+// then 400 on the missing arg (the migration-atomicity coupling, spec §2.4).
+//
+//	Meta: lwmcp.WithAmbientBook(lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, nil))
+func WithAmbientBook(m mcp.Meta) mcp.Meta {
+	m[MetaKeyAmbientBook] = true
 	return m
 }
 

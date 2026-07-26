@@ -293,9 +293,19 @@ class BootstrapService:
     ) -> None:
         """27 V2-E3 — join the planned node to the chapter that now exists.
 
+        Stamps BOTH the chapter node (matched on `plan_event_id`) AND its scene children (matched on
+        `parent_id`). The scene nodes carry a DERIVED `plan_event_id` (`<event>:1`, `<event>:2`, …),
+        so an exact `plan_event_id = event` match reaches only the chapter node and leaves every
+        scene at `chapter_id = NULL`. That is not cosmetic: `outline.scenes_for_chapter` resolves a
+        chapter's scenes by `chapter_id`, so unstamped scenes make a materialised chapter draft with
+        NO scene breakdown — the thin/short-chapter bug. Stamping via the scenes' parent chapter node
+        is the reliable link (their parent IS the chapter node, whatever their derived event id).
+
         Idempotent and NON-CLOBBERING: `chapter_id IS NULL` in the WHERE. A node already bound to a
         chapter keeps it — a re-applied proposal (the resume path) must not re-point a node at a
-        second, newly-created chapter and orphan the first.
+        second, newly-created chapter and orphan the first. The parent subselect does NOT filter on
+        the chapter's `chapter_id`, so a re-apply that finds the chapter already stamped still
+        repairs any scene left NULL (the exact half-stamped state a pre-fix apply produced).
 
         ADVISORY. A failure here must not fail the apply: the chapter has ALREADY been created in
         book-service, and raising would roll back nothing (it is a different database) while leaving
@@ -312,8 +322,15 @@ class BootstrapService:
                     """
                     UPDATE outline_node
                        SET chapter_id = $1, updated_at = now()
-                     WHERE book_id = $2 AND plan_event_id = $3
-                       AND chapter_id IS NULL AND NOT is_archived
+                     WHERE book_id = $2 AND chapter_id IS NULL AND NOT is_archived
+                       AND (
+                         plan_event_id = $3
+                         OR parent_id IN (
+                           SELECT id FROM outline_node
+                            WHERE book_id = $2 AND plan_event_id = $3
+                              AND kind = 'chapter' AND NOT is_archived
+                         )
+                       )
                     """,
                     UUID(str(chapter_id)), book_id, event_id,
                 )

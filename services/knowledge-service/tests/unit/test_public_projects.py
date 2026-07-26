@@ -1312,10 +1312,13 @@ def test_patch_embedding_model_rejected_on_project_with_graph(
     client: TestClient, repo: FakeProjectsRepo, auth_user_id: UUID
 ):
     """D-EMB-MODEL-REF-04: PATCH /{id} cannot change embedding_model
-    when the project already has a graph (extraction_status != 'disabled').
-    Without this guard, the old vectors stay in Neo4j tagged with the
-    old model UUID while Mode-3 retrieval queries the new model space —
-    silent zero-recall."""
+    when the project still holds :Passage vectors. Without this guard, the
+    old vectors stay in Neo4j tagged with the old model UUID while Mode-3
+    retrieval queries the new model space — silent zero-recall.
+
+    2026-07-23: the "has a graph" test is a passage-existence probe, not
+    `extraction_status != 'disabled'` — that column cannot tell a graph
+    DELETE apart from a graph-PRESERVING `POST /extraction/disable`."""
     old_uuid = "11111111-1111-1111-1111-111111111111"
     new_uuid = "22222222-2222-2222-2222-222222222222"
     proj = _make_project(
@@ -1325,11 +1328,17 @@ def test_patch_embedding_model_rejected_on_project_with_graph(
     )
     repo.seed(proj)
 
-    resp = client.patch(
-        f"/v1/knowledge/projects/{proj.project_id}",
-        json={"embedding_model": new_uuid},
-        headers=_im(proj.version),
-    )
+    from unittest.mock import AsyncMock, patch
+
+    with patch(
+        "app.db.neo4j_repos.graph_state.project_has_embedded_passages",
+        AsyncMock(return_value=True),
+    ):
+        resp = client.patch(
+            f"/v1/knowledge/projects/{proj.project_id}",
+            json={"embedding_model": new_uuid},
+            headers=_im(proj.version),
+        )
     assert resp.status_code == 422
     detail = resp.json()["detail"]
     assert "embedding-model?confirm=true" in detail

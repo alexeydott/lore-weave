@@ -161,10 +161,15 @@ class TestFrontendToolDefs:
             assert not is_frontend_tool(name), f"{name} must no longer be a frontend tool"
             assert name not in FRONTEND_TOOL_NAMES
 
-    def test_studio_surface_advertises_only_the_studio_nav_tools(self):
-        # studio flag adds ONLY the two dock-nav tools; independent of editor/book_scoped.
-        assert frontend_tool_defs(studio=True) == [UI_OPEN_STUDIO_PANEL_TOOL, UI_FOCUS_MANUSCRIPT_UNIT_TOOL]
-        # not advertised without the studio flag (a non-studio chat never suspends on them)
+    def test_studio_nav_tools_are_deprecated_and_never_advertised(self):
+        # DEPRECATED 2026-07-25 — the studio dock-nav tools (ui_open_studio_panel /
+        # ui_focus_manuscript_unit) are NO LONGER advertised to the model. GUI control is
+        # user/logic-driven (the FE already exposes full navigation), so agent-driven nav only
+        # cost tokens. They remain CALLABLE (ai-gateway handleUiTool + FE resolvers) but off the
+        # surface — frontend_tool_defs advertises NO ui_* tool in any surface combination.
+        for kw in ({}, {"editor": True}, {"book_scoped": True}, {"editor": True, "book_scoped": True}):
+            names = [t["function"]["name"] for t in frontend_tool_defs(**kw)]
+            assert "ui_open_studio_panel" not in names and "ui_focus_manuscript_unit" not in names
         assert UI_OPEN_STUDIO_PANEL_TOOL not in frontend_tool_defs(editor=True, book_scoped=True)
 
     def test_studio_ui_tool_schemas_are_wire_standard(self):

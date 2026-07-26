@@ -49,7 +49,7 @@ const (
 
 type researchJobView struct {
 	JobID           string  `json:"job_id"`
-	BookID          string  `json:"book_id"`
+	BookID          string  `json:"book_id,omitempty"`
 	KindID          string  `json:"kind_id"`
 	QueryTemplate   string  `json:"query_template"`
 	MaxResults      int     `json:"max_results"`

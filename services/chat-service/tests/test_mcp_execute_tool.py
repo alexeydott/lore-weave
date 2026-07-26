@@ -176,12 +176,17 @@ class TestMcpExecuteToolResultFormatting:
 
     @pytest.mark.asyncio
     async def test_tasks_gate_disabled_sends_no_meta(self):
-        """Default (flag off): the tool call carries no tasks _meta → the domain
-        falls back to confirm_token (byte-unchanged)."""
+        """Flag OFF: the tool call carries no tasks _meta → the domain falls back to
+        confirm_token (byte-unchanged).
+
+        Patches the flag EXPLICITLY. It used to rely on `tasks_gate_enabled` defaulting to
+        False, so when the gate was activated (default → True) this stopped testing the
+        disabled path and simply went red — the default-equals-expected false negative. A
+        test must SET the condition it names, never inherit it."""
         client = _make_client()
         result = _call_tool_result(content=[_text_content("{}")])
         tpatch, spatch, _tf, _sf, mock_session = _patch_mcp(call_tool_return=result)
-        with tpatch, spatch:
+        with tpatch, spatch, patch("app.config.settings.tasks_gate_enabled", False):
             await client.mcp_execute_tool(user_id="u", session_id="s",
                                           tool_name="memory_search", tool_args={})
         assert mock_session.call_tool.await_args.kwargs["meta"] is None
@@ -273,6 +278,38 @@ class TestMcpExecuteToolResultFormatting:
             )
         headers = transport_factory.call_args.kwargs["headers"]
         assert "X-Project-Id" not in headers
+        await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_book_id_header_set_and_not_in_args(self):
+        """Studio context binding — the ambient book rides X-Book-Id (scope hint,
+        never authz) and is NOT injected into tool_args (SEC-1 / design D3)."""
+        client = _make_client()
+        result = _call_tool_result(content=[_text_content("{}")])
+        tpatch, spatch, transport_factory, _, mock_session = _patch_mcp(call_tool_return=result)
+        with tpatch, spatch:
+            await client.mcp_execute_tool(
+                user_id="u", session_id="s",
+                book_id="book-7",
+                tool_name="book_structure_read", tool_args={},
+            )
+        headers = transport_factory.call_args.kwargs["headers"]
+        assert headers["X-Book-Id"] == "book-7"
+        assert "book_id" not in mock_session.call_tool.await_args.args[1]
+        await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_book_id_header_omitted_when_none(self):
+        """An unbound surface (no studio book) omits X-Book-Id entirely."""
+        client = _make_client()
+        result = _call_tool_result(content=[_text_content("{}")])
+        tpatch, spatch, transport_factory, *_ = _patch_mcp(call_tool_return=result)
+        with tpatch, spatch:
+            await client.mcp_execute_tool(
+                user_id="u", session_id="s", tool_name="memory_search", tool_args={},
+                book_id=None,
+            )
+        assert "X-Book-Id" not in transport_factory.call_args.kwargs["headers"]
         await client.aclose()
 
     @pytest.mark.asyncio

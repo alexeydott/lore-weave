@@ -14,7 +14,7 @@ import {
   sanitizeUpstreamErrorText,
   TOOL_ERROR_CODES,
 } from '../src/mcp/handlers.js';
-import { UI_TOOLS, UI_DIRECTIVE_TYPE } from '../src/mcp/ui-tools.js';
+import { UI_DIRECTIVE_TYPE } from '../src/mcp/ui-tools.js';
 import { PROPOSE_EDIT_DIRECTIVE_TYPE } from '../src/mcp/propose-edit-tool.js';
 import type { FederationService } from '../src/federation/federation.service.js';
 
@@ -93,11 +93,10 @@ describe('handleListTools', () => {
     // WS-1a (OQ1): tool_list/tool_load are the deterministic discovery pair, advertised FIRST,
     // then the catalog. F17 — find_tools is no longer advertised to the LLM (handler retained).
     expect(res.tools[0].name).toBe('tool_list');
-    // Phase 3 — the consumer-local ui_* directive tools sit after the discovery
-    // meta-tools and before the federated catalog (sourced from the module so this
-    // assertion tracks the tool set without drifting).
+    // DEPRECATED 2026-07-25 — the ui_* GUI-nav directive tools are NO LONGER advertised (GUI
+    // control is user/logic-driven). Only tool_list/tool_load + propose_edit are consumer-local now.
     expect(res.tools.map((t: any) => t.name)).toEqual([
-      'tool_list', 'tool_load', ...UI_TOOLS.map((t) => t.name), 'propose_edit', 'memory_search',
+      'tool_list', 'tool_load', 'propose_edit', 'memory_search',
     ]);
     expect(res._meta).toEqual({ unavailable_providers: [], partial: false });
   });
@@ -111,7 +110,6 @@ describe('handleListTools', () => {
     expect(res.tools.map((t: any) => t.name)).toEqual([
       'tool_list',
       'tool_load',
-      ...UI_TOOLS.map((t) => t.name),
       'propose_edit',
       'memory_search',
       'u_deadbeef_search',

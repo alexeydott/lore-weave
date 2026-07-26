@@ -44,7 +44,22 @@ from app.config import settings
 from app.middleware.jwt_auth import get_optional_current_user
 from app.grant_client import GrantClient, GrantLevel
 from app.grant_deps import InsufficientGrant, authorize_book
-from app.deps import get_grant_client_dep, get_outline_repo, get_works_repo
+from app.deps import (
+    get_grant_client_dep,
+    get_outline_repo,
+    get_works_repo,
+    # composition.generate confirm-path deps (2026-07-26 fix): _execute_generate hand-builds the
+    # engine.generate dep set, which drifted stale as new Depends params were added — a missing
+    # `grant` fell back to its unresolved Depends() sentinel → 500 on every confirm-gated draft.
+    get_structure_repo,
+    get_motif_repo_opt,
+    get_motif_application_repo_opt,
+    get_grounding_pins_repo,
+    get_style_profile_repo,
+    get_voice_profile_repo,
+    get_references_repo,
+    get_embedding_client_dep,
+)
 from app.db.repositories.outline import OutlineRepo
 from app.db.repositories.works import WorksRepo
 from app.db.models import CompositionWork
@@ -97,6 +112,10 @@ _AUTHORING_RUN_DESCRIPTORS = (
     _AUTHORING_RUN_START_DESCRIPTOR, _AUTHORING_RUN_RESUME_DESCRIPTOR,
     _AUTHORING_RUN_REVERT_ALL_DESCRIPTOR,
 )
+# PlanForge auto-bootstrap MATERIALISE (confirm-gated) — CREATE the book chapters a
+# compiled plan previewed. BOOK-scoped (payload carries book_id), like the authoring-run
+# descriptors; the MCP mint side lives in mcp/server.py (plan_bootstrap_apply).
+_BOOTSTRAP_APPLY_DESCRIPTOR = "composition.bootstrap_apply"
 
 # The full Tier-W descriptor allowlist this confirm path commits (MD-9 routes each
 # to its scope: adopt/arc_import = user-scoped; mine = book/corpus; the rest = Work).
@@ -105,6 +124,7 @@ _ALL_DESCRIPTORS = (
     _MOTIF_ADOPT_DESCRIPTOR, _MOTIF_MINE_DESCRIPTOR,
     _ARC_IMPORT_DESCRIPTOR, _CONFORMANCE_RUN_DESCRIPTOR,
     _DECOMPILE_DESCRIPTOR, _DERIVE_DESCRIPTOR,
+    _BOOTSTRAP_APPLY_DESCRIPTOR,
     *_AUTHORING_RUN_DESCRIPTORS,
 )
 
@@ -347,6 +367,18 @@ async def confirm_action(
             return await _execute_authoring_run_resume(payload, book_id, envelope_user)
         return await _execute_authoring_run_revert_all(payload, book_id, envelope_user, book)
 
+    # ── PlanForge auto-bootstrap MATERIALISE — BOOK-scoped, re-check EDIT at confirm.
+    if claims.descriptor == _BOOTSTRAP_APPLY_DESCRIPTOR:
+        try:
+            book_id = UUID(str(payload["book_id"]))
+        except (KeyError, ValueError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail={"code": "action_error"}) from exc
+        try:
+            await authorize_book(grant, book_id, envelope_user, GrantLevel.EDIT)
+        except (OwnershipError, InsufficientGrant) as exc:
+            raise HTTPException(status_code=403, detail={"code": "action_error"}) from exc
+        return await _execute_bootstrap_apply(payload, book_id, envelope_user)
+
     # ── Work-scoped descriptors (publish / generate / conformance): re-resolve
     # ownership + EDIT at confirm time (the Work is user-scoped → None if not the
     # caller's; the grant may have been revoked since propose).
@@ -466,13 +498,27 @@ async def _execute_generate(
     # draft write. Mint a generous TTL covering the worst-case generation+persist.
     bearer = mint_service_bearer(envelope_user, settings.jwt_secret, ttl=_GENERATE_BEARER_TTL_S)
     pool = get_pool()
+    # The COMPLETE dep set engine_router.generate / generate_chapter declare via Depends(). This
+    # is called DIRECTLY (not through FastAPI routing), so every Depends param must be resolved
+    # here or it arrives as its raw Depends() sentinel and blows up on first attribute access
+    # (the `grant.resolve_grant` 500). Resolve the newer deps via their own factory functions so
+    # this set can't silently drift stale again.
     deps = dict(
         works=WorksRepo(pool), outline=OutlineRepo(pool),
+        structures=await get_structure_repo(),
+        motif_apps=await get_motif_application_repo_opt(),
+        motifs=await get_motif_repo_opt(),
         scene_links=SceneLinksRepo(pool), canon=CanonRulesRepo(pool),
         jobs=GenerationJobsRepo(pool), book=get_book_client(),
         glossary=get_glossary_client(), knowledge=get_knowledge_client(),
         llm=get_llm_client(), narrative_threads=NarrativeThreadRepo(pool),
+        grounding_pins=await get_grounding_pins_repo(),
+        style_profiles=await get_style_profile_repo(),
+        voice_profiles=await get_voice_profile_repo(),
+        references=await get_references_repo(),
+        embedder=await get_embedding_client_dep(),
         derivatives=DerivativesRepo(pool),
+        grant=await get_grant_client_dep(),
     )
     # Build the engine body from the (signed, tamper-proof) payload. The propose
     # tool already constrains the enums, but guard the construction so a malformed
@@ -1073,6 +1119,59 @@ async def _execute_authoring_run_start(
         "outcome": "action_done",
         "descriptor": _AUTHORING_RUN_START_DESCRIPTOR,
         "run": _serialize_authoring_run(run),
+    }
+
+
+async def _execute_bootstrap_apply(
+    payload: dict[str, Any], book_id: UUID, envelope_user: UUID,
+) -> dict[str, Any]:
+    """composition.bootstrap_apply effect — CREATE the book chapters a compiled plan
+    previewed (BootstrapService.apply), crossing the propose→approve→apply gate. The
+    confirm_token IS the human approval (like glossary adopt→confirm), so this approves
+    the proposal then applies it. Deterministic, no LLM. Mints a service bearer for the
+    book-service create_chapter + glossary seed calls (the confirm path has no user bearer)."""
+    from app.clients.glossary_client import GlossaryClientError
+    from app.deps import get_bootstrap_service
+
+    try:
+        proposal_id = UUID(str(payload["proposal_id"]))
+    except (KeyError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail={"code": "action_error"}) from exc
+
+    svc = await get_bootstrap_service()
+    bearer = mint_service_bearer(envelope_user, settings.jwt_secret)
+    # Approve then apply. A proposal already approved/applied raises ValueError on approve
+    # (wrong status) — a benign no-op here, apply is the idempotent step that either creates
+    # the chapters or safe-no-ops on an already-applied row.
+    try:
+        await svc.approve(book_id, proposal_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=400, detail={"code": "action_error"}) from exc
+    except ValueError:
+        pass  # not 'pending' (already approved/applied) — proceed to apply
+    try:
+        rec = await svc.apply(envelope_user, book_id, proposal_id, bearer)
+    except LookupError as exc:
+        raise HTTPException(status_code=400, detail={"code": "action_error"}) from exc
+    except BookClientError as exc:
+        raise HTTPException(status_code=502, detail={"code": "action_error", "detail": str(exc)[:200]}) from exc
+    except GlossaryClientError as exc:
+        # GLOSS_BOOK_NOT_SCAFFOLDED is user-actionable (adopt an ontology first) → 422.
+        status = 422 if exc.code == "GLOSS_BOOK_NOT_SCAFFOLDED" else 502
+        raise HTTPException(status_code=status, detail={"code": "action_error", "detail": exc.detail or str(exc)}) from exc
+
+    applied = rec.applied_results or {}
+    chapters = [
+        {"chapter_id": v.get("chapter_id"), "title": v.get("title")}
+        for v in applied.values()
+        if isinstance(v, dict) and v.get("chapter_id")
+    ]
+    return {
+        "outcome": "action_done",
+        "descriptor": _BOOTSTRAP_APPLY_DESCRIPTOR,
+        "proposal_status": rec.status,
+        "chapters_created_count": len(chapters),
+        "chapters_created": chapters,
     }
 
 

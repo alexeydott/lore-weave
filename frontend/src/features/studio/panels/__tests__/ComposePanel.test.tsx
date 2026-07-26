@@ -32,15 +32,35 @@ vi.mock('../../manuscript/unit/ManuscriptUnitProvider', () => ({
   useManuscriptUnitMeta: () => unitMeta.value,
 }));
 
+// The draft-handoff CTA hook does a react-query fetch (plan runs); mock it so these tests need no
+// QueryClient and can drive the CTA visibility directly. Its own logic is covered by
+// useDraftHandoffCta.test.tsx.
+const ctaState = vi.hoisted(() => ({ value: { showStartDrafting: false } }));
+vi.mock('../useDraftHandoffCta', () => ({ useDraftHandoffCta: () => ctaState.value }));
+
 import { ComposePanel } from '../ComposePanel';
 
 const dockProps = { api: { setTitle: vi.fn() } } as unknown as IDockviewPanelProps;
 
 describe('ComposePanel', () => {
   it('embeds <Chat> with the host bookId + windowing (turn survives dock float/close)', () => {
+    ctaState.value = { showStartDrafting: false };
     render(<StudioHostProvider bookId="book-42"><ComposePanel {...dockProps} /></StudioHostProvider>);
     expect(screen.getByTestId('chat-stub')).toBeTruthy();
     expect(chatProps.value).toMatchObject({ bookId: 'book-42', windowingEnabled: true });
+  });
+
+  it('surfaces the "Start drafting →" handoff CTA only when the book has a draftable plan', () => {
+    // no draftable plan → no CTA (the chat stays a pure supporter surface)
+    ctaState.value = { showStartDrafting: false };
+    const { unmount } = render(<StudioHostProvider bookId="book-42"><ComposePanel {...dockProps} /></StudioHostProvider>);
+    expect(screen.queryByTestId('studio-compose-start-drafting')).toBeNull();
+    unmount();
+
+    // a draftable plan exists → the code-driven CTA appears (user clicks it to open Agent Mode)
+    ctaState.value = { showStartDrafting: true };
+    render(<StudioHostProvider bookId="book-42"><ComposePanel {...dockProps} /></StudioHostProvider>);
+    expect(screen.getByTestId('studio-compose-start-drafting')).toBeTruthy();
   });
 
   // #12 M-E wiring proof — the panel must PROVIDE the studio nav interceptor to the chat

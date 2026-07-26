@@ -71,6 +71,7 @@ from app.services.composer import build_composer_messages, is_composer_tool
 from app.services.frontend_tools import (
     frontend_tool_def_by_name,
     generic_frontend_tool_def,
+    is_browser_executed,
     is_frontend_tool,
     validate_frontend_tool_args,
 )
@@ -86,6 +87,7 @@ from app.services.tool_discovery import (
     find_tools_result_async,
     group_directory_text,
     hot_tool_names,
+    provider_availability,
     strip_tool_meta,
     surface_hot_domains,
     tool_async,
@@ -108,7 +110,7 @@ from app.services.skill_registry import (
     LOAD_SKILL_TOOL,
     load_skill_result,
 )
-from app.services.rail_progress import user_abandoned_rail
+from app.services.rail_progress import rail_gate_suppressions, user_abandoned_rail
 from app.services.subagent_runtime import (
     RUN_SUBAGENT_NAME,
     SUBAGENT_MAX_ITERATIONS,
@@ -519,6 +521,39 @@ BLANK_TOOL_ARGS_CAP = 2
 # never trips this; only a read that keeps handing back the byte-identical answer does.
 REPEAT_READ_CAP = 2
 
+# Idempotent-no-op WRITE breaker cap — how many times a Tier-A write may return a
+# `created: False` (made-nothing) result for the SAME (tool, args) before a further
+# identical call is short-circuited. 1 = the first call is legitimate (the model learns
+# the resource exists and gets its id); the 2nd identical no-op call is the loop and is
+# steered forward. Deliberately far tighter than TIER_A_SAME_OP_CAP (5) — that cap is a
+# generic runaway-write bound that ends in a human confirm card; this fires 4 calls
+# earlier because a repeated NO-OP needs no human gate, just a "you already have it, move
+# on" nudge. Only `created is False` trips it, so a real creation (`created: True`) is
+# never blocked, and a create with DIFFERENT args (a different resource) has a different
+# key and is untouched.
+IDEMPOTENT_NOOP_WRITE_CAP = 1
+
+# Repeated-identical-FAILURE breaker cap (2026-07-26) — the mirror of the no-op-write breaker
+# above. That one catches a SUCCESSFUL write that changed nothing; this catches a call that
+# keeps FAILING with the same error for the SAME (tool, args) — a weak model blind-retrying a
+# call it cannot fix (measured live: book_get_chapter ×13 on "no active chapter with that
+# chapter_id"; book_update_details ×16 on "no fields to update"). A failed call with FIXED args
+# is legitimate (its answer never reached the context — see the read-breaker note below), so the
+# key is (tool, EXACT args): only an IDENTICAL repeat is the loop; a retry with different args
+# gets a fresh key and runs. After the cap, the next identical call is short-circuited with the
+# tool's OWN error text echoed back (it usually names the fix, e.g. "call book_list kind=chapters")
+# so the model RECOVERS or stops honestly instead of spinning. Applies to reads AND writes.
+REPEATED_FAILURE_CAP = 2   # 2 identical failures tolerated; the 3rd+ identical call is steered
+
+# Completed one-shot CREATE tools → the context-id key whose PRESENCE proves the tool's
+# target already exists (so the tool is done and re-advertising it only invites a loop).
+# kg_project_create stands up a book's KG/composition project; the FE hoist puts that
+# project_id into studio_context, so `project_id` present ⇒ the project exists. Used by the
+# `oneshot_deadvertise_mode` = "existence" gate; the reactive modes key on the tool's own
+# `created:false` result instead. A small explicit registry (not a heuristic) so only
+# genuinely-idempotent one-shot setup tools are ever suppressed.
+ONESHOT_CREATE_TOOLS: dict[str, str] = {"kg_project_create": "project_id"}
+
 # ── F18: the tool_list loop breaker (dogfood round-4) ────────────────────────
 # `tool_list` returns the COMPLETE category in one shot (no cursor/paging), so a
 # re-list of a category the model already listed is provably a loop — the answer is
@@ -558,27 +593,31 @@ async def _compute_rail_drive_context(
 ):
     """Fetch the pinned workflows + grant + turn-start counts + async set for a book, so the
     RESUME path can keep DRIVING the rail past a confirm suspend (the fresh path computes this
-    inline). Returns ``(rail_specs, grant_ok, turn_start_counts, async_tools)`` or the inert
-    ``([], False, None, frozenset())`` on any failure — the resume then simply does not drive.
+    inline). Returns ``(rail_specs, grant_ok, turn_start_counts, async_tools, rail_progress)`` or
+    the inert ``([], False, None, frozenset(), [])`` on any failure — the resume then simply does
+    not drive. ``rail_progress`` (turn-start RailProgress objects, parallel to rail_specs) feeds
+    the advertise chokepoint's action-space gating; empty ⇒ gating inert on resume.
     """
     try:
         from app.client.grant_client import GrantLevel, get_grant_client
         from app.client.registry_workflows_client import get_workflows_client
         from app.db.tool_call_history import succeeded_tool_counts
+        from app.services.book_state_probe import probe_book_state
+        from app.services.rail_progress import compute_rail_progress
 
         wfs = await get_workflows_client().get_workflows(
             str(user_id), book_id=str(book_id), surface="book", mode=permission_mode,
         )
         binding = wfs.mode_binding
         if not (binding and binding.inject_workflows):
-            return [], False, None, frozenset()
+            return [], False, None, frozenset(), []
         visible = {w.get("slug") for w in wfs.workflows if w.get("slug")}
         pinned = [s for s in binding.inject_workflows if s in visible]
         if not pinned:
-            return [], False, None, frozenset()
+            return [], False, None, frozenset(), []
         lvl, _ = await get_grant_client().resolve_access(UUID(str(book_id)), UUID(str(user_id)))
         if lvl < GrantLevel.VIEW:
-            return [], False, None, frozenset()
+            return [], False, None, frozenset(), []
         counts = await succeeded_tool_counts(pool, str(session_id))
         catalog = await knowledge_client.get_tool_definitions(user_id=user_id)
         async_tools = frozenset(
@@ -590,10 +629,19 @@ async def _compute_rail_drive_context(
             steps = wf.get("steps") if isinstance(wf, dict) else None
             if isinstance(steps, list) and steps:
                 rail_specs.append((slug, steps))
-        return rail_specs, True, counts, async_tools
+        # Turn-start progress for action-space gating on resume — best-effort; a probe failure
+        # leaves progress empty (gating inert) but the rail still drives on counts.
+        rail_progress: list = []
+        try:
+            _bstate = await probe_book_state(str(book_id), str(user_id))
+            for slug, steps in rail_specs:
+                rail_progress.append(compute_rail_progress(slug, steps, _bstate, counts))
+        except Exception:  # noqa: BLE001 — gating is never load-bearing
+            rail_progress = []
+        return rail_specs, True, counts, async_tools, rail_progress
     except Exception:  # noqa: BLE001 — the driver is never load-bearing
         logger.warning("resume rail-drive context failed — rail not driven on resume", exc_info=True)
-        return [], False, None, frozenset()
+        return [], False, None, frozenset(), []
 
 
 # ACP A2 (RW-3): `_maybe_redrive_rail` (the fresh-probe drive selector) + the inline enforcement
@@ -904,6 +952,61 @@ def _drop_duplicate_empty_tool_calls(calls: list[dict]) -> list[dict]:
     return kept
 
 
+def _collapse_identical_tool_calls(calls: list[dict]) -> list[dict]:
+    """D-TOOLCALL-DUP-IDENTICAL — collapse BYTE-IDENTICAL calls emitted in the SAME pass.
+
+    Sibling of `_drop_duplicate_empty_tool_calls` above (same defective-decoding family),
+    but the opposite manifestation: instead of a well-formed call followed by an EMPTY
+    one, the model emits the exact same call — same tool, same arguments — two to four
+    times in a single `tool_calls` array. Measured live over 24h of transcripts
+    (2026-07-23): every affected session had `count(DISTINCT args) = 1`, i.e. the repeats
+    were byte-identical, not a batch of different requests:
+
+        019f8dbd  glossary_propose_entity_edit  4 calls / 1 distinct args
+        019f8cb2  glossary_propose_entity_edit  4 calls / 1 distinct args
+        019f8dda  glossary_propose_entities     3 calls / 1 distinct args
+        019f8cb2  tool_list                     3 calls / 1 distinct args
+
+    All carried `iteration: 0` — parallel duplicates within one emission, NOT sequential
+    retries after seeing a result.
+
+    This is a CORRECTNESS fix, not just a token saving. `glossary_propose_entities`
+    happens to dedup by name server-side, so the repeats were absorbed — but a write tool
+    without its own idempotency (e.g. a plain create) would execute N times and produce N
+    rows from one user intent.
+
+    Scope is deliberately ONE PASS: only the calls in this single emission are compared.
+    An identical call in a LATER iteration is a legitimate retry — the model has seen a
+    result by then and state may have changed — and is never touched. Dropping happens
+    before the assistant message is assembled (same as the sibling helper), so the dropped
+    ids never appear in `tool_calls` and the provider never expects a response for them.
+    """
+    if len(calls) < 2:
+        return calls
+    kept: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    dropped: list[str] = []
+    for c in calls:
+        # Canonicalize through the same parser execution uses, with sorted keys, so
+        # semantically identical args differing only in key order or whitespace collapse.
+        try:
+            key = (c["name"], json.dumps(_parse_tool_args(c["arguments"]), sort_keys=True))
+        except Exception:
+            kept.append(c)
+            continue
+        if key in seen:
+            dropped.append(c["name"])
+            continue
+        seen.add(key)
+        kept.append(c)
+    if dropped:
+        logger.warning(
+            "D-TOOLCALL-DUP-IDENTICAL: collapsed %d byte-identical duplicate tool-call(s) "
+            "emitted in one pass: %s", len(dropped), dropped,
+        )
+    return kept
+
+
 async def _run_composer(
     client,
     composer_model: tuple[str, str],
@@ -962,6 +1065,7 @@ def _advertise_discovery_tools(
     permission_mode: str = "write",
     has_workflows: bool = False,
     suppress_tool_list: bool = False,
+    suppress_names: set[str] | frozenset[str] = frozenset(),
 ) -> list[dict]:
     """MCP-fanout C-FT — the tools advertised on a universal /chat pass:
     ``{always-on core} ∪ {full schemas of active_tool_names}``, with the
@@ -1036,6 +1140,12 @@ def _advertise_discovery_tools(
     # non-R tool is NOT advertised (DR-C2). Plan mode additionally advertises
     # the `plan_*` PlanForge tools regardless of tier (RAID B2).
     for name in active_tool_names:
+        # oneshot-deadvertise (2026-07-25): a COMPLETED one-shot create is dropped from the
+        # wire so a weak model cannot loop on it (schema-gating — "absent from the schema, the
+        # agent cannot attempt or probe"). find_tools/tool_load still reach it by name if a
+        # genuinely-new need arises; this only removes it from the always-visible active set.
+        if name in suppress_names:
+            continue
         td = catalog_index.get(name)
         if (
             restricted and td is not None and tool_tier(td) != "R"
@@ -1063,7 +1173,10 @@ def _filter_tools_for_ask(
         name = fn.get("name") if isinstance(fn, dict) else None
         if not name:
             continue
-        if name == FIND_TOOLS_NAME or is_frontend_tool(name):
+        # Browser-executed (not merely chat-intercepted): these are human-gated by
+        # construction — the person applies the card — so they survive a read-only
+        # mode. Same P2.2/P3.2 drift as the other consumers.
+        if name == FIND_TOOLS_NAME or is_browser_executed(name):
             out.append(td)
             continue
         if tool_tier(td) == "R" or (plan and _is_plan_tool(name)):
@@ -1192,6 +1305,7 @@ def _inject_context_ids(
     book_id: str | None,
     chapter_id: str | None,
     project_id: str | None,
+    studio: bool = False,
 ) -> dict:
     """S02 fix — fill known session context-ids into a backend tool's args when the tool's
     schema ACCEPTS them and the model OMITTED them.
@@ -1218,23 +1332,78 @@ def _inject_context_ids(
     call, and this must not silently redirect it."""
     if not isinstance(args_obj, dict) or not tool_def:
         return args_obj
-    params = tool_def.get("function", {}).get("parameters", {})
+    fn = tool_def.get("function", {}) if isinstance(tool_def, dict) else {}
+    params = fn.get("parameters", {})
     props = params.get("properties", {}) if isinstance(params, dict) else {}
     if not props:
         return args_obj
+    # Studio context binding (spec 2026-07-22): an `ambient_book` tool resolves book_id from the
+    # envelope (X-Book-Id) server-side. Do NOT backfill book_id as an arg for it — that would pre-empt
+    # the envelope (the effect would read scope_source="arg", and book_id could never be dropped from
+    # the schema). chapter_id/project_id still backfill (not ambient); non-ambient tools still get book_id.
+    _meta = fn.get("_meta") or {}
+    ambient_book = bool(_meta.get("ambient_book"))
+    ambient_project = bool(_meta.get("ambient_project"))  # composition: resolve project_id from X-Project-Id
     for key, val in (("book_id", book_id), ("chapter_id", chapter_id), ("project_id", project_id)):
+        if key == "book_id" and ambient_book:
+            # ambient_book: book_id resolves from X-Book-Id server-side; the model shouldn't
+            # pass it. But a weak model DOES — and on a studio turn it invents a well-formed
+            # WRONG one. The studio is single-book by design (one book/Work at a time), so a
+            # supplied book_id that differs from the studio's book is a hallucination: DROP it
+            # so the envelope's ambient book wins, instead of leaving the wrong arg to be
+            # honored by resolve_book_scope (valid-arg-wins). Match → harmless, leave as-is.
+            _sup = args_obj.get(key)
+            if studio and val and _sup and isinstance(_sup, str) and _sup != str(val):
+                logger.warning(
+                    "ambient_book tool got book_id=%r != the studio's book %s — dropping it "
+                    "(the studio works one book at a time)", _sup[:64], str(val),
+                )
+                args_obj.pop(key, None)
+            continue
+        if key == "project_id" and ambient_project:
+            continue
         if not val or key not in props:
             continue
+        # Coerce to str: `val` is a session context-id that can arrive as a UUID OBJECT
+        # (asyncpg returns a uuid column as `uuid.UUID`, e.g. session_row["project_id"]),
+        # and `args_obj` is JSON-serialized twice downstream — once onto the MCP wire and
+        # again into `tool_calls_history` at terminal-persist. A raw UUID there raises
+        # `TypeError: Object of type UUID is not JSON serializable`, which crashed the WHOLE
+        # turn with a 500 (found live 2026-07-25: model mistranscribed project_id → this
+        # branch substituted the UUID object → persist blew up). Every id here is a string
+        # identifier by contract, so str() is both safe and required.
+        val_s = str(val)
         supplied = args_obj.get(key)
         if not supplied:
-            args_obj[key] = val
+            args_obj[key] = val_s
             continue
         if isinstance(supplied, str) and not _is_uuid(supplied):
             logger.warning(
                 "tool arg %s=%r is not a UUID — the model mistranscribed it; substituting the "
                 "turn's known id", key, supplied[:64],
             )
-            args_obj[key] = val
+            args_obj[key] = val_s
+        elif (
+            key == "book_id"
+            and studio
+            and isinstance(supplied, str)
+            and _is_uuid(supplied)
+            and supplied != val_s
+        ):
+            # Studio single-book override (2026-07-25, user decision): a book-scoped tool that
+            # is NOT ambient_book (e.g. plan_propose_spec) still requires book_id, and the studio
+            # prompt tells the model NOT to pass one — so a weak model invents a VALID-but-WRONG
+            # book_id, which _gate then refuses as "not found or not accessible". The writing
+            # studio works one book/Work at a time by design, so a book_id that differs from the
+            # studio's book is a hallucination, not a deliberate cross-book call: override it to
+            # the studio's book (with a warning). This override is STUDIO-SCOPED — off a studio
+            # turn a valid-but-different book_id is still honored as a real cross-book call.
+            logger.warning(
+                "tool arg book_id=%r differs from the studio's book %s — overriding "
+                "(the studio works one book at a time; a cross-book target here is a hallucination)",
+                supplied[:64], val_s,
+            )
+            args_obj[key] = val_s
     return args_obj
 
 
@@ -1324,6 +1493,11 @@ async def _stream_with_tools(
     rail_grant_ok: bool = False,
     rail_turn_start_counts=None,
     rail_async_tools: frozenset[str] = frozenset(),
+    # Action-space gating (2026-07-26) — the turn-start RailProgress objects for the pinned
+    # rails, used with `settings.rail_action_gate_mode` to bind the ADVERTISED tool set to the
+    # rail's progress (drop a finished step's tool so a weak model can't repeat it). None/empty
+    # ⇒ no gating (the advertise surface is byte-identical). See rail_gate_suppressions.
+    rail_progress: list | None = None,
     # True on a RESUME that suspended mid-rail: the rail is definitionally in flight, so the
     # driver may fire even though this turn's only action was the (frontend) confirm — which
     # executes off the backend chokepoint and so is not in turn_succeeded.
@@ -1469,6 +1643,42 @@ async def _stream_with_tools(
         # exactly why, and told to use what it has).
         # (tool+args) -> (fingerprint of the last result, how many times that SAME result came back)
         read_call_results: dict[str, tuple[str, int]] = {}
+        # Idempotent-no-op WRITE breaker (2026-07-25, kg_project_create loop) — the read
+        # breaker above is READS-ONLY by design ("a repeated WRITE is not a loop — six
+        # book_create calls create six books"). But a create-or-get write that reports it
+        # made NOTHING (`created: False`, e.g. kg_project_create when the book's project
+        # already exists) is the one write that IS provably pointless to repeat — the
+        # world did not change and the byte-identical call will return the same "already
+        # exists" every time. Measured live: gemma re-called kg_project_create ~5×/turn
+        # (bounded only by TIER_A_SAME_OP_CAP) on a book whose project already existed,
+        # burning a full tool-loop pass each time. Keyed (tool+args) -> count of no-op
+        # results this turn; the 2nd identical call is short-circuited with a forward steer.
+        noop_write_counts: dict[str, int] = {}
+        # Repeated-FAILURE breaker state (2026-07-26): per-turn, per-tool, per-ERROR count of
+        # FAILED calls — {tool: {error_sig: count}}. Keyed on the ERROR, not the args, because a
+        # weak model varies the args each retry (measured: book_get_chapter ×19, each a DIFFERENT
+        # hallucinated chapter_id) yet hits the IDENTICAL error — an (tool,args) key would never
+        # repeat and never fire. Same error N times = the model isn't making progress = a loop; a
+        # DIFFERENT error (or success) means it changed something, so that key is fresh and runs.
+        # A SUCCESS clears the tool's whole map (the loop is broken). Distinct from
+        # noop_write_counts (created=false SUCCESSES) and read_call_results (identical SUCCESSES).
+        fail_by_tool_error: dict[str, dict[str, int]] = {}
+        # De-advertise escalation — once the breaker fires for a tool, a WEAK model keeps
+        # RE-EMITTING the same call and ignoring the steer (measured: book_get_chapter emitted 19×,
+        # only 2 dispatched, the rest short-circuited but the model spun anyway). Short-circuiting
+        # DISPATCH isn't enough; take the tool OFF THE WIRE so it physically cannot be re-emitted,
+        # forcing the model to the fix the error names (a different tool) or an honest answer. Same
+        # reactive pattern as the oneshot de-advertise + rail gate. Unioned into `_suppress`.
+        failure_suppress: set[str] = set()
+        # oneshot-deadvertise (2026-07-25) — the per-turn set of completed one-shot creates to
+        # keep OFF the wire (mode="per_turn": populated when the no-op breaker fires; resets each
+        # invocation). mode="existence" computes its set from context at each advertise; mode=
+        # "session" removes the tool from activation_state instead (persists across turns).
+        oneshot_suppress: set[str] = set()
+        _oneshot_mode = settings.oneshot_deadvertise_mode
+        # Action-space gating mode (2026-07-26) — read once; drives rail_gate_suppressions at the
+        # advertise chokepoint below. "off" ⇒ inert. Only ever suppresses a rail STEP tool.
+        _rail_gate_mode = settings.rail_action_gate_mode
         # F18 — tool_list exhaustion state (see TOOL_LIST_CATEGORY_CAP). tool_list returns the
         # WHOLE category at once, so a re-list is a loop; track per-category list counts + the
         # per-turn total so a repeat switches to auto-load+steer and a persistent spammer gets
@@ -1600,11 +1810,46 @@ async def _stream_with_tools(
                 # _advertise_discovery_tools; the plain path through
                 # _filter_tools_for_ask. Write mode is a byte-identical no-op.
                 if discovery:
+                    # oneshot-deadvertise: compute which completed one-shot creates to drop
+                    # from THIS advertise, per the configured mode.
+                    #   existence — stateless, decided from context (the resource id is already
+                    #     present ⇒ the create's target exists ⇒ never advertise it). Decided
+                    #     once-per-turn-shape ⇒ prefix-cache-stable (the Manus lesson).
+                    #   per_turn  — the reactive per-invocation set the no-op breaker fills.
+                    #   session / off — no advertise-time suppression here (session removes the
+                    #     tool from active_tool_names upstream; off advertises as before).
+                    if _oneshot_mode == "existence":
+                        _suppress = {
+                            t for t, key in ONESHOT_CREATE_TOOLS.items()
+                            if (context_ids or {}).get(key)
+                        }
+                    elif _oneshot_mode in ("per_turn", "session"):
+                        # both reactive modes drop it for the rest of THIS turn once seen;
+                        # "session" ALSO removed it from activation_state so it stays gone.
+                        _suppress = oneshot_suppress
+                    else:
+                        _suppress = frozenset()
+                    # rail action-space gating (2026-07-26) — bind the advertised tool set to the
+                    # rail's progress, advanced by THIS turn's successes (turn_succeeded), so a
+                    # finished step's tool leaves the wire mid-turn — the intra-turn repeat killer.
+                    # Union with the oneshot suppression; "off" returns empty (byte-identical).
+                    if _rail_gate_mode != "off" and rail_progress:
+                        _rail_suppress = rail_gate_suppressions(
+                            rail_progress, turn_succeeded, _rail_gate_mode
+                        )
+                        if _rail_suppress:
+                            _suppress = set(_suppress) | _rail_suppress
+                    # De-advertise escalation — a tool the repeated-failure breaker gave up on is
+                    # taken off the wire so a weak model can't keep re-emitting it (dispatch is
+                    # already short-circuited; this stops the wasted EMIT passes too).
+                    if failure_suppress:
+                        _suppress = set(_suppress) | failure_suppress
                     advertised = _advertise_discovery_tools(
                         cat_index, active_tool_names, extra_fe,
                         permission_mode=permission_mode,
                         has_workflows=bool(turn_workflows),
                         suppress_tool_list=suppress_tool_list,
+                        suppress_names=_suppress,
                     )
                 else:
                     advertised = (
@@ -1652,7 +1897,12 @@ async def _stream_with_tools(
                             _fn = _td.get("function") if isinstance(_td, dict) else None
                             _nm = _fn.get("name") if isinstance(_fn, dict) else None
                             _tok = estimate_tokens(json.dumps(_td))
-                            if _nm and is_frontend_tool(_nm):
+                            # Browser-executed, not merely chat-intercepted — the third
+                            # consumer of that distinction (see is_browser_executed). With
+                            # is_frontend_tool here, every ui_*/propose_edit schema was
+                            # billed to the MCP side, so the W1 frontend/mcp token split
+                            # under-reported the UI surface as exactly 0.
+                            if _nm and is_browser_executed(_nm):
                                 _fe_tok += _tok
                             else:
                                 _mcp_tok += _tok
@@ -1678,7 +1928,7 @@ async def _stream_with_tools(
                                 continue
                             if _nm in ALWAYS_ON_CORE_NAMES:
                                 _adv_core.append(_nm)
-                            elif is_frontend_tool(_nm):
+                            elif is_browser_executed(_nm):
                                 _adv_frontend.append(_nm)
                             else:
                                 _adv_activated.append(_nm)
@@ -2059,6 +2309,11 @@ async def _stream_with_tools(
             # STILL empty/unparseable immediately after a well-formed call to
             # the identical tool name gets silently dropped here.
             calls = _drop_duplicate_empty_tool_calls(calls)
+            # …then collapse byte-identical repeats in the same pass (see the helper: a
+            # write tool without its own idempotency would otherwise run N times for one
+            # user intent). Order matters — drop the malformed empties first so a
+            # `{}`-args call is never the survivor a later well-formed call collapses into.
+            calls = _collapse_identical_tool_calls(calls)
             # D-TOOLCALL-HISTORY-ARGS-NOT-JSON — a call's raw `arguments` string
             # can be `""` (the model never streamed anything) or otherwise
             # unparseable. Per the OpenAI tool-calling wire contract,
@@ -2135,6 +2390,8 @@ async def _stream_with_tools(
                         )
                         _load_payload, loaded = tool_load_result(
                             discovery_catalog or [], category=_norm_cat,
+                            unavailable_providers=provider_availability(
+                                knowledge_client.get_catalog_meta()),
                         )
                         names_to_activate = budget_names_by_tokens(
                             discovery_catalog or [], loaded,
@@ -2203,6 +2460,8 @@ async def _stream_with_tools(
                         category,
                         include_deprecated=include_deprecated,
                         exclude=set(ALWAYS_ON_CORE_NAMES),
+                        unavailable_providers=provider_availability(
+                            knowledge_client.get_catalog_meta()),
                     )
                     working.append({
                         "role": "tool", "tool_call_id": c["id"],
@@ -2228,6 +2487,8 @@ async def _stream_with_tools(
                     payload, loaded = tool_load_result(
                         discovery_catalog or [],
                         name=_load_name, names=_load_names, category=_load_category,
+                        unavailable_providers=provider_availability(
+                            knowledge_client.get_catalog_meta()),
                     )
                     from app.services.tool_surface import (
                         HOT_SEED_TOKEN_BUDGET,
@@ -2250,7 +2511,9 @@ async def _stream_with_tools(
                             f"Loaded {len(names_to_activate)} of {len(loaded)} tools (token budget). "
                             "Call tool_load with specific names to load the rest."
                         )
-                    if not loaded and not payload.get("not_found"):
+                    if not loaded and not payload.get("not_found") and not payload.get(
+                        "provider_unavailable"
+                    ):
                         # review-impl #3: nothing requested — guide instead of a silent empty result.
                         payload["note"] = (
                             "No tool was requested — pass `name`, `names`, or a `category` "
@@ -2749,6 +3012,10 @@ async def _stream_with_tools(
                     }}
                     continue
 
+                # DELIBERATELY is_frontend_tool, not is_browser_executed: this asks
+                # "does chat-service INTERCEPT and suspend here?". propose_edit/ui_*
+                # are browser-executed but route to ai-gateway and are detected from
+                # the directive in the RESULT, so they must not be intercepted here.
                 if is_frontend_tool(c["name"]):
                     # Same gemma {"args":{…}} wrap-repair the backend dispatch does below —
                     # a wrapped frontend-tool payload must be unwrapped BEFORE it is frozen
@@ -2829,6 +3096,7 @@ async def _stream_with_tools(
                     book_id=(context_ids or {}).get("book_id"),
                     chapter_id=(context_ids or {}).get("chapter_id"),
                     project_id=(context_ids or {}).get("project_id"),
+                    studio=bool((context_ids or {}).get("studio")),
                 )
                 # The chat agent's arc-plan wants a SYNCHRONOUS plan (mode="rules"): a mid-tier
                 # model cannot reliably watch a background llm-plan job, so it fires the async
@@ -3256,6 +3524,72 @@ async def _stream_with_tools(
                     f"{c['name']}::{json.dumps(args_obj, sort_keys=True, default=str)}"
                     if tier == "R" else None
                 )
+                # Idempotent-no-op WRITE breaker — a Tier-A write's identity key (same
+                # (tool, args)); populated post-execution only when the result reported
+                # `created: False`. Computed here so both the short-circuit below and the
+                # record step later share one key. (Distinct from _read_key: a write is
+                # never a read, so the two never collide.)
+                _noop_write_key = (
+                    f"{c['name']}::{json.dumps(args_obj, sort_keys=True, default=str)}"
+                    if tier == "A" else None
+                )
+                # Repeated-FAILURE breaker — ALL tiers (reads loop too: book_get_chapter ×19).
+                # Find this tool's most-repeated ERROR this turn; if it has recurred >= cap times,
+                # further calls to this tool are the loop (the model keeps hitting the same wall
+                # with varied args). Defer a missing/blank-required-args error to the dedicated
+                # blank-args breaker below (tailored message + own cap) — division of labour.
+                _tool_fails = fail_by_tool_error.get(c["name"], {})
+                _dom_err, _dom_n = "", 0
+                for _e, _n in _tool_fails.items():
+                    if _n > _dom_n:
+                        _dom_err, _dom_n = _e, _n
+                if _dom_n >= REPEATED_FAILURE_CAP and _MISSING_REQUIRED_ARGS_MARKER not in _dom_err:
+                    _fail_steer = (
+                        f"'{c['name']}' has already FAILED {_dom_n} times this turn with the same "
+                        f"error: {_dom_err} — retrying it (even with different arguments) keeps "
+                        "hitting the same wall. STOP calling it. Do EXACTLY what that error says "
+                        "to fix it (e.g. if it tells you to look up an id first, call THAT tool "
+                        "now), use a DIFFERENT tool, or tell the user plainly what is blocking you."
+                    )
+                    logger.info(
+                        "repeated-failure breaker: %s failed %d× with the same error this turn "
+                        "— short-circuited + de-advertised", c["name"], _dom_n,
+                    )
+                    # Take it OFF the wire next pass so the model stops re-emitting it.
+                    failure_suppress.add(c["name"])
+                    working.append({
+                        "role": "tool", "tool_call_id": c["id"],
+                        "content": tool_result_content({"error": _fail_steer}),
+                    })
+                    yield {"tool_call": {
+                        "id": c["id"], "iteration": iteration, "tool": c["name"],
+                        "args": args_obj, "ok": False, "result": None, "error": _fail_steer,
+                    }}
+                    continue
+                if (
+                    _noop_write_key is not None
+                    and noop_write_counts.get(_noop_write_key, 0) >= IDEMPOTENT_NOOP_WRITE_CAP
+                ):
+                    _noop_err = (
+                        f"'{c['name']}' already ran this turn with these exact arguments and "
+                        "reported created=false — the resource ALREADY EXISTS and its id is in "
+                        "that earlier result, above. Calling it again creates nothing and changes "
+                        f"nothing. STOP calling '{c['name']}'; take that existing id and move on "
+                        "to the NEXT step."
+                    )
+                    logger.info(
+                        "idempotent-no-op-write breaker: %s returned created=false already this "
+                        "turn — short-circuited the repeat", c["name"],
+                    )
+                    working.append({
+                        "role": "tool", "tool_call_id": c["id"],
+                        "content": tool_result_content({"error": _noop_err}),
+                    })
+                    yield {"tool_call": {
+                        "id": c["id"], "iteration": iteration, "tool": c["name"],
+                        "args": args_obj, "ok": False, "result": None, "error": _noop_err,
+                    }}
+                    continue
                 _prior = read_call_results.get(_read_key) if _read_key is not None else None
                 if _prior is not None and _prior[1] >= REPEAT_READ_CAP:
                     _repeat_err = (
@@ -3337,6 +3671,9 @@ async def _stream_with_tools(
                 # glossary_admin_* route to /mcp/admin (no X-User-Id; INV-T2).
                 envelope = await knowledge_client.mcp_execute_tool(
                     user_id=user_id, session_id=session_id, project_id=project_id,
+                    # Studio context binding — forward the turn's ambient book so book-scoped
+                    # tools resolve book_id from the envelope when the model omits it.
+                    book_id=(context_ids or {}).get("book_id"),
                     tool_name=c["name"], tool_args=args_obj,
                     admin_token=admin_token,
                 )
@@ -3382,6 +3719,18 @@ async def _stream_with_tools(
                 # frontend tools suspend BEFORE this line and are correctly never counted.)
                 if ok and c["name"] in _rail_all_step_tools:
                     turn_succeeded[c["name"]] += 1
+                # Repeated-FAILURE breaker — record this failure under (tool → error → count) so a
+                # further call that keeps hitting the same error is short-circuited next iteration.
+                # A SUCCESS clears the tool's whole map: the loop is broken, so a later failure
+                # (e.g. a transient blip) starts fresh rather than inheriting a stale count.
+                if not ok:
+                    _err_sig = str(envelope.get("error") or "")[:200]
+                    fail_by_tool_error.setdefault(c["name"], {})
+                    fail_by_tool_error[c["name"]][_err_sig] = (
+                        fail_by_tool_error[c["name"]].get(_err_sig, 0) + 1
+                    )
+                elif c["name"] in fail_by_tool_error:
+                    fail_by_tool_error.pop(c["name"], None)
                 tool_payload = envelope.get("result") if ok else {"error": envelope.get("error")}
                 # Track C Phase 2 — count SUCCESSFUL identical reads so the repeated-read
                 # breaker above can short-circuit the next one. Only successes count: a call
@@ -3405,14 +3754,40 @@ async def _stream_with_tools(
                     else:
                         read_call_results[_read_key] = (_fp, 0)              # new answer → reset
                 elif ok and tier == "A":
-                    # A tool that actually COMMITTED (Tier-A auto-write) changed the world, so
-                    # every earlier read is now potentially stale and re-reading it is
-                    # legitimate again. Only Tier-A: a Tier-W/S "propose" writes NOTHING (it
-                    # mints a confirm_token), so clearing on it would let the exact loop shape
-                    # the breaker exists for — propose → read → propose → read — reset itself
-                    # forever. The real write those proposals cause lands later, via the
-                    # confirm path, and clears the ledger then.
-                    read_call_results.clear()
+                    # A Tier-A tool result that reports `created: False` COMMITTED NOTHING —
+                    # it is a create-or-get that found the resource already there. Record it
+                    # for the idempotent-no-op-write breaker (the next identical call is the
+                    # loop) and do NOT clear the read ledger, because the world did not change.
+                    # A result with `created: True` (or no `created` field at all) is a real
+                    # write: clear the read ledger (earlier reads may now be stale) exactly as
+                    # before. This split is why the recording is keyed on the RESULT, not the
+                    # call — same discipline as the read breaker above.
+                    if (
+                        _noop_write_key is not None
+                        and isinstance(tool_payload, dict)
+                        and tool_payload.get("created") is False
+                    ):
+                        noop_write_counts[_noop_write_key] = (
+                            noop_write_counts.get(_noop_write_key, 0) + 1
+                        )
+                        # oneshot-deadvertise reactive modes — a one-shot create just proved
+                        # its target already exists (created:false). Drop it from the surface so
+                        # the model stops SEEING it (not just stops the backend dispatch).
+                        if c["name"] in ONESHOT_CREATE_TOOLS and _oneshot_mode in ("per_turn", "session"):
+                            # transient: off the wire for the rest of THIS invocation.
+                            oneshot_suppress.add(c["name"])
+                            if _oneshot_mode == "session" and activation_state is not None:
+                                # persistent: ALSO remove from the session hot-set so it never
+                                # returns this session (the activated_tools that re-advertised
+                                # it every turn — the original root cause). dirty ⇒ persisted.
+                                _acts = activation_state.get("activated_tools")
+                                if isinstance(_acts, list) and c["name"] in _acts:
+                                    activation_state["activated_tools"] = [
+                                        t for t in _acts if t != c["name"]
+                                    ]
+                                    activation_state["dirty"] = True
+                    else:
+                        read_call_results.clear()
                 if ok or _MISSING_REQUIRED_ARGS_MARKER not in str(envelope.get("error") or ""):
                     blank_tool_args_streak = 0
                 else:
@@ -3778,7 +4153,8 @@ async def stream_response(
     session_row = await pool.fetchrow(
         "SELECT system_prompt, generation_params, project_id, project_ids, composer_model_source, composer_model_ref, "
         "planner_model_ref, working_memory_seed, enabled_tools, enabled_skills, activated_tools, "
-        "compact_summary, compacted_before_seq, message_count, created_at "  # A4 (RV-M5): anchor progress + wrap
+        "compact_summary, compacted_before_seq, message_count, created_at, "  # A4 (RV-M5): anchor progress + wrap
+        "book_id "  # studio context binding — the session's bound book, so _ctx_book_id can fall back to it (X-Book-Id)
         "FROM chat_sessions WHERE session_id = $1",
         session_id,
     )
@@ -4081,17 +4457,18 @@ async def stream_response(
     #
     # K18.9 + T2-polish-3 (D-K18.9-01): when the provider is Anthropic
     # AND the memory block came back pre-split by knowledge-service,
-    # emit structured system content with `cache_control` markers on
-    # BOTH the stable-memory prefix AND the session-level system_prompt.
-    # Anthropic allows up to 4 cache breakpoints per request; we use 2:
-    #   parts[0]: stable memory (L0 + project + Mode-2/3 prefix up to </project>)
+    # emit structured system content with `cache_control` markers. Anthropic
+    # HARD-caps cache_control at 4 breakpoints (400 otherwise) and caches the
+    # CUMULATIVE prefix up to each, so build_system_message uses exactly 2:
+    #   BP1 — stable memory prefix (L0 + project + Mode-2/3 prefix up to </project>)
     #     → cached; changes only when L0 / project summary / memory-mode flip
-    #   parts[1]: volatile memory (Mode-2/3 glossary + facts + passages)
+    #   (then) volatile memory (Mode-2/3 glossary + facts + passages) + wm_pinned
     #     → NOT cached; changes per-message by intent
-    #   parts[2]: session system_prompt (persona / tone / instructions)
-    #     → cached; stable per-session, doesn't change between turns
-    # Non-Anthropic providers and the degraded / unsplit fallback take
-    # the plain-string path.
+    #   BP2 — the LAST block of the persona+tail region (system_prompt + skills +
+    #     steering + workflow + book note); one marker there caches the whole region.
+    # D-ANTHROPIC-CACHE-4BP: the old renderer marked EVERY tail block, emitting
+    # ~11 breakpoints on a book-scoped turn → Anthropic 400. Non-Anthropic providers
+    # (auto-cache) and the degraded / unsplit fallback take the plain-string path.
     # Glossary-assistant P5 + story 04 skill registry: inject selected or
     # surface-default system skills (static + cacheable).
     from app.services.skill_registry import (
@@ -4115,6 +4492,10 @@ async def stream_response(
         (editor_context or {}).get("book_id")
         or (book_context or {}).get("book_id")
         or (studio_context or {}).get("book_id")
+        # Fall back to the SESSION's bound book (chat_sessions.book_id) — a studio/editor session is
+        # book-bound at the row even when the per-turn request contexts omit book_id. Without this the
+        # ambient scope (X-Book-Id) is never set for such a session and an ambient tool fail-closes.
+        or (str(session_row["book_id"]) if session_row and session_row.get("book_id") else None)
     )
 
     # WS-2b — fetch the curated workflows visible this turn (System + user + book), and
@@ -4256,7 +4637,15 @@ async def stream_response(
     _ctx_project_id = (studio_context or {}).get("project_id")
     book_context_note: str | None = None
     if _ctx_book_id:
-        book_context_note = f"You are working inside book_id={_ctx_book_id}."
+        # Studio context binding (spec 2026-07-22) — do NOT hand the model the book_id UUID. The
+        # ambient book rides the envelope (X-Book-Id); tools resolve it (or the server backfills it),
+        # so the model transcribing a 36-char UUID is pure token cost + an error surface. Telling it
+        # explicitly NOT to pass book_id also stops it inventing a wrong (well-formed) one that the
+        # server-side repair can't catch. chapter_id + project_id are NOT ambient — keep giving those.
+        book_context_note = (
+            "You are working in the CURRENT book. Do NOT pass a book_id to any tool — the system"
+            " applies the current book automatically; never ask the user for it and never invent one."
+        )
         if _ctx_chapter_id:
             book_context_note += f" The active chapter is chapter_id={_ctx_chapter_id}."
         if _ctx_project_id:
@@ -4265,10 +4654,10 @@ async def stream_response(
                 " — pass it verbatim to any tool that requires a project_id"
                 " (a book_id is NOT a project_id)."
             )
-        book_context_note += (
-            " Use these exact ids for any tool that requires a book_id or chapter_id."
-            " Never ask the user for the book_id and never pass a placeholder."
-        )
+        if _ctx_chapter_id:
+            book_context_note += (
+                " For a tool that requires chapter_id, use the exact id above; never pass a placeholder."
+            )
         book_context_note += _ORIENTATION_SCENT  # 28 AN-9 / AN-C2 — the discovery scent
 
     # ── RAID C1 (DR-C1) — per-book steering ─────────────────────────────────
@@ -4380,6 +4769,10 @@ async def stream_response(
     _rail_specs: list[tuple[str, list]] = []
     _rail_turn_start_counts = None
     _rail_grant_ok = False
+    # Action-space gating — the turn-start RailProgress objects for the pinned rails, passed to
+    # _stream_with_tools so the advertise chokepoint can drop finished steps' tools. Empty ⇒
+    # inert (no gating). Parallel to _rail_specs, populated in the same probe block.
+    _rail_progress_objs: list = []
     # M2 (all-tracks-clear) — INTENT pinning. The mode binding pins ONE rail per mode
     # (write→vision-to-book), so the OTHER rails (entity-triage, canon-check, kg-build, …) a
     # mid-tier model must DISCOVER, and measured it does so unreliably (S03 0/3, S04 1/3, S09
@@ -4474,6 +4867,7 @@ async def stream_response(
                                 continue
                             _rail_specs.append((_slug, _steps))
                             _prog = compute_rail_progress(_slug, _steps, _bstate, _ran)
+                            _rail_progress_objs.append(_prog)
                             _progress_by_slug[_slug] = render_progress_block(_prog)
                             logger.info(
                                 "rail %s: %d/%d steps done, next=%s (book=%s)",
@@ -4696,22 +5090,17 @@ async def stream_response(
             if discovery_eligible and not catalog:
                 discovery_eligible = False
             if discovery_eligible:
-                from app.services.frontend_tools import frontend_tool_defs, _is_panel_nav_intent
+                from app.services.frontend_tools import frontend_tool_defs
                 from app.services.tool_discovery import filter_intent_gated_setup_tools
                 editor = bool(editor_context)
                 book_scoped = bool(editor_context or book_context)
-                # F7c M4 — advertise the studio panel navigator only on a navigation-intent
-                # turn (unless the gate is disabled). Saves ~880 tok on plain writing turns.
-                _panel_nav = (not settings.studio_panel_intent_gated) or _is_panel_nav_intent(user_message_content)
                 # N5a-FULL — capability floor: high-impact world-setup tools are dropped from the
                 # turn catalog (all three reach-paths) unless this turn is world-setup intent
                 # (glossary_shaping injected). Request-scoped autonomy for the co-writer.
                 discovery_catalog = filter_intent_gated_setup_tools(catalog, injected_skill_codes)
-                discovery_extra_frontend = frontend_tool_defs(
-                    editor=editor, book_scoped=book_scoped, studio=bool(studio_context),
-                    compact_studio_panel=settings.compact_studio_panel_desc,  # F7c
-                    studio_panel_nav=_panel_nav,  # F7c M4 — nav-intent gate
-                )
+                # GUI-nav tools deprecated 2026-07-25 — only the editor/book_scoped frontend
+                # tools (propose_edit / glossary) are advertised now.
+                discovery_extra_frontend = frontend_tool_defs(editor=editor, book_scoped=book_scoped)
                 from app.services.tool_surface import discovery_seed_for_surface
                 # The union of step tools across the turn's visible workflows — the ONLY
                 # activated_tools re-advertised in auto mode (so a persisted rail survives
@@ -4742,6 +5131,15 @@ async def stream_response(
                     )
                 except Exception:  # noqa: BLE001 — stickiness is best-effort; never break the turn
                     _sticky_domains = set()
+                # Budget priority (2026-07-26): the fully-DONE rail step tools, so the rail's
+                # token budget is spent on the steps still to do (not on completed early steps
+                # that would starve `plan_propose_spec` et al.). Same "fully done" set the
+                # action-space gate uses; computed regardless of gate MODE (budget prioritization
+                # is independent of runtime suppression).
+                _rail_done_tools = (
+                    rail_gate_suppressions(_rail_progress_objs, set(), "done_suppress")
+                    if _rail_progress_objs else set()
+                )
                 discovery_seed_names = discovery_seed_for_surface(
                     discovery_catalog,  # N5a-FULL — seed from the filtered catalog too
                     pins=tool_pins,
@@ -4753,6 +5151,7 @@ async def stream_response(
                     workflow_step_tools=_wf_step_tools,
                     binding_categories=(mode_binding.seed_tool_categories if mode_binding else None),
                     pinned_step_tools=pinned_step_tools,
+                    rail_done_step_tools=_rail_done_tools,
                     sticky_domains=_sticky_domains,
                 )
                 # `tool_defs` is the FIRST-pass advertisement when discovery is on;
@@ -4769,16 +5168,10 @@ async def stream_response(
                     # Gateway down but still agui: re-advertise the frontend
                     # write-back / studio-nav tools so the surface can still
                     # propose/confirm/navigate (mirrors the resume path's catalog-down branch).
-                    from app.services.frontend_tools import frontend_tool_defs, _is_panel_nav_intent
+                    from app.services.frontend_tools import frontend_tool_defs
                     tool_defs = tool_defs + frontend_tool_defs(
                         editor=bool(editor_context),
                         book_scoped=bool(editor_context or book_context),
-                        studio=bool(studio_context),
-                        compact_studio_panel=settings.compact_studio_panel_desc,  # F7c
-                        studio_panel_nav=(
-                            (not settings.studio_panel_intent_gated)
-                            or _is_panel_nav_intent(user_message_content)
-                        ),  # F7c M4 — nav-intent gate
                     )
         # A2A phase-2: advertise compose_prose only when a composer model is
         # configured for this session (orchestrator → writer delegation).
@@ -4820,6 +5213,10 @@ async def stream_response(
             "book_id": _ctx_book_id,
             "chapter_id": _ctx_chapter_id,
             "project_id": _ctx_project_id or (str(project_id) if project_id else None),
+            # Studio single-book flag — a studio turn works ONE book at a time, so a
+            # book-scoped tool arg whose book_id differs from this one is a hallucination to
+            # override (see _inject_context_ids). Only set on a real studio turn.
+            "studio": studio_context is not None,
         },
         admin_token=admin_token,
         messages=messages,
@@ -4865,6 +5262,9 @@ async def stream_response(
         rail_grant_ok=_rail_grant_ok,
         rail_turn_start_counts=_rail_turn_start_counts,
         rail_async_tools=_turn_async_tools,
+        # Action-space gating — turn-start RailProgress for the pinned rails (parallel to
+        # _rail_specs); the advertise chokepoint drops finished steps' tools per the gate mode.
+        rail_progress=_rail_progress_objs or None,
     ):
         yield line
 
@@ -5084,6 +5484,9 @@ async def _emit_chat_turn(
     rail_turn_start_counts=None,
     rail_async_tools: frozenset[str] = frozenset(),
     rail_in_flight: bool = False,
+    # Action-space gating — turn-start RailProgress objects for the pinned rails (parallel to
+    # rail_specs); forwarded to the tool loop's advertise chokepoint. None on the resume caller.
+    rail_progress: list | None = None,
 ) -> AsyncGenerator[str, None]:
     """Shared Stream→persist→finish body for a chat turn (fresh OR C6 resume).
 
@@ -5386,7 +5789,10 @@ async def _emit_chat_turn(
                 context_ids=context_ids or {
                     "book_id": (editor_context or {}).get("book_id"),
                     "chapter_id": (editor_context or {}).get("chapter_id"),
-                    "project_id": project_id,
+                    # str(): project_id here is session_row["project_id"], a uuid.UUID from
+                    # asyncpg — keep it a string identifier (mirrors the sibling dict at ~4988
+                    # and the _inject_context_ids coercion) so it stays JSON-serializable.
+                    "project_id": str(project_id) if project_id else None,
                 },
                 discovery_catalog=discovery_catalog,
                 discovery_extra_frontend=discovery_extra_frontend,
@@ -5416,6 +5822,7 @@ async def _emit_chat_turn(
                 rail_async_tools=rail_async_tools,
                 rail_in_flight=rail_in_flight,
                 rail_user_abandoned=user_abandoned_rail(user_message_content),
+                rail_progress=rail_progress,
             )
         else:
             chunk_stream = _stream_via_gateway(
@@ -6092,25 +6499,17 @@ async def _emit_chat_turn(
         # awaited (a single indexed UPDATE at turn-end); persist swallows its own errors.
         await persist_capture_status(pool, session_id, _capture_decision)
 
-        # Log usage async (non-blocking)
-        if post_finish_state["last_usage"]:
-            asyncio.create_task(
-                billing.log_usage(
-                    user_id=user_id,
-                    model_source=model_source,
-                    model_ref=model_ref,
-                    provider_kind=creds.provider_kind,
-                    input_tokens=post_finish_state["input_tok"] or 0,
-                    output_tokens=post_finish_state["output_tok"] or 0,
-                    session_id=session_id,
-                    message_id=msg_id,
-                    input_payload={"messages": messages},
-                    output_payload={
-                        "content": post_finish_state["final_text"],
-                        "reasoning": post_finish_state["final_reasoning"] or None,
-                    },
-                )
-            )
+        # BILLING — do NOT record chat usage here (F11, 2026-07-21). provider-registry's
+        # stream billing (`stream_billing.go` → RecordUsage, TotalCostUSD: actual) is the
+        # SOLE authoritative biller: it records EACH tool-loop pass at the model's real
+        # per-mtok price ("matches reconcile"). This turn-level log_usage was a redundant
+        # SECOND writer that (a) summed input across every re-sent pass (input_tok is the
+        # tool-loop SUM — 550,704 for a 16-pass turn vs a real ~34K context), and (b) sent
+        # NO cost, so usage-billing's token fallback re-priced it at ~$2/1M instead of the
+        # model's $0.10 — a double-charge at ~20× on the summed tokens (spend =
+        # SUM(total_cost_usd) FROM usage_logs, so both writers counted). Voice STT/TTS still
+        # bills via billing.log_usage from voice.py (its own per-second/char cost, a lane
+        # provider-registry does not meter). See docs/eval/co-writer-onboarding-dogfood-2026-07-21.md F11.
 
     for line in emitter.done():
         yield line
@@ -6198,7 +6597,8 @@ async def resume_stream_response(
     # Re-derive session gen_params + tool defs for the 2nd pass.
     session_row = await pool.fetchrow(
         "SELECT generation_params, project_id, system_prompt, composer_model_source, composer_model_ref, "
-        "planner_model_ref, enabled_tools, enabled_skills, activated_tools "
+        "planner_model_ref, enabled_tools, enabled_skills, activated_tools, "
+        "book_id "  # studio context binding — a confirm-RESUMED ambient tool needs the session's book (X-Book-Id)
         "FROM chat_sessions WHERE session_id = $1",
         session_id,
     )
@@ -6368,6 +6768,9 @@ async def resume_stream_response(
             envelope = await knowledge_client.mcp_execute_tool(
                 user_id=user_id, session_id=session_id,
                 project_id=str(project_id) if project_id else None,
+                # Studio context binding — a confirm-replayed book tool that resolved book_id
+                # from the envelope on pass 1 must still get the ambient book here (as a str).
+                book_id=(str(session_row["book_id"]) if session_row and session_row.get("book_id") else None),
                 tool_name=_tool_name, tool_args=_tool_args,
                 admin_token=admin_token,
             )
@@ -6505,8 +6908,11 @@ async def resume_stream_response(
     # the cast, connections, plan, draft). Without this the rail stalls at the confirm (measured
     # 2/5). Degrade-safe: no book / any failure ⇒ inert, resume behaves as before.
     _r_rail_specs, _r_rail_grant, _r_rail_counts, _r_rail_async = [], False, None, frozenset()
+    _r_rail_progress: list = []
     if settings.rail_driver_enabled and susp.book_id:
-        _r_rail_specs, _r_rail_grant, _r_rail_counts, _r_rail_async = await _compute_rail_drive_context(
+        (
+            _r_rail_specs, _r_rail_grant, _r_rail_counts, _r_rail_async, _r_rail_progress,
+        ) = await _compute_rail_drive_context(
             pool, user_id, susp.book_id, susp.permission_mode, session_id, knowledge_client,
         )
 
@@ -6571,6 +6977,8 @@ async def resume_stream_response(
         # exists to prevent). The suspended tool must be one of the rail's own step tools.
         rail_in_flight=bool(_r_rail_specs)
         and (susp.pending_tool_call or {}).get("name") in set(susp.pinned_step_tools or []),
+        # Action-space gating on resume — turn-start progress recomputed by the rail-drive context.
+        rail_progress=_r_rail_progress or None,
         # NB: the rail_user_abandoned flag is computed INSIDE _emit_chat_turn from its
         # user_message_content (= susp.user_message_content, passed above) before it calls
         # _stream_with_tools — the resume path needs no extra arg here.

@@ -178,7 +178,8 @@ async def test_mcp_tools_list_async_job_tools_declare_meta_async(mcp_base_url):
     async with _mcp_client(mcp_base_url, headers) as session:
         listing = await session.list_tools()
     by_name = {t.name: (getattr(t, "meta", None) or {}) for t in listing.tools}
-    for name in ("kg_build_graph", "kg_build_wiki"):
+    # kg_build (unified, 2026-07-22) + the 2 legacy job-starters it folds in.
+    for name in ("kg_build", "kg_build_graph", "kg_build_wiki"):
         assert by_name[name].get("async") is True, f"{name} must declare _meta.async"
         assert by_name[name].get("tier") == "W", f"{name} must be Tier-W (confirm_token)"
     # a read tool must NOT be flagged async

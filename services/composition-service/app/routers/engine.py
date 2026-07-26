@@ -432,7 +432,13 @@ async def generate(
     except BookClientError:
         raise HTTPException(status_code=502, detail={"code": "BOOK_SERVICE_UNAVAILABLE"})
 
-    messages = build_messages(pc.prompt, pc.profile, body.operation, body.guide)
+    # Length target for the scene draft: the scene's own target_words if the planner set one, else
+    # the default (a max_output_tokens cap alone is a ceiling, not a target → the model runs short,
+    # measured 83 words). Scene path only; the chapter path assembles per-scene.
+    from app.engine.cowrite import DEFAULT_SCENE_TARGET_WORDS
+    _scene_target = getattr(node, "target_words", None) or DEFAULT_SCENE_TARGET_WORDS
+    messages = build_messages(pc.prompt, pc.profile, body.operation, body.guide,
+                              target_words=_scene_target)
     counter = B.default_counter()
     prompt_estimate = estimate_prompt_tokens(messages, counter)
     # Budget pre-check (local advisory): refuse if the prompt alone blows the cap.
@@ -484,6 +490,8 @@ async def generate(
             "present_entity_ids": [str(e) for e in (node.present_entity_ids or [])],
             "beat_role": node.beat_role, "tension": node.tension,
             "outline_node_id": str(node.id), "guide": body.guide,
+            # Length target for the worker's diverge draft (else it free-runs SHORT — 83 words).
+            "target_words": node.target_words or DEFAULT_SCENE_TARGET_WORDS,
             "max_out": body.max_output_tokens,
             "reasoning_passthrough": reasoning.passthrough,
             "grounding_available": pc.grounding_available,

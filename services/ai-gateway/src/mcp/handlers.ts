@@ -12,7 +12,7 @@ import {
   toolListResult,
   toolLoadResult,
 } from '../federation/find-tools.js';
-import { UI_TOOLS, UI_TOOL_NAMES, handleUiTool } from './ui-tools.js';
+import { UI_TOOL_NAMES, handleUiTool } from './ui-tools.js';
 import { PROPOSE_EDIT_TOOL, PROPOSE_EDIT_NAME, handleProposeEdit } from './propose-edit-tool.js';
 
 const log = new Logger('McpProxy');
@@ -32,6 +32,7 @@ export function extractEnvelope(headers: Headers): Envelope {
     sessionId: headerValue(headers, 'x-session-id'),
     traceId: headerValue(headers, 'x-trace-id'),
     projectId: headerValue(headers, 'x-project-id'),
+    bookId: headerValue(headers, 'x-book-id'),
     mcpKeyId: headerValue(headers, 'x-mcp-key-id'),
     spendCapUsd: headerValue(headers, 'x-mcp-spend-cap-usd'),
   };
@@ -68,7 +69,11 @@ export async function handleListTools(
   return {
     tools: [
       TOOL_LIST_TOOL, TOOL_LOAD_TOOL,
-      ...UI_TOOLS,
+      // DEPRECATED 2026-07-25 — UI_TOOLS (ui_open_book/_chapter/_navigate/_show_panel/
+      // _watch_job/_open_studio_panel/_focus_manuscript_unit) are NO LONGER advertised.
+      // GUI control is user/logic-driven (the FE already exposes full navigation); agent-driven
+      // nav only cost tokens. `handleUiTool` stays wired, so a directive still resolves if one
+      // arrives — the model just never sees these tools.
       PROPOSE_EDIT_TOOL,
       ...(federation.catalog() as any[]),
       ...overlay,
@@ -213,15 +218,43 @@ export async function handleFindTools(
  * set with deprecated tools LABELED (not dropped). The public edge intersects this with the key's
  * scope (`catalog ∩ non-legacy(labeled) ∩ isToolAllowed`) — this layer contributes the first two.
  */
+/**
+ * K23 — the CONSUMER-LOCAL tools, in the shape the discovery pair walks.
+ *
+ * `handleListTools` serves these alongside the federated catalog, and the comment there
+ * already states the intent — "ai-gateway lists them so they are discoverable + validated at
+ * one seam". The discovery pair did not honour it: both walked `federation.catalog()` alone,
+ * so tool_list never listed these 10 and tool_load answered `not_found` — which tells a model
+ * the tool does not EXIST, not that it is unfederated.
+ *
+ * That matters most exactly where it is least visible. ui_* and propose_edit are advertised
+ * CONDITIONALLY (the F7c nav-intent / editor-surface gates in chat-service), so when the gate
+ * withholds one, discovery was the only way back — and it said the tool was not real. It also
+ * contradicts F17's whole rationale for retiring find_tools: tool_list/tool_load were adopted
+ * because they "have no such blind spot".
+ */
+function consumerLocalTools(): any[] {
+  // DEPRECATED 2026-07-25 — UI_TOOLS de-advertised (GUI control is user/logic-driven).
+  // handleUiTool remains dispatchable for a cached-workflow directive; the model never sees them.
+  return [TOOL_LIST_TOOL, TOOL_LOAD_TOOL, PROPOSE_EDIT_TOOL] as any[];
+}
+
 export async function handleToolList(
   federation: FederationService,
   args: Record<string, unknown>,
   headers?: Headers,
 ): Promise<any> {
   const category = typeof args?.category === 'string' ? args.category : undefined;
-  const includeDeprecated = typeof args?.include_deprecated === 'boolean' ? args.include_deprecated : true;
+  // Default HIDE deprecated (spec 2026-07-22 review): a browsing agent should see the CURRENT
+  // surface, not the shrunk-away legacy tools as noise (the book catalog was 16 active + 19
+  // deprecated). Deprecated tools stay reachable — pass include_deprecated:true, or tool_load(name)
+  // (which still redirects via superseded_by).
+  const includeDeprecated = typeof args?.include_deprecated === 'boolean' ? args.include_deprecated : false;
   const overlay = await federation.overlayTools(extractEnvelope(headers));
-  const { payload } = toolListResult([...federation.catalog(), ...overlay], category, includeDeprecated);
+  const { payload } = toolListResult(
+    [...federation.catalog(), ...overlay, ...consumerLocalTools()], category, includeDeprecated, new Set(),
+    availabilityMeta(federation).unavailable_providers,
+  );
   return { content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload };
 }
 
@@ -242,7 +275,10 @@ export async function handleToolLoad(
     : undefined;
   const category = typeof args?.category === 'string' ? args.category : undefined;
   const overlay = await federation.overlayTools(extractEnvelope(headers));
-  const { payload } = toolLoadResult([...federation.catalog(), ...overlay], { name, names, category });
+  const { payload } = toolLoadResult(
+    [...federation.catalog(), ...overlay, ...consumerLocalTools()], { name, names, category },
+    availabilityMeta(federation).unavailable_providers,
+  );
   return { content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload };
 }
 

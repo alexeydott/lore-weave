@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 
 from app.services.token_budget import estimate_tokens, scale_by_window
@@ -35,7 +36,16 @@ ACTIVATED_TOOLS_CAP = 64
 # them for a caller that resolves the session model's real (larger) context_length,
 # instead of every model, including a 1M-context one, being capped at the same flat
 # number (the exact bug class the Context Budget Law's `budget.py` fix addressed).
-HOT_SEED_TOKEN_BUDGET = 4000        # ~8-12 tools stay hot; rest lazy via find_tools
+# F12 (measured 2026-07-21, warm-cache A/B on gpt-4o-mini): env-tunable hot-seed budget.
+# LOWERED 4000→2000 as the default. Isolated A/B (skills left on their designed lazy path —
+# lazy_skill_bodies stays ON; NOT the blunt LW_LAZY_ALL_SKILLS test knob): 2000 cut the
+# assembled prefix ~17-24% per turn on a warm 4-turn book session with NO extra discovery
+# passes and NO quality loss (all adds persisted), and the smaller prefix still cache-hits
+# (warm passes ~0.1 $/Mtok = fully cached). 2000 keeps ~4-6 common tools hot (robust for
+# non-glossary tasks that budget=0 would push into pure discovery); the long tail stays lazy
+# via find_tools. Set LW_HOT_SEED_TOKEN_BUDGET=0 for the original pure-index design, or 4000
+# to restore the prior default.
+HOT_SEED_TOKEN_BUDGET = int(os.environ.get("LW_HOT_SEED_TOKEN_BUDGET", "2000"))  # ~4-6 tools hot; rest lazy
 ACTIVATED_TOOLS_TOKEN_BUDGET = 6000  # cap the find_tools-accumulated set by tokens
 
 # Read/query verbs → the tools safe to keep hot (writes/proposes are discovered on
@@ -223,6 +233,7 @@ def discovery_seed_for_surface(
     workflow_step_tools: set[str] | None = None,
     binding_categories: list[str] | None = None,
     pinned_step_tools: list[str] | None = None,
+    rail_done_step_tools: set[str] | None = None,
     sticky_domains: set[str] | None = None,
 ) -> set[str]:
     """Discovery active-set seed: hot set (auto) or pins ∪ activated (curated).
@@ -368,8 +379,19 @@ def discovery_seed_for_surface(
     # budgeted in DECLARED STEP ORDER (`budget_rail_tools`), so the early steps always
     # survive and anything trimmed is reported rather than silently vanishing.
     if pinned_step_tools:
+        # Budget-priority fix (2026-07-26): budget_rail_tools keeps tools in DECLARED STEP
+        # ORDER, so a long rail spends its budget on the EARLY steps and drops the late ones.
+        # After the early steps are DONE that is backwards — it advertises completed steps
+        # (which the action-space gate suppresses downstream anyway) and starves the step the
+        # agent needs NOW (the live bug: `plan_propose_spec` dropped while the done glossary
+        # steps stayed, so the agent read a recipe naming a tool it could not see and wrote the
+        # plan as prose instead of calling the tool). Drop the fully-DONE step tools from the
+        # candidate set first, so the not-done steps win the budget. A tool still owed by a
+        # not-done step is NOT in this set (rail_gate_suppressions keeps it), so this never
+        # hides a tool the agent still needs.
+        _rail_candidates = [t for t in pinned_step_tools if t not in (rail_done_step_tools or set())]
         kept, dropped = budget_rail_tools(
-            catalog, list(pinned_step_tools),
+            catalog, _rail_candidates,
             token_budget=scale_by_window(HOT_SEED_TOKEN_BUDGET, context_length),
         )
         names = names | kept

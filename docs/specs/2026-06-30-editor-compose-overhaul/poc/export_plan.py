@@ -1,6 +1,10 @@
 import json, os, pathlib
 
-ROOT = pathlib.Path(r"D:/Works/source/lore-weave-mvp/docs/specs/2026-06-30-editor-compose-overhaul")
+# ROOT is the spec folder this script lives in. It used to be an absolute path into a
+# DIFFERENT checkout (lore-weave-mvp), so the script only ran on one machine and read a
+# stale copy of the data. (Its `poc/io/` inputs are not committed here — supply them
+# alongside, or point POC_ROOT elsewhere.)
+ROOT = pathlib.Path(os.environ.get("POC_ROOT", "")) or pathlib.Path(__file__).resolve().parents[1]
 OUT = ROOT / "plan-export"
 OUT.mkdir(exist_ok=True)
 d = json.load(open(ROOT / "poc/io/030_pipeline_poll27.json", encoding="utf-8"))

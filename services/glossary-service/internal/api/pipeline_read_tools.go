@@ -30,25 +30,31 @@ func (s *Server) RegisterPipelineReadTools(srv *mcp.Server) {
 		Name: "glossary_list_merge_candidates",
 		Description: "List a book's proposed entity MERGE candidates (duplicate clusters the system " +
 			"detected), ranked by score — each with its member entities, suggested winner, and rationale. " +
-			"status defaults to 'proposed' (also: dismissed | merged). Read before proposing a merge.",
+			"status defaults to 'proposed' (also: dismissed | merged). Read before proposing a merge. " +
+			"NOTE: superseded by glossary_curation_list (view=merge_candidates) — kept for existing callers only.",
 		InputSchema: closedSetSchemaFor[mergeCandToolIn](map[string][]any{
 			"status": {"proposed", "dismissed", "merged"},
 		}),
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+		// LEGACY (catalog-unification 2026-07-22 Part B): superseded by glossary_curation_list.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolListMergeCandidates)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_list_chapter_links",
 		Description: "List the chapters an entity is linked to (where it appears / is relevant), with " +
-			"relevance + notes. book_id + entity_id.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+			"relevance + notes. book_id + entity_id. " +
+			"NOTE: superseded by glossary_get_entity (include=chapter_links) — kept for existing callers only.",
+		// LEGACY (catalog-unification 2026-07-22 Part B2): folded into glossary_get_entity.include.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolListChapterLinks)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_list_entity_revisions",
 		Description: "List an entity's revision history (who changed what, when) newest-first. " +
-			"book_id + entity_id. Use to find a revision to restore.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+			"book_id + entity_id. Use to find a revision to restore. " +
+			"NOTE: superseded by glossary_get_entity (include=revisions) — kept for existing callers only.",
+		// LEGACY (catalog-unification 2026-07-22 Part B2): folded into glossary_get_entity.include.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolListEntityRevisions)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
@@ -56,19 +62,23 @@ func (s *Server) RegisterPipelineReadTools(srv *mcp.Server) {
 		Description: "List a book's UNKNOWN-kind entities — the triage bucket of extracted entities whose " +
 			"kind couldn't be determined — with the source kind code the extractor guessed. Read before " +
 			"proposing a kind reassignment. status defaults to 'draft' (pending, not yet actioned) so the " +
-			"inbox actually drains as you triage; pass 'all' to see every status regardless of triage state.",
+			"inbox actually drains as you triage; pass 'all' to see every status regardless of triage state. " +
+			"NOTE: superseded by glossary_curation_list (view=unknowns) — kept for existing callers only.",
 		InputSchema: closedSetSchemaFor[bookOnlyToolIn](map[string][]any{
 			"status": {"draft", "active", "inactive", "rejected", "all"},
 		}),
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+		// LEGACY (catalog-unification 2026-07-22 Part B): superseded by glossary_curation_list.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolListUnknownEntities)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_get_entity_evidence",
 		Description: "Get the evidence excerpts (quotes / summaries / references) attached to an entity's " +
 			"attributes — what supports each value. book_id + entity_id. Read before judging or editing an " +
-			"attribute, or before adding evidence with glossary_create_evidence.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+			"attribute, or before adding evidence with glossary_create_evidence. " +
+			"NOTE: superseded by glossary_get_entity (include=evidence) — kept for existing callers only.",
+		// LEGACY (catalog-unification 2026-07-22 Part B2): folded into glossary_get_entity.include.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolGetEntityEvidence)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
@@ -77,11 +87,13 @@ func (s *Server) RegisterPipelineReadTools(srv *mcp.Server) {
 			"(tagged 'ai-suggested', not yet user-rejected). The triage inbox. Read before proposing a status " +
 			"change (approve/reject) or a merge. Returns each entity's name, status, and tags. status defaults " +
 			"to 'draft' (pending) so already-actioned (active/inactive/rejected) entities drop out of the " +
-			"inbox once triaged; pass 'all' to see every status regardless of triage state.",
+			"inbox once triaged; pass 'all' to see every status regardless of triage state. " +
+			"NOTE: superseded by glossary_curation_list (view=ai_suggestions) — kept for existing callers only.",
 		InputSchema: closedSetSchemaFor[bookOnlyToolIn](map[string][]any{
 			"status": {"draft", "active", "inactive", "rejected", "all"},
 		}),
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+		// LEGACY (catalog-unification 2026-07-22 Part B): superseded by glossary_curation_list.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolListAISuggestions)
 }
 
@@ -199,7 +211,7 @@ func (s *Server) queryUnknownEntities(ctx context.Context, bookID uuid.UUID, sta
 const pipelineReadCap = 200
 
 type mergeCandToolIn struct {
-	BookID string `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID string `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	Status string `json:"status,omitempty" jsonschema:"proposed (default) | dismissed | merged — omit this argument for the default; do not send an empty string"`
 }
 type mergeCandidatesOut struct {
@@ -232,7 +244,7 @@ func (s *Server) toolListMergeCandidates(ctx context.Context, _ *mcp.CallToolReq
 }
 
 type bookEntityToolIn struct {
-	BookID   string `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID   string `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	EntityID string `json:"entity_id" jsonschema:"the entity (UUID)"`
 }
 type chapterLinksOut struct {
@@ -288,7 +300,7 @@ func (s *Server) toolListEntityRevisions(ctx context.Context, _ *mcp.CallToolReq
 }
 
 type bookOnlyToolIn struct {
-	BookID string `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID string `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	// External MCP feedback (2026-07-08, "the inboxes never drain") — both list tools
 	// sharing this type used to return every entity regardless of status, so
 	// approving/rejecting a triage item never removed it from the NEXT call's

@@ -69,9 +69,21 @@ async def pool():
             "user_knowledge_budgets, job_logs "
             "RESTART IDENTITY CASCADE"
         )
+    # K27 (2026-07-24) — also expose this throwaway pool as the GLOBAL `_knowledge_pool`.
+    # Tests that drive a real handler (e.g. the context-build router) reach a production code
+    # path that calls `get_knowledge_pool()` DIRECTLY, not through a DI'd repo — a call added
+    # after these tests were written. Overriding the repos alone left that global unset, so 12
+    # test_context_build tests died with "knowledge pool not initialised". This is a HARNESS
+    # gap, not a code bug; setting the global here (guarded throwaway pool, reset on teardown)
+    # restores them. See RUN-STATE K27.
+    from app.db import pool as _pool_mod
+
+    _prev = _pool_mod._knowledge_pool
+    _pool_mod._knowledge_pool = p
     try:
         yield p
     finally:
+        _pool_mod._knowledge_pool = _prev
         await p.close()
 
 
@@ -114,6 +126,17 @@ async def neo4j_driver():
         pytest.skip(f"Neo4j unreachable at {uri}: {exc}")
     try:
         await run_neo4j_schema(driver)
-        yield driver
+        # K27 (2026-07-24) — also expose this as the GLOBAL app.db.neo4j driver, so a test
+        # that drives a real handler / execute_tool (which calls get_neo4j_driver() directly,
+        # not this local fixture) works instead of hitting "Neo4j driver not initialised". Same
+        # harness gap the PG `pool` fixture had. Reset on teardown.
+        from app.db import neo4j as _neo4j_mod
+
+        _prev = _neo4j_mod._driver
+        _neo4j_mod._driver = driver
+        try:
+            yield driver
+        finally:
+            _neo4j_mod._driver = _prev
     finally:
         await driver.close()

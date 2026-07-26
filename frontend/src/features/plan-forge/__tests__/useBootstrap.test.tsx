@@ -80,6 +80,40 @@ describe('useBootstrap', () => {
     expect(result.current.error).toBe('network down');
   });
 
+  it('materialize() chains propose→approve→apply on the RETURNED ids and returns the applied proposal', async () => {
+    bootstrapPropose.mockResolvedValue(proposal({ id: 'p9', status: 'pending' }));
+    bootstrapApprove.mockResolvedValue(proposal({ id: 'p9', status: 'approved' }));
+    bootstrapApply.mockResolvedValue(proposal({
+      id: 'p9', status: 'applied',
+      applied_results: { e1: { chapter_id: 'c1', title: 'One' }, e2: { chapter_id: 'c2', title: 'Two' } },
+    }));
+
+    const { result } = renderHook(() => useBootstrap('b1', 'tok'));
+    let applied: unknown;
+    await act(async () => { applied = await result.current.materialize('r1'); });
+
+    // each step used the just-returned id 'p9' — NOT the (still-null this tick) proposal state
+    expect(bootstrapPropose).toHaveBeenCalledWith('b1', 'r1', 'tok');
+    expect(bootstrapApprove).toHaveBeenCalledWith('b1', 'p9', 'tok');
+    expect(bootstrapApply).toHaveBeenCalledWith('b1', 'p9', 'tok');
+    expect((applied as { status?: string })?.status).toBe('applied');
+    expect(result.current.proposal?.status).toBe('applied');
+    expect(result.current.busy).toBe(false);
+  });
+
+  it('materialize() surfaces the error and returns null when a step fails (no apply on a failed approve)', async () => {
+    bootstrapPropose.mockResolvedValue(proposal({ id: 'p9' }));
+    bootstrapApprove.mockRejectedValue(
+      Object.assign(new Error('Unprocessable Entity'), { body: { detail: 'adopt an ontology first' } }),
+    );
+    const { result } = renderHook(() => useBootstrap('b1', 'tok'));
+    let out: unknown = 'unset';
+    await act(async () => { out = await result.current.materialize('r1'); });
+    expect(out).toBeNull();
+    expect(result.current.error).toBe('adopt an ontology first');
+    expect(bootstrapApply).not.toHaveBeenCalled();
+  });
+
   it('reset() clears the proposal and error back to idle', async () => {
     bootstrapPropose.mockResolvedValue(proposal());
     const { result } = renderHook(() => useBootstrap('b1', 'tok'));

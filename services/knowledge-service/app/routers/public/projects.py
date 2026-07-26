@@ -555,16 +555,23 @@ async def patch_project(
     # in Neo4j tagged with the old model UUID while Mode-3 retrieval
     # queries the new model's vector space — silent zero-recall.
     # Route those changes through PUT /embedding-model?confirm=true
-    # which deletes the stale graph first. First-time setup
-    # (extraction_status='disabled') is fine because there is nothing
-    # to orphan. Same-value sets are no-ops, also fine.
+    # which deletes the stale graph first. First-time setup is fine
+    # because there is nothing to orphan. Same-value sets are no-ops,
+    # also fine.
+    #
+    # The "nothing to orphan" test is a PASSAGE-EXISTENCE probe, not
+    # `extraction_status`: that column reads 'disabled' both after a graph
+    # delete (vectors gone) and after `POST /extraction/disable` (vectors
+    # explicitly preserved). See app/db/neo4j_repos/graph_state.py.
     if "embedding_model" in body.model_fields_set:
+        from app.db.neo4j_repos.graph_state import project_has_embedded_passages
+
         current = await repo.get(user_id, project_id)
         if current is None:
             raise _not_found()
         if (
             body.embedding_model != current.embedding_model
-            and current.extraction_status != "disabled"
+            and await project_has_embedded_passages(user_id, project_id)
         ):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,

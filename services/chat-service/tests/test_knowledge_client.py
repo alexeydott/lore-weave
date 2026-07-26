@@ -508,6 +508,52 @@ class TestKnowledgeClientHeaders:
         assert captured[0].headers.get("X-Internal-Token") == "unit-test-token"
         await client.aclose()
 
+    @pytest.mark.asyncio
+    async def test_mcp_execute_tool_stringifies_uuid_object_id_headers(self):
+        """Regression (found live 2026-07-25): session_id/project_id/book_id can arrive
+        as uuid.UUID OBJECTS from asyncpg (a suspended-run record on the resume path).
+        httpx rejects a non-str header value ("Header value must be str or bytes, not
+        UUID"), which silently aborted the whole tool call — on the resume path it killed
+        glossary_task_provide_input so an accepted adopt-standards gate never ran its write
+        (book ontology kinds never created). The client must str() every id header. We
+        assert on the headers the client hands to `streamablehttp_client` (mcp_execute_tool
+        uses the MCP streamable transport, not the injected httpx MockTransport)."""
+        from uuid import UUID
+        from unittest.mock import patch
+
+        captured: dict = {}
+
+        class _FakeStreamCtx:
+            def __init__(self, url, headers=None, **kw):
+                captured.update(headers or {})
+
+            async def __aenter__(self):
+                # Short-circuit AFTER the client built its headers — every value in
+                # `captured` must already be a plain str (that IS the fix under test).
+                raise RuntimeError("stop-after-header-capture")
+
+            async def __aexit__(self, *a):
+                return False
+
+        client = _make_client()
+        with patch("app.client.knowledge_client.streamablehttp_client", _FakeStreamCtx):
+            await client.mcp_execute_tool(
+                user_id=UUID("019d5e3c-7cc5-7e6a-8b27-1344e148bf7c"),
+                session_id=UUID("019f99fd-6594-7ee2-bf56-b8d167b405dd"),
+                project_id=UUID("019f99fd-6353-7fe8-9931-ea547fe4a339"),
+                book_id=UUID("019f99fd-6352-7fe8-9931-ea547fe4a339"),
+                tool_name="glossary_task_provide_input",
+                tool_args={"task_id": "t1", "accepted": True},
+            )
+        assert captured.get("X-Project-Id") == "019f99fd-6353-7fe8-9931-ea547fe4a339"
+        assert captured.get("X-Book-Id") == "019f99fd-6352-7fe8-9931-ea547fe4a339"
+        assert captured.get("X-Session-Id") == "019f99fd-6594-7ee2-bf56-b8d167b405dd"
+        assert captured.get("X-User-Id") == "019d5e3c-7cc5-7e6a-8b27-1344e148bf7c"
+        # Every id header is a plain str — no uuid.UUID would survive to poison httpx.
+        for k in ("X-Project-Id", "X-Book-Id", "X-Session-Id", "X-User-Id"):
+            assert isinstance(captured[k], str)
+        await client.aclose()
+
 
 # ── singleton lifecycle (K4-I1 lesson) ─────────────────────────────────────
 
@@ -1350,6 +1396,42 @@ def test_error_envelope_json_without_code_omits_it():
 
     out = _error_envelope('{"message":"boom"}')
     assert out == {"success": False, "result": None, "error": "boom"}
+
+
+def test_error_envelope_decodes_the_REAL_fastmcp_wire_shape():
+    """K18 — the shape the PRODUCER actually emits, not the one the contract describes.
+
+    FastMCP wraps every raised ToolError as `Error executing tool <name>: {c4 body}`. The
+    tests above feed a BARE body, which production never sends — so `text.startswith("{")`
+    was always False and the C4 decoding NEVER RAN: every tool failure degraded to raw text
+    and the stable `code` a workflow branches on (C5) was silently lost.
+
+    Captured verbatim from a live ai-gateway probe on 2026-07-23.
+    """
+    from app.client.knowledge_client import _error_envelope
+
+    out = _error_envelope(
+        'Error executing tool kg_add_nodes: {"code":"KG_ENDPOINT_NOT_NODE",'
+        '"message":"invalid arguments: mode=manual requires name and kind",'
+        '"detail":{"missing":["name"]}}'
+    )
+    assert out["code"] == "KG_ENDPOINT_NOT_NODE", (
+        "the prefix swallowed the C4 body — a workflow cannot branch on a code it never sees"
+    )
+    assert out["error"] == "invalid arguments: mode=manual requires name and kind"
+    assert out["detail"] == {"missing": ["name"]}
+    assert "Error executing tool" not in out["error"], (
+        "the model must read the message, not the SDK's plumbing"
+    )
+
+
+def test_error_envelope_keeps_a_plain_text_error_that_merely_starts_that_way():
+    # The stripper is deliberately narrow (it requires a `{` right after the colon), so a
+    # genuine prose error is never truncated into nonsense.
+    from app.client.knowledge_client import _error_envelope
+
+    out = _error_envelope("Error executing tool: the upstream service is down")
+    assert out["error"] == "Error executing tool: the upstream service is down"
 
 
 def test_error_envelope_plain_text_degrades():

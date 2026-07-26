@@ -25,6 +25,7 @@ import logging
 import re
 import uuid
 from contextvars import ContextVar
+from collections.abc import Mapping
 
 
 def _json_formatter(fmt: str) -> logging.Formatter:
@@ -76,9 +77,28 @@ class RedactFilter(logging.Filter):
             record.msg = _redact(record.msg)
         if record.args:
             try:
-                record.args = tuple(
-                    _redact(a) if isinstance(a, str) else a for a in record.args
-                )
+                # `record.args` is a MAPPING whenever the caller passed a single non-empty
+                # dict — stdlib `LogRecord.__init__` unwraps `logger.x(msg, a_dict)` to
+                # `self.args = a_dict` (it is how `%(name)s` formatting is supported).
+                # Iterating a Mapping yields its KEYS, so the tuple() below used to rewrite
+                # `{"event_type": ..., "payload": ...}` into `("event_type", "payload")`.
+                # The message then formatted one `%s` against a 2-tuple and raised
+                # "not all arguments converted" INSIDE logging — where the stdlib swallows
+                # it via handleError, so the log line was simply LOST (stderr got a bare
+                # "--- Logging error ---"). Every Python service using this kit was exposed;
+                # found 2026-07-23 via composition's book-lifecycle consumer, whose
+                # `logger.warning("... %s", fields)` vanished whenever setup_logging was
+                # installed. Redaction also silently did nothing for mapping VALUES, which
+                # is where a secret would actually sit.
+                if isinstance(record.args, Mapping):
+                    record.args = {
+                        k: (_redact(v) if isinstance(v, str) else v)
+                        for k, v in record.args.items()
+                    }
+                else:
+                    record.args = tuple(
+                        _redact(a) if isinstance(a, str) else a for a in record.args
+                    )
             except Exception:
                 pass
         return True

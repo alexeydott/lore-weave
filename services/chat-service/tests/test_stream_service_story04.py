@@ -86,10 +86,10 @@ class TestGlossaryOnlySkillInject:
 
 class TestStudioSurface:
     @pytest.mark.asyncio
-    async def test_studio_context_advertises_studio_nav_tools(self):
-        """#09 Lane A — closing the loop: a request carrying studio_context makes the REAL
-        stream path advertise the studio dock-nav frontend tools (ui_open_studio_panel /
-        ui_focus_manuscript_unit) into the tool loop, so the agent can call them."""
+    async def test_studio_context_does_not_advertise_deprecated_nav_tools(self):
+        """DEPRECATED 2026-07-25 — closing the loop on the deprecation: a request carrying
+        studio_context makes the REAL stream path NOT advertise the studio dock-nav frontend tools
+        (ui_open_studio_panel / ui_focus_manuscript_unit) — GUI control is user/logic-driven."""
         pool, conn = _make_pool_with_conn()
         pool.fetchrow.return_value = _session_row()
         pool.fetch.return_value = []
@@ -123,8 +123,8 @@ class TestStudioSurface:
 
         extra_fe = loop_mock.call_args.kwargs["discovery_extra_frontend"]
         names = {t["function"]["name"] for t in extra_fe}
-        assert "ui_open_studio_panel" in names
-        assert "ui_focus_manuscript_unit" in names
+        assert "ui_open_studio_panel" not in names
+        assert "ui_focus_manuscript_unit" not in names
 
     @pytest.mark.asyncio
     async def test_studio_context_seeds_the_composition_domain_hot(self):
@@ -169,7 +169,10 @@ class TestStudioSurface:
         assert "composition_list_outline" in seeds
         assert "composition_outline_node_update" in seeds
         # book_* stays lazy even on the studio surface.
-        assert "book_get_chapter" not in seeds
+        # `book` is a hot domain on a studio surface too (2026-07-07 hot-domain
+        # derivation), so book tools seed here. The mechanism this guards is that the seed
+        # is DOMAIN-SCOPED — assert an off-surface domain stays lazy instead.
+        assert not any(n.startswith("translation_") for n in seeds)
 
     @pytest.mark.asyncio
     async def test_studio_context_position_pointer_in_system_message(self):
@@ -211,7 +214,10 @@ class TestStudioSurface:
         assert system is not None
         content = system["content"] if isinstance(system["content"], str) \
             else " ".join(p["text"] for p in system["content"])
-        assert "book_id=b1" in content
+        # Studio context binding (spec 2026-07-22): the ambient book rides X-Book-Id and
+        # the model is told NOT to pass a book_id, so the UUID is deliberately absent.
+        assert "book_id=b1" not in content
+        assert "Do NOT pass a book_id" in content
         assert "chapter_id=ch1" in content
         assert "project_id=p1" in content
         assert "a book_id is NOT a project_id" in content

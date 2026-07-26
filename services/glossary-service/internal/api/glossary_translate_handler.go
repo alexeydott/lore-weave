@@ -34,7 +34,7 @@ type translationCandidateEntity struct {
 }
 
 type translationCandidatesResp struct {
-	BookID         string                       `json:"book_id"`
+	BookID         string                       `json:"book_id,omitempty"`
 	TargetLanguage string                       `json:"target_language"`
 	Total          int                          `json:"total"`
 	Limit          int                          `json:"limit"`

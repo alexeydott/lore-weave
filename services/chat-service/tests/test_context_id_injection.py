@@ -5,11 +5,64 @@ because the book_id is only a prose note, never filled into args → VALIDATION-
 server knows the id; `_inject_context_ids` supplies it. Pure helper, no DB.
 """
 
+import json
+from uuid import UUID
+
 import app.services.stream_service as ss
 
 
-def _tool(name, props):
-    return {"function": {"name": name, "parameters": {"type": "object", "properties": props}}}
+def _tool(name, props, meta=None):
+    fn = {"name": name, "parameters": {"type": "object", "properties": props}}
+    if meta is not None:
+        fn["_meta"] = meta
+    return {"function": fn}
+
+
+def test_ambient_book_tool_does_NOT_backfill_book_id():
+    # Studio context binding (2026-07-22): an ambient_book tool resolves book_id from the envelope
+    # (X-Book-Id) server-side, so injection must NOT fill it as an arg (else scope_source reads "arg").
+    td = _tool(
+        "book_structure_edit",
+        {"book_id": {"type": "string"}, "op": {"type": "string"}},
+        meta={"tier": "A", "scope": "book", "ambient_book": True},
+    )
+    args: dict = {"op": "create_part"}
+    ss._inject_context_ids(args, td, book_id="B1", chapter_id="C1", project_id="P1")
+    assert "book_id" not in args  # left for the envelope to resolve
+
+
+def test_ambient_book_tool_STILL_backfills_project_id():
+    # Only book_id is ambient; chapter_id/project_id still backfill as before.
+    td = _tool(
+        "book_structure_edit",
+        {"book_id": {"type": "string"}, "project_id": {"type": "string"}},
+        meta={"ambient_book": True},
+    )
+    args: dict = {}
+    ss._inject_context_ids(args, td, book_id="B1", chapter_id=None, project_id="P1")
+    assert "book_id" not in args
+    assert args["project_id"] == "P1"
+
+
+def test_ambient_project_tool_does_NOT_backfill_project_id():
+    # composition: an ambient_project tool resolves project_id from the envelope (X-Project-Id).
+    td = _tool(
+        "composition_arc_get",
+        {"project_id": {"type": "string"}, "arc_id": {"type": "string"}},
+        meta={"tier": "R", "scope": "project", "ambient_project": True},
+    )
+    args: dict = {"arc_id": "A1"}
+    ss._inject_context_ids(args, td, book_id="B1", chapter_id=None, project_id="P1")
+    assert "project_id" not in args  # left for the envelope to resolve
+    # book_id still backfills unless ALSO ambient_book (it's not declared here anyway)
+
+
+def test_non_ambient_tool_still_backfills_book_id():
+    # A tool WITHOUT the flag keeps the S02 behavior (book_id backfilled).
+    td = _tool("book_chapter_save_draft", {"book_id": {"type": "string"}}, meta={"tier": "A", "scope": "book"})
+    args: dict = {}
+    ss._inject_context_ids(args, td, book_id="B1", chapter_id=None, project_id=None)
+    assert args["book_id"] == "B1"
 
 
 def test_fills_missing_book_id():
@@ -45,6 +98,34 @@ def test_overrides_a_MALFORMED_model_supplied_id():
     args = {"book_id": real + "6"}
     ss._inject_context_ids(args, td, book_id=real, chapter_id=None, project_id=None)
     assert args["book_id"] == real
+
+
+# ── UUID-object coercion (found live 2026-07-25 — a 500 that crashed the whole turn) ──
+# `session_row["project_id"]` arrives from asyncpg as a uuid.UUID OBJECT, not a str, and
+# `args_obj` is JSON-serialized twice downstream (MCP wire + tool_calls_history at persist).
+# An un-coerced UUID there raised `TypeError: Object of type UUID is not JSON serializable`
+# and 500'd the turn (seen when the model mistranscribed project_id → the substitute branch
+# put the UUID object into args). Every injected id must be a JSON-serializable string.
+
+def test_backfilled_uuid_OBJECT_is_stringified():
+    td = _tool("kg_project_entities_to_nodes", {"project_id": {"type": "string"}})
+    args: dict = {}
+    pid = UUID("019f99c8-52c6-7cca-ada5-f7229f9ea5a7")
+    ss._inject_context_ids(args, td, book_id=None, chapter_id=None, project_id=pid)
+    assert args["project_id"] == str(pid)
+    assert isinstance(args["project_id"], str)
+    json.dumps(args)  # must not raise (this is the exact serialization that 500'd the turn)
+
+
+def test_substituted_uuid_OBJECT_over_a_mistranscription_is_stringified():
+    td = _tool("kg_project_entities_to_nodes", {"project_id": {"type": "string"}})
+    pid = UUID("019f99c8-52c6-7cca-ada5-f7229f9ea5a7")
+    # the model mistranscribed project_id (a char short) → the substitute branch fires
+    args = {"project_id": "019f99c8-52c7-cca-ada5-f7229f9ea5a7"}
+    ss._inject_context_ids(args, td, book_id=None, chapter_id=None, project_id=pid)
+    assert args["project_id"] == str(pid)
+    assert isinstance(args["project_id"], str)
+    json.dumps(args)  # must not raise
 
 
 def test_only_injects_keys_the_tool_declares():
@@ -108,3 +189,46 @@ def test_missing_required_names_empty_when_satisfied():
 
 def test_missing_required_names_unknown_tool_empty():
     assert ss._missing_required_names({}, None) == []
+
+
+# ── Studio single-book override (2026-07-25, user decision) ───────────────────
+# The writing studio works ONE book/Work at a time. A book-scoped tool that is NOT
+# ambient_book (e.g. plan_propose_spec) still REQUIRES book_id, but the studio prompt
+# tells the model not to pass one — so a weak model invents a VALID-but-WRONG book_id,
+# which the tool's grant-gate then refuses ("not found or not accessible"). On a studio
+# turn a book_id that differs from the studio's book is a hallucination, so it is
+# overridden to the studio's book. OFF a studio turn a different valid book_id is still
+# honored (a real cross-book call — see test_does_not_override_a_model_supplied_value).
+
+_AMBIENT = "019f5239-3f0d-7ad7-8fff-edd7176d056e"
+_WRONG = "019f0000-0000-7000-8000-000000000000"
+
+
+def test_studio_overrides_a_mismatched_valid_book_id():
+    td = _tool("plan_propose_spec", {"book_id": {"type": "string"}})
+    args = {"book_id": _WRONG}
+    ss._inject_context_ids(args, td, book_id=_AMBIENT, chapter_id=None, project_id=None, studio=True)
+    assert args["book_id"] == _AMBIENT  # hallucinated cross-book target corrected
+
+
+def test_non_studio_still_preserves_a_cross_book_id():
+    td = _tool("plan_propose_spec", {"book_id": {"type": "string"}})
+    args = {"book_id": _WRONG}
+    ss._inject_context_ids(args, td, book_id=_AMBIENT, chapter_id=None, project_id=None, studio=False)
+    assert args["book_id"] == _WRONG  # off-studio: a deliberate cross-book call survives
+
+
+def test_studio_leaves_a_matching_book_id_untouched():
+    td = _tool("plan_propose_spec", {"book_id": {"type": "string"}})
+    args = {"book_id": _AMBIENT}
+    ss._inject_context_ids(args, td, book_id=_AMBIENT, chapter_id=None, project_id=None, studio=True)
+    assert args["book_id"] == _AMBIENT
+
+
+def test_studio_drops_a_mismatched_book_id_on_an_ambient_book_tool():
+    # ambient_book tools resolve book_id from X-Book-Id; a mismatched supplied one is dropped
+    # so the envelope's ambient book wins (not the hallucinated arg).
+    td = _tool("book_structure_edit", {"book_id": {"type": "string"}}, meta={"ambient_book": True})
+    args = {"book_id": _WRONG, "op": "create_part"}
+    ss._inject_context_ids(args, td, book_id=_AMBIENT, chapter_id=None, project_id=None, studio=True)
+    assert "book_id" not in args  # dropped → envelope resolves the studio's book

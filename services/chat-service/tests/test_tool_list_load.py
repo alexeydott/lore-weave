@@ -148,3 +148,73 @@ class TestToolLoadResult:
 class TestCategoryEnum:
     def test_enum_is_group_directory_plus_all(self):
         assert td.CATEGORY_ENUM == sorted(td.GROUP_DIRECTORY) + ["all"]
+
+
+# ── Outage visibility (2026-07-23) — the twin of find-tools.spec.ts ──────────────
+#
+# The H10 availability signal existed but was wired ONLY into find_tools, which F17
+# retired from the LLM's view — so during a real outage the LIVE discovery pair said
+# nothing. Measured with glossary down: tool_list("glossary") returned count=1 and read
+# as a complete, healthy answer, and tool_load answered `not_found` for a tool that
+# exists. The agent then told the user it had "loaded the glossary tools" and blamed the
+# USER for the failure. Keep these in lockstep with the gateway spec.
+
+_OUTAGE_CATALOG = [_tool("book_create", "Create a book"), _tool("book_list", "List books")]
+
+
+def test_tool_list_marks_the_listing_incomplete_and_names_the_provider():
+    p = td.tool_list_result(_OUTAGE_CATALOG, "book", unavailable_providers={"glossary"})
+    assert p["incomplete"] is True
+    assert p["unavailable_providers"] == ["glossary"]
+    assert "INCOMPLETE" in p["note"]
+
+
+def test_tool_list_stays_clean_when_all_providers_healthy():
+    # A guard that cries outage during normal operation is worse than no guard.
+    p = td.tool_list_result(_OUTAGE_CATALOG, "book", unavailable_providers=set())
+    assert "incomplete" not in p
+    assert "unavailable_providers" not in p
+    assert "note" not in p
+
+
+def test_tool_load_must_not_assert_not_found_while_a_provider_is_down():
+    p, loaded = td.tool_load_result(
+        _OUTAGE_CATALOG, name="glossary_propose_entities", unavailable_providers={"glossary"}
+    )
+    # The exact lie that cost the incident: asserting non-existence when it is unknowable.
+    assert "not_found" not in p
+    assert p["provider_unavailable"] == ["glossary_propose_entities"]
+    assert "does NOT mean the tool does not exist" in p["note"]
+    assert loaded == []
+
+
+def test_tool_load_still_asserts_not_found_when_the_catalog_is_complete():
+    p, _ = td.tool_load_result(_OUTAGE_CATALOG, name="no_such_tool", unavailable_providers=set())
+    assert p["not_found"] == ["no_such_tool"]
+    assert "provider_unavailable" not in p
+
+
+def test_outage_key_does_not_collide_with_the_broken_tool_key():
+    # `unavailable` already means a CD4 BROKEN tool (exists but reliably fails). Two
+    # different conditions must never share one name.
+    p, _ = td.tool_load_result(
+        _OUTAGE_CATALOG, name="glossary_propose_entities", unavailable_providers={"glossary"}
+    )
+    assert "unavailable" not in p
+
+
+def test_provider_availability_key_is_frozen():
+    """The cross-language key contract (F4, 2026-07-23).
+
+    ai-gateway stamps `_meta.unavailable_providers` (handlers.ts::availabilityMeta) and
+    chat-service reads it here. The two live in different services and languages, joined
+    only by this string — exactly the seam that hid the outage for weeks. Pin it: rename
+    it on either side and this reds.
+    """
+    assert td.provider_availability({"unavailable_providers": ["glossary"], "partial": True}) == {
+        "glossary"
+    }
+    # An absent/empty signal must NEVER be read as an outage (no false alarms).
+    assert td.provider_availability({}) == set()
+    assert td.provider_availability({"partial": False, "unavailable_providers": []}) == set()
+    assert td.provider_availability(None) == set()

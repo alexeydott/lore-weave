@@ -192,7 +192,9 @@ class TestAdvertiseSurfaceSnapshot:
         ))
         assert "tool_list" in out and "tool_load" in out
         assert "confirm_action" in out
-        assert "propose_record_edit" in out
+        # propose_record_edit was RETIRED in auto-gate M5 (2026-07-21) — the generic record
+        # diff card is gone; each domain edits via its own direct-write tool. `propose_edit`
+        # (the prose write-back) is the browser-executed survivor and is asserted above.
         assert "propose_edit" in out
 
     def test_meta_is_stripped_in_both_modes(self):

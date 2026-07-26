@@ -47,6 +47,21 @@ export const PROPOSE_EDIT_TOOL = {
     required: ['operation', 'text'],
     additionalProperties: false,
   },
+  // C-TOOL — declared, not inherited from the consumer's silent "R" default (K21). Every
+  // domain service is forced to declare a tier (Go panics, Python raises); ai-gateway's own
+  // hand-written defs are covered by no service gate, which is why an audit still found 8
+  // untiered tools after tool_list/tool_load were fixed.
+  //
+  // R is what this tool has ALWAYS effectively been, so declaring it changes no behaviour —
+  // and it is defensible on the merits: propose_edit commits nothing. The edit is shown with
+  // an Apply button and a HUMAN applies it, so the tool is self-confirming by construction
+  // and consumes no write budget, which is exactly the kit's definition of R.
+  //
+  // The debatable part, recorded rather than buried: R also means this stays advertised in
+  // ASK mode, so a read-only turn can still push proposed prose at the user. That is
+  // arguably right (nothing changes until they click) but it is a product call, not a
+  // mechanical one — if it should be W, the tier is now the single place to change it.
+  _meta: { tier: 'R', scope: 'none' },
 };
 
 export const PROPOSE_EDIT_NAME = PROPOSE_EDIT_TOOL.name;

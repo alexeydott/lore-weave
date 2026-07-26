@@ -22,78 +22,87 @@ import (
 )
 
 // RegisterPipelineProposeTools adds the M2 class-C propose tools to the user/book MCP server.
+// LEGACY (catalog-unification 2026-07-22 Part C): all four are superseded by
+// glossary_propose_curation (op enum). They stay registered (visibility:legacy) for existing
+// callers and share the SAME curation*Core funcs as the unified tool (no divergence).
 func (s *Server) RegisterPipelineProposeTools(srv *mcp.Server) {
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_propose_status_change",
 		Description: "Propose a BATCH status change for entities (active | inactive | draft | rejected) — e.g. " +
 			"approve drafts, retire stale entities, or reject a draft that shouldn't be kept. book_id + status + " +
 			"entity_ids (UUIDs). Returns a confirm card; a human approves before anything changes. Reversible " +
-			"(just set the status back).",
+			"(just set the status back). " +
+			"NOTE: superseded by glossary_propose_curation (op=status_change) — kept for existing callers only.",
 		InputSchema: closedSetSchemaFor[proposeStatusChangeToolIn](map[string][]any{
 			"status": {"active", "inactive", "draft", "rejected"},
 		}),
-		// Mints a grant confirm_token (no direct write) ⇒ Tier W.
-		Meta: lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil),
+		// Mints a grant confirm_token (no direct write) ⇒ Tier W. LEGACY → glossary_propose_curation.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolProposeStatusChange)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_propose_restore_revision",
-		Description: "Propose restoring an entity to one of its prior revisions (see glossary_list_entity_revisions). " +
+		Description: "Propose restoring an entity to one of its prior revisions (see glossary_get_entity include=revisions). " +
 			"book_id + entity_id + revision_id. DESTRUCTIVE: it prunes-then-restores the entity's attributes/" +
 			"translations/evidence/chapter-links to that snapshot (current values not in the snapshot are removed). " +
-			"Returns a confirm card; itself captured as a new revision, so it is reversible.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil),
+			"Returns a confirm card; itself captured as a new revision, so it is reversible. " +
+			"NOTE: superseded by glossary_propose_curation (op=restore_revision) — kept for existing callers only.",
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolProposeRestoreRevision)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_propose_reassign_kind",
 		Description: "Propose moving an entity to a different kind (triage the unknown bucket — see " +
-			"glossary_list_unknown_entities). book_id + entity_id + kind_code (the target kind's code). " +
+			"glossary_curation_list view=unknowns). book_id + entity_id + kind_code (the target kind's code). " +
 			"DESTRUCTIVE: attribute values whose code has no counterpart in the new kind are DROPPED (the confirm " +
-			"card previews exactly which). Recoverable via revision restore. Returns a confirm card.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil),
+			"card previews exactly which). Recoverable via revision restore. Returns a confirm card. " +
+			"NOTE: superseded by glossary_propose_curation (op=reassign_kind) — kept for existing callers only.",
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolProposeReassignKind)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_propose_merge",
-		Description: "Propose merging duplicate entities (see glossary_list_merge_candidates). book_id + winner_id " +
+		Description: "Propose merging duplicate entities (see glossary_curation_list view=merge_candidates). book_id + winner_id " +
 			"(kept) + loser_ids (merged away). DESTRUCTIVE: each loser is soft-deleted and its non-conflicting child " +
 			"rows + name/aliases fold into the winner. Losers must be the SAME kind as the winner. Returns a confirm " +
-			"card; each merge is journaled and reversible via the merge-journal revert.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil),
+			"card; each merge is journaled and reversible via the merge-journal revert. " +
+			"NOTE: superseded by glossary_propose_curation (op=merge) — kept for existing callers only.",
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolProposeMerge)
 }
 
 // proposeStatusChangeToolIn is named (not inline) so the registration can build
 // its closed-set schema from the same type the handler decodes (W0 #2).
 type proposeStatusChangeToolIn struct {
-	BookID    string   `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID    string   `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	Status    string   `json:"status" jsonschema:"active | inactive | draft"`
 	EntityIDs []string `json:"entity_ids" jsonschema:"the entities to change (UUIDs)"`
 }
 
+// toolProposeStatusChange is the LEGACY thin wrapper (catalog-unification 2026-07-22 Part C):
+// glossary_propose_curation op=status_change is the unified entry. Both share curationStatusChangeCore.
 func (s *Server) toolProposeStatusChange(ctx context.Context, req *mcp.CallToolRequest, in proposeStatusChangeToolIn) (*mcp.CallToolResult, any, error) {
-	userID, ok := userIDFromCtx(ctx)
-	if !ok {
-		return nil, confirmCardOut{}, errors.New("missing caller identity")
-	}
-	bookID, err := uuid.Parse(in.BookID)
+	userID, bookID, err := s.bookToolAuthAmbient(ctx, in.BookID, grantclient.GrantManage)
 	if err != nil {
-		return nil, confirmCardOut{}, errors.New("book_id must be a UUID")
+		return nil, confirmCardOut{}, err
 	}
-	status := strings.TrimSpace(in.Status)
+	return s.curationStatusChangeCore(ctx, req, userID, bookID, in.Status, in.EntityIDs)
+}
+
+// curationStatusChangeCore — shared post-auth core for the status-change curation op (used by
+// glossary_propose_curation op=status_change AND the legacy glossary_propose_status_change).
+// The caller has already resolved userID + bookID and enforced the Manage grant.
+func (s *Server) curationStatusChangeCore(ctx context.Context, req *mcp.CallToolRequest, userID, bookID uuid.UUID, statusRaw string, entityIDsRaw []string) (*mcp.CallToolResult, any, error) {
+	status := strings.TrimSpace(statusRaw)
 	if !validEntityStatus(status) {
 		return nil, confirmCardOut{}, errors.New("status must be active, inactive, draft, or rejected")
 	}
-	ids := parseEntityIDs(in.EntityIDs)
+	ids := parseEntityIDs(entityIDsRaw)
 	if len(ids) == 0 {
 		return nil, confirmCardOut{}, errors.New("at least one valid entity_id is required")
 	}
 	if len(ids) > 1000 {
 		return nil, confirmCardOut{}, errors.New("entity_ids must be at most 1000")
-	}
-	if err := s.checkGrant(ctx, bookID, userID, grantclient.GrantManage); err != nil {
-		return nil, confirmCardOut{}, uniformOwnershipError(err)
 	}
 	live, err := s.countLiveEntitiesInBook(ctx, bookID, ids)
 	if err != nil {
@@ -102,7 +111,7 @@ func (s *Server) toolProposeStatusChange(ctx context.Context, req *mcp.CallToolR
 	if live == 0 {
 		return nil, confirmCardOut{}, errors.New("none of the given entities are live in this book")
 	}
-	params := statusChangeParams{Status: status, EntityIDs: in.EntityIDs}
+	params := statusChangeParams{Status: status, EntityIDs: entityIDsRaw}
 	rows := []previewRow{
 		{Label: "new status", Value: status},
 		{Label: "entities updated", Value: fmt.Sprint(live)},
@@ -121,29 +130,29 @@ func (s *Server) toolProposeStatusChange(ctx context.Context, req *mcp.CallToolR
 	return s.gateOrCard(ctx, req, descStatusChange, bookID, userID, params, card, cardErr)
 }
 
+// toolProposeRestoreRevision is the LEGACY thin wrapper — glossary_propose_curation
+// op=restore_revision is the unified entry; both share curationRestoreRevisionCore.
 func (s *Server) toolProposeRestoreRevision(ctx context.Context, req *mcp.CallToolRequest, in struct {
-	BookID     string `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID     string `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	EntityID   string `json:"entity_id" jsonschema:"the entity (UUID)"`
-	RevisionID string `json:"revision_id" jsonschema:"the revision to restore to (UUID; see glossary_list_entity_revisions)"`
+	RevisionID string `json:"revision_id" jsonschema:"the revision to restore to (UUID; see glossary_get_entity include=revisions)"`
 }) (*mcp.CallToolResult, any, error) {
-	userID, ok := userIDFromCtx(ctx)
-	if !ok {
-		return nil, confirmCardOut{}, errors.New("missing caller identity")
-	}
-	bookID, err := uuid.Parse(in.BookID)
+	userID, bookID, err := s.bookToolAuthAmbient(ctx, in.BookID, grantclient.GrantManage)
 	if err != nil {
-		return nil, confirmCardOut{}, errors.New("book_id must be a UUID")
+		return nil, confirmCardOut{}, err
 	}
-	entityID, err := uuid.Parse(strings.TrimSpace(in.EntityID))
+	return s.curationRestoreRevisionCore(ctx, req, userID, bookID, in.EntityID, in.RevisionID)
+}
+
+// curationRestoreRevisionCore — shared post-auth core (caller resolved userID + bookID + Manage grant).
+func (s *Server) curationRestoreRevisionCore(ctx context.Context, req *mcp.CallToolRequest, userID, bookID uuid.UUID, entityIDRaw, revisionIDRaw string) (*mcp.CallToolResult, any, error) {
+	entityID, err := uuid.Parse(strings.TrimSpace(entityIDRaw))
 	if err != nil {
 		return nil, confirmCardOut{}, errors.New("entity_id must be a UUID")
 	}
-	revID, err := uuid.Parse(strings.TrimSpace(in.RevisionID))
+	revID, err := uuid.Parse(strings.TrimSpace(revisionIDRaw))
 	if err != nil {
 		return nil, confirmCardOut{}, errors.New("revision_id must be a UUID")
-	}
-	if err := s.checkGrant(ctx, bookID, userID, grantclient.GrantManage); err != nil {
-		return nil, confirmCardOut{}, uniformOwnershipError(err)
 	}
 	inBook, err := s.entityBelongsToBook(ctx, entityID, bookID)
 	if err != nil {
@@ -173,29 +182,29 @@ func (s *Server) toolProposeRestoreRevision(ctx context.Context, req *mcp.CallTo
 	return s.gateOrCard(ctx, req, descRestoreRevision, bookID, userID, params, card, cerr)
 }
 
+// toolProposeReassignKind is the LEGACY thin wrapper — glossary_propose_curation
+// op=reassign_kind is the unified entry; both share curationReassignKindCore.
 func (s *Server) toolProposeReassignKind(ctx context.Context, req *mcp.CallToolRequest, in struct {
-	BookID   string `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID   string `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	EntityID string `json:"entity_id" jsonschema:"the entity to move (UUID)"`
 	KindCode string `json:"kind_code" jsonschema:"the target kind's code (see glossary_book_ontology_read)"`
 }) (*mcp.CallToolResult, any, error) {
-	userID, ok := userIDFromCtx(ctx)
-	if !ok {
-		return nil, confirmCardOut{}, errors.New("missing caller identity")
-	}
-	bookID, err := uuid.Parse(in.BookID)
+	userID, bookID, err := s.bookToolAuthAmbient(ctx, in.BookID, grantclient.GrantManage)
 	if err != nil {
-		return nil, confirmCardOut{}, errors.New("book_id must be a UUID")
+		return nil, confirmCardOut{}, err
 	}
-	entityID, err := uuid.Parse(strings.TrimSpace(in.EntityID))
+	return s.curationReassignKindCore(ctx, req, userID, bookID, in.EntityID, in.KindCode)
+}
+
+// curationReassignKindCore — shared post-auth core (caller resolved userID + bookID + Manage grant).
+func (s *Server) curationReassignKindCore(ctx context.Context, req *mcp.CallToolRequest, userID, bookID uuid.UUID, entityIDRaw, kindCodeRaw string) (*mcp.CallToolResult, any, error) {
+	entityID, err := uuid.Parse(strings.TrimSpace(entityIDRaw))
 	if err != nil {
 		return nil, confirmCardOut{}, errors.New("entity_id must be a UUID")
 	}
-	kindCode := strings.TrimSpace(in.KindCode)
+	kindCode := strings.TrimSpace(kindCodeRaw)
 	if kindCode == "" {
 		return nil, confirmCardOut{}, errors.New("kind_code is required")
-	}
-	if err := s.checkGrant(ctx, bookID, userID, grantclient.GrantManage); err != nil {
-		return nil, confirmCardOut{}, uniformOwnershipError(err)
 	}
 	inBook, err := s.entityBelongsToBook(ctx, entityID, bookID)
 	if err != nil {
@@ -241,34 +250,34 @@ func (s *Server) toolProposeReassignKind(ctx context.Context, req *mcp.CallToolR
 	return s.gateOrCard(ctx, req, descReassignKind, bookID, userID, params, card, cerr)
 }
 
+// toolProposeMerge is the LEGACY thin wrapper — glossary_propose_curation op=merge is the
+// unified entry; both share curationMergeCore.
 func (s *Server) toolProposeMerge(ctx context.Context, req *mcp.CallToolRequest, in struct {
-	BookID   string   `json:"book_id" jsonschema:"the book (UUID)"`
+	BookID   string   `json:"book_id,omitempty" jsonschema:"the book (UUID)"`
 	WinnerID string   `json:"winner_id" jsonschema:"the entity to KEEP (UUID)"`
 	LoserIDs []string `json:"loser_ids" jsonschema:"the entities to merge away (UUIDs; same kind as the winner)"`
 }) (*mcp.CallToolResult, any, error) {
-	userID, ok := userIDFromCtx(ctx)
-	if !ok {
-		return nil, confirmCardOut{}, errors.New("missing caller identity")
-	}
-	bookID, err := uuid.Parse(in.BookID)
+	userID, bookID, err := s.bookToolAuthAmbient(ctx, in.BookID, grantclient.GrantManage)
 	if err != nil {
-		return nil, confirmCardOut{}, errors.New("book_id must be a UUID")
+		return nil, confirmCardOut{}, err
 	}
-	winnerID, err := uuid.Parse(strings.TrimSpace(in.WinnerID))
+	return s.curationMergeCore(ctx, req, userID, bookID, in.WinnerID, in.LoserIDs)
+}
+
+// curationMergeCore — shared post-auth core (caller resolved userID + bookID + Manage grant).
+func (s *Server) curationMergeCore(ctx context.Context, req *mcp.CallToolRequest, userID, bookID uuid.UUID, winnerIDRaw string, loserIDsRaw []string) (*mcp.CallToolResult, any, error) {
+	winnerID, err := uuid.Parse(strings.TrimSpace(winnerIDRaw))
 	if err != nil {
 		return nil, confirmCardOut{}, errors.New("winner_id must be a UUID")
 	}
-	losers := make([]string, 0, len(in.LoserIDs))
-	for _, raw := range in.LoserIDs {
+	losers := make([]string, 0, len(loserIDsRaw))
+	for _, raw := range loserIDsRaw {
 		if id, perr := uuid.Parse(strings.TrimSpace(raw)); perr == nil && id != winnerID {
 			losers = append(losers, id.String())
 		}
 	}
 	if len(losers) == 0 {
 		return nil, confirmCardOut{}, errors.New("at least one loser_id (distinct from the winner) is required")
-	}
-	if err := s.checkGrant(ctx, bookID, userID, grantclient.GrantManage); err != nil {
-		return nil, confirmCardOut{}, uniformOwnershipError(err)
 	}
 	// Mint-time validation: the winner must be a live entity in this book.
 	winnerInBook, err := s.entityBelongsToBook(ctx, winnerID, bookID)

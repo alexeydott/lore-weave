@@ -43,7 +43,7 @@ type compactAttr struct {
 }
 
 type compactBookOntology struct {
-	BookID     string         `json:"book_id"`
+	BookID     string         `json:"book_id,omitempty"`
 	Genres     []compactGenre `json:"genres"`
 	Kinds      []compactKind  `json:"kinds"`
 	Attributes []compactAttr  `json:"attributes"`

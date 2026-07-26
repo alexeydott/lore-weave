@@ -1082,7 +1082,9 @@ async def test_list_versions_summary_drops_heavy_metadata_keeps_refs():
     assert len(str(summ["languages"])) < len(str(full["languages"])) * 0.7
 
 
-async def test_list_versions_default_is_full_and_shape_preserved():
+async def test_list_versions_default_is_summary_and_full_is_opt_in():
+    # K37 drain (2026-07-24): the default flipped full→summary (OUT-2). `detail=full`
+    # stays an explicit opt-in that still returns the heavy fields (model_ref).
     from app.grant_client import GrantLevel
 
     rows = [_version_row()]
@@ -1090,11 +1092,15 @@ async def test_list_versions_default_is_full_and_shape_preserved():
     pool.fetch = AsyncMock(return_value=rows)
     async with _patched(grant_level=GrantLevel.OWNER, pool=pool) as (srv, ctx):
         res = await srv.translation_list_versions(
-            ctx, book_id=BOOK, chapter_id=CHAPTER)  # no detail arg → full
-    assert res["detail"] == "full"
+            ctx, book_id=BOOK, chapter_id=CHAPTER)  # no detail arg → summary
+        full = await srv.translation_list_versions(
+            ctx, book_id=BOOK, chapter_id=CHAPTER, detail="full")
+    assert res["detail"] == "summary"
     assert res["chapter_id"] == CHAPTER
     assert res["languages"][0]["target_language"] == "en"
-    assert res["languages"][0]["versions"][0]["model_ref"] == _MODEL
+    # full opt-in preserves the heavy model_ref the summary shape drops
+    assert full["detail"] == "full"
+    assert full["languages"][0]["versions"][0]["model_ref"] == _MODEL
 
 
 async def test_list_versions_limit_reports_truncated():
@@ -1171,7 +1177,9 @@ async def test_job_status_summary_drops_chapter_error_and_tokens_keeps_refs():
     assert len(str(summ["chapters"])) < len(str(full["chapters"])) * 0.5
 
 
-async def test_job_status_default_is_full():
+async def test_job_status_default_is_summary_and_full_is_opt_in():
+    # K37 drain (2026-07-24): default flipped full→summary (OUT-2); `detail=full` still
+    # returns the heavy per-chapter error_message the summary shape drops.
     from app.grant_client import GrantLevel
 
     job_row = {
@@ -1182,6 +1190,30 @@ async def test_job_status_default_is_full():
     pool.fetchrow = AsyncMock(return_value=job_row)
     pool.fetch = AsyncMock(return_value=[_chapter_row()])
     async with _patched(grant_level=GrantLevel.OWNER, pool=pool) as (srv, ctx):
-        res = await srv.translation_job_status(ctx, job_id=_JOB)  # no detail → full
-    assert res["detail"] == "full"
-    assert res["chapters"][0]["error_message"].startswith("TRACEBACK")
+        res = await srv.translation_job_status(ctx, job_id=_JOB)  # no detail → summary
+        full = await srv.translation_job_status(ctx, job_id=_JOB, detail="full")
+    assert res["detail"] == "summary"
+    assert full["detail"] == "full"
+    assert full["chapters"][0]["error_message"].startswith("TRACEBACK")
+
+
+async def test_job_status_default_limit_bounds_and_signals_truncation():
+    """K37 drain (2026-07-24): the default `limit` is now a bounded page (25, was None =
+    unbounded). The SQL fetches ALL chapters and the cap runs in apply_response_contract,
+    which sees the true total → `truncated` reports the drop; it is NEVER a silent cut. So a
+    30-chapter job returns 25 rows + truncated=5 by default; raise `limit` (or omit... no —
+    the default IS bounded now) to page."""
+    from app.grant_client import GrantLevel
+
+    job_row = {
+        "job_id": UUID(_JOB), "book_id": UUID(BOOK), "status": "running",
+        "target_language": "en", "total_chapters": 30, "error_message": None,
+    }
+    pool = AsyncMock()
+    pool.fetchrow = AsyncMock(return_value=job_row)
+    pool.fetch = AsyncMock(return_value=[_chapter_row() for _ in range(30)])
+    async with _patched(grant_level=GrantLevel.OWNER, pool=pool) as (srv, ctx):
+        res = await srv.translation_job_status(ctx, job_id=_JOB)  # no limit → bounded 25
+    assert len(res["chapters"]) == 25          # bounded default page
+    assert res["truncated"] == 5               # the drop is SIGNALLED, never silent
+    assert res["total"] == 30

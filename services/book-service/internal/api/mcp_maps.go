@@ -118,6 +118,22 @@ func (s *Server) toolWorldMapCreate(ctx context.Context, _ *mcp.CallToolRequest,
 		return nil, worldMapCreateOut{}, errors.New("world not found")
 	}
 	imageRef := strings.TrimSpace(in.ImageRef)
+	// K13 (2026-07-23) — idempotency guard against the agent double-firing this Tier-A
+	// create; same shape as the N6 chapter guard (mcp_tools_write.go). LIVE-PROBED:
+	// two byte-identical calls made two rows. Sequential tool calls make a pre-insert
+	// lookup sufficient; no DB unique, since a legitimate same-named sibling is possible.
+	{
+		var exID uuid.UUID
+		var exVer int
+		if err := s.pool.QueryRow(ctx,
+			`SELECT id, version FROM world_maps WHERE world_id=$1 AND owner_user_id=$2
+			   AND lower(name)=lower($3) ORDER BY id LIMIT 1`,
+			worldID, ownerID, name).Scan(&exID, &exVer); err == nil {
+			return nil, worldMapCreateOut{Map: worldMapDetail{
+				MapID: exID.String(), WorldID: worldID.String(), Name: name, Version: exVer,
+			}}, nil
+		}
+	}
 	var mapID uuid.UUID
 	var version int
 	if err := s.pool.QueryRow(ctx, `
@@ -168,6 +184,21 @@ func (s *Server) toolWorldMapAddMarker(ctx context.Context, _ *mcp.CallToolReque
 	}
 	if err := s.requireMapOwner(ctx, mapID, ownerID); err != nil {
 		return nil, mapAddMarkerOut{}, err
+	}
+	// K13 (2026-07-23) — idempotency guard against the agent double-firing this Tier-A
+	// create; same shape as the N6 chapter guard (mcp_tools_write.go). LIVE-PROBED:
+	// two byte-identical calls made two rows. Sequential tool calls make a pre-insert
+	// lookup sufficient; no DB unique, since a legitimate same-named sibling is possible.
+	// Keyed on the FULL placement (label + x + y): the same label at a different spot is a
+	// legitimate second marker, so only an exact repeat is treated as a double-fire.
+	{
+		var exID uuid.UUID
+		if err := s.pool.QueryRow(ctx,
+			`SELECT id FROM map_markers WHERE map_id=$1 AND lower(label)=lower($2)
+			   AND x=$3 AND y=$4 ORDER BY id LIMIT 1`,
+			mapID, label, in.X, in.Y).Scan(&exID); err == nil {
+			return nil, mapAddMarkerOut{MarkerID: exID.String()}, nil
+		}
 	}
 	var markerID uuid.UUID
 	if err := s.pool.QueryRow(ctx, `
@@ -221,6 +252,18 @@ func (s *Server) toolWorldMapAddRegion(ctx context.Context, _ *mcp.CallToolReque
 	}
 	if err := s.requireMapOwner(ctx, mapID, ownerID); err != nil {
 		return nil, mapAddRegionOut{}, err
+	}
+	// K13 (2026-07-23) — idempotency guard against the agent double-firing this Tier-A
+	// create; same shape as the N6 chapter guard (mcp_tools_write.go). LIVE-PROBED:
+	// two byte-identical calls made two rows. Sequential tool calls make a pre-insert
+	// lookup sufficient; no DB unique, since a legitimate same-named sibling is possible.
+	{
+		var exID uuid.UUID
+		if err := s.pool.QueryRow(ctx,
+			`SELECT id FROM map_regions WHERE map_id=$1 AND lower(name)=lower($2)
+			   ORDER BY id LIMIT 1`, mapID, name).Scan(&exID); err == nil {
+			return nil, mapAddRegionOut{RegionID: exID.String()}, nil
+		}
 	}
 	var regionID uuid.UUID
 	if err := s.pool.QueryRow(ctx, `

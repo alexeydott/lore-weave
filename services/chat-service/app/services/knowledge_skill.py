@@ -41,17 +41,20 @@ fact / vocab codes for this project — never guess a code.
 NOT enter the graph directly. If an edge type is temporal you MUST supply \
 `valid_from` (the chapter it began), or the proposal is rejected. \
 `memory_remember` stores a low-confidence, reviewable fact.
-- Shaping the project's ontology is high-impact and confirm-gated: \
-`kg_adopt_template` (adopt a schema), `kg_schema_edit` (add/deprecate an edge or \
-fact type), and `kg_sync_apply` (pull upstream template changes) each return a \
-`confirm_token` + `descriptor` + a preview — the user confirms before anything \
-changes. Only say a change happened once a tool result confirms it.
-- **Adopt FIRST, then edit.** `kg_schema_edit` only works on a project that has \
+- Shaping the project's ontology is high-impact and confirm-gated — all three go through \
+ONE tool, `kg_ontology_propose`, picking an `op`: `adopt_template` (adopt a schema, needs \
+`source_schema_id` from `kg_list_templates`), `schema_edit` (add/deprecate an edge or fact \
+type, needs `verb`/`level`/`code`), and `sync_apply` (pull upstream template changes, needs \
+`base_source_hash` from `kg_sync_available`). Each returns a `confirm_token` + `descriptor` \
++ a preview — the user confirms before anything changes. Only say a change happened once a \
+tool result confirms it.
+- **Adopt FIRST, then edit.** `op="schema_edit"` only works on a project that has \
 adopted its OWN schema — a project still inheriting the read-only System template \
-has nothing project-local to edit (the tool returns "no adopted ontology to edit"). \
+has nothing project-local to edit (it returns "no adopted ontology to edit"). \
 So to add edge types (e.g. HUNTS / TURNED_BY / PROTECTS), the order is: \
-`kg_adopt_template` → user confirms → THEN `kg_schema_edit` for each edge type → \
-user confirms each. Don't call `kg_schema_edit` before the project has adopted.
+`kg_ontology_propose(op="adopt_template")` → user confirms → THEN \
+`kg_ontology_propose(op="schema_edit")` for each edge type → user confirms each. \
+Don't propose a `schema_edit` before the project has adopted.
 
 ## Triage (off-schema items)
 - `kg_triage_list` shows extracted elements that didn't match the schema, parked \

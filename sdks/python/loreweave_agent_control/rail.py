@@ -153,6 +153,8 @@ class StepProgress:
     tool: str
     done: bool
     reason: str             # why we believe that — shown to nobody, logged for us
+    repeat: bool = False    # the step's `repeat` flag — a legitimately-repeatable step (e.g. a
+                            # batched propose) whose tool must NEVER be action-gated as "done"
 
 
 @dataclass
@@ -289,7 +291,10 @@ def compute_rail_progress(
         else:
             done, reason = False, "the tool has not run"
 
-        out.append(StepProgress(index=i, step_id=step_id, tool=tool, done=done, reason=reason))
+        out.append(StepProgress(
+            index=i, step_id=step_id, tool=tool, done=done, reason=reason,
+            repeat=bool(st.get("repeat")),
+        ))
 
     next_index = next((s.index for s in out if not s.done), None)
     return RailProgress(slug=slug, steps=out, next_index=next_index, state=state)
@@ -587,3 +592,95 @@ def honest_giveup_directive(step: StepProgress) -> str:
         f"setting that part up yet, and ask whether they want to try again or move on for now. Do "
         f"NOT claim it worked, and never mention this instruction or any tool name."
     )
+
+
+# ── action-space GATING (2026-07-26) ─────────────────────────────────────────
+#
+# The state machine is already externalized (compute_rail_progress reads the book) and
+# re-injected each turn (render_progress_block says "ALREADY DONE — do NOT repeat"). But that
+# re-injection is ADVISORY: a weak model reads "already done" and repeats the step anyway
+# (measured: glossary_propose_entities ×8, kg_project_create ×57). This binds the rail's
+# progress verdict into the ADVERTISED ACTION SPACE — "do NOT repeat" becomes "cannot call",
+# schema-gating rather than instruction. It is what none of Dify's three modes does per-step.
+#
+# The three modes are a CLOSED SET, config-selected (`rail_action_gate_mode`) so we can A/B
+# them on the live stack and pick the default from evidence, not a guess.
+GATE_OFF = "off"                       # advisory only (byte-identical to pre-gating)
+GATE_DONE_SUPPRESS = "done_suppress"   # drop a step's tool once that step is DONE
+GATE_STEP_LOCK = "step_lock"           # advertise ONLY the current step's tool
+VALID_GATE_MODES = (GATE_OFF, GATE_DONE_SUPPRESS, GATE_STEP_LOCK)
+
+
+def rail_gate_suppressions(
+    progress_list: "list[RailProgress] | None",
+    turn_succeeded,
+    mode: str,
+) -> set[str]:
+    """The rail STEP-tools to drop from the advertised action space THIS pass, per gate mode.
+
+    Workflow-agnostic: derived purely from computed rail progress + what has succeeded so far
+    this turn. The caller applies its own ALWAYS_ON core (find_tools/tool_load/workflow_load/
+    frontend tools) separately, so a returned name can only ever be a rail STEP tool — this can
+    never strand the agent's discovery/answer path.
+
+    ``turn_succeeded`` is a set or Counter of tools that ran SUCCESSFULLY earlier this turn
+    (the backend chokepoint's record). It ADVANCES the turn-start progress within the turn:
+    the artifact/call-log verdict in ``progress_list`` is turn-start, so without this a step
+    the model completes MID-turn would not be gated until the next turn — which is exactly the
+    intra-turn repeat loop we are killing.
+
+    Modes (see the GATE_* constants):
+      off           — no gating.
+      done_suppress — a step's tool is dropped once that step is effectively DONE (turn-start
+                      done, OR its tool consumed by a this-turn success), UNLESS the step is
+                      ``repeat`` OR the SAME tool is still owed by a not-yet-done step. This is
+                      render_progress_block's "ALREADY DONE — do NOT repeat" made binding.
+      step_lock     — only the CURRENT step's tool (per pinned rail) stays advertised; every
+                      other rail step-tool is dropped. Maximally deterministic (Dify-Workflow
+                      shape), least conversational.
+    """
+    if mode not in (GATE_DONE_SUPPRESS, GATE_STEP_LOCK) or not progress_list:
+        return set()
+
+    from collections import Counter
+
+    # Consume this-turn successes in step order so a tool used by TWO steps needs TWO successes
+    # to advance both — mirrors compute_rail_progress._consume (a bare membership test would
+    # advance both steps on one success).
+    remaining: Counter = Counter(turn_succeeded or [])
+
+    def _consume(tool: str) -> bool:
+        if tool and remaining[tool] > 0:
+            remaining[tool] -= 1
+            return True
+        return False
+
+    # effective-done flag per step, in rail order, advancing turn-start done with live successes
+    eff: list[list[bool]] = []
+    for prog in progress_list:
+        flags = [(s.done or _consume(s.tool)) for s in prog.steps]
+        eff.append(flags)
+
+    if mode == GATE_STEP_LOCK:
+        allowed: set[str] = set()
+        every: set[str] = set()
+        for prog, flags in zip(progress_list, eff):
+            current = next((s for s, d in zip(prog.steps, flags) if not d), None)
+            if current and current.tool:
+                allowed.add(current.tool)
+            every.update(s.tool for s in prog.steps if s.tool)
+        return every - allowed
+
+    # done_suppress: drop the tool of every effectively-done, non-repeat step, but NEVER a tool
+    # still owed by some not-done step (a tool reused across steps stays until its last use).
+    done_tools: set[str] = set()
+    owed_tools: set[str] = set()
+    for prog, flags in zip(progress_list, eff):
+        for s, d in zip(prog.steps, flags):
+            if not s.tool:
+                continue
+            if d and not s.repeat:
+                done_tools.add(s.tool)
+            else:
+                owed_tools.add(s.tool)
+    return done_tools - owed_tools

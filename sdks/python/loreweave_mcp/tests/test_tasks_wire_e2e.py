@@ -178,3 +178,31 @@ async def test_provide_input_tool_is_visibility_legacy():
     pi = next((t for t in tools if t.name == "composition_task_provide_input"), None)
     assert pi is not None, "provide-input tool not registered"
     assert (pi.meta or {}).get("visibility") == "legacy"
+
+
+@pytest.mark.asyncio
+async def test_provide_input_declares_an_action_tier():
+    """The ask-mode leak (2026-07-23) — Python twin of the Go kit's guard.
+
+    chat-service's `tool_tier()` defaults a MISSING tier to "R" (inert) on purpose, so an
+    untiered tool can never auto-commit. `*_task_provide_input` carried visibility only,
+    so it read as tier-R and survived the read-only ask-mode filter — a read-only turn
+    could drive a pending gate to completion, performing the write ask mode exists to
+    withhold. Accepting a gate RUNS the gated action, so it must declare an action tier.
+    """
+    from mcp.server.fastmcp import FastMCP
+
+    from loreweave_mcp.tasks import InMemoryTaskStore
+    from loreweave_mcp.tasks_wire import register_task_endpoints
+
+    fastmcp = FastMCP("tier-probe")
+    register_task_endpoints(fastmcp, InMemoryTaskStore(), tool_prefix="smoke")
+    tools = await fastmcp.list_tools()
+    tool = next(t for t in tools if t.name == "smoke_task_provide_input")
+    meta = getattr(tool, "meta", None) or {}
+    assert meta.get("tier") not in (None, "", "R"), (
+        f"provide-input must declare a NON-R tier (accepting runs the gated action); "
+        f"got {meta.get('tier')!r} — an untiered/R tool passes the ask-mode read-only filter"
+    )
+    # The CAT-4 visibility tag must survive alongside the tier.
+    assert meta.get("visibility") == "legacy"

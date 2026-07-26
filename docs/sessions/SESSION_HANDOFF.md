@@ -1,5 +1,474 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## 🏗️ ARCHITECTURE — chat = supporter, compile+draft = subagent (2026-07-26)
+**Human decision (this session):** the chat agent is a lightweight **SUPPORTER** (atomic edits —
+edit plan/glossary/KG, suggestions); the heavy **COMPILE + long-run DRAFTING** runs in the
+composition **authoring-run SUBAGENT** (designed for focused, high-attention long writing).
+- **Trigger seam = BOTH:** the Studio panels (plan-forge PassRail compile + Agent Mode NewRun) stay
+  the deliberate user-driven path; the chat supporter may also OFFER + launch the subagent run once
+  the foundation+plan is ready. **Scope = backend-first** (rails + materialization seam + prove E2E),
+  FE handoff polish next cycle.
+- **✅ MILESTONE 1 DONE — the authoring-run subagent drafts a REAL MULTI-SCENE CHAPTER E2E** (first
+  time ever; the "v2 regression" the human recalled). Live proof: compile(existing plan 019f9d2e) →
+  **bootstrap materialize** → authoring-run → book chapter `019f9d72-706d…` drafted **858 words / 19
+  blocks / grounded multi-scene prose** (DB-verified). 3 root-cause regressions fixed:
+  1. **`BootstrapService._stamp_planned_node`** stamped only the CHAPTER node (by `plan_event_id`),
+     not its SCENE children (scenes carry a derived `<event>:N` id) → scenes kept `chapter_id=NULL`
+     → `scenes_for_chapter` returned empty → chapter drafted with NO scene breakdown (the thin/short
+     bug). Now stamps chapter + scene children via `parent_id` (idempotent, repair-capable).
+  2. **`EngineDraftingSeam.draft_chapter`** deps omitted `grant`/`structures`/`motif_apps`/`motifs`
+     → `generate_chapter`'s `grant` stayed a `Depends()` sentinel → `'Depends' object has no
+     attribute 'resolve_grant'` crash. (Same class as the earlier `_execute_generate` fix.)
+  3. **Worker-persist gap:** with `COMPOSITION_WORKER_ENABLED=true`, `generate_chapter` enqueues +
+     returns 202; the worker drafts but persistence is a SEPARATE `persist_job` accept-step. The seam
+     polled to completion but never persisted → draft completed yet book chapter stayed EMPTY
+     (pre==post revision). Seam now calls `persist_job` after the poll.
+  - Also fixed a **pre-existing** unit failure (`test_confirm_executes_generate_chapter`): the
+    `client` fixture missed patching `app.deps.get_pool` (a separate binding my earlier
+    `_execute_generate` fix started using). VERIFY: full composition unit suite **2378 passed, 1
+    skipped**; shipped `_stamp_planned_node` directly exercised (0→2 scenes).
+- **DIAGNOSIS CORRECTED:** the materialization is NOT missing — it fully exists as the PlanForge
+  **auto-bootstrap gate** (`BootstrapService.propose→approve→apply` creates book chapters + stamps
+  `outline_node.chapter_id` + seeds glossary). The prior handoff note ("V2 dropped materialization")
+  was wrong; the real gaps were the 3 bugs above + it being **REST-ONLY** (no MCP → the agent can't
+  drive it).
+- **✅ MILESTONE 2 DONE — "update workflow + wire" (backend), committed:**
+  - **G1** exposed the bootstrap gate as MCP tools `plan_bootstrap_propose` (preview, writes nothing)
+    + `plan_bootstrap_apply` (confirm-gated CREATE) in composition `mcp/server.py`; the confirm
+    executes `_execute_bootstrap_apply` (approve→apply) in `routers/actions.py`. Fixes the MCP-first
+    invariant (materialization was REST-only). Catalog test `EXPECTED_TOOLS` updated.
+  - **G2** reshaped `vision-to-book` (agent-registry `migrate.go`): cut inline steps 10-12
+    (compile/draft); the rail now ENDS at the arc-plan proposal (9 steps) and its notes tell the chat
+    agent to OFFER the handoff, never compile/draft inline — the chat is a SUPPORTER.
+  - **G3** wired `autonomous-drafting` (5 steps): `preview-chapters` (plan_bootstrap_propose) →
+    `make-chapters` (plan_bootstrap_apply, confirm) → set-up → draft → watch = materialize-then-draft.
+  - VERIFY: Go build OK; composition unit suite 2378 passed / catalog test updated; both rails
+    confirmed in the agent-registry DB; **live cross-service smoke** — both bootstrap tools federate
+    through ai-gateway, propose→apply→confirm runs `_execute_bootstrap_apply` E2E (proposal `applied`).
+- **✅ MILESTONE 3 DONE — FE handoff (materialize in Agent-Mode), committed:**
+  - Found the FE materialize UI ALREADY existed but was SCATTERED: `useBootstrap`/`BootstrapPanel`
+    live in the Planner (`plan-forge`), while the authoring-run launcher is in Studio **Agent Mode**
+    (`studio/panels/agentMode/*`). A compiled-but-unmaterialised plan left Agent-Mode NewRun with an
+    empty chapter scope and only a **punt** ("Open Planner…") — a cross-panel dead-end.
+  - Added a `materialize(runId)` **one-shot** to `useBootstrap` (chains propose→approve→apply on the
+    RETURNED objects, not the stale `proposal` state) and wired it into `useNewRunForm` +
+    `NewRunView`: a compiled plan with no chapters now shows an in-place **"Create chapters from this
+    plan →"** button that materialises them, refetches the TOC, auto-selects the new chapters, and
+    shows "Created N chapters". No new API/contract (reuses the plan-forge bootstrap endpoints).
+  - VERIFY: `useBootstrap` 8 tests (incl. materialize chain + error-no-apply); AgentModePanel
+    materialize integration test (compiled plan + empty TOC → button → bootstrap → chapters appear);
+    plan-forge + studio-panels suites **866 passed**; tsc clean.
+- **✅ MILESTONE 4 DONE — chat→drafting deep-link (CODE-driven, not agent-driven), committed:**
+  - Discovered the naive approach (agent calls `ui_open_studio_panel`) contradicts a SEALED decision:
+    the studio GUI-nav tools were de-advertised **2026-07-25** — "GUI control is user/logic-driven, so
+    agent-driven nav only cost tokens." Human confirmed: "gui tool is remove from the mcp, we use code
+    logic to control GUI, not by agent."
+  - So the handoff CTA is USER-driven + CODE-driven: `useDraftHandoffCta(bookId)` detects a draftable
+    plan (validated|compiled, same filter as the New-run picker, SAME query key = warm cache); when
+    present, `ComposePanel` (the co-writer chat) shows a **"✍️ Start drafting →"** button that calls
+    `host.openPanel('agent-mode', { params: { view: 'new' } })`. `AgentModePanel` now honors a
+    `view:'new'` param (mount + DOCK-6 retarget) to deep-link straight to the New-run config. The chat
+    agent stays a pure supporter — it never drives the GUI.
+  - VERIFY: `useDraftHandoffCta` 4 tests; AgentModePanel `view:'new'` deep-link test; ComposePanel
+    CTA-visibility test; studio-panels suite **785 passed**; tsc clean.
+- **✅ MILESTONE 5 DONE — FULL LOOP PROVEN LIVE via Playwright (+ 2 real FE bugs caught & fixed):**
+  - Drove the whole handoff in a real browser (vite dev :5199, book 019f9d2b): co-writer chat
+    **"✍️ Start drafting →"** CTA (M4) → deep-linked straight to Agent-Mode **New run** (M4 param) →
+    model **auto-picked** (Gemma) → all 4 gate checks green → create+gate → **Start** → the subagent
+    drafted **"The Wet Ink"** on gemma → **paused for review** (pause-after-each-unit). Draft Review
+    showed real, canon-grounded multi-paragraph prose, a **pre→post revision diff** (persisted), and a
+    critic verdict **ok · coherence=5 voice=5 pacing=4 canon=5**, with Accept/Reject. The full loop
+    works end-to-end in the UI.
+  - **Two shipping FE bugs only a live run surfaced (both fixed, tsc + 113 tests green):**
+    1. `useNewRunForm.DEFAULT_TOOL_ALLOWLIST` shipped two names NOT in the backend `ALLOWLISTABLE_TOOLS`
+       (`composition_read_outline`→`composition_list_outline`; `glossary_lookup`→not allowlistable) →
+       **every** run creation 422'd. Corrected to a valid subset.
+    2. The New-run form never collected a **drafting model**, so `params.model_ref` was absent and every
+       run **failed on its first unit** ("params.model_ref required"). Added a `ModelPicker` (shared
+       `@/components/model-picker`) + a derived favourite/chat-safe default; the create body now sends
+       `params.{model_source,model_ref}`, and the gate-check button is blocked until a model resolves.
+    A regression test now locks BOTH in the create body.
+  - **WHOLE ARC BUILT FROM THE FE (2026-07-26):** after the 2 fixes, drove the run to completion in the
+    browser like a normal user — accept unit 1, un-check auto-pause, Resume (through the critic-severe
+    pauses, which are a DESIGNED quality gate, not a bug). Result: run **report-ready**, **all 10
+    chapters drafted + persisted** (DB-verified word counts 651/754/1049/857/1345/1565/1088/1606/894/780
+    = ~10,600 words, every chapter multi-scene), budget $0.60/$4. NO new functional bugs surfaced in the
+    10-chapter run. Two MINOR non-blocking observations: (a) MissionControl polls `/report` while the run
+    is ACTIVE → benign 409 console noise (report is only valid paused/report_ready — should gate the
+    fetch on status); (b) `heartbeat: STALE` shows during burst drafting — cosmetic (the field isn't
+    continuously updated), the run completed fine. Both are console/display polish, not blockers.
+- **▶ NEXT (all optional):**
+  - Minor FE polish from the full-arc run: gate the `/report` fetch on a paused/report-ready status (stop
+    the 409 console noise); tidy the STALE-heartbeat display during active drafting.
+  - Deferred unit guards (live-smoke + integration cover them now; both want a mock harness that
+    doesn't yet exist): the worker-persist branch of `EngineDraftingSeam.draft_chapter`, and
+    `_execute_bootstrap_apply`. Small, structural — track, don't block.
+  - TUNING (unchanged): per-scene length steer; `link_scene_plan` leaves scene `target_words` NULL.
+  - Full browser E2E of the whole loop (chat foundation → compile → materialise → subagent draft) —
+    every leg is unit/integration/live-smoke proven; a single Playwright pass would be the capstone.
+
+<details><summary>MILESTONE-1 detail + earlier investigation (2026-07-26)</summary>
+
+## 🔬 FULL-ARC PLANFORGE — pipeline PROVEN E2E, 2 bugs fixed (2026-07-26, deep-dive)
+Drove the full arc pipeline end-to-end for the FIRST time (scratchpad planforge_arc.py /
+planforge_drive.py). Results:
+- **✅ 7-pass scene compiler WORKS E2E** — a 10-chapter arc (`plan_propose_spec` rich outline →
+  `plan_compile`) → ran motifs/cast/world/beats/character_arcs/scenes/self_heal (cast+beats seeds
+  applied via composition REST + accepted) → **27 coherent scenes** (2-3/chapter, linked synopses).
+  Prereq: the book's Glossary ontology must be adopted first (newcomer step-4) or the cast seed
+  apply 422s "no Glossary ontology yet".
+- **✅ FIXED (c21cbd6f8) — composition_generate 500 that blocked ALL prose drafting.**
+  `_execute_generate`'s hand-built dep set for engine.generate drifted stale; `grant` fell back to
+  its unresolved `Depends()` → `'Depends' object has no attribute 'resolve_grant'`. Completed the
+  dep set. Prose now drafts real, coherent scenes.
+- **✅ FIXED (c21cbd6f8) — no scene length target.** `build_messages` carried no word goal (a
+  max_output_tokens cap is a ceiling). Threaded a LENGTH directive through the ACTUAL auto path
+  (enqueue input → **composition-worker (SEPARATE image!)** → diverge → build_messages). Steer now
+  in the prompt. TUNING REMAINS: gemma still drafts ~80-word scenes despite the 1000-word steer
+  (finish_reason=stop) — needs richer scene grounding or a stronger steer; length is a SOFT target
+  (per the human: real arcs vary; a scene ≈1000 words, gemma loses coherence past that).
+- **Still-open GAPs for agentic full-arc:** (1) no MCP tool for the cast/beats bootstrap
+  approve/apply (co-writer can't drive the scene checkpoints — only REST); (2) `link_scene_plan`
+  leaves scene `target_words` NULL (a per-scene planner target would drive length); (3) scene-by-
+  scene → 3000-word chapter assembly + full-arc drive not yet run agentically.
+- **THE LONG-CHAPTER PATH (human memory, confirmed):** long multi-scene chapters are drafted NOT by
+  per-scene `composition_generate` (a scene ≈ short) but by the autonomous **AUTHORING-RUN subagent**
+  composition-service SPAWNS: `composition_authoring_run_create` → `_gate` → `_start` (spawns the
+  subagent) → drafts each chapter unit → `_accept_unit`. Also `composition_generate` with a
+  `chapter_id` → `generate_chapter` assembles a whole chapter. Old proof: `scripts/
+  smoke_compose_generate_live.py`.
+- **NEXT-STEP GAP found driving the authoring run E2E:** the run's `scope` wants BOOK-service chapter
+  ids, but `plan_compile`/`link_outline_skeleton` creates only COMPOSITION `outline_node`s
+  (kind=chapter) — no book chapters → gate 400s "scope chapters not in this book". So the compiled
+  outline chapters must be MATERIALIZED as book chapters first, then scope the run over those.
+  Whether the V2 compiler refactor dropped that materialization is the likely "regression" the human
+  recalls (old E2E drafted 5-scene chapters) — the next investigation. Repro: scratchpad/
+  authoring_run.py + planforge_arc.py (book 019f9d2b, plan_run 019f9d2e, 10 ch / 27 scenes compiled).
+
+## 🔬 FULL-ARC PLANFORGE — investigation started, gaps mapped (2026-07-26)
+Goal (raised bar for production quality): the co-writer must write a WHOLE ARC — 10+ chapters,
+each chapter 3+ scenes / 3000+ words, each **scene ≈1000 words** (gemma-4 loses the thread past
+~1000/scene, so draft SCENE-BY-SCENE and stitch). PlanForge was designed for this but only the
+POC (1 arc, 7 ch, MOCK scenes, 0 prose) was ever tested; never E2E in the browser.
+- **Pipeline (mapped):** `plan_propose_spec` (outline: `##`=arc, `###`=event; 1 event→1 chapter,
+  uncapped) → `plan_compile` (SKELETON only: arc + chapters, 0 scenes) → 7-pass compiler
+  `plan_run_pass` (motifs→cast→world→beats→character_arcs→**scenes**→self_heal; cast+beats are
+  HUMAN-BLOCKING and each proposes GLOSSARY SEEDS, PF-7) → `plan_link target=scene_plan` →
+  **`composition_generate`** (a SEPARATE engine; prose length via `max_output_tokens`).
+- **✅ Proven this session:** compile SCALES — a 10-`###` outline → **10 chapters** clean
+  (1 arc structure_node + 10 chapter outline_nodes). `motifs`/`cast` passes RUN on gemma.
+- **GAP 1 (real agentic workflow bug):** the cast/beats glossary-seed proposals apply ONLY via
+  composition REST (`/v1/composition/books/…/plan/bootstrap/{id}/{approve,apply}`) — there is **NO
+  MCP tool**, so the co-writer chat CANNOT drive the scene-compiler past cast/beats autonomously.
+  This is the workflow bug blocking agentic full-arc E2E. FIX: add MCP tools (approve+apply) or fold
+  the seed-apply into `plan_review_checkpoint`.
+- **Prereq (not a bug):** apply needs the book's Glossary ONTOLOGY adopted first (the newcomer
+  step-4 adoption); an isolated PlanForge test that skips it fails "no Glossary ontology yet".
+- **Untested (Phase 2c/2d):** ANY prose drafting via `composition_generate` (scene-by-scene to
+  length) — proven nowhere. Multi-session build.
+- Repro scripts: scratchpad `planforge_arc.py` (propose/compile/pass/inspect) + `planforge_drive.py`.
+
+</details>
+
+## ✅ NEWCOMER SCENARIO — steps 3–8 all WORKING, verified through the REAL UI (2026-07-26)
+Full authoring flow works end-to-end. **Playwright drove the actual studio UI** as a real user
+(book 019f9cff): login → create book → open studio → co-writer chat, all 8 steps via the real
+confirm/approve cards. DB-verified at each step: desc set · 6 kinds + 3 entities · plan_run=1
+(arc "The Vanishing Path" + 3 beats) · Plan Hub renders arc+chapter · **step 8 write used
+`book_chapter_save_draft` (NOT book_update_details), 252 words of real prose** ("The ink was still
+wet, a dark shimmering vein…"). The fresh session advertised `book_chapter_save_draft` correctly,
+confirming the earlier write7 miss was purely the 10+-turn stress session's stale activation_state.
+Also proven earlier on the agui driver — chapter "The Vanishing Road", word_count=194, via
+`book_chapter_save_draft` (was a 19× loop before the fixes). Chain of fixes this session (each committed):
+- `ef00fd2a9` — rail tool-budget starved `plan_propose_spec` (late steps dropped in step order);
+  exclude DONE steps → step 5 plan lands (plan_run=1 + structure + chapter).
+- `7b3cbcd5e` / `da60c9b00` — write steps `repeat:true` + route single write-intent to the
+  `chapter-compose` rail (continued writing after vision-to-book completes).
+- `f315e30f1` — **repeated-FAILURE breaker** (keyed on (tool, ERROR) — a weak model varies args
+  but hits the same error) + **de-advertise escalation** (take the looping tool off the wire) +
+  chapter-compose list-first prose. Killed the `book_get_chapter` ×19 loop (was reusing the
+  project_id as a chapter id).
+- `c66702d31` — **unified `book_chapter_save_draft`**: `chapter_id` + `base_version` now OPTIONAL;
+  backend RESOLVES the chapter (by number/title, or the single chapter) + its current version;
+  returns a CLEAR outcome (title, number, new version, word_count). Model no longer guesses ids
+  or picks `book_update_details` for prose. Backward-compatible. `c5706747d` — rail simplified to
+  `list→draft`.
+- **KNOWN edge (tracked, not blocking newcomer):** in a HEAVILY-used session (10+ turns) the
+  advertised set comes from accumulated `activation_state`, which can crowd out even an
+  `ALWAYS_HOT_WRITE` — `book_chapter_save_draft` was absent on the stress session's write turn so
+  the model fell back to `book_update_details`. A FRESH session (the real newcomer path) advertises
+  it and writes correctly. Root-cause the activation_state prune/merge for long sessions next.
+
+## ✅ RAIL ACTION-SPACE GATING — built, measured, shipped (2026-07-26)
+**The reliable-workflow move the user asked for.** The rail state machine was already externalized
+(`compute_rail_progress` reads the book) + re-injected each turn (`render_progress_block`), but that
+re-injection is **advisory** — a weak model reads "ALREADY DONE — do NOT repeat" and repeats anyway.
+Now the verdict is **binding**: a proven-done step's tool is dropped from the advertised set at the
+single advertise chokepoint ("do NOT repeat" → "cannot call"). New pure SDK fn
+`rail_gate_suppressions(progress, turn_succeeded, mode)` (`loreweave_agent_control/rail.py`),
+workflow-agnostic, unioned into `_suppress` in `stream_service.py` (fresh + resume paths).
+- **Studied Dify first** (`D:\Works\source\dify`): agent mode = full flat toolset + iteration cap
+  (our exact limitation); workflow mode = engine owns control flow, LLM demoted to a per-node
+  function; newest `dify-agent-runtime` externalizes state + narrows tools but does **no** per-step
+  gating. Our gate is the middle path none of the three does. **No new library needed** — our
+  declarative workflow engine already exists (`agent-registry-service` stores tiered workflows as
+  data; adding one is a registry row, not code).
+- **3 modes** behind `RAIL_ACTION_GATE_MODE`, **measured** (weak qwen2.5-7b reproduces the loop;
+  gemma-4-26b = regression control): `off` 13-21 propose attempts/1.6-3.8M tok; **`done_suppress`
+  1-5 attempts/14K-277K tok, NO gemma regression (3/3 entities)**; `step_lock` 0 wander but
+  **regresses gemma (0 entities + `propose_entity_edit` ×59)** → disqualified. **Default =
+  `done_suppress`** (reactive beats pre-emptive, same lesson as oneshot `existence`). Table:
+  `docs/eval/e2e-newcomer/2026-07-25-newcomer-run.md` (2026-07-26 section).
+- **Verify:** SDK 31 + chat 1905 green; provider-gate OK; live cross-service smoke = 15 real turns
+  across 2 models. chat-service redeployed, default confirmed live.
+- **Residual (tracked, not blocking):** `done_suppress` doesn't stop a weak model **jumping to a
+  future step** and looping there (1/3 weak runs, e.g. `book_chapter_save_draft` ×24) — smaller harm
+  than `off`'s spiral; revisit if it recurs on mid-tier models.
+
+## 🚨 GLOSSARY FEDERATION OUTAGE — FOUND + FIXED + GATED (2026-07-23)
+The catalog-unification (Part B) shipped a schema that **de-federated the entire glossary provider**.
+`glossary_curation_list` declared its union payload as `Items any`; the go-sdk reflector renders `any` as
+the JSON-Schema **boolean** `true`, and ai-gateway's zod validator rejects a boolean subschema →
+`provider 'glossary' list-tools failed → PARTIAL`. **One bad tool dropped all 54 glossary tools** from the
+federated catalog (measured: **0** `glossary_*` of 245). Every agent lost the whole glossary surface —
+including the unified tools just built.
+- **Nothing caught it.** The schema is valid *in isolation*: unit tests, closed-set-enum contract, legacy-
+  visibility lock, route-conformance — all green. It only breaks at the **federation boundary** (other
+  service, other language, other validator). Same shape as the `panel_id` frontend-tool bug.
+- **It masked a live investigation**: gemma looked like it ignored an explicit re-route, but it *followed*
+  it and got `tool_load(glossary_propose_entities) → not_found`. The model was right, the platform was broken.
+  **Lesson: before blaming model behavior, verify the tool is actually IN the catalog.**
+- **Fix:** hand-written `curationListOutputSchema()` (`curation_tools.go`) — `items: {type:array, items:
+  {type:object}}`. Wire shape unchanged.
+- **Gate:** `TestNoBooleanSubschemasAnywhere` walks every tool's input+output schema over the real
+  `tools/list` wire, fails on any boolean subschema (`additionalProperties` exempt). **Adversarially
+  verified: reds on the exact defect.** Sibling MCP services should adopt the same guard.
+- **Live verify:** ai-gateway `235 tools PARTIAL` → **`289 tools`, no PARTIAL**. S00b E2E turn A: 4 rejected
+  placeholder-id edits → **2 calls, first-try correct write**, `glossary_book_ontology_read` →
+  `glossary_propose_entities` (read-then-act), entity **DB-verified**
+  (`019f8cbe-b8c1-7a05-b368-ed00a87cbde7` "Lâm Uyên", draft). Full glossary suite green.
+- Detail: `docs/eval/tool-liveness/glossary-unification/RESULTS.md` (2026-07-23 section).
+
+**PROPAGATED to all 10 MCP providers** (2026-07-23, follow-up):
+- **Go (5 services) — enforced at the SDK, not copied.** `loreweave_mcp.RegisterTool` already
+  substituted a valid schema for a whole-payload `Out = any`; it did NOT catch a **nested `any`
+  field** in a typed struct — exactly how this shipped. New `schema_federation_guard.go` checks the
+  schemas that will actually be advertised and **panics at registration** (boot-time, deterministic)
+  rather than letting a provider silently vanish. One change covers glossary/book/catalog/
+  agent-registry/provider-registry; all 5 suites green (no false-positive panics).
+- **Python (5 services) — shared checker + thin per-service test.** No FastMCP registration
+  chokepoint exists, so `sdks/python/loreweave_mcp/schema_federation.py` holds the logic and each
+  service has a 5-line `test_mcp_schema_federation_safe.py`. All 5 green.
+- **False-positive caught by measuring before shipping:** the first walker flagged 12 hits across the
+  Python providers — **all** were `.../<flag>/default` (a boolean DEFAULT VALUE, not a subschema).
+  Instance-valued keywords (`default`/`const`/`enum`/`examples`) are now exempt in BOTH languages. Had
+  this shipped as written, a Go tool with a boolean default would have **panicked its service at boot**
+  — worse than the bug being prevented.
+- Live scan of all 10 providers: **0 real violations** (Go 130 tools, Python 159 tools).
+- Registered in `docs/standards/README.md` §D (enforcement mechanisms).
+- ⚠️ **Unrelated pre-existing failure found, NOT fixed (out of scope):**
+  `composition-service tests/unit/test_mcp_meta_async_wire.py::test_every_tool_declares_valid_tier_and_scope`
+  — `composition_task_provide_input` carries no `_meta.tier`. Reproduced with all my changes stashed.
+## 🔊 FEDERATION OUTAGE VISIBILITY — DONE + MEASURED (2026-07-23)
+Plan `docs/plans/2026-07-23-federation-outage-visibility.md`; measurements
+`docs/eval/tool-liveness/federation-outage-visibility/RESULTS.md`. Reproducible outage
+(`docker stop infra-glossary-service-1`), three checkpoints: M0 outage/pre-fix · M1 outage/post-fix ·
+M2 healthy/post-fix (no-false-alarm control).
+- **Root cause:** the H10 availability signal already existed AND was correct — it had ONE call site,
+  `find_tools`, which **F17 retired from the LLM's view**. The guarantee never travelled to the
+  replacement discovery pair. Same shape as the skill-drift + hot-set gaps: **a new path does not
+  inherit the old path's guarantees.** Check this explicitly whenever a surface is replaced.
+- **Money metric (same model, same outage).** Before: *"I've loaded the glossary tools…"* then
+  *"I can't save Lâm Uyên because I don't have any details about her"* — **fabricated a reason and
+  blamed the user**. After: *"the glossary service is currently unavailable … please try again in a
+  little while"*. Thrash also fell (discovery 4→1, tool calls 4/2/2 → 3/1/0).
+- **F1+F2** — availability threaded into the LIVE pair (`tool_list`/`tool_load`) in BOTH twins
+  (`find-tools.ts` ↔ `tool_discovery.py`); reported even when results are non-empty (the case that
+  actually occurs). `tool_load` no longer asserts `not_found` during an outage — **that assertion is
+  unknowable then** (a down provider's tools are absent, so "unknown name" and "vanished with its
+  provider" are indistinguishable). New key is `provider_unavailable`; `unavailable` already means a
+  CD4 BROKEN tool — one name, one concept.
+- **F3 — the plan was WRONG and measurement caught it.** "Make the healthcheck fail on PARTIAL" would
+  DEADLOCK: `glossary-service` declares `depends_on: ai-gateway: service_healthy`
+  (`docker-compose.yml:1044`) ⇒ glossary down → gateway unhealthy → glossary can never restart. So
+  `/health` stays pure LIVENESS (docker healthcheck unchanged) and the signal moved to a dedicated
+  **`/health/federation` → 503 when degraded** — loud for alerting, never load-bearing for
+  orchestration. Both facts recorded in code so nobody "fixes" it back into a deadlock.
+  Degraded is **sustained** (3 consecutive partials, `AI_GATEWAY_FEDERATION_DEGRADED_AFTER`), not the
+  first blip. Verified live: 200→200→**503**→…→200 on recovery, `partial_since` cleared.
+- **F4** — transition-only logging (ERROR on loss, LOG on recovery; 1 line per event, not one per
+  30s refresh) + the `unavailable_providers` `_meta` key **frozen**, pinned cross-language by
+  `test_provider_availability_key_is_frozen`.
+- **Verify:** ai-gateway 265 pass + tsc clean (9 new); chat-service 1827 pass/24 fail vs baseline
+  1822/29 — same pre-existing 24, **zero regressions**, +5 new.
+- ⚠️ Pre-existing, NOT fixed (unrelated, reproduced with changes stashed): chat-service
+  `TestGenericFrontendTools` ×2 (`ui_navigate` absent from core) + 22 others.
+
+## 🧹 KG (knowledge-service) MCP CATALOG UNIFICATION (2026-07-22) — DONE + LIVE-VERIFIED
+Spec `docs/specs/2026-07-22-kg-catalog-unification.md`; results `docs/eval/tool-liveness/kg-unification/`.
+**Live-counted: 37 → 26 default-visible (~30%); 41 registered, 15 legacy.**
+- **KG has a DUAL MCP+bespoke tool surface** (`app/mcp/server.py` ↔ `app/tools/definitions.py`), locked in
+  lockstep by the exact-name (`tools/list == TOOL_DEFINITIONS`) + schema-parity tests, and the bespoke
+  `/internal/tools/execute` path is LIVE. So each MERGE is a **3-layer** change (bespoke schema + MCP tool +
+  a unified **executor handler** that DELEGATES to the same legacy cores) — no logic moved. Python
+  `require_meta(visibility="legacy")` supported.
+- **lore_* (4) legacy'd** (`48788c862`) — reader-audience surface (spoiler-safe), VERIFIED to reach + hot-seed
+  on the author book/editor surfaces via the lore_→glossary alias, so a real removal. VERIFIED: no unified
+  cross-store search exists (the user's belief was wrong) — lore_* retired on AUDIENCE grounds.
+- **5 merges** (all committed, each: 3 layers + delegation tests + parity/exact-name/count green):
+  `kg_build` target=graph|wiki (`98e06a211`); `kg_graph_query` scope=project|world|multi enhanced-in-place
+  (`03d145dd0`); `kg_ontology_propose` op=schema_edit|adopt_template|sync_apply (`742af383b`); `kg_view_edit`
+  op + `kg_add_nodes` mode (`1eef40ac0`). 10 singles legacy'd behind them.
+- **Kept separate (discoverability/safety):** 3 ontology READS (schema_read/list_templates/sync_available);
+  triage_resolve(A) vs triage_schema_write(W) — CAT-2 boundary; memory/search reads.
+- **Discoverability (gemma-4-12b, ~8/11 stable):** graph_query scope 3/3, view_edit 2/2, add_nodes 2/2 all
+  reliable; enum discriminator ALWAYS right when picked. Misses are read-then-act (onto add→schema_read;
+  adopt→list_templates, which is CORRECT — adopt needs the template id first) + a gemma-12b build/list quirk.
+  Drove a fix: front-load kg_build's "Build the GRAPH, or generate the WIKI" (front-load-action-verb lesson).
+- **DEFERRED:** survivor `ambient_project` tagging (parked long-tail); a real unified cross-store search
+  (separate feature, noted not built).
+
+## 🧹 GLOSSARY MCP CATALOG UNIFICATION (2026-07-22, HEAD 40bc8113b) — DONE + LIVE-VERIFIED
+Shrink the glossary co-writer catalog the way the book catalog was shrunk. Spec:
+`docs/specs/2026-07-22-glossary-catalog-unification.md` (governing tension documented: **shrink vs
+weak-model discoverability** — merge near-identical shapes, but KEEP a "duplicate" that earns its place as
+a discovery affordance, e.g. `entity_rename` is an intentional alias of `entity_set_attributes`).
+- **Result (LIVE-COUNTED on the running container):** default-visible **~42 → 25** (~40% shrink); **29
+  legacy/hidden** (20 newly-tagged this effort, all confirmed off the hot-set). **16 old tools → 4 unified.**
+- **Parts (all committed, each: build + contract/visibility tests + full api suite green):**
+  - **A** (`5189eb3e5`) legacy-tag 6 covered/lifecycle/GUI tools: `propose_new_kind|kinds|new_attribute`
+    (→ `propose_batch`), `book_revert`, `user_standards_read|restore` (user-tier = GUI concern).
+  - **B1** (`78315e5fb`) NEW **`glossary_curation_list`** (`view` enum: merge_candidates|unknowns|
+    ai_suggestions) ← 3 inbox reads. + NEW `bookToolAuthAmbient` helper (reused by C/D).
+  - **B2** (`6082dbee3`) fold 4 entity-detail reads into **`glossary_get_entity.include`**
+    (chapter_links|revisions|evidence|genres; base read unchanged when omitted).
+  - **C** (`2f0278bde`) NEW **`glossary_propose_curation`** (`op` enum) ← 4 curation proposes. Legacy
+    handlers refactored to thin wrappers over shared `curation*Core` funcs (no divergence, §6).
+  - **D** (`40bc8113b`) NEW **`glossary_set_genres`** (`target` enum) ← 3 genre-matrix setters (verified
+    NOT redundant with ontology_upsert/adopt — nothing else wires the matrix). Shared `set*GenresCore`.
+- **Live-verified:** tools/list on `:8211` → 25 visible + 4 unified surfaces present; `curation_list`
+  called with **no `book_id` arg** + `X-Book-Id` header → resolved via envelope, `isError:false` (the new
+  tools are born `WithAmbientBook`). glossary-service image rebuilt + ai-gateway restarted (re-federated).
+- **Part F** (`f464a122a`) — /review-impl (cold-start) + gemma discoverability smoke, both drove fixes:
+  **[MED]** `set_genres` (glossary's first Tier-A ambient WRITE) now soft-blocks a cross-book write
+  (`cross_book_confirm_required` until `allow_cross_book`) — book-service parity, live-verified both ways;
+  **[LOW]** `get_entity` include switch default branch; **[discoverability]** `set_genres` description
+  front-loads the action verb (synonyms in `_meta` aren't shown to the model — the DESCRIPTION carries
+  discovery). Review verified the rest sound (auth-before-validation is a security *improvement*,
+  per-target grant levels correct, tenant scoping preserved, CAT-4 complete).
+- **Discoverability PROVEN LIVE** (`docs/eval/tool-liveness/glossary-unification/`, gemma-4-12b, N=4):
+  **7–8/8** — the model picks the right unified tool + discriminator; enum discriminators (view/op/target/
+  include) are ALWAYS correct when the tool is picked. Lone variable: `reassign` sometimes reads the
+  named-kind referent first (defensible read-then-act). Ambient envelope + cross-book guard also live-smoked.
+- **DEFERRED (round-2, in spec §7):** D3 localization/annotate merges; D4 server-auto-gated ontology write
+  (collapse upsert+batch). **Survivor envelope-tagging** (spec §5: the ~17 book-scoped WRITE survivors →
+  `WithAmbientBook`) is the SAME parked long-tail (functionally-ambient-already via injection;
+  scope_source arg→envelope cosmetics) — do at schema-drop time.
+
+## 🧭 STUDIO CONTEXT BINDING — ambient book scope (2026-07-22, HEAD e3af56d9b)
+The agent inside the writing studio no longer transcribes the book UUID. Spec SEALED (`f783c63f7`) after
+an adversarial edge-case pass (3 mechanism fixes); book-first pilot BUILT + MEASURED + live-proven.
+- **Design:** `X-Book-Id` rides the MCP envelope like `X-User-Id` (SEC-1). A tool resolves `book_id` from
+  it when the model omits it; the ambient book is **grant-checked like an arg — NEVER authz**. Cross-book
+  READ = advisory; cross-book WRITE = pre-confirm (`cross_book_confirm_required` → `allow_cross_book:true`).
+  `project_id`/`work_id` derive from the book. Fail-closed if neither arg nor envelope. Soft, not a sandbox
+  (the Cursor/CC lesson). Spec: `docs/specs/2026-07-22-studio-context-binding.md`.
+- **Built:** (`263fcd483`) SDK `HeaderBookID`+`BookIDFromCtx`+`ResolveBookScope`(7 subtests)+`WithAmbientBook`;
+  book_structure_read/edit resolve via it, `book_id` made OPTIONAL in the tool's own schema (the go-sdk
+  schema-required gate otherwise 400s the omitted id BEFORE the handler — caught by live smoke), scope_source
+  exposed, cross-book pre-confirm + `allow_cross_book`. (`e3af56d9b`) ai-gateway forwards `X-Book-Id`
+  (mirrors X-Project-Id); chat-service `mcp_execute_tool` sets it from the turn's `context_ids.book_id`.
+- **Live-proven:** book_structure_read through **ai-gateway :8218** with `X-Book-Id` + no `book_id` →
+  resolved, `scope_source=envelope`; cross-book write pre-confirm + allow override; external fail-closed
+  (all DB-verified). chat-service header-set unit-tested (+2).
+- **Measured (gemma-4 N=5, `docs/eval/tool-liveness/manuscript-structure/AMBIENT_RESULTS.md`):** ambient vs
+  baseline "create a part" — **book_id emitted 0/5 vs 5/5**, tokens **−25% in / −46% out**. Transcription
+  burden eliminated at the source. Honest caveat: gemma survived the single-UUID isolate 0 errors, so the
+  win is tokens + removed error-class, not a pass-rate delta (mistranscription failures need longer sessions).
+- **WIN REALIZED LIVE (`575ad5f38`):** the studio-chat E2E now creates a part with gemma emitting **no
+  book_id** and **`scope_source=envelope`** (DB-verified). Three changes: prose-note shrink (drop the UUID),
+  `_inject_context_ids` skips book_id for `ambient_book` tools, and — the root-cause — **`book_id` was
+  missing from BOTH `chat_sessions` SELECTs** (first-pass 3794 + the approve→**resume** path 6217 where the
+  tool actually executes). Found by a rigorous live in/out trace (the naive change silently failed).
+- **Review fixes (`81a6d5571`):** (a) explicit `errChapterNotInBook` on grant-passed chapter lookups (was
+  a misleading "book not accessible" that made the agent give up); (b) `tool_list` hides deprecated by
+  default (book catalog 35→16; `include_deprecated:true` opt-in).
+- **FAN-OUT PROGRESS:** **book** ✓ (envelope, live-proven). **glossary** ✓ functionally domain-wide
+  (`4528febf5`/`f22ed014a`/`daebdb6be`): `resolveBookScope` helper + `book_id` OPTIONAL across all book
+  tools + all handlers swapped; the 3 core READS (search/get_entity/book_ontology_read) carry
+  `WithAmbientBook` and are live-verified `scope_source=envelope` via the gateway. Glossary WRITES resolve
+  ambiently TODAY via injection-backfill (`scope_source=arg`); tagging them `WithAmbientBook` (→ envelope)
+  is a mechanical long-tail. Glossary's MCP middleware lifts `X-Book-Id` (`ContextWithBookID`).
+- **PYTHON SDK DONE + composition pilot (`c6368b884`):** `loreweave_mcp` (Python) now has
+  `ToolContext.book_id` + `X-Book-Id` lift, `resolve_book_scope`/`resolve_project_scope`/`Scope` (the Py
+  `ResolveBookScope`), and `require_meta(ambient_book=/ambient_project=)`. chat-service `_inject_context_ids`
+  also skips `project_id` for `ambient_project` tools. **composition_get_work** converted + **live-verified**
+  (X-Book-Id + no args → resolves book→Work). Composition is PROJECT-scoped (tools take `project_id`); its
+  ambient = `X-Project-Id` (already lifted, chat derives book→Work→project_id). PATTERN NOW PROVEN IN BOTH
+  LANGUAGES. Remaining = mechanical replication: ~89 composition project tools + ~27 kg tools (per tool:
+  id optional in the Pydantic/Annotated arg + `resolve_project_scope`/`resolve_book_scope` fallback +
+  `ambient_project`/`ambient_book` meta). Book WRITE tools' cross-book is handled by their confirm cards.
+- **FAN-OUT COVERAGE — ALL FOUR DOMAINS, BOTH LANGUAGES (verified per domain):**
+  **book** (Go) fully ambient, envelope live-proven in the real co-writer; **glossary** (Go) functionally
+  ambient domain-wide, reads envelope-verified; **composition** (Python) core tools ambient — `get_work`
+  (`c6368b884`), `arc_list`(book)+`outline_node_create`(project write) (`2173f6d86`), both scope types
+  live-verified; **kg** (Python) was ALREADY functionally ambient (backend resolves project from
+  X-Project-Id — verified live), core tools tagged `ambient_project` (`764f4a370`). Composition tools are a
+  MIX (book_id / project_id / node_id-scoped); node_id/entity_id ones are NOT ambient (specific
+  sub-resources, like chapter_id).
+- **REMAINING = mechanical long-tail tagging** (all functionally-ambient-already via injection/backend):
+  the rest of composition's book/project tools + glossary WRITE envelope-tags + kg's other project tools —
+  each the same one-line recipe. Low value (scope_source arg→envelope cosmetics; the token win is universal).
+- **NEXT / follow-ons:** (1) the long-tail tagging above (optional, mechanical); (2) ~~co-writer
+  tool-DISCOVERY gap~~ **RESOLVED/STALE (2026-07-22, `docs/eval/tool-liveness/discovery-gap/`)** — the
+  "gemma won't `tool_load` a lazy tool" claim is FALSE post-F17: verified live, gemma reliably
+  `tool_list`→`tool_load`→calls a lazy read. The residual "loop" is read-then-act (reads the ontology
+  before a structured write) — which RECOVERS, and is already loop-broken by F18 (`TOOL_LIST_CATEGORY_CAP`
+  auto-load+steer). Hot-set/lazy-tail catalog-shrink strategy VALIDATED. (4) `X-Chapter-Id` — user's call:
+  NOT ambient (many chapters), instead let tools take chapter **name/number** not the UUID; (5) optionally
+  re-require book_id on EXTERNAL surfaces (§2.4).
+- **KEY FINDING:** the token win (model omits book_id) is ALREADY UNIVERSAL via the prose-shrink +
+  session-SELECT fix + injection-backfill (`575ad5f38`). The fan-out now buys `scope_source=envelope` +
+  schema-drop-readiness (clean architecture), NOT a functional unlock.
+
+## 🗂️ UNIFIED MANUSCRIPT-STRUCTURE MCP TOOL (2026-07-22, HEAD b1eb36225 — spec `6bec67ac6`)
+Follow-on to the book-tools redesign: merge the fragmented part/chapter STRUCTURE ops into one surface.
+Full design + measurement, all committed + live-verified + measured on gemma-4.
+- **Verified capability GAP closed:** no MCP tool could create a manuscript `part` (composition_arc_create is
+  `Literal["saga","arc"]`; part CRUD was bearer-only HTTP in `arc.py`). An agent could file a chapter into a
+  part it could not create.
+- **The real graph (was mis-summarized before):** two composition node trees — `structure_node` (saga/arc/**part**,
+  `models.py:225`) + `outline_node` (chapter/scene) — plus book `chapters` (prose) linking via
+  `chapters.structure_node_id`. "part"≠outline; "chapter" is BOTH a book row and an outline_node kind.
+- **Built (`b1eb36225`):** composition 4 internal part-write routes (`internal_structure_state.py`: create/rename/
+  reorder/archive; X-Internal-Token + caller_user_id, resolve_owner-first, reuse the public StructureRepo methods,
+  reorder fails-closed 409). book-service `book_structure_read` (graph L1 skeleton via `buildBookStructure` +
+  L2 paged chapters with is_complete/guidance) + `book_structure_edit` (closed op set create_part/rename_part/
+  reorder_parts/home_chapter/reorder_chapters, per-op Undo, full-prior-order snapshot for reorders) +
+  `book_structure_part_archive` (visibility:legacy, CAT-2 destructive split, soft-delete). **PO decision: folded in**
+  `book_chapter_set_part`+`book_chapter_reorder` → visibility:legacy (one name per concept). Tests: composition 20,
+  book-service structure/visibility green.
+- **VERIFY:** live cross-service smoke (book MCP → composition internal → both DBs), DB-verified each mutation,
+  state restored.
+- **MEASURED (gemma-4, DB-verified — `docs/eval/tool-liveness/manuscript-structure/RESULTS.md`):** A/B fragmented
+  4/6 vs unified 5/6; the 2 previously-impossible part-authoring ops 0/2→2/2; reliability **15/15** across N=5
+  (create+move, reorder, create+rename) — the weak model chains create→home on the returned id in 2 decisive
+  calls. Answer to "does the agent understand the graph + work effectively?" → **yes, reliably.**
+- **NEXT / follow-ons:** (1) FE: the studio structure rail can now offer create/rename/reorder-part affordances
+  (backend is live); (2) hot-set: confirm `book_structure_*` seed on the book surface via the real `tool_list`
+  path; (3) the `trap_nest` eval verify is a keyword heuristic — if a refusal metric is wanted, use an LLM-judge,
+  not regex; (4) same unification pattern is a candidate for composition's arc/outline tools if they fragment.
+
+## 🔧 BOOK-TOOLS REDESIGN + CACHING/BUG FIXES (2026-07-22, HEAD 9b68e74b4)
+Long session. All below committed + live-verified.
+- **Bug fixes:** reasoning.effort 400 (`a53321821` — gpt-* `/responses` was FULLY broken; my first fix `0b34dc05a` checked `base==""` but the openai adapter defaults it to `openaiBaseURL`, so it never fired — the real fix matches the defaulted base); billing-on-error (`8e2e10058` — a pre-processing provider_error no longer records the estimated input cost; live-proven $0); Anthropic `cache_control` ≤4 breakpoints (`655fa1293` — the SDK marked EVERY tail block, ~11 on a book turn > Anthropic's max 4 → 400; latent, no Claude model on the test acct); F12 `HOT_SEED_TOKEN_BUDGET` 4000→2000 (`a603e80ad` — clean warm-cache A/B: −24%, no extra passes, quality-safe; skills stayed on the DESIGNED lazy path, NOT the blunt `LW_LAZY_ALL_SKILLS` test knob); kind-synonym place→location (`eef2db9d2` — "add a place" was silently failing on `unknown kind: place`; the book HAD `location` all along).
+- **Book-tools redesign** (spec `docs/specs/2026-07-22-book-tools-redesign.md`) — principle: the agent owns CONTENT, the human owns LIFECYCLE. Book **31 → ~15 visible tools**.
+  - **Part A** (`adec30a4b`): 9 lifecycle/destructive/priced tools → `_meta.visibility:"legacy"` — agent can no longer create/delete/purge/publish a book or spend money (live-verified: all 9 excluded from discovery even when explicitly asked).
+  - **Part C/D** (`656f6c105`): `book_read` (cat) + `book_list` (ls) + the **OUTPUT CONTRACT** — reference-first, a `page` envelope with a structured `is_complete` bool, and a prose `guidance` stop-signal (anti-loop). Live-verified by effect (complete/partial/miss guidance, chapter block-paging, backward-compat). 6 old reads → legacy.
+  - **Part B DEFERRED** (see the spec's §4 finding): the write-merge (`book_chapter_update`) is delicate — `set_kg_exclude` retracts facts (CAT-2, don't fold), `part_id` needs absent-vs-`null`-vs-value (a plain `*string` can't express it), + per-setter undo — for a marginal −2 tools. Buildable, not blocked; do as a focused piece. `book_chapter_create items[]` is the one clean slice.
+- **find_tools DEPRECATED drift fixed** (`9b68e74b4` + memory): F17 (`f30dc77e5`) deprecated `find_tools` → `tool_list`/`tool_load`, but `mcp-tool-io.md` CAT-4 + my memory still named it the discovery surface — which led me to use `search_catalog` in verification.
+- **NEXT:** (1) Part B book-tools if wanted (focused, per the spec finding); (2) **re-confirm legacy-exclusion via the ACTUAL `tool_list` path** — my Part A/C/D discovery checks used the deprecated `search_catalog`; the safety guarantee (the `visibility:"legacy"` tag + `hot_tool_names()` exclusion) IS solid + mechanism-independent, but the `tool_list`-path exclusion should be confirmed via `tool_list`; (3) other domains (composition 89, glossary remainder, kg 27) are follow-on unification specs.
+
 ## 🎛️ AGENT WRITE AUTO-GATE **M0–M5 COMPLETE** + tool-routing bug hunt (2026-07-21, HEAD 83db187e7)
 A live co-writer dogfood + investigation. **Foundational hypothesis CONFIRMED 4-for-4: the problems were
 OUR code, not the model — a cheap local model (Gemma-4 26B) is enough.** Every "the model is weak" verdict

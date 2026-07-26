@@ -93,7 +93,7 @@ type bookAttrResp struct {
 }
 
 type bookOntologyResp struct {
-	BookID     string              `json:"book_id"`
+	BookID     string              `json:"book_id,omitempty"`
 	Genres     []bookGenreResp     `json:"genres"`
 	Kinds      []bookKindResp      `json:"kinds"`
 	KindGenres []bookKindGenreLink `json:"kind_genres"`

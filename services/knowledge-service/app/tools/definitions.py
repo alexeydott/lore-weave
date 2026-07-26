@@ -57,10 +57,11 @@ SEARCH_LIMIT_DEFAULT = 10
 TIMELINE_LIMIT_MAX = 50
 TIMELINE_LIMIT_DEFAULT = 20
 
-# L1/L2 reference-first contract (Context Budget Law §6b). `detail` is a
-# versioned-default migration lever: it defaults to "full" (legacy/federated
-# callers unchanged) and the chat-compiler passes "summary" for a compact,
-# reference-only projection. Enum-locked so a weak local model can't guess a
+# L1/L2 reference-first contract (Context Budget Law §6b). `detail` now DEFAULTS to
+# "summary" (K38, 2026-07-24 — the versioned-default migration is complete; "full" is an
+# explicit opt-in). Kept in lockstep with the arg-model default (see the identical
+# `= "summary"` on each `*Args`) so a native-MCP agent AND an OpenAI-schema/execute_tool
+# caller get the same small default. Enum-locked so a weak local model can't guess a
 # free-string value. Shared by the SET-returning memory tools (story_search /
 # memory_search / memory_timeline); the executor applies `apply_response_contract`
 # with the per-tool ref-field set. Drift-locked against the arg models by
@@ -69,11 +70,10 @@ _DETAIL_PROP = {
     "type": "string",
     "enum": ["summary", "full"],
     "description": (
-        "Response granularity. 'full' (default) = every field of each item. "
-        "'summary' = a compact reference projection (ids/title/snippet/score "
-        "only, heavy bodies dropped) — use it to scan many results cheaply, then "
-        "re-read the ones you need at full detail (or via a get-by-id sibling). "
-        "Result `meta` always reports total/returned/truncated."
+        "Response granularity. 'summary' (default) = a compact reference projection "
+        "(ids/title/snippet/score only, heavy bodies dropped) — scan many results "
+        "cheaply, then re-read the ones you need via a get-by-id sibling. 'full' = "
+        "every field of each item. Result `meta` always reports total/returned/truncated."
     ),
 }
 
@@ -102,8 +102,8 @@ class MemorySearchArgs(ProjectScopedArgs):
         default=SEARCH_LIMIT_DEFAULT, ge=1, le=SEARCH_LIMIT_MAX
     )
     source_type: Literal["chapter", "chat", "glossary"] | None = None
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
 
 
 class StorySearchArgs(ProjectScopedArgs):
@@ -120,8 +120,8 @@ class StorySearchArgs(ProjectScopedArgs):
     mode: Literal["hybrid", "exact", "semantic"] = "hybrid"
     granularity: Literal["chapter", "block"] = "chapter"
     limit: int = Field(default=SEARCH_LIMIT_DEFAULT, ge=1, le=SEARCH_LIMIT_MAX)
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
     # D-1 (Track B spec-complete) — the spoiler cutoff `raw_search` already has. OMIT for the
     # full manuscript (the owner's authoring default); set to a chapter id to window results to
     # that chapter and everything before it, so a reader-facing caller can't surface a hit from a
@@ -149,8 +149,8 @@ class MemoryTimelineArgs(ProjectScopedArgs):
     limit: int = Field(
         default=TIMELINE_LIMIT_DEFAULT, ge=1, le=TIMELINE_LIMIT_MAX
     )
-    # L1/L2 reference-first contract (§6b) — versioned default "full".
-    detail: Literal["summary", "full"] = "full"
+    # L1/L2 reference-first contract (§6b) — default "summary" (K38; full is opt-in).
+    detail: Literal["summary", "full"] = "summary"
 
     @model_validator(mode="after")
     def _reject_reversed_range(self) -> "MemoryTimelineArgs":
@@ -490,7 +490,70 @@ TOOL_DEFINITIONS: list[dict] = [
         },
         ["embedding_model"],
     ),
-    # Cost-gated job trigger — build the knowledge graph (propose→confirm).
+    # Cost-gated job trigger — UNIFIED build (catalog-unification 2026-07-22): target=graph|wiki
+    # supersedes kg_build_graph + kg_build_wiki (which stay for existing callers).
+    _tool(
+        "kg_build",
+        "Build the knowledge GRAPH, or generate the WIKI, for the current project — an "
+        "EXPENSIVE job that does NOT run immediately: it returns a confirm_token + summary and "
+        "a human confirms on the review surface (which shows the cost). Pick target: 'graph' = "
+        "extract the KG from the book's chapters (needs llm_model); 'wiki' = generate wiki "
+        "articles for the book's entities (needs model_ref; omit entity_ids for all). "
+        "target=graph requires an embedding model configured — if missing, call "
+        "kg_project_set_embedding_model then kg_run_benchmark first. Pick models from "
+        "settings_list_models.",
+        {
+            "target": {
+                "type": "string",
+                "enum": ["graph", "wiki"],
+                "description": "graph = extract the KG from chapters; wiki = generate wiki articles.",
+            },
+            "llm_model": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "target=graph: extraction LLM model ref (required for graph).",
+            },
+            "scope": {
+                "type": "string",
+                "enum": ["all", "chapters", "chat", "glossary_sync"],
+                "description": "target=graph: what to extract (default 'all').",
+            },
+            "chapter_from": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "target=graph: optional inclusive lower chapter ordinal (with chapter_to).",
+            },
+            "chapter_to": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "target=graph: optional inclusive upper chapter ordinal (with chapter_from).",
+            },
+            "model_ref": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "target=wiki: wiki-generation LLM model ref (required for wiki).",
+            },
+            "model_source": {
+                "type": "string",
+                "maxLength": 40,
+                "description": "target=wiki: model source (default 'user_model' for BYOK).",
+            },
+            "entity_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "target=wiki: optional explicit entity ids; omit for ALL book entities.",
+            },
+            "reasoning_effort": {
+                "type": "string",
+                "enum": ["none", "low", "medium", "high"],
+                "description": "Reasoning effort for the build LLM (paid compute; clamped to your "
+                               "grant — Edit caps at medium, Manage/owner at high).",
+            },
+            "project_id": _PROJECT_ID_PROP,
+        },
+        ["target"],
+    ),
+    # Cost-gated job trigger — build the knowledge graph (propose→confirm). LEGACY → kg_build.
     _tool(
         "kg_build_graph",
         "Build the current project's knowledge graph by starting an extraction job over "

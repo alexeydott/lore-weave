@@ -138,7 +138,19 @@ func RegisterTaskProvideInput(srv *mcp.Server, store TaskStore, toolPrefix strin
 		// CAT-4 visibility:legacy — this is a MECHANISM tool the client (chat-service's
 		// resume driver) calls by NAME, not something the LLM should discover via
 		// find_tools. Legacy ⇒ excluded from discovery/hot-seed, still callable by name.
-		Meta: WithVisibility(mcp.Meta{}, VisibilityLegacy),
+		//
+		// TIER IS LOAD-BEARING, not decoration. Accepting a gate RUNS the gated action, so
+		// this is an ACTION tool. It previously carried visibility only, and chat-service's
+		// `tool_tier()` defaults a missing tier to "R" (inert) — by design, so an untiered
+		// tool can never auto-commit. The consequence was the opposite of intended: all
+		// three `*_task_provide_input` tools (book/composition/glossary) passed the ask-mode
+		// read-only filter (`_filter_tools_for_ask` keeps tier-R), so a read-only turn could
+		// still drive a pending gate to completion — i.e. perform the very write ask mode
+		// exists to withhold. Measured 2026-07-23 against the live catalog.
+		// Scope USER: the gate is owned by the PROPOSING user and the wire-level owner
+		// check (below) enforces exactly that — semantically right, and consistent with the
+		// domains' own meta conventions (composition asserts every tool is book/user-scoped).
+		Meta: WithVisibility(NewToolMeta(TierA, ScopeUser, nil, nil), VisibilityLegacy),
 		// ProvideInputResult carries a `Result any` field (the domain write's dynamic
 		// result). The SDK infers `outputSchema.properties.result` as the bare permissive
 		// "any" schema, which strict federation validators (ai-gateway) REJECT — failing

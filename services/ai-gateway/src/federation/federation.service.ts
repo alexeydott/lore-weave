@@ -28,6 +28,14 @@ export interface Envelope {
    */
   projectId?: string;
   /**
+   * Ambient book scope (X-Book-Id) — the studio/editor's bound book, forwarded so
+   * book-scoped tools resolve "the current book" downstream (ResolveBookScope) when
+   * the model omits book_id. Lifted off the request headers only (SEC-1 — never from
+   * the LLM); forwarded only when present. A SCOPE HINT, never authorization — the
+   * downstream tool still grant-checks it (spec 2026-07-22-studio-context-binding).
+   */
+  bookId?: string;
+  /**
    * Public MCP API key id (X-Mcp-Key-Id) — set ONLY for traffic that entered via
    * the public edge (mcp-public-gateway). Lifted off the request headers (SEC-1)
    * and forwarded downstream so providers can attribute per-key spend (H-C) and
@@ -67,6 +75,7 @@ export function buildEnvelopeHeaders(internalToken: string, env: Envelope): Reco
   if (env.sessionId) headers['X-Session-Id'] = env.sessionId;
   if (env.traceId) headers['X-Trace-Id'] = env.traceId;
   if (env.projectId) headers['X-Project-Id'] = env.projectId;
+  if (env.bookId) headers['X-Book-Id'] = env.bookId;
   if (env.mcpKeyId) headers['X-Mcp-Key-Id'] = env.mcpKeyId;
   if (env.spendCapUsd) headers['X-Mcp-Spend-Cap-Usd'] = env.spendCapUsd;
   return headers;
@@ -143,6 +152,75 @@ export class FederationService implements OnModuleInit, OnModuleDestroy {
   isPartial(): boolean {
     return this.state.partial;
   }
+
+  // ── Outage visibility (2026-07-23) ───────────────────────────────────────
+  //
+  // A provider can vanish from the catalog and the platform keeps serving, so the
+  // only evidence was a WARN line re-printed identically every refresh — noise-shaped,
+  // not event-shaped: un-alertable, and it can't date the outage. The glossary
+  // de-federation ran undetected until a live E2E happened to trip over it.
+  //
+  // DELIBERATELY NOT wired to the docker healthcheck. `glossary-service` itself
+  // declares `depends_on: ai-gateway: condition: service_healthy`
+  // (infra/docker-compose.yml), so failing the gateway's health on a partial catalog
+  // would DEADLOCK: glossary down → gateway unhealthy → glossary can never start →
+  // the outage becomes permanent and self-inflicted. `/health` stays a pure LIVENESS
+  // probe. The degraded state is exposed for polling/alerting instead (see
+  // HealthController.federation), which is loud without being load-bearing.
+
+  /** Consecutive refreshes that came back PARTIAL (0 when the catalog is whole). */
+  private consecutivePartial = 0;
+  /** Epoch ms when the CURRENT partial streak began; undefined when healthy. */
+  private partialSince?: number;
+  /** Last observed availability, to detect transitions rather than re-log state. */
+  private lastAvailability = new Map<string, boolean>();
+
+  private trackAvailabilityTransitions(): void {
+    for (const p of this.state.providers) {
+      const was = this.lastAvailability.get(p.name);
+      if (was !== undefined && was !== p.available) {
+        // Transition-only, so the event has a timestamp and can be alerted on.
+        // A provider LOSS is an error: every tool it owns just left the catalog.
+        if (p.available) {
+          this.log.log(`provider '${p.name}' RECOVERED — its tools are back in the catalog`);
+        } else {
+          this.log.error(
+            `provider '${p.name}' became UNAVAILABLE — all of its tools just left the federated ` +
+              'catalog; agents can no longer discover or call them',
+          );
+        }
+      }
+      this.lastAvailability.set(p.name, p.available);
+    }
+    if (this.state.partial) {
+      if (this.consecutivePartial === 0) this.partialSince = Date.now();
+      this.consecutivePartial += 1;
+    } else {
+      this.consecutivePartial = 0;
+      this.partialSince = undefined;
+    }
+  }
+
+  /** Federation degradation, for polling/alerting. `degraded` is deliberately
+   * SUSTAINED (a threshold, not the first blip) so a transient refresh miss during a
+   * routine restart doesn't page anyone. */
+  federationStatus(): {
+    degraded: boolean;
+    partial: boolean;
+    consecutivePartialRefreshes: number;
+    partialSinceMs?: number;
+    unavailableProviders: string[];
+  } {
+    return {
+      degraded: this.consecutivePartial >= this.cfg.federationDegradedAfterRefreshes,
+      partial: this.state.partial,
+      consecutivePartialRefreshes: this.consecutivePartial,
+      partialSinceMs: this.partialSince,
+      unavailableProviders: this.providerAvailability()
+        .filter((p) => !p.available)
+        .map((p) => p.name),
+    };
+  }
   providerCount(): number {
     return this.cfg.providers.length;
   }
@@ -211,6 +289,7 @@ export class FederationService implements OnModuleInit, OnModuleDestroy {
     }
     this.state = computeCatalog(results);
     this.auxState = computeAuxCatalog(auxResults, (m) => this.log.warn(m));
+    this.trackAvailabilityTransitions();
     this.log.log(
       `catalog: ${this.state.toolList.length} tools / ${this.cfg.providers.length} providers ` +
         `(version ${this.state.version || '∅'}${this.state.partial ? ' PARTIAL' : ''}) · ` +

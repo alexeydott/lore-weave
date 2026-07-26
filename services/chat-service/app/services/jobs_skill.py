@@ -36,12 +36,13 @@ anti-oracle, deliberate) — don't imply to the user which one it was, you can't
 ## Reading jobs
 - `jobs_summary()` — quick counts by status (active/completed/failed/cancelled, \
 top-level jobs only). Answer "how many jobs are running" with this before listing.
-- `jobs_list(status?, kind?, parent?, search?, bucket?, cursor?, limit?, detail="full")` \
+- `jobs_list(status?, kind?, parent?, search?, bucket?, cursor?, limit?, detail="summary")` \
 — the filterable list, most-recently-updated first. `bucket="active"`/`"history"` \
 splits non-terminal vs terminal jobs; `parent=<job_id>` returns one campaign's child \
 jobs (a bulk operation shows as a parent job with `child_count`, not N separate top-level \
-jobs). Pass `detail="summary"` for a lighter listing (drops the heavy `params`/`error` \
-fields) — default is `full`. Paginate with the returned `next_cursor`, not an offset.
+jobs). Returns a lighter summary by default (drops the heavy `params`/`error` fields) — \
+pass `detail="full"` for every field, or fetch them for ONE job via `jobs_get`. Defaults \
+to a small page; raise `limit` or paginate with the returned `next_cursor`, not an offset.
 - `jobs_get(service, job_id)` — one job's full detail, including `control_caps` — the \
 list of actions CURRENTLY valid for it. Check `control_caps` before calling \
 `jobs_cancel`/`jobs_pause` rather than guessing; calling an action not in `control_caps` \

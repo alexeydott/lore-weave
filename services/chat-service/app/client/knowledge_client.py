@@ -137,6 +137,27 @@ def _degraded() -> KnowledgeContext:
     )
 
 
+_FASTMCP_ERR_PREFIX = re.compile(r"^Error executing tool [\w.-]+:\s*(?=\{)")
+
+
+def _strip_fastmcp_prefix(text: str) -> str:
+    """Drop FastMCP's ``Error executing tool <name>: `` preamble so the C4 body behind it
+    can actually be decoded.
+
+    K18 (2026-07-23) — without this, the decoding below NEVER RAN in production. FastMCP
+    wraps every raised `ToolError` as ``Error executing tool kg_add_nodes: {"message": …}``,
+    so `text.startswith("{")` was always False and every C4 body degraded to raw text: the
+    stable `code` a workflow is supposed to branch on (contract C5) was silently lost on
+    every single tool failure. It went unnoticed because the unit tests fed this function a
+    BARE `{"message": …}` string — the shape the contract describes, not the shape the
+    producer emits.
+
+    Deliberately narrow: the lookahead requires a `{` right after the colon, so a genuine
+    plain-text error that merely starts with those words is left alone.
+    """
+    return _FASTMCP_ERR_PREFIX.sub("", text, count=1)
+
+
 def _error_envelope(err_text: str) -> dict:
     """Build the `{"success": False, ...}` envelope from an MCP isError payload.
 
@@ -150,7 +171,7 @@ def _error_envelope(err_text: str) -> dict:
     Anything that isn't such a JSON object (plain-text errors from overlay/external
     tools, or older services) degrades to the raw text — never raises.
     """
-    text = (err_text or "").strip()
+    text = _strip_fastmcp_prefix((err_text or "").strip())
     if text.startswith("{"):
         try:
             body = json.loads(text)
@@ -684,6 +705,7 @@ class KnowledgeClient:
         tool_name: str,
         tool_args: dict,
         project_id: str | None = None,
+        book_id: str | None = None,
         admin_token: str | None = None,
     ) -> dict:
         """ARCH-2 C2 — execute a memory tool via MCP streamable HTTP transport.
@@ -709,23 +731,37 @@ class KnowledgeClient:
                 "error": "mcp tool backend unavailable: mcp package not installed",
             }
 
+        # str() every id header value: session_id / project_id / book_id can arrive as a
+        # uuid.UUID OBJECT from asyncpg (session_row / a suspended-run record), and httpx
+        # refuses a non-str/bytes header value with "Header value must be str or bytes, not
+        # UUID" — which silently ABORTED the whole tool call. Found live 2026-07-25 on the
+        # RESUME path (glossary_task_provide_input for an adopt-standards gate): the UUID
+        # project_id killed the provide-input transport, so the accepted gate never ran its
+        # write and the book's ontology kinds were never created. Same UUID-not-str class as
+        # the _inject_context_ids fix; coerced HERE at the transport boundary so it holds for
+        # every caller (fresh turn + resume) regardless of where the id originated.
         if admin_token:
             # System-tier admin tool: separate endpoint, RS256 authority, NO X-User-Id.
             mcp_url = f"{self._tools_base_url}/mcp/admin"
             headers = {
                 "X-Internal-Token": self._http.headers["X-Internal-Token"],
                 "X-Admin-Token": admin_token,
-                "X-Session-Id": session_id,
+                "X-Session-Id": str(session_id),
             }
         else:
             mcp_url = f"{self._tools_base_url}/mcp"
             headers = {
                 "X-Internal-Token": self._http.headers["X-Internal-Token"],
-                "X-User-Id": user_id,
-                "X-Session-Id": session_id,
+                "X-User-Id": str(user_id),
+                "X-Session-Id": str(session_id),
             }
         if project_id and not admin_token:
-            headers["X-Project-Id"] = project_id
+            headers["X-Project-Id"] = str(project_id)
+        # Studio context binding (spec 2026-07-22) — forward the session's AMBIENT book as
+        # X-Book-Id so book-scoped tools resolve book_id when the model omits it (ResolveBookScope).
+        # A scope HINT, never authz (the tool still grant-checks it). Non-admin only.
+        if book_id and not admin_token:
+            headers["X-Book-Id"] = str(book_id)
         # K7e — mirror execute_tool: forward the caller's trace_id so
         # knowledge-service stitches its logs to the originating chat turn.
         # Omit when empty so knowledge-service mints its own.

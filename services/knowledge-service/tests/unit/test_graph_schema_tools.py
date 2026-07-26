@@ -73,6 +73,9 @@ _LANE_LF_TOOLS = {
     "kg_view_upsert",
     "kg_view_delete",
     "kg_triage_resolve",
+    # catalog-unification 2026-07-22 unified tools (fold in the singles above, which stay legacy)
+    "kg_view_edit",   # op=upsert|delete
+    "kg_add_nodes",   # mode=manual|from_glossary
 }
 
 # KM6 live class-C tools — registered, but each MINTS a confirm-token (no write); the
@@ -80,6 +83,7 @@ _LANE_LF_TOOLS = {
 # E2: triage_place_edge (place a proposed_edge), E3: triage_schema_write (schema-mutating
 # triage resolution) — both via the confirm spine.
 _CLASS_C_LIVE_TOOLS = {
+    "kg_ontology_propose",  # unified (2026-07-22): op=schema_edit|adopt_template|sync_apply
     "kg_schema_edit", "kg_adopt_template", "kg_sync_apply",
     "kg_triage_place_edge", "kg_triage_schema_write",
 }
@@ -113,9 +117,12 @@ def test_total_tool_count_is_memory_plus_lane_lf():
     agent) + 2 cost-gated (kg_build_graph, kg_build_wiki) + 1 kg_run_benchmark (R4)
     + 4 W11-M2 reader tools (lore_ask/lore_browse_entities/lore_entity/lore_timeline)
     + 1 W10-M1 kg_create_node (manual single-node create)
-    = 37."""
+    + 4 catalog-unification (kg_build [target] + kg_ontology_propose [op] + kg_view_edit
+      [op=upsert|delete] + kg_add_nodes [mode=manual|from_glossary]; the folded-in singles
+      stay registered visibility:legacy)
+    = 41."""
     schema_names = {d["function"]["name"] for d in TOOL_DEFINITIONS}
-    assert len(TOOL_DEFINITIONS) == 37
+    assert len(TOOL_DEFINITIONS) == 41
     assert set(TOOL_NAMES) == set(ARG_MODELS) == schema_names
     assert len(set(TOOL_NAMES)) == len(TOOL_NAMES)  # no dupes
     assert {"kg_project_create", "kg_project_list", "kg_project_set_embedding_model",
@@ -211,7 +218,7 @@ def test_no_envelope_keys_leak_into_any_lane_lf_schema():
 def test_graph_query_defaults_and_bounds():
     args = KgGraphQueryArgs()
     assert args.view is None and args.as_of_chapter is None
-    assert args.limit == 500
+    assert args.limit == 25  # K37/OUT-5: default 500→25 (live-confirmed to fit the 8KB budget)
     with pytest.raises(ValidationError):
         KgGraphQueryArgs(limit=2001)  # le=2000
     with pytest.raises(ValidationError):
@@ -296,6 +303,46 @@ def _ctx(*, user_id=_OWNER, project_id=_PROJECT, projects_repo=None, **deps) -> 
         session_id="sess-kg",
         **base,
     )
+
+
+@pytest.mark.asyncio
+async def test_kg_triage_list_default_is_bounded_and_summary():
+    """K37/K38 drain (2026-07-24) — the DEFAULT kg_triage_list reply is the small shape,
+    end-to-end through the EXECUTOR (not just the MCP signature):
+      - LIMIT: `KgTriageListArgs` forwards TRIAGE_LIMIT_DEFAULT (25, was 100) to the repo,
+        and the repo's REAL `has_more` (it over-fetches limit+1) passes through — a capped
+        queue is never a silent drop.
+      - DETAIL: `KgTriageListArgs.detail` now defaults to "summary" (K38 closed the lockstep
+        gap — the arg-model + _DETAIL_PROP defaults matched the MCP signature), so a caller
+        that omits detail (execute_tool / OpenAI-schema) gets the SAME summary a native MCP
+        agent does. `detail=full` stays an explicit opt-in."""
+    from app.tools.graph_schema_tools import TRIAGE_LIMIT_DEFAULT
+
+    assert TRIAGE_LIMIT_DEFAULT <= 25  # the OUT-2 page ceiling
+    group = SimpleNamespace(
+        signature="dup:allies:a->b", item_type="proposed_edge", count=4,
+        status="pending", sample_payload={"blob": "x" * 800}, suggested_actions=["map", "drop_edge"],
+    )
+    triage_repo = AsyncMock()
+    triage_repo.list_grouped = AsyncMock(return_value=([group], True))  # has_more from the repo
+    ctx = _ctx(triage_repo=triage_repo)
+
+    res = await execute_tool(ctx, "kg_triage_list", {})  # no limit, no detail → small defaults
+    assert res.success, res.error
+    # the tool forwarded the small bounded page, not the old 100
+    assert triage_repo.list_grouped.await_args.kwargs["limit"] == TRIAGE_LIMIT_DEFAULT
+    # the real truncation signal is surfaced (never a silent drop)
+    assert res.result["has_more"] is True
+    # K38: the DEFAULT (detail omitted) is summary all the way through the executor —
+    # the heavy fields are dropped, the scan refs kept.
+    g = res.result["groups"][0]
+    assert g["signature"] == "dup:allies:a->b" and g["count"] == 4
+    assert "sample_payload" not in g          # heavy blob dropped at summary
+    assert g["suggested_actions"] == ["map", "drop_edge"]  # kept — actionable (OUT-1)
+
+    # full stays an explicit opt-in that returns the heavy fields
+    full = await execute_tool(ctx, "kg_triage_list", {"detail": "full"})
+    assert "sample_payload" in full.result["groups"][0]
 
 
 def _resolved_schema(edge_types=None, schema_version=3):
@@ -1247,6 +1294,44 @@ async def test_kg_world_query_unions_partitions_and_reports_unreadable(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_kg_world_query_surfaces_node_cap_hit_as_meta_truncated(monkeypatch):
+    """K37/OUT-5 — get_world_subgraph already flags `node_cap_hit` when the union re-cap (or
+    any member) trims; the handler now surfaces it as the UNIFORM `meta.truncated`, so a
+    capped world rollup is signalled just like the other graph reads (never a silent cut)."""
+    import app.tools.graph_schema_tools as gst
+
+    world_proj = uuid4()
+    book = AsyncMock()
+    book.list_world_books = AsyncMock(return_value=[])  # world-level project only
+    repo = AsyncMock()
+    repo.project_meta = AsyncMock(return_value=(_OWNER, _BOOK))
+    repo.list = AsyncMock(return_value=[SimpleNamespace(project_id=world_proj)])
+
+    async def _fake_subgraph(session, *, user_id, project_ids, limit):
+        # the repo says it trimmed the union → node_cap_hit=True
+        return SimpleNamespace(model_dump=lambda mode="json": {
+            "nodes": [{"id": "n1", "kind": "character", "name": "N"}],
+            "edges": [], "node_cap_hit": True,
+        })
+
+    monkeypatch.setattr("app.db.neo4j_repos.relations.get_world_subgraph", _fake_subgraph)
+
+    class _CM:
+        async def __aenter__(self):
+            return MagicMock()
+
+        async def __aexit__(self, *a):
+            return False
+
+    monkeypatch.setattr(gst, "neo4j_session", lambda: _CM())
+
+    ctx = _ctx(user_id=_OWNER, projects_repo=repo, book_client=book)
+    res = await execute_tool(ctx, "kg_world_query", {"world_id": str(uuid4())})
+    assert res.success, res.error
+    assert res.result["meta"]["truncated"] is True
+
+
+@pytest.mark.asyncio
 async def test_kg_world_query_unknown_world_is_self_correcting_error():
     """EC-B5: a bad world / book-service issue maps to a tool-error STRING (not a 500),
     so a weak model can self-correct."""
@@ -1399,7 +1484,7 @@ async def test_kg_multi_query_invalid_id_is_self_correcting_error():
 def test_kg_multi_query_args_require_at_least_one_and_cap_at_16():
     """The set must be non-empty (min_length=1) and capped at 16 (matches the B1(2)
     chat-session multi-KG grounding cap)."""
-    assert KgMultiQueryArgs(project_ids=["p1"]).limit == 200
+    assert KgMultiQueryArgs(project_ids=["p1"]).limit == 25  # K37: 200→25 (GRAPH_LIMIT_DEFAULT)
     with pytest.raises(ValidationError):
         KgMultiQueryArgs(project_ids=[])            # min_length=1
     with pytest.raises(ValidationError):
@@ -1611,3 +1696,310 @@ async def test_kg_create_node_rejects_legacy_faction_kind():
     res = await execute_tool(ctx, "kg_create_node", {"name": "The Guild", "kind": "faction"})
     assert not res.success
     assert "kind must be one of" in res.error.lower()
+
+
+# ── kg_graph_query unified scope dispatch (catalog-unification 2026-07-22) ─────
+# scope=world|multi must delegate to the SAME cores as legacy kg_world_query /
+# kg_multi_query, and reject a scope missing its required id.
+
+
+@pytest.mark.asyncio
+async def test_kg_graph_query_scope_world_delegates_to_world_core(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake_world(ctx, args):
+        seen["world_id"] = args.world_id
+        seen["unify"] = args.unify
+        return {"scope": "world"}
+
+    monkeypatch.setattr(gst, "_handle_kg_world_query", _fake_world)
+    res = await execute_tool(_ctx(), "kg_graph_query",
+                             {"scope": "world", "world_id": "W1", "unify": "by_name"})
+    assert res.success, res.error
+    assert seen == {"world_id": "W1", "unify": "by_name"}
+
+
+@pytest.mark.asyncio
+async def test_kg_graph_query_scope_multi_delegates_to_multi_core(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake_multi(ctx, args):
+        seen["project_ids"] = list(args.project_ids)
+        return {"scope": "multi"}
+
+    monkeypatch.setattr(gst, "_handle_kg_multi_query", _fake_multi)
+    res = await execute_tool(_ctx(), "kg_graph_query",
+                             {"scope": "multi", "project_ids": ["P1", "P2"]})
+    assert res.success, res.error
+    assert seen["project_ids"] == ["P1", "P2"]
+
+
+@pytest.mark.asyncio
+async def test_kg_graph_query_scope_world_without_world_id_is_tool_error():
+    res = await execute_tool(_ctx(), "kg_graph_query", {"scope": "world"})
+    assert not res.success
+    assert "world_id" in (res.error or "")
+
+
+@pytest.mark.asyncio
+async def test_kg_graph_query_scope_multi_without_project_ids_is_tool_error():
+    res = await execute_tool(_ctx(), "kg_graph_query", {"scope": "multi"})
+    assert not res.success
+    assert "project_ids" in (res.error or "")
+
+
+@pytest.mark.asyncio
+async def test_kg_graph_query_overfetches_and_signals_truncation(monkeypatch):
+    """K37/OUT-5 (2026-07-24) — the graph read's Cypher LIMIT was a SILENT cap. The handler
+    now over-fetches `limit+1` edges, and when that sentinel row comes back it reports
+    `meta.truncated=True` and returns exactly `limit` edges — a bigger graph is signalled,
+    never a silent cut."""
+    from contextlib import asynccontextmanager
+    from app.tools import graph_schema_tools as gst
+
+    seen = {}
+
+    async def _fake_run_read(session, cypher, **kw):
+        seen["limit"] = kw.get("limit")
+        return object()
+
+    # `_records` yields limit+1 (=4) valid edge rows → the cap bites at limit=3.
+    def _rec(i):
+        return {
+            "rel": {"predicate": "allies"},
+            "subj": {"id": f"s{i}", "kind": "character"},
+            "obj": {"id": f"o{i}", "kind": "character"},
+        }
+
+    async def _fake_records(result):
+        return [_rec(i) for i in range(4)]
+
+    @asynccontextmanager
+    async def _fake_session(*a, **k):
+        yield object()
+
+    monkeypatch.setattr(gst, "run_read", _fake_run_read)
+    monkeypatch.setattr(gst, "_records", _fake_records)
+    monkeypatch.setattr(gst, "neo4j_session", _fake_session)
+    monkeypatch.setattr(gst, "_deprecated_edge_codes", AsyncMock(return_value=[]))
+
+    res = await execute_tool(_ctx(), "kg_graph_query", {"limit": 3})
+    assert res.success, res.error
+    assert seen["limit"] == 4                          # over-fetched limit+1
+    assert res.result["meta"]["truncated"] is True     # the drop is SIGNALLED
+    assert res.result["meta"]["edges_returned"] == 3   # capped back to the real limit
+
+
+@pytest.mark.asyncio
+async def test_kg_graph_query_not_truncated_when_within_limit(monkeypatch):
+    """The complement: exactly `limit` (or fewer) edges → truncated is False, all returned."""
+    from contextlib import asynccontextmanager
+    from app.tools import graph_schema_tools as gst
+
+    def _rec(i):
+        return {"rel": {"predicate": "allies"},
+                "subj": {"id": f"s{i}", "kind": "character"},
+                "obj": {"id": f"o{i}", "kind": "character"}}
+
+    async def _fake_records(result):
+        return [_rec(i) for i in range(2)]  # < limit
+
+    @asynccontextmanager
+    async def _fake_session(*a, **k):
+        yield object()
+
+    monkeypatch.setattr(gst, "run_read", AsyncMock(return_value=object()))
+    monkeypatch.setattr(gst, "_records", _fake_records)
+    monkeypatch.setattr(gst, "neo4j_session", _fake_session)
+    monkeypatch.setattr(gst, "_deprecated_edge_codes", AsyncMock(return_value=[]))
+
+    res = await execute_tool(_ctx(), "kg_graph_query", {"limit": 3})
+    assert res.success, res.error
+    assert res.result["meta"]["truncated"] is False
+    assert res.result["meta"]["edges_returned"] == 2
+
+
+@pytest.mark.asyncio
+async def test_kg_entity_edge_timeline_overfetches_and_signals_truncation(monkeypatch):
+    """K37/OUT-5 (2026-07-24) — the temporal chain's Cypher LIMIT was a silent cap too. Same
+    fix as kg_graph_query: over-fetch limit+1, cap back, stamp `meta.truncated`."""
+    from contextlib import asynccontextmanager
+    from app.tools import graph_schema_tools as gst
+
+    seen = {}
+
+    async def _fake_run_read(session, cypher, **kw):
+        seen["limit"] = kw.get("limit")
+        return object()
+
+    def _rec(i):
+        return {"rel": {"predicate": "allies", "valid_from": i}, "obj": {"id": f"o{i}", "name": f"O{i}"}}
+
+    async def _fake_records(result):
+        return [_rec(i) for i in range(4)]  # limit+1 → cap bites at limit=3
+
+    @asynccontextmanager
+    async def _fake_session(*a, **k):
+        yield object()
+
+    monkeypatch.setattr(gst, "run_read", _fake_run_read)
+    monkeypatch.setattr(gst, "_records", _fake_records)
+    monkeypatch.setattr(gst, "neo4j_session", _fake_session)
+    monkeypatch.setattr(gst, "_resolve_entity_project_grant", AsyncMock())
+
+    res = await execute_tool(
+        _ctx(), "kg_entity_edge_timeline",
+        {"entity_id": "e1", "edge_type": "allies", "limit": 3},
+    )
+    assert res.success, res.error
+    assert seen["limit"] == 4                        # over-fetched limit+1
+    assert res.result["meta"]["truncated"] is True   # the drop is SIGNALLED
+    assert len(res.result["instances"]) == 3         # capped back to the real limit
+
+
+# ── kg_ontology_propose unified op dispatch (catalog-unification 2026-07-22) ───
+# op=schema_edit|adopt_template|sync_apply must delegate to the SAME cores as the
+# legacy kg_schema_edit / kg_adopt_template / kg_sync_apply.
+
+
+@pytest.mark.asyncio
+async def test_kg_ontology_propose_schema_edit_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen.update(verb=args.verb, level=args.level, code=args.code)
+        return {"op": "schema_edit"}
+
+    monkeypatch.setattr(gst, "_handle_kg_schema_edit", _fake)
+    res = await execute_tool(_ctx(), "kg_ontology_propose",
+                             {"op": "schema_edit", "verb": "add", "level": "edge_type", "code": "WORSHIPS"})
+    assert res.success, res.error
+    assert seen == {"verb": "add", "level": "edge_type", "code": "WORSHIPS"}
+
+
+@pytest.mark.asyncio
+async def test_kg_ontology_propose_adopt_template_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen["sid"] = args.source_schema_id
+        return {"op": "adopt"}
+
+    monkeypatch.setattr(gst, "_handle_kg_adopt_template", _fake)
+    res = await execute_tool(_ctx(), "kg_ontology_propose",
+                             {"op": "adopt_template", "source_schema_id": "T1"})
+    assert res.success, res.error
+    assert seen["sid"] == "T1"
+
+
+@pytest.mark.asyncio
+async def test_kg_ontology_propose_sync_apply_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen["hash"] = args.base_source_hash
+        return {"op": "sync"}
+
+    monkeypatch.setattr(gst, "_handle_kg_sync_apply", _fake)
+    res = await execute_tool(_ctx(), "kg_ontology_propose",
+                             {"op": "sync_apply", "base_source_hash": "H1"})
+    assert res.success, res.error
+    assert seen["hash"] == "H1"
+
+
+@pytest.mark.asyncio
+async def test_kg_ontology_propose_schema_edit_missing_fields_is_tool_error():
+    res = await execute_tool(_ctx(), "kg_ontology_propose", {"op": "schema_edit", "verb": "add"})
+    assert not res.success
+    assert "code" in (res.error or "")
+
+
+# ── kg_view_edit + kg_add_nodes unified dispatch (catalog-unification 2026-07-22) ──
+
+
+@pytest.mark.asyncio
+async def test_kg_view_edit_upsert_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen.update(code=args.code, name=args.name)
+        return {"op": "upsert"}
+
+    monkeypatch.setattr(gst, "_handle_kg_view_upsert", _fake)
+    res = await execute_tool(_ctx(), "kg_view_edit", {"op": "upsert", "code": "v1", "name": "View 1"})
+    assert res.success, res.error
+    assert seen == {"code": "v1", "name": "View 1"}
+
+
+@pytest.mark.asyncio
+async def test_kg_view_edit_delete_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen["code"] = args.code
+        return {"op": "delete"}
+
+    monkeypatch.setattr(gst, "_handle_kg_view_delete", _fake)
+    res = await execute_tool(_ctx(), "kg_view_edit", {"op": "delete", "code": "v1"})
+    assert res.success, res.error
+    assert seen["code"] == "v1"
+
+
+@pytest.mark.asyncio
+async def test_kg_view_edit_upsert_without_name_is_tool_error():
+    res = await execute_tool(_ctx(), "kg_view_edit", {"op": "upsert", "code": "v1"})
+    assert not res.success
+    assert "name" in (res.error or "")
+
+
+@pytest.mark.asyncio
+async def test_kg_add_nodes_manual_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen.update(name=args.name, kind=args.kind)
+        return {"mode": "manual"}
+
+    monkeypatch.setattr(gst, "_handle_kg_create_node", _fake)
+    res = await execute_tool(_ctx(), "kg_add_nodes",
+                             {"mode": "manual", "name": "Kai", "kind": "character"})
+    assert res.success, res.error
+    assert seen == {"name": "Kai", "kind": "character"}
+
+
+@pytest.mark.asyncio
+async def test_kg_add_nodes_from_glossary_delegates(monkeypatch):
+    import app.tools.graph_schema_tools as gst
+    seen = {}
+
+    async def _fake(ctx, args):
+        seen["entity_ids"] = args.entity_ids
+        return {"mode": "from_glossary"}
+
+    monkeypatch.setattr(gst, "_handle_kg_project_entities_to_nodes", _fake)
+    res = await execute_tool(_ctx(), "kg_add_nodes",
+                             {"mode": "from_glossary", "entity_ids": ["e1", "e2"]})
+    assert res.success, res.error
+    assert seen["entity_ids"] == ["e1", "e2"]
+
+
+@pytest.mark.asyncio
+async def test_kg_add_nodes_manual_without_kind_is_tool_error():
+    res = await execute_tool(_ctx(), "kg_add_nodes", {"mode": "manual", "name": "Kai"})
+    assert not res.success
+
+
+@pytest.mark.asyncio
+async def test_kg_add_nodes_manual_bad_kind_is_tool_error():
+    res = await execute_tool(_ctx(), "kg_add_nodes",
+                             {"mode": "manual", "name": "Kai", "kind": "banana"})
+    assert not res.success
+    assert "kind" in (res.error or "")

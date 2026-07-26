@@ -54,14 +54,26 @@ func (s *Server) mcpHandler() http.Handler {
 			"concepts) by name, alias, or natural-language terms. Returns ranked entities " +
 			"with name, aliases, kind, and a short description. Use this to find what the " +
 			"glossary already knows before answering or proposing changes.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+		Meta: lwmcp.WithAmbientBook(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil)),
 	}, s.toolSearch)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
 		Name: "glossary_get_entity",
 		Description: "Fetch one glossary entity's full detail (attributes, aliases, kind, " +
-			"counts) by id, within a book. Use after glossary_search to read an entity in depth.",
-		Meta: lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, nil),
+			"counts) by id, within a book. Use after glossary_search to read an entity in depth. " +
+			"Optionally expand related detail via `include`: chapter_links (chapters the entity " +
+			"appears in), revisions (edit history — find a revision to restore), evidence (the " +
+			"excerpts supporting each attribute value), genres (the entity's genre override). Omit " +
+			"`include` for just the entity.",
+		// Part B2 (catalog-unification 2026-07-22): the entity-addressed detail reads
+		// (chapter_links / revisions / evidence / genres) fold into this tool via `include`,
+		// so 4 legacy list tools leave the default catalog. Closed-set item enum.
+		InputSchema: closedSetSchemaFor[getEntityToolIn](map[string][]any{
+			"include[]": {"chapter_links", "revisions", "evidence", "genres"},
+		}),
+		Meta: lwmcp.WithAmbientBook(lwmcp.NewToolMeta(lwmcp.TierR, lwmcp.ScopeBook, nil, []string{
+			"entity chapter links", "entity revision history", "entity evidence", "entity genres",
+		})),
 	}, s.toolGetEntity)
 
 	// F2 (§12.3): retarget of the old glossary_list_kinds → the "what CAN I adopt"
@@ -87,12 +99,21 @@ func (s *Server) mcpHandler() http.Handler {
 	s.RegisterSyncTools(srv)
 	s.RegisterUserTools(srv)
 	// Pipeline M1: read tools (merge-candidates / chapter-links / revisions / unknowns).
+	// NOTE: the 3 book-inbox reads are now legacy — superseded by glossary_curation_list
+	// (catalog-unification 2026-07-22 Part B, RegisterCurationTools below).
 	s.RegisterPipelineReadTools(srv)
+	// Part B: glossary_curation_list — the unified inbox read (view enum over the 3 legacy lists).
+	s.RegisterCurationTools(srv)
 	// Pipeline M2: direct (class-W) additive write tools (chapter-links, evidence).
 	s.RegisterPipelineWriteTools(srv)
 	// Pipeline M2: class-C propose tools for destructive curation (status / restore /
 	// reassign-kind / merge) — mint a confirm card, never write directly.
+	// NOTE: all 4 are now legacy — superseded by glossary_propose_curation (Part C below).
 	s.RegisterPipelineProposeTools(srv)
+	// Part C: glossary_propose_curation — the unified curation propose (op enum over the 4 legacy tools).
+	s.RegisterCurationProposeTools(srv)
+	// Part D: glossary_set_genres — the unified genre-matrix setter (target enum over the 3 legacy setters).
+	s.RegisterSetGenresTool(srv)
 	// Pipeline M4: entity-translation tool (class-W; draft, never overwrites verified).
 	s.RegisterPipelineTranslateTools(srv)
 	// S5: web-search deep-research tool (class-C; paid outward call → confirm-gated).
@@ -150,12 +171,15 @@ func (s *Server) mcpHandler() http.Handler {
 			"kind with no attributes can't describe anything. This is high-impact — it does NOT create " +
 			"anything; it returns a confirm_token + preview that a human must explicitly confirm. Pass the " +
 			"confirm_token to glossary_confirm_action. Use sparingly, only when no existing kind " +
-			"(glossary_book_ontology_read) fits.",
+			"(glossary_book_ontology_read) fits. " +
+			"NOTE: superseded by glossary_propose_batch (op create_kinds) — kept for existing callers only.",
 		InputSchema: closedSetSchemaFor[proposeKindToolIn](map[string][]any{
 			"attributes[].field_type": enumFieldTypes,
 		}),
-		// Mints a grant confirm_token (no direct write) ⇒ Tier W.
-		Meta: lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil),
+		// Mints a grant confirm_token (no direct write) ⇒ Tier W. LEGACY (catalog-unification
+		// 2026-07-22): superseded by glossary_propose_batch's create_kinds op — hidden from the
+		// hot-set, still loadable for existing callers.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolProposeNewKind)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
@@ -166,11 +190,13 @@ func (s *Server) mcpHandler() http.Handler {
 			"defining `attributes`, each with a clear `description` — extraction uses it as the per-attribute " +
 			"instruction). Returns ONE confirm_token + a preview listing all kinds; the human confirms once via " +
 			"glossary_confirm_action and they are all created (idempotent — an existing kind is skipped). High-impact; " +
-			"creates nothing until confirmed.",
+			"creates nothing until confirmed. " +
+			"NOTE: superseded by glossary_propose_batch (op create_kinds) — kept for existing callers only.",
 		InputSchema: closedSetSchemaFor[proposeKindsToolIn](map[string][]any{
 			"kinds[].attributes[].field_type": enumFieldTypes,
 		}),
-		Meta: lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil),
+		// LEGACY (catalog-unification 2026-07-22): superseded by glossary_propose_batch's create_kinds op.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolProposeKinds)
 
 	lwmcp.RegisterTool(srv, &mcp.Tool{
@@ -233,11 +259,13 @@ func (s *Server) mcpHandler() http.Handler {
 		Description: "Propose a NEW attribute on an existing kind (e.g. add 'cultivation_realm' to the " +
 			"character kind). Schema-level and high-impact — it does NOT write; it returns a confirm_token + " +
 			"preview a human must confirm via glossary_confirm_action. Call glossary_book_ontology_read first to pick " +
-			"the kind_code and avoid duplicating an existing attribute.",
+			"the kind_code and avoid duplicating an existing attribute. " +
+			"NOTE: superseded by glossary_propose_batch (op add_attributes) — kept for existing callers only.",
 		InputSchema: closedSetSchemaFor[proposeAttrToolIn](map[string][]any{
 			"field_type": enumFieldTypes,
 		}),
-		Meta: lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil),
+		// LEGACY (catalog-unification 2026-07-22): superseded by glossary_propose_batch's add_attributes op.
+		Meta: lwmcp.WithVisibility(lwmcp.NewToolMeta(lwmcp.TierW, lwmcp.ScopeBook, nil, nil), lwmcp.VisibilityLegacy),
 	}, s.toolProposeNewAttribute)
 	// glossary_book_delete + glossary_book_* tools are registered in RegisterBookTools (T1).
 
@@ -277,6 +305,10 @@ func (s *Server) mcpIdentityMiddleware(next http.Handler) http.Handler {
 		// fires for public-key traffic (glossary runs its own middleware, not the
 		// kit's IdentityMiddleware, so we inject via the kit helper).
 		ctx = lwmcp.ContextWithMcpKeyID(ctx, r.Header.Get(lwmcp.HeaderMcpKeyID))
+		// Studio context binding (spec 2026-07-22) — lift the ambient book (X-Book-Id) into the kit ctx
+		// so a WithAmbientBook glossary tool resolves book_id via lwmcp.ResolveBookScope when the model
+		// omits it. Scope hint only, never authz (the tool still grant-checks the resolved book).
+		ctx = lwmcp.ContextWithBookID(ctx, r.Header.Get(lwmcp.HeaderBookID))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -297,6 +329,19 @@ func userIDFromCtx(ctx context.Context) (uuid.UUID, bool) {
 		return uuid.Nil, false
 	}
 	return id, true
+}
+
+// resolveBookScope resolves a tool's book from its arg OR the ambient book (X-Book-Id) when the model
+// omits it (studio context binding, spec 2026-07-22) — one line per handler, same shape as the old
+// uuid.Parse(in.BookID). The resolved book is grant-checked by the caller EXACTLY like an explicit arg
+// (the ambient book is a scope HINT, never authz). Fail-closed when neither an arg nor an ambient book
+// is present. Only use it on a tool tagged WithAmbientBook (its schema must make book_id optional).
+func resolveBookScope(ctx context.Context, argBookID string) (uuid.UUID, error) {
+	scope, ok := lwmcp.ResolveBookScope(ctx, argBookID)
+	if !ok {
+		return uuid.Nil, errors.New("book_id is required (a UUID)")
+	}
+	return scope.BookID, nil
 }
 
 // uniformOwnershipError maps the ownership sentinels to caller-visible messages.
@@ -321,7 +366,9 @@ const (
 )
 
 type searchToolIn struct {
-	BookID string `json:"book_id" jsonschema:"the book whose glossary to search (UUID)"`
+	// book_id OPTIONAL (ambient_book) — omitted inside a book studio, it resolves from the envelope
+	// (X-Book-Id); the handler fail-closes if neither an arg nor an ambient book is present.
+	BookID string `json:"book_id,omitempty" jsonschema:"the book whose glossary to search (UUID). Omit inside a book studio — the current book is used."`
 	Query  string `json:"query" jsonschema:"natural-language search terms"`
 	Limit  int    `json:"limit,omitempty" jsonschema:"max entities to return (default 20, max 50)"`
 }
@@ -330,11 +377,20 @@ type searchToolOut struct {
 }
 
 type getEntityToolIn struct {
-	BookID   string `json:"book_id" jsonschema:"the book the entity belongs to (UUID)"`
-	EntityID string `json:"entity_id" jsonschema:"the entity to fetch (UUID)"`
+	// book_id OPTIONAL (ambient_book) — omitted inside a book studio, it resolves from the envelope.
+	BookID   string   `json:"book_id,omitempty" jsonschema:"the book the entity belongs to (UUID). Omit inside a book studio — the current book is used."`
+	EntityID string   `json:"entity_id" jsonschema:"the entity to fetch (UUID)"`
+	Include  []string `json:"include,omitempty" jsonschema:"optional related-detail sections to expand: chapter_links | revisions | evidence | genres. Omit for just the entity."`
 }
 type getEntityToolOut struct {
 	Entity *entityDetailResp `json:"entity"`
+	// Part B2 — the `include` expansions (populated only when requested, so the base read stays small).
+	ChapterLinks []chapterLinkResp       `json:"chapter_links,omitempty"`
+	Revisions    []entityRevisionSummary `json:"revisions,omitempty"`
+	Evidence     []entityEvidenceItem    `json:"evidence,omitempty"`
+	Genres       *entityGenresToolOut    `json:"genres,omitempty"`
+	// Truncated names the include sections capped at the read limit (no silent cap).
+	Truncated []string `json:"truncated,omitempty"`
 }
 
 type listKindsToolIn struct{}
@@ -378,10 +434,13 @@ func (s *Server) toolSearch(ctx context.Context, _ *mcp.CallToolRequest, in sear
 	if !ok {
 		return nil, searchToolOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
-	if err != nil {
-		return nil, searchToolOut{}, errors.New("book_id must be a UUID")
+	// Ambient scope (spec 2026-07-22): on a book-bound studio surface book_id resolves from the envelope
+	// (X-Book-Id) when omitted. The resolved book is grant-checked below EXACTLY like an explicit arg.
+	scope, sok := lwmcp.ResolveBookScope(ctx, in.BookID)
+	if !sok {
+		return nil, searchToolOut{}, errors.New("book_id is required (a UUID)")
 	}
+	bookID := scope.BookID
 	if err := s.checkGrant(ctx, bookID, userID, grantclient.GrantView); err != nil {
 		return nil, searchToolOut{}, uniformOwnershipError(err)
 	}
@@ -407,10 +466,11 @@ func (s *Server) toolGetEntity(ctx context.Context, _ *mcp.CallToolRequest, in g
 	if !ok {
 		return nil, getEntityToolOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
-	if err != nil {
-		return nil, getEntityToolOut{}, errors.New("book_id must be a UUID")
+	scope, sok := lwmcp.ResolveBookScope(ctx, in.BookID) // ambient: resolve book_id from X-Book-Id when omitted
+	if !sok {
+		return nil, getEntityToolOut{}, errors.New("book_id is required (a UUID)")
 	}
+	bookID := scope.BookID
 	entityID, err := uuid.Parse(in.EntityID)
 	if err != nil {
 		return nil, getEntityToolOut{}, errors.New("entity_id must be a UUID")
@@ -430,11 +490,60 @@ func (s *Server) toolGetEntity(ctx context.Context, _ *mcp.CallToolRequest, in g
 		}
 		return nil, getEntityToolOut{}, errors.New("entity not accessible")
 	}
-	return nil, getEntityToolOut{Entity: detail}, nil
+	out := getEntityToolOut{Entity: detail}
+	// Part B2 (catalog-unification 2026-07-22): expand the requested detail sections
+	// (folded from the legacy list_chapter_links / list_entity_revisions /
+	// get_entity_evidence / entity_get_genres tools — SAME cores). include[] is enum-
+	// validated by the SDK, so an unknown section can't reach here.
+	for _, sec := range in.Include {
+		switch sec {
+		case "chapter_links":
+			links, err := s.queryChapterLinks(ctx, entityID)
+			if err != nil {
+				return nil, getEntityToolOut{}, errors.New("failed to load chapter links")
+			}
+			if len(links) > pipelineReadCap {
+				links = links[:pipelineReadCap]
+				out.Truncated = append(out.Truncated, "chapter_links")
+			}
+			out.ChapterLinks = links
+		case "revisions":
+			revs, err := s.queryEntityRevisions(ctx, entityID) // core self-caps at entityRevisionsListCap
+			if err != nil {
+				return nil, getEntityToolOut{}, errors.New("failed to load revisions")
+			}
+			out.Revisions = revs
+		case "evidence":
+			items, err := s.queryEntityEvidences(ctx, entityID, pipelineReadCap+1) // +1 to detect truncation
+			if err != nil {
+				return nil, getEntityToolOut{}, errors.New("failed to load evidence")
+			}
+			if len(items) > pipelineReadCap {
+				items = items[:pipelineReadCap]
+				out.Truncated = append(out.Truncated, "evidence")
+			}
+			out.Evidence = items
+		case "genres":
+			ids, err := s.getEntityGenreIDs(ctx, entityID)
+			if err != nil {
+				return nil, getEntityToolOut{}, errors.New("failed to load entity genres")
+			}
+			out.Genres = &entityGenresToolOut{GenreIDs: ids, UsesBookDefault: len(ids) == 0}
+		default:
+			// Unreachable via the include[] item enum (SDK-validated), but never silently
+			// no-op an unknown section — consistent with curation_list/propose_curation/
+			// set_genres, which all return an explicit error on an unknown discriminator
+			// (/review-impl LOW fix 2026-07-22).
+			return nil, getEntityToolOut{}, errors.New("unknown include section: " + sec +
+				" (valid: chapter_links, revisions, evidence, genres)")
+		}
+	}
+	return nil, out, nil
 }
 
 type bookOntologyReadToolIn struct {
-	BookID string `json:"book_id" jsonschema:"the book whose local ontology to read (UUID)"`
+	// book_id OPTIONAL (ambient_book) — omitted inside a book studio, it resolves from the envelope.
+	BookID string `json:"book_id,omitempty" jsonschema:"the book whose local ontology to read (UUID). Omit inside a book studio — the current book is used."`
 }
 type bookOntologyReadToolOut struct {
 	// D-2-ONTOLOGY-BLOAT: the COMPACT projection (identifiers + counts + base_version), not the full
@@ -449,10 +558,11 @@ func (s *Server) toolBookOntologyRead(ctx context.Context, _ *mcp.CallToolReques
 	if !ok {
 		return nil, bookOntologyReadToolOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
-	if err != nil {
-		return nil, bookOntologyReadToolOut{}, errors.New("book_id must be a UUID")
+	scope, sok := lwmcp.ResolveBookScope(ctx, in.BookID) // ambient: resolve book_id from X-Book-Id when omitted
+	if !sok {
+		return nil, bookOntologyReadToolOut{}, errors.New("book_id is required (a UUID)")
 	}
+	bookID := scope.BookID
 	if err := s.checkGrant(ctx, bookID, userID, grantclient.GrantView); err != nil {
 		return nil, bookOntologyReadToolOut{}, uniformOwnershipError(err)
 	}
@@ -507,7 +617,7 @@ func (s *Server) toolListKinds(ctx context.Context, _ *mcp.CallToolRequest, _ li
 const tagAssistant = "assistant"
 
 type proposeEntityToolIn struct {
-	BookID     string         `json:"book_id" jsonschema:"the book to add the entity to (UUID)"`
+	BookID     string         `json:"book_id,omitempty" jsonschema:"the book to add the entity to (UUID)"`
 	Kind       string         `json:"kind" jsonschema:"the entity kind code (e.g. character, place) — see glossary_book_ontology_read"`
 	Name       string         `json:"name" jsonschema:"the entity's name"`
 	Attributes map[string]any `json:"attributes,omitempty" jsonschema:"optional attribute code → value map"`
@@ -534,7 +644,7 @@ func (s *Server) toolProposeNewEntity(ctx context.Context, _ *mcp.CallToolReques
 	if !ok {
 		return nil, proposeEntityToolOut{}, errors.New("missing caller identity")
 	}
-	bookID, err := uuid.Parse(in.BookID)
+	bookID, err := resolveBookScope(ctx, in.BookID) // ambient: X-Book-Id when omitted
 	if err != nil {
 		return nil, proposeEntityToolOut{}, errors.New("book_id must be a UUID")
 	}

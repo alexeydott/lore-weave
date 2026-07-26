@@ -244,6 +244,36 @@ class TestTokenBudgetedSeed:
         from app.services.tool_surface import ALWAYS_HOT_WRITES
         assert "book_update_details" in ALWAYS_HOT_WRITES
 
+    def test_rail_budget_excludes_done_steps_so_later_steps_survive(self):
+        # REGRESSION (live 2026-07-26, scenario step 5): a long pinned rail's step tools are
+        # budgeted in DECLARED STEP ORDER, so the budget fills on the EARLY steps and drops the
+        # LATE ones. After the early steps are DONE that starved `plan_propose_spec` (a late
+        # step) → the agent read a recipe naming a tool it could not see and wrote the plan as
+        # prose. Excluding the fully-done step tools frees the budget for the not-done ones.
+        # Neutral names (no hot-domain prefix) + a bare surface, so the rail budget is the ONLY
+        # path these tools can enter — isolating exactly the fix.
+        pins = resolve_session_tool_pins({"enabled_tools": [], "activated_tools": []})
+        big = 9000  # ~2.2K tok — one such tool alone fills the 2K budget
+        cat = ([_tool_big(f"zdone_{i}", big) for i in range(3)]
+               + [_tool_big("zplan_spec", 400)])  # the small late step that got starved
+        rail = ["zdone_0", "zdone_1", "zdone_2", "zplan_spec"]
+        done = {"zdone_0", "zdone_1", "zdone_2"}
+        # WITHOUT the exclusion: step-order budgeting spends the whole budget on the first done
+        # step and drops everything after it, including the plan tool.
+        cold = discovery_seed_for_surface(
+            cat, pins=pins, editor=False, book_scoped=False, pinned_step_tools=rail,
+        )
+        assert "zplan_spec" not in cold, "precondition: the late step is starved without the fix"
+        # WITH the exclusion: the done steps leave the candidate set, so the late step wins the budget
+        warm = discovery_seed_for_surface(
+            cat, pins=pins, editor=False, book_scoped=False,
+            pinned_step_tools=rail, rail_done_step_tools=done,
+        )
+        assert "zplan_spec" in warm, (
+            "the current rail step must survive the budget once completed steps are excluded — "
+            "otherwise the agent reads a recipe naming a tool it cannot see"
+        )
+
     def test_recall_and_timeline_classified_as_reads(self):
         from app.services.tool_surface import _is_read_tool
         assert _is_read_tool("memory_recall_entity")

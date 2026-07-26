@@ -307,7 +307,13 @@ func (s *Server) toolBookGetChapter(ctx context.Context, _ *mcp.CallToolRequest,
 SELECT c.id,c.book_id,c.title,c.original_language,c.sort_order,c.editorial_status,c.published_revision_id,c.draft_revision_count,c.lifecycle_state
 FROM chapters c WHERE c.id=$1 AND c.book_id=$2`, chID, bookID).
 		Scan(&chIDScan, &bookIDScan, &c.Title, &c.OriginalLanguage, &c.SortOrder, &c.EditorialStatus, &pubRevID, &c.DraftRevisions, &c.LifecycleState)
-	if errors.Is(err, pgx.ErrNoRows) || c.LifecycleState == "purge_pending" {
+	if errors.Is(err, pgx.ErrNoRows) {
+		// VIEW grant already passed → the book is accessible; chapter_id names no chapter of it.
+		// Be explicit (a VIEW-granted caller can list the book's chapters anyway) so the agent
+		// fixes the id rather than concluding it lost book access.
+		return nil, getChapterOut{}, errChapterNotInBook
+	}
+	if c.LifecycleState == "purge_pending" {
 		return nil, getChapterOut{}, errBookNotAccessible
 	}
 	if err != nil {

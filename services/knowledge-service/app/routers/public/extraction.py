@@ -1169,12 +1169,27 @@ async def cancel_extraction_job(
 _GRAPH_LABELS = ["Entity", "Event", "Fact", "ExtractionSource"]
 
 
-async def _delete_project_graph(user_id: UUID, project_id: UUID) -> int:
-    """Delete all Neo4j nodes for a project. Returns total nodes deleted.
+async def _delete_project_graph(
+    user_id: UUID, project_id: UUID, *, include_passages: bool = False
+) -> int:
+    """Delete a project's Neo4j graph nodes. Returns total nodes deleted.
 
     Shared by K16.8 (delete), K16.9 (rebuild), K16.10 (change model).
     Caller must check neo4j_uri is set before calling.
     NOTE: unbatched DETACH DELETE — see D-K11.9-01.
+
+    ``include_passages`` — D-EMB-MODEL-REF-04. `:Passage` is deliberately NOT in
+    `_GRAPH_LABELS`: it holds chat- and glossary-sourced chunks that extraction cannot
+    rebuild, so a plain delete-graph/rebuild (which does NOT change the vector space)
+    must leave them alone — their vectors stay valid.
+
+    A model CHANGE is the opposite case and MUST pass True. Every passage is embedded
+    in the OLD model's space; leaving them behind makes them permanently unreachable
+    from the new vector index — silent zero-recall. Both change-model paths documented
+    themselves as already doing this ("the graph delete above also dropped any
+    stale-dimension passages") and neither did: proven live on 2026-07-23 by running
+    this exact label loop over a synthetic tenant, after which the `:Passage` node was
+    the only survivor.
     """
     deleted_total = 0
     async with neo4j_session() as session:
@@ -1189,6 +1204,12 @@ async def _delete_project_graph(user_id: UUID, project_id: UUID) -> int:
             )
             record = await result.single()
             deleted_total += record["deleted"] if record else 0
+        if include_passages:
+            from app.db.neo4j_repos.passages import delete_all_passages_for_project
+
+            deleted_total += await delete_all_passages_for_project(
+                session, user_id=str(user_id), project_id=str(project_id),
+            )
     return deleted_total
 
 
@@ -1595,7 +1616,12 @@ async def change_embedding_model(
             ),
         )
 
-    deleted_total = await _delete_project_graph(user_id, project_id)
+    # include_passages=True — the whole point of this confirm gate. The passages are
+    # embedded in `current_model`'s vector space; anything left behind is invisible to
+    # the new index forever (D-EMB-MODEL-REF-04).
+    deleted_total = await _delete_project_graph(
+        user_id, project_id, include_passages=True
+    )
 
     await projects_repo.set_extraction_state(
         user_id, project_id,
