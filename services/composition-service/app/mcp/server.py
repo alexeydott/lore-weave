@@ -106,7 +106,7 @@ from app.db.repositories.scene_links import SceneLinksRepo
 from app.db.repositories.structure import StructureConflictError, StructureRepo
 from app.db.repositories.derivatives import DerivativesRepo
 from app.db.repositories.works import WorksRepo
-from app.deps import get_authoring_run_service
+from app.deps import get_authoring_run_service, get_bootstrap_service
 from app.packer.pack import build_derivative_context
 from app.grant_client import GrantLevel, get_grant_client
 from app.mcp.service_bearer import mint_service_bearer
@@ -137,6 +137,10 @@ from loreweave_mcp.tasks_wire import (  # noqa: E402
 # Defined here (ahead of the other confirm descriptors below) because the durable-gate
 # store is constructed at import time and needs the derive descriptor as its resolver key.
 _DERIVE_DESCRIPTOR = "composition.derive"
+# PlanForge auto-bootstrap MATERIALISE — the confirm-gated apply that turns a compiled
+# plan's planned chapters into REAL book chapters (executed in actions.py). Mirrors the
+# REST /plan/bootstrap/{id}/apply gate so the agent can drive materialisation via MCP.
+_BOOTSTRAP_APPLY_DESCRIPTOR = "composition.bootstrap_apply"
 
 
 async def _resolve_derive(owner_user_id: str, payload: dict, _inputs: dict):
@@ -5232,6 +5236,98 @@ async def plan_link(
         raise uniform_not_accessible()
     except ValueError as exc:
         return {"success": False, "error": "cannot link", "detail": str(exc)[:300]}
+
+
+# ── PlanForge auto-bootstrap MATERIALISE — the MCP half of the REST bootstrap gate ─────────────
+#
+# `plan_compile` + the passes build the composition spec tree (structure_node + outline_node), but
+# the manuscript chapters the drafting subagent writes into are BOOK-service rows the compiler never
+# creates. The bootstrap gate (BootstrapService.propose→approve→apply) is what turns a compiled
+# plan's planned chapters into real book chapters (and stamps outline_node.chapter_id so the scenes
+# hang off them). It shipped REST-only, so an AGENT could not drive it — which broke the "chat builds
+# the foundation, then hands compile+draft to the subagent" handoff (MCP-first invariant). These two
+# tools are the agent surface: PREVIEW (propose, writes nothing) then a CONFIRM-gated CREATE (apply).
+
+
+@mcp_server.tool(
+    name="plan_bootstrap_propose",
+    description=(
+        "PlanForge: PREVIEW the real book chapters (and any glossary seeds) a COMPILED plan would "
+        "create — the bridge from a compiled plan to draftable chapters. Deterministic, no LLM, and "
+        "writes NOTHING to the book: it diffs the plan's chapters against the ones that already exist "
+        "and records the gap as a proposal. The run must be compiled first (plan_compile). Follow with "
+        "plan_bootstrap_apply (using the returned proposal_id) to actually create the chapters. Returns "
+        "proposal_id + the chapter titles it would create. EDIT on the book required."
+    ),
+    meta=require_meta(
+        "A", "book",
+        synonyms=["preview chapters from plan", "materialize plan chapters", "what chapters will this make",
+                  "bridge plan to chapters"],
+        tool_name="plan_bootstrap_propose",
+    ),
+)
+async def plan_bootstrap_propose(
+    ctx: MCPContext,
+    book_id: Annotated[str, "The book (UUID)."],
+    run_id: Annotated[str, "The compiled plan run (UUID)."],
+) -> dict:
+    tc = _ctx(ctx)
+    bid = UUID(book_id)
+    await _gate(tc, bid, GrantLevel.EDIT)
+    svc = await get_bootstrap_service()
+    bearer = mint_service_bearer(tc.user_id, settings.jwt_secret)
+    try:
+        rec = await svc.propose(tc.user_id, bid, UUID(run_id), bearer)
+    except LookupError:
+        raise uniform_not_accessible()
+    except ValueError as exc:
+        # e.g. "run has no compiled package yet — call compile() first"
+        return {"success": False, "error": "cannot preview", "detail": str(exc)[:300]}
+    diff = rec.diff or {}
+    chapters = diff.get("new_chapters", [])
+    return {
+        "proposal_id": str(rec.id),
+        "status": rec.status,
+        "new_chapters_count": len(chapters),
+        "new_chapters": [{"title": c.get("title"), "ordinal": c.get("ordinal")} for c in chapters],
+        "new_glossary_entities_count": len(diff.get("new_glossary_entities", [])),
+    }
+
+
+@mcp_server.tool(
+    name="plan_bootstrap_apply",
+    description=(
+        "PlanForge: CREATE the real book chapters a plan_bootstrap_propose previewed (and seed any "
+        "proposed glossary entities), turning the compiled plan into chapters the drafting subagent can "
+        "write into. This WRITES to the book (new chapters), so it is CONFIRM-GATED: it returns a "
+        "`confirm_token` + descriptor and creates nothing until confirmed. Deterministic, no LLM. Pass "
+        "the proposal_id from plan_bootstrap_propose. EDIT on the book required."
+    ),
+    meta=require_meta(
+        "A", "book",
+        synonyms=["create the chapters", "make the plan real", "apply materialize", "build the chapters"],
+        tool_name="plan_bootstrap_apply",
+    ),
+)
+async def plan_bootstrap_apply(
+    ctx: MCPContext,
+    book_id: Annotated[str, "The book (UUID)."],
+    proposal_id: Annotated[str, "The proposal from plan_bootstrap_propose (UUID)."],
+) -> dict:
+    tc = _ctx(ctx)
+    bid = UUID(book_id)
+    await _gate(tc, bid, GrantLevel.EDIT)
+    pid = UUID(proposal_id)  # validate shape before minting
+    payload = {"book_id": str(bid), "proposal_id": str(pid)}
+    confirm_token = mint_confirm_token(
+        settings.confirm_token_signing_secret, tc.user_id, bid, _BOOTSTRAP_APPLY_DESCRIPTOR, payload,
+    )
+    return {
+        "confirm_token": confirm_token,
+        "descriptor": _BOOTSTRAP_APPLY_DESCRIPTOR,
+        "book_id": str(bid),
+        "proposal_id": str(pid),
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════

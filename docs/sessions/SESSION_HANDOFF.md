@@ -32,16 +32,28 @@ composition **authoring-run SUBAGENT** (designed for focused, high-attention lon
   `outline_node.chapter_id` + seeds glossary). The prior handoff note ("V2 dropped materialization")
   was wrong; the real gaps were the 3 bugs above + it being **REST-ONLY** (no MCP → the agent can't
   drive it).
-- **▶ NEXT (milestone 2 — the user's "update workflow + wire" ask):**
-  - **G1** expose the bootstrap gate as MCP tools (`plan_bootstrap_propose`/`_apply`) — the
-    materialization seam for the agentic handoff (MCP-first invariant; currently REST-only in
-    `routers/plan_bootstrap.py`).
-  - **G2** reshape `vision-to-book` rail (agent-registry `migrate.go`): cut inline steps 10-12
-    (compile/draft), end at the arc-plan proposal; offer the subagent handoff.
-  - **G3** wire the `autonomous-drafting` rail to the full heavy pipeline: compile → materialize
-    (bootstrap MCP) → authoring_run create/start/watch.
-  - Then FE handoff polish (Agent Mode NewRun launchable from chat) + a worker-persist unit guard
-    (deferred: needs a draft_chapter mock harness that doesn't exist yet — live-smoke covers it now).
+- **✅ MILESTONE 2 DONE — "update workflow + wire" (backend), committed:**
+  - **G1** exposed the bootstrap gate as MCP tools `plan_bootstrap_propose` (preview, writes nothing)
+    + `plan_bootstrap_apply` (confirm-gated CREATE) in composition `mcp/server.py`; the confirm
+    executes `_execute_bootstrap_apply` (approve→apply) in `routers/actions.py`. Fixes the MCP-first
+    invariant (materialization was REST-only). Catalog test `EXPECTED_TOOLS` updated.
+  - **G2** reshaped `vision-to-book` (agent-registry `migrate.go`): cut inline steps 10-12
+    (compile/draft); the rail now ENDS at the arc-plan proposal (9 steps) and its notes tell the chat
+    agent to OFFER the handoff, never compile/draft inline — the chat is a SUPPORTER.
+  - **G3** wired `autonomous-drafting` (5 steps): `preview-chapters` (plan_bootstrap_propose) →
+    `make-chapters` (plan_bootstrap_apply, confirm) → set-up → draft → watch = materialize-then-draft.
+  - VERIFY: Go build OK; composition unit suite 2378 passed / catalog test updated; both rails
+    confirmed in the agent-registry DB; **live cross-service smoke** — both bootstrap tools federate
+    through ai-gateway, propose→apply→confirm runs `_execute_bootstrap_apply` E2E (proposal `applied`).
+- **▶ NEXT (milestone 3 — FE handoff, next cycle):**
+  - Wire the chat "offer to draft" → the Studio Agent-Mode NewRun (or a chat-launched
+    `autonomous-drafting` run) so the "Both" seam's chat-handoff path is live in the UI; surface the
+    materialize (bootstrap) step + Mission-Control progress. The FE authoring-run panel already
+    exists (`studio/panels/agentMode/*`); it needs the book-chapter materialization wired in front.
+  - Deferred unit guards (live-smoke covers both now; both need a mock harness that doesn't yet
+    exist): the worker-persist branch of `EngineDraftingSeam.draft_chapter`, and
+    `_execute_bootstrap_apply`. Small, structural test-harness work — track, don't block.
+  - TUNING (unchanged): per-scene length steer; `link_scene_plan` leaves scene `target_words` NULL.
 
 <details><summary>MILESTONE-1 detail + earlier investigation (2026-07-26)</summary>
 

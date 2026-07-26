@@ -112,6 +112,10 @@ _AUTHORING_RUN_DESCRIPTORS = (
     _AUTHORING_RUN_START_DESCRIPTOR, _AUTHORING_RUN_RESUME_DESCRIPTOR,
     _AUTHORING_RUN_REVERT_ALL_DESCRIPTOR,
 )
+# PlanForge auto-bootstrap MATERIALISE (confirm-gated) — CREATE the book chapters a
+# compiled plan previewed. BOOK-scoped (payload carries book_id), like the authoring-run
+# descriptors; the MCP mint side lives in mcp/server.py (plan_bootstrap_apply).
+_BOOTSTRAP_APPLY_DESCRIPTOR = "composition.bootstrap_apply"
 
 # The full Tier-W descriptor allowlist this confirm path commits (MD-9 routes each
 # to its scope: adopt/arc_import = user-scoped; mine = book/corpus; the rest = Work).
@@ -120,6 +124,7 @@ _ALL_DESCRIPTORS = (
     _MOTIF_ADOPT_DESCRIPTOR, _MOTIF_MINE_DESCRIPTOR,
     _ARC_IMPORT_DESCRIPTOR, _CONFORMANCE_RUN_DESCRIPTOR,
     _DECOMPILE_DESCRIPTOR, _DERIVE_DESCRIPTOR,
+    _BOOTSTRAP_APPLY_DESCRIPTOR,
     *_AUTHORING_RUN_DESCRIPTORS,
 )
 
@@ -361,6 +366,18 @@ async def confirm_action(
         if claims.descriptor == _AUTHORING_RUN_RESUME_DESCRIPTOR:
             return await _execute_authoring_run_resume(payload, book_id, envelope_user)
         return await _execute_authoring_run_revert_all(payload, book_id, envelope_user, book)
+
+    # ── PlanForge auto-bootstrap MATERIALISE — BOOK-scoped, re-check EDIT at confirm.
+    if claims.descriptor == _BOOTSTRAP_APPLY_DESCRIPTOR:
+        try:
+            book_id = UUID(str(payload["book_id"]))
+        except (KeyError, ValueError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail={"code": "action_error"}) from exc
+        try:
+            await authorize_book(grant, book_id, envelope_user, GrantLevel.EDIT)
+        except (OwnershipError, InsufficientGrant) as exc:
+            raise HTTPException(status_code=403, detail={"code": "action_error"}) from exc
+        return await _execute_bootstrap_apply(payload, book_id, envelope_user)
 
     # ── Work-scoped descriptors (publish / generate / conformance): re-resolve
     # ownership + EDIT at confirm time (the Work is user-scoped → None if not the
@@ -1102,6 +1119,59 @@ async def _execute_authoring_run_start(
         "outcome": "action_done",
         "descriptor": _AUTHORING_RUN_START_DESCRIPTOR,
         "run": _serialize_authoring_run(run),
+    }
+
+
+async def _execute_bootstrap_apply(
+    payload: dict[str, Any], book_id: UUID, envelope_user: UUID,
+) -> dict[str, Any]:
+    """composition.bootstrap_apply effect — CREATE the book chapters a compiled plan
+    previewed (BootstrapService.apply), crossing the propose→approve→apply gate. The
+    confirm_token IS the human approval (like glossary adopt→confirm), so this approves
+    the proposal then applies it. Deterministic, no LLM. Mints a service bearer for the
+    book-service create_chapter + glossary seed calls (the confirm path has no user bearer)."""
+    from app.clients.glossary_client import GlossaryClientError
+    from app.deps import get_bootstrap_service
+
+    try:
+        proposal_id = UUID(str(payload["proposal_id"]))
+    except (KeyError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail={"code": "action_error"}) from exc
+
+    svc = await get_bootstrap_service()
+    bearer = mint_service_bearer(envelope_user, settings.jwt_secret)
+    # Approve then apply. A proposal already approved/applied raises ValueError on approve
+    # (wrong status) — a benign no-op here, apply is the idempotent step that either creates
+    # the chapters or safe-no-ops on an already-applied row.
+    try:
+        await svc.approve(book_id, proposal_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=400, detail={"code": "action_error"}) from exc
+    except ValueError:
+        pass  # not 'pending' (already approved/applied) — proceed to apply
+    try:
+        rec = await svc.apply(envelope_user, book_id, proposal_id, bearer)
+    except LookupError as exc:
+        raise HTTPException(status_code=400, detail={"code": "action_error"}) from exc
+    except BookClientError as exc:
+        raise HTTPException(status_code=502, detail={"code": "action_error", "detail": str(exc)[:200]}) from exc
+    except GlossaryClientError as exc:
+        # GLOSS_BOOK_NOT_SCAFFOLDED is user-actionable (adopt an ontology first) → 422.
+        status = 422 if exc.code == "GLOSS_BOOK_NOT_SCAFFOLDED" else 502
+        raise HTTPException(status_code=status, detail={"code": "action_error", "detail": exc.detail or str(exc)}) from exc
+
+    applied = rec.applied_results or {}
+    chapters = [
+        {"chapter_id": v.get("chapter_id"), "title": v.get("title")}
+        for v in applied.values()
+        if isinstance(v, dict) and v.get("chapter_id")
+    ]
+    return {
+        "outcome": "action_done",
+        "descriptor": _BOOTSTRAP_APPLY_DESCRIPTOR,
+        "proposal_status": rec.status,
+        "chapters_created_count": len(chapters),
+        "chapters_created": chapters,
     }
 
 

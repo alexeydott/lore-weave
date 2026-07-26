@@ -144,6 +144,9 @@ EXPECTED_TOOLS = {
     # `plan_run_pass` refuses with its blockers named, and only `plan_review_checkpoint` (which a
     # human drives) clears a blocking pass.
     "plan_run_pass", "plan_pass_status", "plan_link",
+    # PlanForge auto-bootstrap MATERIALISE — the MCP half of the REST bootstrap gate: turn a
+    # compiled plan's planned chapters into real book chapters the drafting subagent writes into.
+    "plan_bootstrap_propose", "plan_bootstrap_apply",
     # 28 AN-2/AN-3/AN-4 — the agent's three read surfaces (the gap layer AN-1 enumerates).
     "composition_package_tree", "composition_find_references", "composition_diagnostics",
 }
