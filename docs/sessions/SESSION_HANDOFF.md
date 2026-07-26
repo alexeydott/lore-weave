@@ -22,6 +22,19 @@ planforge_drive.py). Results:
   approve/apply (co-writer can't drive the scene checkpoints — only REST); (2) `link_scene_plan`
   leaves scene `target_words` NULL (a per-scene planner target would drive length); (3) scene-by-
   scene → 3000-word chapter assembly + full-arc drive not yet run agentically.
+- **THE LONG-CHAPTER PATH (human memory, confirmed):** long multi-scene chapters are drafted NOT by
+  per-scene `composition_generate` (a scene ≈ short) but by the autonomous **AUTHORING-RUN subagent**
+  composition-service SPAWNS: `composition_authoring_run_create` → `_gate` → `_start` (spawns the
+  subagent) → drafts each chapter unit → `_accept_unit`. Also `composition_generate` with a
+  `chapter_id` → `generate_chapter` assembles a whole chapter. Old proof: `scripts/
+  smoke_compose_generate_live.py`.
+- **NEXT-STEP GAP found driving the authoring run E2E:** the run's `scope` wants BOOK-service chapter
+  ids, but `plan_compile`/`link_outline_skeleton` creates only COMPOSITION `outline_node`s
+  (kind=chapter) — no book chapters → gate 400s "scope chapters not in this book". So the compiled
+  outline chapters must be MATERIALIZED as book chapters first, then scope the run over those.
+  Whether the V2 compiler refactor dropped that materialization is the likely "regression" the human
+  recalls (old E2E drafted 5-scene chapters) — the next investigation. Repro: scratchpad/
+  authoring_run.py + planforge_arc.py (book 019f9d2b, plan_run 019f9d2e, 10 ch / 27 scenes compiled).
 
 ## 🔬 FULL-ARC PLANFORGE — investigation started, gaps mapped (2026-07-26)
 Goal (raised bar for production quality): the co-writer must write a WHOLE ARC — 10+ chapters,
