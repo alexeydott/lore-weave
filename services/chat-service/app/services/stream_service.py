@@ -5053,6 +5053,15 @@ async def stream_response(
                     )
                 except Exception:  # noqa: BLE001 — stickiness is best-effort; never break the turn
                     _sticky_domains = set()
+                # Budget priority (2026-07-26): the fully-DONE rail step tools, so the rail's
+                # token budget is spent on the steps still to do (not on completed early steps
+                # that would starve `plan_propose_spec` et al.). Same "fully done" set the
+                # action-space gate uses; computed regardless of gate MODE (budget prioritization
+                # is independent of runtime suppression).
+                _rail_done_tools = (
+                    rail_gate_suppressions(_rail_progress_objs, set(), "done_suppress")
+                    if _rail_progress_objs else set()
+                )
                 discovery_seed_names = discovery_seed_for_surface(
                     discovery_catalog,  # N5a-FULL — seed from the filtered catalog too
                     pins=tool_pins,
@@ -5064,6 +5073,7 @@ async def stream_response(
                     workflow_step_tools=_wf_step_tools,
                     binding_categories=(mode_binding.seed_tool_categories if mode_binding else None),
                     pinned_step_tools=pinned_step_tools,
+                    rail_done_step_tools=_rail_done_tools,
                     sticky_domains=_sticky_domains,
                 )
                 # `tool_defs` is the FIRST-pass advertisement when discovery is on;

@@ -233,6 +233,7 @@ def discovery_seed_for_surface(
     workflow_step_tools: set[str] | None = None,
     binding_categories: list[str] | None = None,
     pinned_step_tools: list[str] | None = None,
+    rail_done_step_tools: set[str] | None = None,
     sticky_domains: set[str] | None = None,
 ) -> set[str]:
     """Discovery active-set seed: hot set (auto) or pins ∪ activated (curated).
@@ -378,8 +379,19 @@ def discovery_seed_for_surface(
     # budgeted in DECLARED STEP ORDER (`budget_rail_tools`), so the early steps always
     # survive and anything trimmed is reported rather than silently vanishing.
     if pinned_step_tools:
+        # Budget-priority fix (2026-07-26): budget_rail_tools keeps tools in DECLARED STEP
+        # ORDER, so a long rail spends its budget on the EARLY steps and drops the late ones.
+        # After the early steps are DONE that is backwards — it advertises completed steps
+        # (which the action-space gate suppresses downstream anyway) and starves the step the
+        # agent needs NOW (the live bug: `plan_propose_spec` dropped while the done glossary
+        # steps stayed, so the agent read a recipe naming a tool it could not see and wrote the
+        # plan as prose instead of calling the tool). Drop the fully-DONE step tools from the
+        # candidate set first, so the not-done steps win the budget. A tool still owed by a
+        # not-done step is NOT in this set (rail_gate_suppressions keeps it), so this never
+        # hides a tool the agent still needs.
+        _rail_candidates = [t for t in pinned_step_tools if t not in (rail_done_step_tools or set())]
         kept, dropped = budget_rail_tools(
-            catalog, list(pinned_step_tools),
+            catalog, _rail_candidates,
             token_budget=scale_by_window(HOT_SEED_TOKEN_BUDGET, context_length),
         )
         names = names | kept
