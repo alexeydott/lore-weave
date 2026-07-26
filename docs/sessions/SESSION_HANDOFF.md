@@ -58,13 +58,26 @@ composition **authoring-run SUBAGENT** (designed for focused, high-attention lon
   - VERIFY: `useBootstrap` 8 tests (incl. materialize chain + error-no-apply); AgentModePanel
     materialize integration test (compiled plan + empty TOC → button → bootstrap → chapters appear);
     plan-forge + studio-panels suites **866 passed**; tsc clean.
-- **▶ NEXT:**
-  - Optional polish: a chat "offer to draft" affordance that deep-links to Agent-Mode NewRun
-    pre-selected (the chat-handoff leg of the "Both" seam — the rail already offers it in words).
+- **✅ MILESTONE 4 DONE — chat→drafting deep-link (CODE-driven, not agent-driven), committed:**
+  - Discovered the naive approach (agent calls `ui_open_studio_panel`) contradicts a SEALED decision:
+    the studio GUI-nav tools were de-advertised **2026-07-25** — "GUI control is user/logic-driven, so
+    agent-driven nav only cost tokens." Human confirmed: "gui tool is remove from the mcp, we use code
+    logic to control GUI, not by agent."
+  - So the handoff CTA is USER-driven + CODE-driven: `useDraftHandoffCta(bookId)` detects a draftable
+    plan (validated|compiled, same filter as the New-run picker, SAME query key = warm cache); when
+    present, `ComposePanel` (the co-writer chat) shows a **"✍️ Start drafting →"** button that calls
+    `host.openPanel('agent-mode', { params: { view: 'new' } })`. `AgentModePanel` now honors a
+    `view:'new'` param (mount + DOCK-6 retarget) to deep-link straight to the New-run config. The chat
+    agent stays a pure supporter — it never drives the GUI.
+  - VERIFY: `useDraftHandoffCta` 4 tests; AgentModePanel `view:'new'` deep-link test; ComposePanel
+    CTA-visibility test; studio-panels suite **785 passed**; tsc clean.
+- **▶ NEXT (all optional):**
   - Deferred unit guards (live-smoke + integration cover them now; both want a mock harness that
     doesn't yet exist): the worker-persist branch of `EngineDraftingSeam.draft_chapter`, and
     `_execute_bootstrap_apply`. Small, structural — track, don't block.
   - TUNING (unchanged): per-scene length steer; `link_scene_plan` leaves scene `target_words` NULL.
+  - Full browser E2E of the whole loop (chat foundation → compile → materialise → subagent draft) —
+    every leg is unit/integration/live-smoke proven; a single Playwright pass would be the capstone.
 
 <details><summary>MILESTONE-1 detail + earlier investigation (2026-07-26)</summary>
 

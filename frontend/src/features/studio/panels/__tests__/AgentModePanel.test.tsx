@@ -133,6 +133,12 @@ describe('AgentModePanel — Runs list', () => {
 });
 
 describe('AgentModePanel — D-AGENT-MODE-NOTIFY deep link', () => {
+  it('opens directly on the New-run view when mounted with {view:"new"} (the "Start drafting" handoff deep-link)', () => {
+    renderPanel(dockProps({ view: 'new' }));
+    expect(screen.getByTestId('agent-mode-tab-new').getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByTestId('agent-mode-view-new').className).not.toMatch(/hidden/);
+  });
+
   it('opens directly on Mission control when mounted with a {runId} param (terminal-notification click)', async () => {
     getRun.mockResolvedValue(runFixture({ run_id: 'run-7', status: 'closed' }));
     renderPanel(dockProps({ runId: 'run-7' }));

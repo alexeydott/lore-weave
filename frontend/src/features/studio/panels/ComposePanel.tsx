@@ -13,6 +13,7 @@ import { Chat } from '@/features/chat/Chat';
 import { UiNavInterceptorContext } from '@/features/chat/nav/uiNavScope';
 import { PopoutBridge } from '@/features/composition/components/workspace/PopoutBridge';
 import { useStudioHost, useRegisterStudioTool } from '../host/StudioHostProvider';
+import { useDraftHandoffCta } from './useDraftHandoffCta';
 import { useManuscriptUnitMeta } from '../manuscript/unit/ManuscriptUnitProvider';
 import { StudioAgentBridge } from '../agent/StudioAgentBridge';
 import { makeStudioNavInterceptor } from '../agent/studioUiNav';
@@ -82,9 +83,27 @@ export function ComposePanel(props: IDockviewPanelProps) {
     defaultValue: 'Open a chapter first — pop-out opens the current chapter in its own window',
   });
 
+  // Code-driven handoff: once the book has a draftable plan, offer a one-click jump to the drafting
+  // workspace (Agent Mode → New run). The chat agent, as a supporter, only OFFERS this in words; the
+  // actual GUI open is user/code-driven, never an agent nav tool (de-advertised 2026-07-25).
+  const { showStartDrafting } = useDraftHandoffCta(bookId);
+
   return (
     <div data-testid="studio-compose-panel" className="flex h-full min-h-0 flex-col">
-      <div className="flex h-7 flex-shrink-0 items-center justify-end border-b px-2 text-[11px] text-muted-foreground">
+      <div className="flex h-7 flex-shrink-0 items-center justify-end gap-2 border-b px-2 text-[11px] text-muted-foreground">
+        {showStartDrafting && (
+          <button
+            type="button"
+            data-testid="studio-compose-start-drafting"
+            title={t('compose.startDraftingTitle', {
+              defaultValue: 'Open the drafting workspace to write chapters from your plan',
+            })}
+            onClick={() => host.openPanel('agent-mode', { focus: true, params: { view: 'new' } })}
+            className="mr-auto rounded px-1.5 py-0.5 font-medium text-primary hover:bg-primary/10"
+          >
+            ✍️ {t('compose.startDrafting', { defaultValue: 'Start drafting →' })}
+          </button>
+        )}
         <button
           type="button"
           data-testid="studio-compose-popout"
