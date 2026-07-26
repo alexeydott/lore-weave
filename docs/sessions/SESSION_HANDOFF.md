@@ -1,5 +1,28 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## 🔬 FULL-ARC PLANFORGE — investigation started, gaps mapped (2026-07-26)
+Goal (raised bar for production quality): the co-writer must write a WHOLE ARC — 10+ chapters,
+each chapter 3+ scenes / 3000+ words, each **scene ≈1000 words** (gemma-4 loses the thread past
+~1000/scene, so draft SCENE-BY-SCENE and stitch). PlanForge was designed for this but only the
+POC (1 arc, 7 ch, MOCK scenes, 0 prose) was ever tested; never E2E in the browser.
+- **Pipeline (mapped):** `plan_propose_spec` (outline: `##`=arc, `###`=event; 1 event→1 chapter,
+  uncapped) → `plan_compile` (SKELETON only: arc + chapters, 0 scenes) → 7-pass compiler
+  `plan_run_pass` (motifs→cast→world→beats→character_arcs→**scenes**→self_heal; cast+beats are
+  HUMAN-BLOCKING and each proposes GLOSSARY SEEDS, PF-7) → `plan_link target=scene_plan` →
+  **`composition_generate`** (a SEPARATE engine; prose length via `max_output_tokens`).
+- **✅ Proven this session:** compile SCALES — a 10-`###` outline → **10 chapters** clean
+  (1 arc structure_node + 10 chapter outline_nodes). `motifs`/`cast` passes RUN on gemma.
+- **GAP 1 (real agentic workflow bug):** the cast/beats glossary-seed proposals apply ONLY via
+  composition REST (`/v1/composition/books/…/plan/bootstrap/{id}/{approve,apply}`) — there is **NO
+  MCP tool**, so the co-writer chat CANNOT drive the scene-compiler past cast/beats autonomously.
+  This is the workflow bug blocking agentic full-arc E2E. FIX: add MCP tools (approve+apply) or fold
+  the seed-apply into `plan_review_checkpoint`.
+- **Prereq (not a bug):** apply needs the book's Glossary ONTOLOGY adopted first (the newcomer
+  step-4 adoption); an isolated PlanForge test that skips it fails "no Glossary ontology yet".
+- **Untested (Phase 2c/2d):** ANY prose drafting via `composition_generate` (scene-by-scene to
+  length) — proven nowhere. Multi-session build.
+- Repro scripts: scratchpad `planforge_arc.py` (propose/compile/pass/inspect) + `planforge_drive.py`.
+
 ## ✅ NEWCOMER SCENARIO — steps 3–8 all WORKING, verified through the REAL UI (2026-07-26)
 Full authoring flow works end-to-end. **Playwright drove the actual studio UI** as a real user
 (book 019f9cff): login → create book → open studio → co-writer chat, all 8 steps via the real
