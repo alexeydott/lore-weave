@@ -1,5 +1,28 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## ✅ NEWCOMER SCENARIO — steps 3–8 all WORKING, DB-verified (2026-07-26)
+Full authoring flow now works end-to-end on live gemma. **Step 8 (write a scene) went from a
+19× loop to clean prose** — DB-verified: chapter "The Vanishing Road", word_count=194, 5 blocks,
+via `book_chapter_save_draft`. Chain of fixes this session (each committed):
+- `ef00fd2a9` — rail tool-budget starved `plan_propose_spec` (late steps dropped in step order);
+  exclude DONE steps → step 5 plan lands (plan_run=1 + structure + chapter).
+- `7b3cbcd5e` / `da60c9b00` — write steps `repeat:true` + route single write-intent to the
+  `chapter-compose` rail (continued writing after vision-to-book completes).
+- `f315e30f1` — **repeated-FAILURE breaker** (keyed on (tool, ERROR) — a weak model varies args
+  but hits the same error) + **de-advertise escalation** (take the looping tool off the wire) +
+  chapter-compose list-first prose. Killed the `book_get_chapter` ×19 loop (was reusing the
+  project_id as a chapter id).
+- `c66702d31` — **unified `book_chapter_save_draft`**: `chapter_id` + `base_version` now OPTIONAL;
+  backend RESOLVES the chapter (by number/title, or the single chapter) + its current version;
+  returns a CLEAR outcome (title, number, new version, word_count). Model no longer guesses ids
+  or picks `book_update_details` for prose. Backward-compatible. `c5706747d` — rail simplified to
+  `list→draft`.
+- **KNOWN edge (tracked, not blocking newcomer):** in a HEAVILY-used session (10+ turns) the
+  advertised set comes from accumulated `activation_state`, which can crowd out even an
+  `ALWAYS_HOT_WRITE` — `book_chapter_save_draft` was absent on the stress session's write turn so
+  the model fell back to `book_update_details`. A FRESH session (the real newcomer path) advertises
+  it and writes correctly. Root-cause the activation_state prune/merge for long sessions next.
+
 ## ✅ RAIL ACTION-SPACE GATING — built, measured, shipped (2026-07-26)
 **The reliable-workflow move the user asked for.** The rail state machine was already externalized
 (`compute_rail_progress` reads the book) + re-injected each turn (`render_progress_block`), but that
