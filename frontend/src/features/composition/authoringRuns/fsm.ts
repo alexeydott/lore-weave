@@ -56,12 +56,16 @@ export function isBudgetDanger(spentUsd: number, budgetUsd: number): boolean {
   return spentUsd / budgetUsd >= 0.85;
 }
 
-/** D11 — "exact staleness threshold ... is a BUILD-time detail" (spec, explicit
- * placeholder). The driver bumps `driver_heartbeat_at` once per unit-boundary
- * claim (authoring_run_service.py `heartbeat_claim`, called at the top of every
- * `run_driver` loop iteration) with no fixed publish interval — this constant is
- * a conservative placeholder, NOT derived from a real measured cadence. */
-export const HEARTBEAT_STALE_SECS = 30;
+/** D11 — the driver bumps `driver_heartbeat_at` once per unit-boundary claim
+ * (authoring_run_service.py `heartbeat_claim`, at the top of every `run_driver`
+ * loop iteration), NOT on a fixed interval. So the max time between two live
+ * heartbeats is the drafting time of ONE unit — and a long chapter on a local
+ * model (a 1600-word draft + a critic pass) legitimately exceeds 30s. The old
+ * 30s threshold therefore flagged a perfectly-alive driver as STALE mid-draft
+ * (live-caught in the whole-arc run). Raised to comfortably exceed a worst-case
+ * single-unit draft while still catching a truly-dead driver (which never bumps
+ * again) within a few minutes. */
+export const HEARTBEAT_STALE_SECS = 180;
 
 export function isHeartbeatStale(
   status: AuthoringRunStatus,

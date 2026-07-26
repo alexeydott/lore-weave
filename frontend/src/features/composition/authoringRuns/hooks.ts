@@ -48,6 +48,11 @@ export function useAuthoringRunReport(runId: string | null, enabled: boolean) {
     queryKey: ['authoring-run-report', runId],
     queryFn: () => authoringRunsApi.report(runId!, accessToken!),
     enabled: !!accessToken && !!runId && enabled,
+    // A /report 409 ("run not in a reportable state") is DETERMINISTIC — it happens on the brief
+    // paused→running transition race, when the enabled-gate's cached status still reads reportable but
+    // the backend has already advanced. Retrying can't help and just triples the console 409 noise
+    // (default 3 retries) that the whole-arc run surfaced. One attempt, then let the status settle.
+    retry: false,
   });
 }
 

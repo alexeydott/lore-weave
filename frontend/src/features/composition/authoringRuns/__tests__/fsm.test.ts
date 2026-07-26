@@ -58,8 +58,11 @@ describe('isHeartbeatStale (D11 — placeholder threshold, only meaningful while
   it('is false for a running run with a fresh heartbeat', () => {
     expect(isHeartbeatStale('running', new Date(now - 3_000).toISOString(), now)).toBe(false);
   });
-  it('is true for a running run whose heartbeat is older than the threshold', () => {
-    expect(isHeartbeatStale('running', new Date(now - 41_000).toISOString(), now)).toBe(true);
+  it('is false mid-draft for a long unit that legitimately exceeds the old 30s (the live-caught false STALE)', () => {
+    expect(isHeartbeatStale('running', new Date(now - 90_000).toISOString(), now)).toBe(false);
+  });
+  it('is true for a running run whose heartbeat is older than the threshold (driver truly dead)', () => {
+    expect(isHeartbeatStale('running', new Date(now - 200_000).toISOString(), now)).toBe(true);
   });
 });
 
