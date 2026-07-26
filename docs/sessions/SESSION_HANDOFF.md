@@ -1,5 +1,50 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## 🏗️ ARCHITECTURE — chat = supporter, compile+draft = subagent (2026-07-26)
+**Human decision (this session):** the chat agent is a lightweight **SUPPORTER** (atomic edits —
+edit plan/glossary/KG, suggestions); the heavy **COMPILE + long-run DRAFTING** runs in the
+composition **authoring-run SUBAGENT** (designed for focused, high-attention long writing).
+- **Trigger seam = BOTH:** the Studio panels (plan-forge PassRail compile + Agent Mode NewRun) stay
+  the deliberate user-driven path; the chat supporter may also OFFER + launch the subagent run once
+  the foundation+plan is ready. **Scope = backend-first** (rails + materialization seam + prove E2E),
+  FE handoff polish next cycle.
+- **✅ MILESTONE 1 DONE — the authoring-run subagent drafts a REAL MULTI-SCENE CHAPTER E2E** (first
+  time ever; the "v2 regression" the human recalled). Live proof: compile(existing plan 019f9d2e) →
+  **bootstrap materialize** → authoring-run → book chapter `019f9d72-706d…` drafted **858 words / 19
+  blocks / grounded multi-scene prose** (DB-verified). 3 root-cause regressions fixed:
+  1. **`BootstrapService._stamp_planned_node`** stamped only the CHAPTER node (by `plan_event_id`),
+     not its SCENE children (scenes carry a derived `<event>:N` id) → scenes kept `chapter_id=NULL`
+     → `scenes_for_chapter` returned empty → chapter drafted with NO scene breakdown (the thin/short
+     bug). Now stamps chapter + scene children via `parent_id` (idempotent, repair-capable).
+  2. **`EngineDraftingSeam.draft_chapter`** deps omitted `grant`/`structures`/`motif_apps`/`motifs`
+     → `generate_chapter`'s `grant` stayed a `Depends()` sentinel → `'Depends' object has no
+     attribute 'resolve_grant'` crash. (Same class as the earlier `_execute_generate` fix.)
+  3. **Worker-persist gap:** with `COMPOSITION_WORKER_ENABLED=true`, `generate_chapter` enqueues +
+     returns 202; the worker drafts but persistence is a SEPARATE `persist_job` accept-step. The seam
+     polled to completion but never persisted → draft completed yet book chapter stayed EMPTY
+     (pre==post revision). Seam now calls `persist_job` after the poll.
+  - Also fixed a **pre-existing** unit failure (`test_confirm_executes_generate_chapter`): the
+    `client` fixture missed patching `app.deps.get_pool` (a separate binding my earlier
+    `_execute_generate` fix started using). VERIFY: full composition unit suite **2378 passed, 1
+    skipped**; shipped `_stamp_planned_node` directly exercised (0→2 scenes).
+- **DIAGNOSIS CORRECTED:** the materialization is NOT missing — it fully exists as the PlanForge
+  **auto-bootstrap gate** (`BootstrapService.propose→approve→apply` creates book chapters + stamps
+  `outline_node.chapter_id` + seeds glossary). The prior handoff note ("V2 dropped materialization")
+  was wrong; the real gaps were the 3 bugs above + it being **REST-ONLY** (no MCP → the agent can't
+  drive it).
+- **▶ NEXT (milestone 2 — the user's "update workflow + wire" ask):**
+  - **G1** expose the bootstrap gate as MCP tools (`plan_bootstrap_propose`/`_apply`) — the
+    materialization seam for the agentic handoff (MCP-first invariant; currently REST-only in
+    `routers/plan_bootstrap.py`).
+  - **G2** reshape `vision-to-book` rail (agent-registry `migrate.go`): cut inline steps 10-12
+    (compile/draft), end at the arc-plan proposal; offer the subagent handoff.
+  - **G3** wire the `autonomous-drafting` rail to the full heavy pipeline: compile → materialize
+    (bootstrap MCP) → authoring_run create/start/watch.
+  - Then FE handoff polish (Agent Mode NewRun launchable from chat) + a worker-persist unit guard
+    (deferred: needs a draft_chapter mock harness that doesn't exist yet — live-smoke covers it now).
+
+<details><summary>MILESTONE-1 detail + earlier investigation (2026-07-26)</summary>
+
 ## 🔬 FULL-ARC PLANFORGE — pipeline PROVEN E2E, 2 bugs fixed (2026-07-26, deep-dive)
 Drove the full arc pipeline end-to-end for the FIRST time (scratchpad planforge_arc.py /
 planforge_drive.py). Results:
@@ -58,6 +103,8 @@ POC (1 arc, 7 ch, MOCK scenes, 0 prose) was ever tested; never E2E in the browse
 - **Untested (Phase 2c/2d):** ANY prose drafting via `composition_generate` (scene-by-scene to
   length) — proven nowhere. Multi-session build.
 - Repro scripts: scratchpad `planforge_arc.py` (propose/compile/pass/inspect) + `planforge_drive.py`.
+
+</details>
 
 ## ✅ NEWCOMER SCENARIO — steps 3–8 all WORKING, verified through the REAL UI (2026-07-26)
 Full authoring flow works end-to-end. **Playwright drove the actual studio UI** as a real user

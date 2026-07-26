@@ -302,6 +302,12 @@ class EngineDraftingSeam:
         from app.db.repositories.scene_links import SceneLinksRepo
         from app.db.repositories.style_voice import StyleProfileRepo, VoiceProfileRepo
         from app.db.repositories.works import WorksRepo
+        from app.deps import (
+            get_grant_client_dep,
+            get_motif_application_repo_opt,
+            get_motif_repo_opt,
+            get_structure_repo,
+        )
         from app.mcp.service_bearer import mint_service_bearer
         from app.routers import engine as engine_router
 
@@ -345,9 +351,18 @@ class EngineDraftingSeam:
         except (ValueError, TypeError) as exc:  # pydantic ValidationError ⊂ ValueError
             return DraftOutcome(ok=False, error=f"invalid seam params: {exc}")
 
+        # generate_chapter also depends on `grant` (the work EDIT gate — the FIRST
+        # thing it touches), plus the optional `structures`/`motif_apps`/`motifs`
+        # lenses. Omitting any leaves it as its FastAPI `Depends(...)` sentinel — a
+        # plain object with no `resolve_grant`, which crashes the seam ('Depends'
+        # object has no attribute 'resolve_grant'). Mirror actions.py `_execute_generate`.
         deps: dict[str, Any] = dict(
             works=works,
             outline=OutlineRepo(pool),
+            structures=await get_structure_repo(),
+            motif_apps=await get_motif_application_repo_opt(),
+            motifs=await get_motif_repo_opt(),
+            grant=await get_grant_client_dep(),
             scene_links=SceneLinksRepo(pool),
             canon=CanonRulesRepo(pool),
             jobs=jobs,
@@ -382,8 +397,34 @@ class EngineDraftingSeam:
         status = str(payload.get("status") or "")
 
         if status == "pending" and job_id_raw:
-            # Worker path (202) — poll the generation_job to terminal.
-            return await self._poll_job(jobs, project_id, UUID(str(job_id_raw)))
+            # Worker path (202) — poll the generation_job to terminal, THEN persist.
+            outcome = await self._poll_job(jobs, project_id, UUID(str(job_id_raw)))
+            if not outcome.ok or outcome.job_id is None:
+                return outcome
+            # The worker COMPUTES the chapter and stores its prose in the job result with
+            # `persisted: False` — writing it into the book draft is a SEPARATE bearer
+            # accept-step (persist_job), because the worker has no user bearer. The inline
+            # (flag-off) path persists inside generate_chapter, but with the worker enabled
+            # the seam must run the accept-step itself: without it the draft completes, the
+            # unit reports "drafted", yet the book chapter stays EMPTY (pre==post revision,
+            # critic "no prose") — the whole run produces nothing. Persist with the run
+            # actor's bearer so the prose actually lands.
+            try:
+                await engine_router.persist_job(
+                    outcome.job_id, engine_router.PersistJobBody(),
+                    user_id=created_by, bearer=bearer,
+                    jobs=jobs, works=works,
+                    outline=deps["outline"], structures=deps["structures"],
+                    book=deps["book"], grant=deps["grant"],
+                )
+            except HTTPException as exc:
+                return DraftOutcome(ok=False, cost_usd=outcome.cost_usd, job_id=outcome.job_id,
+                                    error=f"persist {exc.status_code}: {exc.detail}")
+            except Exception as exc:  # noqa: BLE001 — seam must never raise into the driver
+                logger.warning("authoring persist step failed", exc_info=True)
+                return DraftOutcome(ok=False, cost_usd=outcome.cost_usd, job_id=outcome.job_id,
+                                    error=f"persist error: {exc}")
+            return outcome
         if status == "completed":
             cost = Decimal("0")
             job_id = UUID(str(job_id_raw)) if job_id_raw else None
