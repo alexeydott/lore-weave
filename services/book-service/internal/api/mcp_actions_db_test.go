@@ -259,9 +259,9 @@ func TestMCP_ConfirmToken_RoundTrip_Media_DB(t *testing.T) {
 }
 
 // H8 — a POSITIVE-but-STALE base_version (≠ current draft_version) returns
-// ErrStaleDraftVersion and does NOT overwrite the draft. The existing nil-pool
-// tests only cover base_version<=0 (rejected before any DB access); this proves
-// the optimistic-concurrency stop on a real version mismatch.
+// ErrStaleDraftVersion and does NOT overwrite the draft. base_version is OPTIONAL now
+// (omitted → backend uses the current version, no conflict check); this proves that when
+// a caller DOES pass one, the optimistic-concurrency stop on a real mismatch still fires.
 func TestMCP_SaveDraft_StaleBaseVersion_StopsNoOverwrite_DB(t *testing.T) {
 	s, pool := dbTestServer(t)
 	ctx := context.Background()

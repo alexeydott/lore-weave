@@ -310,13 +310,17 @@ func (s *Server) newMCPServer() *mcp.Server {
 		s.toolChapterRestoreRevision)
 
 	addToolClosedSet(srv, "book_chapter_save_draft",
-		"[Saved book] Save a CHAPTER's PROSE as its draft — the story text of one chapter. Put the "+
-			"chapter text in `body` as plain prose (blank line between paragraphs) — do NOT hand-write "+
-			"editor/Tiptap JSON. This is NOT for the book's own description / summary / blurb / synopsis "+
-			"(those are the book's own DETAILS, not chapter prose) — for those use book_update_details, never save them "+
-			"as a chapter draft. REQUIRES base_version (the draft_version you read); a version mismatch "+
-			"returns a conflict and stops — no overwrite. Reverse: book_chapter_restore_revision.",
-		lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{"save draft", "edit chapter text", "write chapter prose"}),
+		"[Saved book] WRITE a chapter's story PROSE (its draft). THE tool for writing/replacing the "+
+			"text of a chapter — \"write chapter 1\", \"draft this scene\", \"put down the opening\". Put the "+
+			"prose in `body` as plain text (blank line between paragraphs) — do NOT hand-write editor/Tiptap "+
+			"JSON. The backend RESOLVES THE CHAPTER'S STATE FOR YOU: you do NOT call book_get_chapter first "+
+			"and you do NOT pass a version. Pick the chapter with `chapter` (its NUMBER like \"1\", or its "+
+			"TITLE), or omit it when the book has one chapter — NEVER guess a chapter id and NEVER reuse the "+
+			"book id or project id as a chapter id. It returns the chapter's new state (id, title, number, "+
+			"new version, word_count) so you know exactly what landed. This is NOT for the book's own "+
+			"description / summary / blurb (those are the book's DETAILS — use book_update_details; never write "+
+			"prose there). Reverse: book_chapter_restore_revision.",
+		lwmcp.NewToolMeta(lwmcp.TierA, lwmcp.ScopeBook, nil, []string{"save draft", "edit chapter text", "write chapter prose", "write the chapter", "draft the scene"}),
 		map[string][]any{"body_format": {"plain", "markdown", "json"}},
 		s.toolChapterSaveDraft)
 

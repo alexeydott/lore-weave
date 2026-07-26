@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -684,17 +686,28 @@ WHERE chapter_id=$1 RETURNING draft_version`, chID, body, bodyFormat).Scan(&newV
 // JSON by hand is the one thing it is reliably bad at. `body_format:"json"` remains available for the
 // round-trip case (an existing Tiptap doc read back and re-saved).
 type saveDraftIn struct {
-	BookID      string `json:"book_id" jsonschema:"the book the chapter belongs to (UUID)"`
-	ChapterID   string `json:"chapter_id" jsonschema:"the chapter to save (UUID)"`
-	BaseVersion int64  `json:"base_version" jsonschema:"REQUIRED — the draft_version you read; a mismatch returns 409 and stops (no overwrite)"`
+	BookID string `json:"book_id" jsonschema:"the book the chapter belongs to (UUID)"`
+	// Backend state-resolution (2026-07-26): chapter_id + base_version are OPTIONAL. Give EITHER
+	// chapter_id OR a human `chapter` selector (a number like "1" or a title) — or omit both when
+	// the book has exactly one chapter — and the backend resolves the target chapter and its
+	// current version for you. You do NOT need to call book_get_chapter first.
+	ChapterID   string `json:"chapter_id,omitempty" jsonschema:"OPTIONAL — the chapter's UUID if you already have it. If omitted, give 'chapter' instead (or omit both when the book has one chapter)."`
+	Chapter     string `json:"chapter,omitempty" jsonschema:"OPTIONAL — pick the chapter by its NUMBER (e.g. '1', 'chapter 3') or its TITLE. Used only when chapter_id is omitted. Never pass a book id or project id here."`
+	BaseVersion int64  `json:"base_version,omitempty" jsonschema:"OPTIONAL — only for explicit conflict control. Omit it and the backend uses the chapter's CURRENT version (no pre-read needed). If you DO pass it and it is stale, the write stops with a conflict."`
 	Body        string `json:"body" jsonschema:"the chapter's PROSE, as plain text. Separate paragraphs with a blank line. Write the prose itself — do NOT send editor/Tiptap JSON unless you also set body_format:\"json\"."`
 	BodyFormat  string `json:"body_format,omitempty" jsonschema:"how to read body: \"plain\" (default — prose text) | \"markdown\" | \"json\" (an existing Tiptap doc being round-tripped)"`
 
 	CommitMessage string `json:"commit_message,omitempty"`
 }
+
+// saveDraftOut — a CLEAR outcome so the model understands the chapter's state after the write:
+// which chapter it wrote (id + title + number), the new version, and the size of what landed.
 type saveDraftOut struct {
 	ChapterID        string `json:"chapter_id"`
+	ChapterTitle     string `json:"chapter_title"`
+	ChapterNumber    int    `json:"chapter_number"`
 	NewDraftVersion  int64  `json:"new_draft_version"`
+	WordCount        int    `json:"word_count"`
 	SnapshotRevision string `json:"snapshot_revision_id"`
 }
 
@@ -732,15 +745,6 @@ func (s *Server) toolChapterSaveDraft(ctx context.Context, _ *mcp.CallToolReques
 	if err != nil {
 		return nil, saveDraftOut{}, errors.New("book_id must be a UUID")
 	}
-	chID, err := uuid.Parse(in.ChapterID)
-	if err != nil {
-		return nil, saveDraftOut{}, errors.New("chapter_id must be a UUID")
-	}
-	// H8: base_version is MANDATORY at the tool boundary. A missing/zero value is
-	// rejected before any write (server-optional concurrency → tool-mandatory).
-	if in.BaseVersion <= 0 {
-		return nil, saveDraftOut{}, errors.New("base_version is required (the draft_version you read)")
-	}
 	if strings.TrimSpace(in.Body) == "" {
 		return nil, saveDraftOut{}, errors.New("body is required (the chapter's prose)")
 	}
@@ -759,19 +763,18 @@ func (s *Server) toolChapterSaveDraft(ctx context.Context, _ *mcp.CallToolReques
 		return nil, saveDraftOut{}, errors.New("failed to save draft")
 	}
 	defer tx.Rollback(ctx)
-	var curr int64
-	if err := tx.QueryRow(ctx, `
-SELECT d.draft_version FROM chapter_drafts d JOIN chapters c ON c.id=d.chapter_id
-WHERE d.chapter_id=$1 AND c.book_id=$2 AND c.lifecycle_state='active'`, chID, bookID).Scan(&curr); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			// Book grant already passed above — so this is a CHAPTER problem, not book access. Be
-			// explicit (safe: an EDIT-granted caller can already list the book's chapters).
-			return nil, saveDraftOut{}, errChapterNotInBook
-		}
-		return nil, saveDraftOut{}, errors.New("failed to save draft")
+	// Backend state-resolution (2026-07-26): find the target chapter (by id, by number/title, or
+	// the single chapter) and its CURRENT draft version — the model never pre-reads it. This is
+	// the "unify" that folds book_get_chapter into the write and removes the id/version guessing
+	// that made a weak model loop on "no active chapter" / reuse the project id as a chapter id.
+	chID, chTitle, chNumber, curr, rerr := resolveChapterForWrite(ctx, tx, bookID, in.ChapterID, in.Chapter)
+	if rerr != nil {
+		return nil, saveDraftOut{}, rerr
 	}
-	if in.BaseVersion != curr {
-		// 409 — version mismatch stops the write.
+	// base_version is now OPTIONAL. Omitted (0) → use the chapter's CURRENT version, no pre-read
+	// and no conflict check (the common single-writer case). Provided → still enforced, so a
+	// caller that DOES hold a version gets the same stale-write protection as before (H8).
+	if in.BaseVersion > 0 && in.BaseVersion != curr {
 		return nil, saveDraftOut{}, ErrStaleDraftVersion
 	}
 	// Snapshot the prior draft as a revision (so save_draft is reversible via
@@ -809,5 +812,100 @@ WHERE chapter_id=$1 RETURNING draft_version`, chID, jsonBody).Scan(&newVer); err
 	res := undoResult("book_chapter_restore_revision", map[string]any{
 		"book_id": bookID.String(), "chapter_id": chID.String(), "revision_id": snapshotID.String(),
 	})
-	return res, saveDraftOut{ChapterID: chID.String(), NewDraftVersion: newVer, SnapshotRevision: snapshotID.String()}, nil
+	return res, saveDraftOut{
+		ChapterID:        chID.String(),
+		ChapterTitle:     chTitle,
+		ChapterNumber:    chNumber,
+		NewDraftVersion:  newVer,
+		WordCount:        len(strings.Fields(in.Body)),
+		SnapshotRevision: snapshotID.String(),
+	}, nil
+}
+
+// chapterSelectorNumberRe matches a chapter picked by NUMBER — a bare "3" or "chapter 3".
+var chapterSelectorNumberRe = regexp.MustCompile(`(?i)^(?:chapter\s+|ch\.?\s*)?(\d+)$`)
+
+// resolveChapterForWrite finds the chapter a save targets WITHOUT the model pre-reading it:
+// explicit chapter_id, else a human `selector` (a 1-based NUMBER or a TITLE), else the single
+// active chapter when the book has exactly one. Returns (id, title, 1-based number by sort_order,
+// current draft_version). Every error is actionable — it says how to disambiguate — so a weak
+// model recovers instead of guessing (the "no active chapter" loop this whole change kills).
+func resolveChapterForWrite(ctx context.Context, tx pgx.Tx, bookID uuid.UUID, chapterID, selector string) (uuid.UUID, string, int, int64, error) {
+	type chRow struct {
+		id    uuid.UUID
+		title string
+		num   int
+		ver   int64
+	}
+	rows, err := tx.Query(ctx, `
+SELECT c.id, c.title,
+       row_number() OVER (ORDER BY c.sort_order, c.created_at)::int AS num,
+       d.draft_version
+FROM chapters c JOIN chapter_drafts d ON d.chapter_id = c.id
+WHERE c.book_id = $1 AND c.lifecycle_state = 'active'
+ORDER BY c.sort_order, c.created_at`, bookID)
+	if err != nil {
+		return uuid.Nil, "", 0, 0, errors.New("failed to resolve chapter")
+	}
+	defer rows.Close()
+	var all []chRow
+	for rows.Next() {
+		var r chRow
+		if err := rows.Scan(&r.id, &r.title, &r.num, &r.ver); err != nil {
+			return uuid.Nil, "", 0, 0, errors.New("failed to resolve chapter")
+		}
+		all = append(all, r)
+	}
+	if err := rows.Err(); err != nil {
+		return uuid.Nil, "", 0, 0, errors.New("failed to resolve chapter")
+	}
+	if len(all) == 0 {
+		return uuid.Nil, "", 0, 0, errors.New("this book has no chapters yet — create one first with book_chapter_create")
+	}
+	// 1) explicit chapter_id wins.
+	if strings.TrimSpace(chapterID) != "" {
+		cid, perr := uuid.Parse(chapterID)
+		if perr != nil {
+			return uuid.Nil, "", 0, 0, errors.New("chapter_id must be a UUID — or omit it and pass 'chapter' by number or title")
+		}
+		for _, r := range all {
+			if r.id == cid {
+				return r.id, r.title, r.num, r.ver, nil
+			}
+		}
+		return uuid.Nil, "", 0, 0, errChapterNotInBook
+	}
+	// 2) a human selector: a NUMBER (by sort order) or a TITLE.
+	if sel := strings.TrimSpace(selector); sel != "" {
+		if m := chapterSelectorNumberRe.FindStringSubmatch(sel); m != nil {
+			n, _ := strconv.Atoi(m[1])
+			for _, r := range all {
+				if r.num == n {
+					return r.id, r.title, r.num, r.ver, nil
+				}
+			}
+			return uuid.Nil, "", 0, 0, fmt.Errorf("this book has %d chapter(s); there is no chapter %d", len(all), n)
+		}
+		var hits []chRow
+		for _, r := range all {
+			if strings.EqualFold(strings.TrimSpace(r.title), sel) {
+				return r.id, r.title, r.num, r.ver, nil // exact title wins outright
+			}
+			if strings.Contains(strings.ToLower(r.title), strings.ToLower(sel)) {
+				hits = append(hits, r)
+			}
+		}
+		if len(hits) == 1 {
+			return hits[0].id, hits[0].title, hits[0].num, hits[0].ver, nil
+		}
+		if len(hits) > 1 {
+			return uuid.Nil, "", 0, 0, fmt.Errorf("more than one chapter matches %q — say which by its number instead", sel)
+		}
+		return uuid.Nil, "", 0, 0, fmt.Errorf("no chapter matches %q — call book_list kind=chapters to see the real titles and numbers", sel)
+	}
+	// 3) no selector: only unambiguous when the book has exactly one chapter.
+	if len(all) == 1 {
+		return all[0].id, all[0].title, all[0].num, all[0].ver, nil
+	}
+	return uuid.Nil, "", 0, 0, fmt.Errorf("this book has %d chapters — say which to write in 'chapter' (its number or title)", len(all))
 }
