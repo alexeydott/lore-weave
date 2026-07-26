@@ -88,7 +88,18 @@ composition **authoring-run SUBAGENT** (designed for focused, high-attention lon
        `@/components/model-picker`) + a derived favourite/chat-safe default; the create body now sends
        `params.{model_source,model_ref}`, and the gate-check button is blocked until a model resolves.
     A regression test now locks BOTH in the create body.
+  - **WHOLE ARC BUILT FROM THE FE (2026-07-26):** after the 2 fixes, drove the run to completion in the
+    browser like a normal user — accept unit 1, un-check auto-pause, Resume (through the critic-severe
+    pauses, which are a DESIGNED quality gate, not a bug). Result: run **report-ready**, **all 10
+    chapters drafted + persisted** (DB-verified word counts 651/754/1049/857/1345/1565/1088/1606/894/780
+    = ~10,600 words, every chapter multi-scene), budget $0.60/$4. NO new functional bugs surfaced in the
+    10-chapter run. Two MINOR non-blocking observations: (a) MissionControl polls `/report` while the run
+    is ACTIVE → benign 409 console noise (report is only valid paused/report_ready — should gate the
+    fetch on status); (b) `heartbeat: STALE` shows during burst drafting — cosmetic (the field isn't
+    continuously updated), the run completed fine. Both are console/display polish, not blockers.
 - **▶ NEXT (all optional):**
+  - Minor FE polish from the full-arc run: gate the `/report` fetch on a paused/report-ready status (stop
+    the 409 console noise); tidy the STALE-heartbeat display during active drafting.
   - Deferred unit guards (live-smoke + integration cover them now; both want a mock harness that
     doesn't yet exist): the worker-persist branch of `EngineDraftingSeam.draft_chapter`, and
     `_execute_bootstrap_apply`. Small, structural — track, don't block.
