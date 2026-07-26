@@ -107,6 +107,27 @@ composition **authoring-run SUBAGENT** (designed for focused, high-attention lon
   - Full browser E2E of the whole loop (chat foundation → compile → materialise → subagent draft) —
     every leg is unit/integration/live-smoke proven; a single Playwright pass would be the capstone.
 
+## 📦 DEPENDABOT TRIAGE (2026-07-26) — 32/49 merged; 4 PRs open for review; rest HELD w/ triggers
+Deep-dive verified every remaining bump by **attempting the migration** (cargo/tsc/nest build), not assuming.
+
+**Open PRs awaiting merge (all verified locally):**
+- **#154** fix(game-server) Colyseus 0.17 Room typing — tsc 0 + 40 tests. Merge first (unblocks #136).
+- **#155** syn 3 — zero code changes, `cargo check --workspace` clean, 6 tests. (Closes #105)
+- **#156** cms-frontend React 19 + TS 7 — vite build + 41 tests. (Closes #113, #114)
+- **#157** frontend-game + poc TS 7 — both `build` clean. (Closes #112, #120)
+
+**HELD Dependabot PRs (kept OPEN — commented on each; NOT declined). Revisit triggers:**
+| PR(s) | Held reason (reproduced) | Revisit trigger |
+|---|---|---|
+| #117 TS7 /frontend | `npm install` ERESOLVE + `eslint` crash (typescript-eslint 8.65 hard peer `<6.1.0`; typescript-estree reads removed TS7 internals). tsc/vite build themselves pass | `typescript-eslint` supports TS 7 (`^7` peer) |
+| #122 #134 #140 #148 TS7 /gateways | `nest build` → `getParsedCommandLineOfConfigFile is not a function` (@nestjs/cli uses removed programmatic TS API) | `@nestjs/cli` supports TS 7 |
+| #136 TS7 /game-server | raw tsc OK, but build blocked by pre-existing colyseus errors | **#154 merges** → bump version (no tsconfig change) |
+| #106 #107 #108 rand 0.10 | `cargo check` 11 errors (`random_range`/`random_bool` off `Rng`) + deterministic-generator seed re-tuning (proven precedent). Routine bump | security advisory, or a planned tilemap RNG-sequence migration |
+| #115 vite-static-copy 4 | needs vite 6+; main frontend on vite 5.4 → forces full vite-6 FE migration for a low-value patch | a planned frontend vite-6 upgrade |
+| #126 #145 datasets 5 | eval-only; DocRED anchor uses `trust_remote_code=True` (removed in datasets 4) → already broken on installed 4.x | `anchor_runner.py` DocRED source reworked |
+
+**Trigger check (greppable):** `npm view typescript-eslint version` ≥ TS7-peer · `npm view @nestjs/cli` TS7 support.
+
 <details><summary>MILESTONE-1 detail + earlier investigation (2026-07-26)</summary>
 
 ## 🔬 FULL-ARC PLANFORGE — pipeline PROVEN E2E, 2 bugs fixed (2026-07-26, deep-dive)
