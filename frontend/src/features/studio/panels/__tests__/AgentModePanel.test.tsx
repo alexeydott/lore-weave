@@ -49,6 +49,14 @@ vi.mock('@/features/books/api', () => ({
   booksApi: { listChapters: (...a: unknown[]) => listChapters(...a), compareRevisions: vi.fn() },
 }));
 
+// The New-run form now picks a drafting model (a run fails on its first unit without one). Stub the
+// shared picker so a favourite model auto-resolves and the gate-check button enables.
+vi.mock('@/components/model-picker', () => ({
+  useUserModels: () => ({ models: [{ user_model_id: 'm1', is_favorite: true, alias: 'Gemma', capability_flags: { chat: true } }], loading: false }),
+  ModelPicker: (p: { value: string | null }) => <div data-testid="model-picker-stub" data-value={p.value ?? ''} />,
+}));
+vi.mock('@/features/ai-models/api', () => ({ isChatSafeDefault: () => true }));
+
 import { AgentModePanel } from '../AgentModePanel';
 
 function dockProps(params?: Record<string, unknown>, onDidParametersChange?: (cb: (next: Record<string, unknown> | undefined) => void) => { dispose: () => void }): IDockviewPanelProps {
@@ -212,6 +220,12 @@ describe('AgentModePanel — New run config', () => {
     await waitFor(() => expect(screen.getByTestId('agent-mode-run-gate-check')).not.toBeDisabled());
     fireEvent.click(screen.getByTestId('agent-mode-run-gate-check'));
     await waitFor(() => expect(createRun).toHaveBeenCalled());
+    // Locks the two live-caught create-body bugs: the drafting model is passed (else the run fails on
+    // its first unit) and the tool_allowlist is the valid ALLOWLISTABLE_TOOLS subset (a stray name 422s).
+    expect(createRun.mock.calls[0][0]).toMatchObject({
+      params: { model_source: 'user_model', model_ref: 'm1' },
+      tool_allowlist: ['composition_write_prose', 'composition_list_outline', 'composition_get_prose'],
+    });
     expect(gateRun).toHaveBeenCalledWith('new-run', 'tok');
     await waitFor(() => expect(screen.getByTestId('agent-mode-tab-mission').getAttribute('aria-selected')).toBe('true'));
   });

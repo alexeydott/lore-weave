@@ -71,6 +71,23 @@ composition **authoring-run SUBAGENT** (designed for focused, high-attention lon
     agent stays a pure supporter — it never drives the GUI.
   - VERIFY: `useDraftHandoffCta` 4 tests; AgentModePanel `view:'new'` deep-link test; ComposePanel
     CTA-visibility test; studio-panels suite **785 passed**; tsc clean.
+- **✅ MILESTONE 5 DONE — FULL LOOP PROVEN LIVE via Playwright (+ 2 real FE bugs caught & fixed):**
+  - Drove the whole handoff in a real browser (vite dev :5199, book 019f9d2b): co-writer chat
+    **"✍️ Start drafting →"** CTA (M4) → deep-linked straight to Agent-Mode **New run** (M4 param) →
+    model **auto-picked** (Gemma) → all 4 gate checks green → create+gate → **Start** → the subagent
+    drafted **"The Wet Ink"** on gemma → **paused for review** (pause-after-each-unit). Draft Review
+    showed real, canon-grounded multi-paragraph prose, a **pre→post revision diff** (persisted), and a
+    critic verdict **ok · coherence=5 voice=5 pacing=4 canon=5**, with Accept/Reject. The full loop
+    works end-to-end in the UI.
+  - **Two shipping FE bugs only a live run surfaced (both fixed, tsc + 113 tests green):**
+    1. `useNewRunForm.DEFAULT_TOOL_ALLOWLIST` shipped two names NOT in the backend `ALLOWLISTABLE_TOOLS`
+       (`composition_read_outline`→`composition_list_outline`; `glossary_lookup`→not allowlistable) →
+       **every** run creation 422'd. Corrected to a valid subset.
+    2. The New-run form never collected a **drafting model**, so `params.model_ref` was absent and every
+       run **failed on its first unit** ("params.model_ref required"). Added a `ModelPicker` (shared
+       `@/components/model-picker`) + a derived favourite/chat-safe default; the create body now sends
+       `params.{model_source,model_ref}`, and the gate-check button is blocked until a model resolves.
+    A regression test now locks BOTH in the create body.
 - **▶ NEXT (all optional):**
   - Deferred unit guards (live-smoke + integration cover them now; both want a mock harness that
     doesn't yet exist): the worker-persist branch of `EngineDraftingSeam.draft_chapter`, and

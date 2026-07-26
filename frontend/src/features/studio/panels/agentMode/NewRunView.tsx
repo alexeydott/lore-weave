@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowUp, ArrowDown, X } from 'lucide-react';
 import { useStudioHost } from '../../host/StudioHostProvider';
+import { ModelPicker } from '@/components/model-picker';
 import { useNewRunForm } from './useNewRunForm';
 import { GateChecklist } from './GateChecklist';
 
@@ -212,6 +213,28 @@ export function NewRunView({ bookId, onCreated, onCancel }: Props) {
             <option value={4}>{t('authoringRun.newRun.level4', { defaultValue: 'Level 4 — draft' })}</option>
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-[10.5px] uppercase tracking-wide text-muted-foreground">
+          {t('authoringRun.newRun.modelLabel', { defaultValue: 'Drafting model' })}
+        </label>
+        <div data-testid="agent-mode-model-picker">
+          <ModelPicker
+            capability="chat"
+            compact
+            value={f.effectiveModelRef || null}
+            onChange={(id) => f.setModelRef(id ?? '')}
+            ariaLabel={t('authoringRun.newRun.modelLabel', { defaultValue: 'Drafting model' })}
+          />
+        </div>
+        {!f.effectiveModelRef && !f.modelsLoading && (
+          <p data-testid="agent-mode-model-empty" className="mt-1 text-[10.5px] text-destructive">
+            {t('authoringRun.newRun.modelEmpty', {
+              defaultValue: 'Add a chat model in Settings → Models to draft with.',
+            })}
+          </p>
+        )}
       </div>
 
       <div>
