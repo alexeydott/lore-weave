@@ -533,6 +533,18 @@ REPEAT_READ_CAP = 2
 # key and is untouched.
 IDEMPOTENT_NOOP_WRITE_CAP = 1
 
+# Repeated-identical-FAILURE breaker cap (2026-07-26) — the mirror of the no-op-write breaker
+# above. That one catches a SUCCESSFUL write that changed nothing; this catches a call that
+# keeps FAILING with the same error for the SAME (tool, args) — a weak model blind-retrying a
+# call it cannot fix (measured live: book_get_chapter ×13 on "no active chapter with that
+# chapter_id"; book_update_details ×16 on "no fields to update"). A failed call with FIXED args
+# is legitimate (its answer never reached the context — see the read-breaker note below), so the
+# key is (tool, EXACT args): only an IDENTICAL repeat is the loop; a retry with different args
+# gets a fresh key and runs. After the cap, the next identical call is short-circuited with the
+# tool's OWN error text echoed back (it usually names the fix, e.g. "call book_list kind=chapters")
+# so the model RECOVERS or stops honestly instead of spinning. Applies to reads AND writes.
+REPEATED_FAILURE_CAP = 2   # 2 identical failures tolerated; the 3rd+ identical call is steered
+
 # Completed one-shot CREATE tools → the context-id key whose PRESENCE proves the tool's
 # target already exists (so the tool is done and re-advertising it only invites a loop).
 # kg_project_create stands up a book's KG/composition project; the FE hoist puts that
@@ -1642,6 +1654,22 @@ async def _stream_with_tools(
         # burning a full tool-loop pass each time. Keyed (tool+args) -> count of no-op
         # results this turn; the 2nd identical call is short-circuited with a forward steer.
         noop_write_counts: dict[str, int] = {}
+        # Repeated-FAILURE breaker state (2026-07-26): per-turn, per-tool, per-ERROR count of
+        # FAILED calls — {tool: {error_sig: count}}. Keyed on the ERROR, not the args, because a
+        # weak model varies the args each retry (measured: book_get_chapter ×19, each a DIFFERENT
+        # hallucinated chapter_id) yet hits the IDENTICAL error — an (tool,args) key would never
+        # repeat and never fire. Same error N times = the model isn't making progress = a loop; a
+        # DIFFERENT error (or success) means it changed something, so that key is fresh and runs.
+        # A SUCCESS clears the tool's whole map (the loop is broken). Distinct from
+        # noop_write_counts (created=false SUCCESSES) and read_call_results (identical SUCCESSES).
+        fail_by_tool_error: dict[str, dict[str, int]] = {}
+        # De-advertise escalation — once the breaker fires for a tool, a WEAK model keeps
+        # RE-EMITTING the same call and ignoring the steer (measured: book_get_chapter emitted 19×,
+        # only 2 dispatched, the rest short-circuited but the model spun anyway). Short-circuiting
+        # DISPATCH isn't enough; take the tool OFF THE WIRE so it physically cannot be re-emitted,
+        # forcing the model to the fix the error names (a different tool) or an honest answer. Same
+        # reactive pattern as the oneshot de-advertise + rail gate. Unioned into `_suppress`.
+        failure_suppress: set[str] = set()
         # oneshot-deadvertise (2026-07-25) — the per-turn set of completed one-shot creates to
         # keep OFF the wire (mode="per_turn": populated when the no-op breaker fires; resets each
         # invocation). mode="existence" computes its set from context at each advertise; mode=
@@ -1811,6 +1839,11 @@ async def _stream_with_tools(
                         )
                         if _rail_suppress:
                             _suppress = set(_suppress) | _rail_suppress
+                    # De-advertise escalation — a tool the repeated-failure breaker gave up on is
+                    # taken off the wire so a weak model can't keep re-emitting it (dispatch is
+                    # already short-circuited; this stops the wasted EMIT passes too).
+                    if failure_suppress:
+                        _suppress = set(_suppress) | failure_suppress
                     advertised = _advertise_discovery_tools(
                         cat_index, active_tool_names, extra_fe,
                         permission_mode=permission_mode,
@@ -3500,6 +3533,39 @@ async def _stream_with_tools(
                     f"{c['name']}::{json.dumps(args_obj, sort_keys=True, default=str)}"
                     if tier == "A" else None
                 )
+                # Repeated-FAILURE breaker — ALL tiers (reads loop too: book_get_chapter ×19).
+                # Find this tool's most-repeated ERROR this turn; if it has recurred >= cap times,
+                # further calls to this tool are the loop (the model keeps hitting the same wall
+                # with varied args). Defer a missing/blank-required-args error to the dedicated
+                # blank-args breaker below (tailored message + own cap) — division of labour.
+                _tool_fails = fail_by_tool_error.get(c["name"], {})
+                _dom_err, _dom_n = "", 0
+                for _e, _n in _tool_fails.items():
+                    if _n > _dom_n:
+                        _dom_err, _dom_n = _e, _n
+                if _dom_n >= REPEATED_FAILURE_CAP and _MISSING_REQUIRED_ARGS_MARKER not in _dom_err:
+                    _fail_steer = (
+                        f"'{c['name']}' has already FAILED {_dom_n} times this turn with the same "
+                        f"error: {_dom_err} — retrying it (even with different arguments) keeps "
+                        "hitting the same wall. STOP calling it. Do EXACTLY what that error says "
+                        "to fix it (e.g. if it tells you to look up an id first, call THAT tool "
+                        "now), use a DIFFERENT tool, or tell the user plainly what is blocking you."
+                    )
+                    logger.info(
+                        "repeated-failure breaker: %s failed %d× with the same error this turn "
+                        "— short-circuited + de-advertised", c["name"], _dom_n,
+                    )
+                    # Take it OFF the wire next pass so the model stops re-emitting it.
+                    failure_suppress.add(c["name"])
+                    working.append({
+                        "role": "tool", "tool_call_id": c["id"],
+                        "content": tool_result_content({"error": _fail_steer}),
+                    })
+                    yield {"tool_call": {
+                        "id": c["id"], "iteration": iteration, "tool": c["name"],
+                        "args": args_obj, "ok": False, "result": None, "error": _fail_steer,
+                    }}
+                    continue
                 if (
                     _noop_write_key is not None
                     and noop_write_counts.get(_noop_write_key, 0) >= IDEMPOTENT_NOOP_WRITE_CAP
@@ -3653,6 +3719,18 @@ async def _stream_with_tools(
                 # frontend tools suspend BEFORE this line and are correctly never counted.)
                 if ok and c["name"] in _rail_all_step_tools:
                     turn_succeeded[c["name"]] += 1
+                # Repeated-FAILURE breaker — record this failure under (tool → error → count) so a
+                # further call that keeps hitting the same error is short-circuited next iteration.
+                # A SUCCESS clears the tool's whole map: the loop is broken, so a later failure
+                # (e.g. a transient blip) starts fresh rather than inheriting a stale count.
+                if not ok:
+                    _err_sig = str(envelope.get("error") or "")[:200]
+                    fail_by_tool_error.setdefault(c["name"], {})
+                    fail_by_tool_error[c["name"]][_err_sig] = (
+                        fail_by_tool_error[c["name"]].get(_err_sig, 0) + 1
+                    )
+                elif c["name"] in fail_by_tool_error:
+                    fail_by_tool_error.pop(c["name"], None)
                 tool_payload = envelope.get("result") if ok else {"error": envelope.get("error")}
                 # Track C Phase 2 — count SUCCESSFUL identical reads so the repeated-read
                 # breaker above can short-circuit the next one. Only successes count: a call
