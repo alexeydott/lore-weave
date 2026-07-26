@@ -75,21 +75,44 @@ export function NewRunView({ bookId, onCreated, onCancel }: Props) {
           {t('authoringRun.newRun.chaptersLabel', { defaultValue: 'Chapters to include (book TOC)' })}
         </label>
         {f.chapters.length === 0 ? (
-          <p data-testid="agent-mode-chapters-empty" className="text-xs text-muted-foreground">
-            {t('authoringRun.newRun.chaptersEmpty', {
-              defaultValue: 'This book has no chapters yet — a run needs existing chapters to revise/draft against.',
-            })}{' '}
-            <button
-              type="button"
-              data-testid="agent-mode-chapters-empty-cta"
-              onClick={() => host.openPanel('planner')}
-              className="text-primary underline hover:no-underline"
-            >
-              {t('authoringRun.newRun.chaptersEmptyCta', {
-                defaultValue: 'Open Planner and bootstrap chapters from your plan →',
+          <div data-testid="agent-mode-chapters-empty" className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              {t('authoringRun.newRun.chaptersEmpty', {
+                defaultValue: 'This book has no chapters yet — create them from your plan to draft against.',
               })}
-            </button>
-          </p>
+            </p>
+            {f.canMaterialize ? (
+              // In-place handoff: create the book chapters the compiled plan implies, right here,
+              // instead of sending the writer to the Planner panel and back.
+              <button
+                type="button"
+                data-testid="agent-mode-materialize"
+                disabled={f.materializing}
+                onClick={() => void f.materializeChapters()}
+                className="rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {f.materializing
+                  ? t('authoringRun.newRun.materializing', { defaultValue: 'Creating chapters…' })
+                  : t('authoringRun.newRun.materialize', { defaultValue: 'Create chapters from this plan →' })}
+              </button>
+            ) : (
+              <button
+                type="button"
+                data-testid="agent-mode-chapters-empty-cta"
+                onClick={() => host.openPanel('planner')}
+                className="text-xs text-primary underline hover:no-underline"
+              >
+                {t('authoringRun.newRun.chaptersEmptyCta', {
+                  defaultValue: 'Open Planner to compile a plan first →',
+                })}
+              </button>
+            )}
+            {f.materializeError && (
+              <p data-testid="agent-mode-materialize-error" className="text-xs text-destructive">
+                {f.materializeError}
+              </p>
+            )}
+          </div>
         ) : (
           <>
             <div className="max-h-48 overflow-y-auto rounded-md border">
@@ -111,6 +134,14 @@ export function NewRunView({ bookId, onCreated, onCancel }: Props) {
                 defaultValue: '{{total}} chapters in book · {{selected}} selected',
               })}
             </p>
+            {f.materializedCount != null && f.materializedCount > 0 && (
+              <p data-testid="agent-mode-materialized-ok" className="mt-1 text-[10.5px] text-emerald-600 dark:text-emerald-400">
+                {t('authoringRun.newRun.materializedOk', {
+                  count: f.materializedCount,
+                  defaultValue: 'Created {{count}} chapters from your plan.',
+                })}
+              </p>
+            )}
           </>
         )}
       </div>

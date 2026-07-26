@@ -45,14 +45,25 @@ composition **authoring-run SUBAGENT** (designed for focused, high-attention lon
   - VERIFY: Go build OK; composition unit suite 2378 passed / catalog test updated; both rails
     confirmed in the agent-registry DB; **live cross-service smoke** — both bootstrap tools federate
     through ai-gateway, propose→apply→confirm runs `_execute_bootstrap_apply` E2E (proposal `applied`).
-- **▶ NEXT (milestone 3 — FE handoff, next cycle):**
-  - Wire the chat "offer to draft" → the Studio Agent-Mode NewRun (or a chat-launched
-    `autonomous-drafting` run) so the "Both" seam's chat-handoff path is live in the UI; surface the
-    materialize (bootstrap) step + Mission-Control progress. The FE authoring-run panel already
-    exists (`studio/panels/agentMode/*`); it needs the book-chapter materialization wired in front.
-  - Deferred unit guards (live-smoke covers both now; both need a mock harness that doesn't yet
-    exist): the worker-persist branch of `EngineDraftingSeam.draft_chapter`, and
-    `_execute_bootstrap_apply`. Small, structural test-harness work — track, don't block.
+- **✅ MILESTONE 3 DONE — FE handoff (materialize in Agent-Mode), committed:**
+  - Found the FE materialize UI ALREADY existed but was SCATTERED: `useBootstrap`/`BootstrapPanel`
+    live in the Planner (`plan-forge`), while the authoring-run launcher is in Studio **Agent Mode**
+    (`studio/panels/agentMode/*`). A compiled-but-unmaterialised plan left Agent-Mode NewRun with an
+    empty chapter scope and only a **punt** ("Open Planner…") — a cross-panel dead-end.
+  - Added a `materialize(runId)` **one-shot** to `useBootstrap` (chains propose→approve→apply on the
+    RETURNED objects, not the stale `proposal` state) and wired it into `useNewRunForm` +
+    `NewRunView`: a compiled plan with no chapters now shows an in-place **"Create chapters from this
+    plan →"** button that materialises them, refetches the TOC, auto-selects the new chapters, and
+    shows "Created N chapters". No new API/contract (reuses the plan-forge bootstrap endpoints).
+  - VERIFY: `useBootstrap` 8 tests (incl. materialize chain + error-no-apply); AgentModePanel
+    materialize integration test (compiled plan + empty TOC → button → bootstrap → chapters appear);
+    plan-forge + studio-panels suites **866 passed**; tsc clean.
+- **▶ NEXT:**
+  - Optional polish: a chat "offer to draft" affordance that deep-links to Agent-Mode NewRun
+    pre-selected (the chat-handoff leg of the "Both" seam — the rail already offers it in words).
+  - Deferred unit guards (live-smoke + integration cover them now; both want a mock harness that
+    doesn't yet exist): the worker-persist branch of `EngineDraftingSeam.draft_chapter`, and
+    `_execute_bootstrap_apply`. Small, structural — track, don't block.
   - TUNING (unchanged): per-scene length steer; `link_scene_plan` leaves scene `target_words` NULL.
 
 <details><summary>MILESTONE-1 detail + earlier investigation (2026-07-26)</summary>

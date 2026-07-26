@@ -31,8 +31,17 @@ vi.mock('@/features/composition/authoringRuns/api', () => ({
 
 const listPlanRuns = vi.fn();
 const getPlanRun = vi.fn();
+const bootstrapPropose = vi.fn();
+const bootstrapApprove = vi.fn();
+const bootstrapApply = vi.fn();
 vi.mock('@/features/plan-forge/api', () => ({
-  planForgeApi: { listRuns: (...a: unknown[]) => listPlanRuns(...a), getRun: (...a: unknown[]) => getPlanRun(...a) },
+  planForgeApi: {
+    listRuns: (...a: unknown[]) => listPlanRuns(...a),
+    getRun: (...a: unknown[]) => getPlanRun(...a),
+    bootstrapPropose: (...a: unknown[]) => bootstrapPropose(...a),
+    bootstrapApprove: (...a: unknown[]) => bootstrapApprove(...a),
+    bootstrapApply: (...a: unknown[]) => bootstrapApply(...a),
+  },
 }));
 
 const listChapters = vi.fn();
@@ -157,6 +166,34 @@ describe('AgentModePanel — New run config', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('agent-mode-tab-new'));
     await waitFor(() => expect(screen.getByTestId('agent-mode-plan-empty')).toBeTruthy());
+  });
+
+  it('materialise: a compiled plan with no chapters offers "Create chapters from this plan", which bootstraps them into the TOC', async () => {
+    listPlanRuns.mockResolvedValue({ items: [{ id: 'plan-1', status: 'compiled', book_id: 'b1', mode: 'rules', model_ref: null, source_checksum: null, active_job_id: null, job_status: null, error_detail: null, checkpoint_state: null, artifacts: [], created_at: '', updated_at: '' }] });
+    // The TOC is empty until bootstrap-apply materialises the chapters (stateful mock: robust to
+    // however many times the query refetches, unlike a brittle mockResolvedValueOnce ordering).
+    let materialised = false;
+    listChapters.mockImplementation(async () => (materialised
+      ? { items: [{ chapter_id: 'ch1', book_id: 'b1', title: 'The Wet Ink', original_filename: '1.txt', original_language: 'en', content_type: 'text', byte_size: 1, sort_order: 1, lifecycle_state: 'active' }], total: 1 }
+      : { items: [], total: 0 }));
+    bootstrapPropose.mockResolvedValue({ id: 'p1', status: 'pending', diff: { new_chapters: [{ title: 'The Wet Ink' }], new_glossary_entities: [] }, applied_results: {} });
+    bootstrapApprove.mockResolvedValue({ id: 'p1', status: 'approved', diff: { new_chapters: [], new_glossary_entities: [] }, applied_results: {} });
+    bootstrapApply.mockImplementation(async () => {
+      materialised = true;
+      return { id: 'p1', status: 'applied', diff: { new_chapters: [], new_glossary_entities: [] }, applied_results: { e1: { chapter_id: 'ch1', title: 'The Wet Ink' } } };
+    });
+
+    renderPanel();
+    fireEvent.click(screen.getByTestId('agent-mode-tab-new'));
+    // compiled plan + empty TOC → the in-place materialise button (NOT the Planner punt)
+    const btn = await screen.findByTestId('agent-mode-materialize');
+    fireEvent.click(btn);
+
+    // it ran the full propose→approve→apply chain...
+    await waitFor(() => expect(bootstrapApply).toHaveBeenCalledWith('b1', 'p1', 'tok'));
+    // ...and the refetched TOC now shows the created chapter + the success line
+    await waitFor(() => expect(screen.getByTestId('agent-mode-chapter-check-ch1')).toBeTruthy());
+    expect(screen.getByTestId('agent-mode-materialized-ok')).toBeTruthy();
   });
 
   it('"Run gate check" creates then gates the run, landing on Mission control', async () => {
