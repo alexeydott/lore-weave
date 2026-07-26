@@ -1,5 +1,28 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## 🔬 FULL-ARC PLANFORGE — pipeline PROVEN E2E, 2 bugs fixed (2026-07-26, deep-dive)
+Drove the full arc pipeline end-to-end for the FIRST time (scratchpad planforge_arc.py /
+planforge_drive.py). Results:
+- **✅ 7-pass scene compiler WORKS E2E** — a 10-chapter arc (`plan_propose_spec` rich outline →
+  `plan_compile`) → ran motifs/cast/world/beats/character_arcs/scenes/self_heal (cast+beats seeds
+  applied via composition REST + accepted) → **27 coherent scenes** (2-3/chapter, linked synopses).
+  Prereq: the book's Glossary ontology must be adopted first (newcomer step-4) or the cast seed
+  apply 422s "no Glossary ontology yet".
+- **✅ FIXED (c21cbd6f8) — composition_generate 500 that blocked ALL prose drafting.**
+  `_execute_generate`'s hand-built dep set for engine.generate drifted stale; `grant` fell back to
+  its unresolved `Depends()` → `'Depends' object has no attribute 'resolve_grant'`. Completed the
+  dep set. Prose now drafts real, coherent scenes.
+- **✅ FIXED (c21cbd6f8) — no scene length target.** `build_messages` carried no word goal (a
+  max_output_tokens cap is a ceiling). Threaded a LENGTH directive through the ACTUAL auto path
+  (enqueue input → **composition-worker (SEPARATE image!)** → diverge → build_messages). Steer now
+  in the prompt. TUNING REMAINS: gemma still drafts ~80-word scenes despite the 1000-word steer
+  (finish_reason=stop) — needs richer scene grounding or a stronger steer; length is a SOFT target
+  (per the human: real arcs vary; a scene ≈1000 words, gemma loses coherence past that).
+- **Still-open GAPs for agentic full-arc:** (1) no MCP tool for the cast/beats bootstrap
+  approve/apply (co-writer can't drive the scene checkpoints — only REST); (2) `link_scene_plan`
+  leaves scene `target_words` NULL (a per-scene planner target would drive length); (3) scene-by-
+  scene → 3000-word chapter assembly + full-arc drive not yet run agentically.
+
 ## 🔬 FULL-ARC PLANFORGE — investigation started, gaps mapped (2026-07-26)
 Goal (raised bar for production quality): the co-writer must write a WHOLE ARC — 10+ chapters,
 each chapter 3+ scenes / 3000+ words, each **scene ≈1000 words** (gemma-4 loses the thread past
