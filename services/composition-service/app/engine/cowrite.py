@@ -70,11 +70,24 @@ def estimate_prompt_tokens(messages: list[dict[str, Any]], counter: Callable[[st
     return sum(counter(str(m.get("content", ""))) for m in messages)
 
 
+#: Default per-SCENE word target when the scene carries no `target_words` (2026-07-26). Without a
+#: length target the drafter free-runs SHORT — a local gemma drafted an 83-word "scene" for a
+#: 1400-token budget, nowhere near a readable ~1000-word scene (3 of which make a ~3000-word
+#: chapter). Tunable; the scene's own `target_words` (when the planner sets it) always wins.
+DEFAULT_SCENE_TARGET_WORDS = 1000
+
+
 def build_messages(
     packed_prompt: str, profile: BookProfile, operation: str, guide: str = "",
+    target_words: int | None = None,
 ) -> list[dict[str, str]]:
     """System + user messages for the drafter. The packer's structured blocks are
-    the grounding; the wrapper carries language + the operation steer."""
+    the grounding; the wrapper carries language + the operation steer.
+
+    ``target_words`` (scene-draft path only) appends an explicit LENGTH directive so the model
+    writes a full scene instead of a sketch — a max_output_tokens cap is a ceiling, not a target,
+    so with no directive a local model stops early. Callers that are NOT drafting a full scene
+    (selection ops, revise) pass None and the prompt is unchanged."""
     lang = "" if profile.source_language in ("", "auto") else (
         f" Write the prose in the language with code '{profile.source_language}'."
     )
@@ -108,7 +121,16 @@ def build_messages(
         "reader is waiting on: advance or pay one off where it fits this scene; do "
         "NOT silently drop them, and do not contradict canon to force one."
     ) if "<open_promises>" in packed_prompt else ""
-    user = packed_prompt + "\n\n" + instruction + promise_steer + (
+    # LENGTH directive — a max_output_tokens cap is a CEILING, not a target; without an explicit
+    # word goal the model free-runs short (measured: 83 words). Only on the scene-draft path
+    # (target_words passed); selection/revise ops pass None and stay unchanged.
+    length_steer = (
+        f"\n\nLENGTH: write a FULL scene of approximately {target_words} words. Dramatise it "
+        "with concrete action, sensory detail, and dialogue where it fits — do NOT summarise, "
+        "compress, or stop early; a short sketch is a failure. Keep writing until the scene's "
+        "beat is fully played out at roughly that length."
+    ) if target_words and target_words > 0 else ""
+    user = packed_prompt + "\n\n" + instruction + promise_steer + length_steer + (
         f"\n\nAuthor guidance: {guide}" if guide else "")
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 

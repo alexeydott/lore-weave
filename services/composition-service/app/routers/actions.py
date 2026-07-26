@@ -44,7 +44,22 @@ from app.config import settings
 from app.middleware.jwt_auth import get_optional_current_user
 from app.grant_client import GrantClient, GrantLevel
 from app.grant_deps import InsufficientGrant, authorize_book
-from app.deps import get_grant_client_dep, get_outline_repo, get_works_repo
+from app.deps import (
+    get_grant_client_dep,
+    get_outline_repo,
+    get_works_repo,
+    # composition.generate confirm-path deps (2026-07-26 fix): _execute_generate hand-builds the
+    # engine.generate dep set, which drifted stale as new Depends params were added — a missing
+    # `grant` fell back to its unresolved Depends() sentinel → 500 on every confirm-gated draft.
+    get_structure_repo,
+    get_motif_repo_opt,
+    get_motif_application_repo_opt,
+    get_grounding_pins_repo,
+    get_style_profile_repo,
+    get_voice_profile_repo,
+    get_references_repo,
+    get_embedding_client_dep,
+)
 from app.db.repositories.outline import OutlineRepo
 from app.db.repositories.works import WorksRepo
 from app.db.models import CompositionWork
@@ -466,13 +481,27 @@ async def _execute_generate(
     # draft write. Mint a generous TTL covering the worst-case generation+persist.
     bearer = mint_service_bearer(envelope_user, settings.jwt_secret, ttl=_GENERATE_BEARER_TTL_S)
     pool = get_pool()
+    # The COMPLETE dep set engine_router.generate / generate_chapter declare via Depends(). This
+    # is called DIRECTLY (not through FastAPI routing), so every Depends param must be resolved
+    # here or it arrives as its raw Depends() sentinel and blows up on first attribute access
+    # (the `grant.resolve_grant` 500). Resolve the newer deps via their own factory functions so
+    # this set can't silently drift stale again.
     deps = dict(
         works=WorksRepo(pool), outline=OutlineRepo(pool),
+        structures=await get_structure_repo(),
+        motif_apps=await get_motif_application_repo_opt(),
+        motifs=await get_motif_repo_opt(),
         scene_links=SceneLinksRepo(pool), canon=CanonRulesRepo(pool),
         jobs=GenerationJobsRepo(pool), book=get_book_client(),
         glossary=get_glossary_client(), knowledge=get_knowledge_client(),
         llm=get_llm_client(), narrative_threads=NarrativeThreadRepo(pool),
+        grounding_pins=await get_grounding_pins_repo(),
+        style_profiles=await get_style_profile_repo(),
+        voice_profiles=await get_voice_profile_repo(),
+        references=await get_references_repo(),
+        embedder=await get_embedding_client_dep(),
         derivatives=DerivativesRepo(pool),
+        grant=await get_grant_client_dep(),
     )
     # Build the engine body from the (signed, tamper-proof) payload. The propose
     # tool already constrains the enums, but guard the construction so a malformed

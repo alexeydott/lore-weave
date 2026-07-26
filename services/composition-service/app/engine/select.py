@@ -103,10 +103,14 @@ async def diverge(
     k: int, prompt_est: int, max_tokens: int, temperature: float = 0.8,
     reasoning_effort: str | None = None, trace_id: str | None = None,
     cancel_check: Callable[[], Awaitable[bool]] | None = None,
+    target_words: int | None = None,
 ) -> list[Candidate]:
     """K parallel draft completions of the SAME grounded prompt; diversity comes
-    from temperature > 0 (Re3). Raises if zero candidates survive."""
-    messages = build_messages(packed_prompt, profile, operation, guide)
+    from temperature > 0 (Re3). Raises if zero candidates survive.
+
+    ``target_words`` threads a scene LENGTH directive into the prompt (else the drafter free-runs
+    short — the auto-worker path is the one that actually drafts a scene, so it MUST carry it)."""
+    messages = build_messages(packed_prompt, profile, operation, guide, target_words=target_words)
     tasks = [
         _one_draft(
             llm, user_id=user_id, model_source=model_source, model_ref=model_ref,
