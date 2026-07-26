@@ -1,9 +1,15 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
-## ✅ NEWCOMER SCENARIO — steps 3–8 all WORKING, DB-verified (2026-07-26)
-Full authoring flow now works end-to-end on live gemma. **Step 8 (write a scene) went from a
-19× loop to clean prose** — DB-verified: chapter "The Vanishing Road", word_count=194, 5 blocks,
-via `book_chapter_save_draft`. Chain of fixes this session (each committed):
+## ✅ NEWCOMER SCENARIO — steps 3–8 all WORKING, verified through the REAL UI (2026-07-26)
+Full authoring flow works end-to-end. **Playwright drove the actual studio UI** as a real user
+(book 019f9cff): login → create book → open studio → co-writer chat, all 8 steps via the real
+confirm/approve cards. DB-verified at each step: desc set · 6 kinds + 3 entities · plan_run=1
+(arc "The Vanishing Path" + 3 beats) · Plan Hub renders arc+chapter · **step 8 write used
+`book_chapter_save_draft` (NOT book_update_details), 252 words of real prose** ("The ink was still
+wet, a dark shimmering vein…"). The fresh session advertised `book_chapter_save_draft` correctly,
+confirming the earlier write7 miss was purely the 10+-turn stress session's stale activation_state.
+Also proven earlier on the agui driver — chapter "The Vanishing Road", word_count=194, via
+`book_chapter_save_draft` (was a 19× loop before the fixes). Chain of fixes this session (each committed):
 - `ef00fd2a9` — rail tool-budget starved `plan_propose_spec` (late steps dropped in step order);
   exclude DONE steps → step 5 plan lands (plan_run=1 + structure + chapter).
 - `7b3cbcd5e` / `da60c9b00` — write steps `repeat:true` + route single write-intent to the
