@@ -352,7 +352,7 @@ async def test_cache_hit_skips_llm_and_reuses_entities():
     with patch.object(ew, "build_internal_client",
                       return_value=_http_cm_returning({"title": "Ch1", "content": "text"})), \
          patch.object(ew, "prepare_chapter_text", new=MagicMock(return_value="some chapter text")), \
-         patch.object(ew, "plan_kind_batches", return_value=[["character"]]), \
+         patch.object(ew, "plan_batches_for_strategy", return_value=[["character"]]), \
          patch.object(ew, "build_known_entities_context", return_value=""), \
          patch.object(ew, "stamp_entity_provenance", new=MagicMock()), \
          patch.object(ew, "_persist_batch_outcomes", new=AsyncMock()), \
@@ -392,7 +392,7 @@ async def test_cache_busts_on_model_change_when_enabled(monkeypatch):
     with patch.object(ew, "build_internal_client",
                       return_value=_http_cm_returning({"title": "Ch1", "content": "text"})), \
          patch.object(ew, "prepare_chapter_text", new=MagicMock(return_value="short chapter text")), \
-         patch.object(ew, "plan_kind_batches", return_value=[["character"]]), \
+         patch.object(ew, "plan_batches_for_strategy", return_value=[["character"]]), \
          patch.object(ew, "build_known_entities_context", return_value=""), \
          patch.object(ew, "build_extraction_prompt", return_value={}), \
          patch.object(ew, "build_system_prompt", return_value="sys"), \
@@ -437,7 +437,7 @@ async def test_unplannable_oversized_window_skips_llm(caplog):
                       return_value=_http_cm_returning({"title": "Ch1", "content": "text"})), \
          patch.object(ew, "prepare_chapter_text", new=MagicMock(return_value="some chapter text")), \
          patch.object(ew, "_plan_chapter_windows", return_value=[huge_window]), \
-         patch.object(ew, "plan_kind_batches", return_value=[["character"]]), \
+         patch.object(ew, "plan_batches_for_strategy", return_value=[["character"]]), \
          patch.object(ew, "build_known_entities_context", return_value=""), \
          patch.object(ew, "stamp_entity_provenance", new=MagicMock()), \
          patch.object(ew, "_persist_batch_outcomes", new=AsyncMock(side_effect=_capture_outcomes)), \
@@ -475,7 +475,7 @@ async def _run_with_window_and_ctx(window: str, ctx: int, llm_job):
          patch.object(ew, "prepare_chapter_text", new=MagicMock(return_value="t")), \
          patch.object(ew, "_get_model_context_window", new=AsyncMock(return_value=ctx)), \
          patch.object(ew, "_plan_chapter_windows", return_value=[window]), \
-         patch.object(ew, "plan_kind_batches", return_value=[["character"]]), \
+         patch.object(ew, "plan_batches_for_strategy", return_value=[["character"]]), \
          patch.object(ew, "build_known_entities_context", return_value=""), \
          patch.object(ew, "build_extraction_prompt", return_value={}), \
          patch.object(ew, "build_system_prompt", return_value="sys"), \
@@ -511,7 +511,7 @@ async def test_graded_effort_reaches_llm_input():
     with patch.object(ew, "build_internal_client",
                       return_value=_http_cm_returning({"title": "Ch1", "content": "text"})), \
          patch.object(ew, "prepare_chapter_text", new=MagicMock(return_value="short chapter text")), \
-         patch.object(ew, "plan_kind_batches", return_value=[["character"]]), \
+         patch.object(ew, "plan_batches_for_strategy", return_value=[["character"]]), \
          patch.object(ew, "build_known_entities_context", return_value=""), \
          patch.object(ew, "build_extraction_prompt", return_value={}), \
          patch.object(ew, "build_system_prompt", return_value="sys"), \
@@ -576,7 +576,7 @@ async def test_truncated_batch_is_not_cached():
     with patch.object(ew, "build_internal_client",
                       return_value=_http_cm_returning({"title": "Ch1", "content": "text"})), \
          patch.object(ew, "prepare_chapter_text", new=MagicMock(return_value="some chapter text")), \
-         patch.object(ew, "plan_kind_batches", return_value=[["character"]]), \
+         patch.object(ew, "plan_batches_for_strategy", return_value=[["character"]]), \
          patch.object(ew, "build_known_entities_context", return_value=""), \
          patch.object(ew, "build_extraction_prompt", return_value={}), \
          patch.object(ew, "build_system_prompt", return_value="sys"), \
@@ -653,7 +653,7 @@ async def _run_one_chapter_batch(finish_reason: str | None, entities: list[dict]
     with patch.object(ew, "build_internal_client",
                       return_value=_http_cm_returning({"title": "Ch1", "content": "text"})), \
          patch.object(ew, "prepare_chapter_text", new=prepare_mock), \
-         patch.object(ew, "plan_kind_batches", return_value=[["character"]]), \
+         patch.object(ew, "plan_batches_for_strategy", return_value=[["character"]]), \
          patch.object(ew, "build_known_entities_context", return_value=""), \
          patch.object(ew, "build_extraction_prompt", return_value={}), \
          patch.object(ew, "build_system_prompt", return_value="sys"), \
@@ -702,7 +702,7 @@ async def test_batch_concurrency_runs_all_units_via_gather():
     with patch.object(ew, "build_internal_client",
                       return_value=_http_cm_returning({"title": "Ch1", "content": "text"})), \
          patch.object(ew, "prepare_chapter_text", new=MagicMock(return_value="some chapter text")), \
-         patch.object(ew, "plan_kind_batches", return_value=batches), \
+         patch.object(ew, "plan_batches_for_strategy", return_value=batches), \
          patch.object(ew, "build_known_entities_context", return_value=""), \
          patch.object(ew, "build_extraction_prompt", return_value={}), \
          patch.object(ew, "build_system_prompt", return_value="sys"), \
@@ -744,7 +744,7 @@ async def _capture_llm_input(*, thinking_enabled: bool, reasoning_effort):
     with patch.object(ew, "build_internal_client",
                       return_value=_http_cm_returning({"title": "Ch1", "content": "text"})), \
          patch.object(ew, "prepare_chapter_text", new=MagicMock(return_value="some chapter text")), \
-         patch.object(ew, "plan_kind_batches", return_value=[["character"]]), \
+         patch.object(ew, "plan_batches_for_strategy", return_value=[["character"]]), \
          patch.object(ew, "build_known_entities_context", return_value=""), \
          patch.object(ew, "build_extraction_prompt", return_value={}), \
          patch.object(ew, "build_system_prompt", return_value="sys"), \
@@ -911,3 +911,29 @@ def test_extraction_system_template_has_precision_filter():
     assert "identify all named entities" not in t.lower()
     assert "RELATIONSHIPS between" in t  # explicit: a relationship is not an entity
     assert "OMIT" in t and "backstory" in t  # omission bias for background mentions
+
+
+def test_chapter_index_is_the_books_sort_order_not_the_job_position():
+    """`chapter_index` must be the chapter's position in the BOOK.
+
+    It used to be the enumerate() index over the job's chapter_ids, while
+    glossary-service's `before_chapter_index` documents and windows the same column as a
+    book position. Measured on a real book: index 0 named SIX different chapters, and even
+    a single-job run was off by one (sort_order is 1-based, enumerate() is 0-based), so
+    every chapter-ordered read — known-entity windowing, spoiler windows, timeline cutoffs
+    — was shifted. book-service already returns `sort_order` on the payload the worker
+    fetches, so the fix is to prefer it.
+
+    Asserted on the SOURCE rather than by driving the whole async chapter processor,
+    which needs a live pool: the contract is "sort_order wins, job index is the fallback".
+    """
+    import inspect
+
+    from app.workers import extraction_worker as ew
+
+    src = inspect.getsource(ew._process_extraction_chapter)
+    assert 'chapter.get("sort_order")' in src, (
+        "the worker no longer reads sort_order — chapter_index would revert to the "
+        "job-relative index, which collides across jobs")
+    # The fallback must stay LOUD: a silent revert is how this shipped in the first place.
+    assert "NOT a book position" in src
