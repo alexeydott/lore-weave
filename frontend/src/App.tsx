@@ -29,6 +29,7 @@ import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { ForgotPage } from '@/pages/auth/ForgotPage';
 import { ResetPage } from '@/pages/auth/ResetPage';
+import { VerifyPage } from '@/pages/auth/VerifyPage';
 import { HomePage } from '@/pages/HomePage';
 import { UsagePage } from '@/pages/UsagePage';
 import { KnowledgePage } from '@/pages/KnowledgePage';
@@ -90,6 +91,7 @@ export function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot" element={<ForgotPage />} />
             <Route path="/reset" element={<ResetPage />} />
+            <Route path="/verify" element={<VerifyPage />} />
             {/* P5 public-MCP OAuth consent — the page handles auth itself (preserves
                 the query string across the login round-trip), so it's NOT in RequireAuth. */}
             <Route path="/oauth/consent" element={<OAuthConsentPage />} />
