@@ -250,6 +250,20 @@ CREATE TABLE IF NOT EXISTS import_jobs (
 );
 CREATE INDEX IF NOT EXISTS idx_import_jobs_book ON import_jobs(book_id, created_at DESC);
 
+-- FB2 import provenance is deliberately per job: importing chapters into an
+-- existing book must not replace user-authored book metadata, while a new-book
+-- import may project the same source values onto the new book.
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS create_book_from_metadata BOOLEAN NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS book_import_metadata (
+  import_job_id UUID PRIMARY KEY REFERENCES import_jobs(id) ON DELETE CASCADE,
+  book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+  source_format TEXT NOT NULL,
+  metadata JSONB NOT NULL,
+  applied_to_book BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_book_import_metadata_book ON book_import_metadata(book_id, created_at DESC);
+
 -- P9-02: User favorites
 CREATE TABLE IF NOT EXISTS user_favorites (
   user_id    UUID NOT NULL,

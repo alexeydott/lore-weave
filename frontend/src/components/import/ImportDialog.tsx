@@ -13,7 +13,7 @@ interface ImportDialogProps {
   onImported: () => void;
 }
 
-const ACCEPTED_EXTENSIONS = '.txt,.docx,.epub';
+const ACCEPTED_EXTENSIONS = '.txt,.docx,.epub,.fb2';
 const MAX_SIZE = 200 * 1024 * 1024; // 200 MB per doc file
 const BULK_BATCH = 100; // chapters per bulk request (sequential → order preserved)
 
@@ -22,7 +22,7 @@ type ImportState = 'idle' | 'reading' | 'uploading' | 'processing' | 'completed'
 export function ImportDialog({ open, onOpenChange, bookId, onImported }: ImportDialogProps) {
   // Plain-text chapters go through the paginated review + bulk endpoint.
   const [parsed, setParsed] = useState<ParsedChapter[]>([]);
-  // .docx/.epub keep the existing async per-file import-job flow.
+  // .docx/.epub/.fb2 keep the existing async per-file import-job flow.
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [importState, setImportState] = useState<ImportState>('idle');
   const [readProgress, setReadProgress] = useState({ done: 0, total: 0 });
@@ -69,7 +69,7 @@ export function ImportDialog({ open, onOpenChange, bookId, onImported }: ImportD
     if (!fileList) return;
     const all = Array.from(fileList);
     const txt = filterTxtFiles(all);
-    const docs = all.filter((f) => /\.(docx|epub)$/i.test(f.name) && f.size <= MAX_SIZE);
+    const docs = all.filter((f) => /\.(docx|epub|fb2)$/i.test(f.name) && f.size <= MAX_SIZE);
     setError('');
     if (docs.length) setDocFiles((prev) => [...prev, ...docs]);
     if (txt.length) {
@@ -127,7 +127,7 @@ export function ImportDialog({ open, onOpenChange, bookId, onImported }: ImportD
       }
     }
 
-    // 2) .docx/.epub — existing async per-file import jobs.
+    // 2) .docx/.epub/.fb2 — existing async per-file import jobs.
     for (const file of docFiles) {
       try {
         setImportState('uploading');
@@ -231,7 +231,7 @@ export function ImportDialog({ open, onOpenChange, bookId, onImported }: ImportD
                 <FolderOpen className="h-3.5 w-3.5" /> Choose folder
               </button>
             </div>
-            <p className="text-[10px] text-muted-foreground/60">.txt (bulk) · .docx · .epub — max 200 MB per doc</p>
+            <p className="text-[10px] text-muted-foreground/60">.txt (bulk) · .docx · .epub · .fb2 — max 200 MB per doc</p>
           </div>
         )}
 
@@ -251,12 +251,12 @@ export function ImportDialog({ open, onOpenChange, bookId, onImported }: ImportD
           />
         )}
 
-        {/* Doc files (docx/epub) */}
+        {/* Async document files (docx/epub/fb2) */}
         {importState !== 'completed' && docFiles.length > 0 && (
           <div className="space-y-1 rounded-lg border p-2">
             {docFiles.map((f, i) => (
               <div key={`${f.name}-${i}`} className="flex items-center gap-3 rounded px-3 py-1.5 text-xs">
-                <span>{f.name.endsWith('.epub') ? '📖' : '📄'}</span>
+                <span>{/\.(epub|fb2)$/i.test(f.name) ? '📖' : '📄'}</span>
                 <span className="min-w-0 flex-1 truncate">{f.name}</span>
                 {!isBusy && (
                   <button type="button" title="Remove" onClick={() => setDocFiles((p) => p.filter((_, j) => j !== i))}

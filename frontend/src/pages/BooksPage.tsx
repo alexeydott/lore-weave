@@ -5,6 +5,7 @@ import { FilterToolbar, Pagination, EmptyState, FormDialog, StatusBadge, Skeleto
 import { LanguageDisplay } from '@/components/shared/LanguageDisplay';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useBooksList, hashToHue } from '@/features/books/hooks/useBooksList';
+import { FB2ImportProgress } from '@/features/books/components/FB2ImportProgress';
 
 export function BooksPage() {
   const { t } = useTranslation('books');
@@ -36,13 +37,28 @@ export function BooksPage() {
     setNewDesc,
     newLang,
     setNewLang,
+    newFB2File,
+    setNewFB2File,
+    newFB2ImportStage,
+    newFB2ImportProgress,
+    newFB2ImportJob,
+    newFB2ImportError,
     langFilter,
     setLangFilter,
     bookLangs,
     filteredBooks,
     allLanguages,
     handleCreate,
+    handleFB2Import,
+    resetNewFB2Import,
   } = useBooksList();
+
+  const isFB2ImportBusy = newFB2ImportStage === 'uploading' || newFB2ImportStage === 'processing';
+  const handleCreateDialogChange = (open: boolean) => {
+    if (!open && isFB2ImportBusy) return;
+    setCreateOpen(open);
+    if (!open) resetNewFB2Import();
+  };
 
   return (
     <div className="space-y-6">
@@ -218,32 +234,40 @@ export function BooksPage() {
       {/* Create book dialog */}
       <FormDialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={handleCreateDialogChange}
         title={t('create.title')}
         description={t('create.description')}
         footer={
           <>
             <button
-              onClick={() => setCreateOpen(false)}
+              onClick={() => handleCreateDialogChange(false)}
               data-testid="book-create-cancel"
+              disabled={isFB2ImportBusy}
               className="rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary"
             >
               {t('common.cancel', { ns: 'common' })}
             </button>
             <button
               onClick={() => {
-                // D-BOOKS-CREATE-TO-STUDIO: land straight in the Studio for the
-                // book just created, instead of back on the list waiting for a
-                // second click on the new row.
+                if (newFB2ImportStage === 'completed' && newFB2ImportJob) {
+                  navigate(`/books/${newFB2ImportJob.book_id}/studio`);
+                  return;
+                }
+                if (newFB2File) {
+                  void handleFB2Import();
+                  return;
+                }
+                // D-BOOKS-CREATE-TO-STUDIO: land straight in the Studio for a
+                // manually created book, instead of back on the list waiting for a second click.
                 void handleCreate().then((bookId) => {
                   if (bookId) navigate(`/books/${bookId}/studio`);
                 });
               }}
-              disabled={creating || !newTitle.trim() || !newLang}
+              disabled={creating || isFB2ImportBusy || (!newFB2File && (!newTitle.trim() || !newLang))}
               data-testid="book-create-submit"
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
-              {t('create.submit')}
+              {newFB2ImportStage === 'completed' ? 'Open imported book' : t('create.submit')}
             </button>
           </>
         }
@@ -281,6 +305,23 @@ export function BooksPage() {
               className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/40"
             />
           </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Or import an FB2 book</label>
+            <input
+              type="file"
+              accept=".fb2,application/x-fictionbook+xml,text/xml,application/xml"
+              data-testid="book-fb2-import-input"
+              onChange={(event) => setNewFB2File(event.target.files?.[0] ?? null)}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            />
+            {newFB2File && <p className="text-xs text-muted-foreground">Source metadata will set the book title and details.</p>}
+          </div>
+          <FB2ImportProgress
+            stage={newFB2ImportStage}
+            progress={newFB2ImportProgress}
+            job={newFB2ImportJob}
+            error={newFB2ImportError}
+          />
         </div>
       </FormDialog>
     </div>

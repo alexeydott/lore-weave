@@ -256,6 +256,9 @@ func (s *Server) Router() http.Handler {
 	r.Route("/v1/books", func(r chi.Router) {
 		r.Get("/storage-usage", s.getStorageUsage)
 		r.Get("/reading-history", s.getReadingHistory)
+		// Static route must be registered before /{book_id}; this is the
+		// create-and-import FB2 mode, distinct from importing into a known book.
+		r.Post("/import/fb2", s.startNewFB2Import)
 		r.Post("/", s.createBook)
 		r.Get("/", s.listBooks)
 		// WS-1.4 — the diary provisioner (the only kind='diary' write path). Static segment,

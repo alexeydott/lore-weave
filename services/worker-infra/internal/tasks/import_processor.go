@@ -167,10 +167,11 @@ type importRequestedPayload struct {
 	FileStorageKey   string `json:"file_storage_key"`
 	OriginalLanguage string `json:"original_language"`
 
-	PagesPerChunk     int    `json:"pages_per_chunk"`
-	CaptionImages     bool   `json:"caption_images"`
-	VisionModelSource string `json:"vision_model_source"`
-	VisionModelRef    string `json:"vision_model_ref"`
+	PagesPerChunk          int    `json:"pages_per_chunk"`
+	CaptionImages          bool   `json:"caption_images"`
+	VisionModelSource      string `json:"vision_model_source"`
+	VisionModelRef         string `json:"vision_model_ref"`
+	CreateBookFromMetadata bool   `json:"create_book_from_metadata"`
 }
 
 func (t *ImportProcessor) processImport(ctx context.Context, payload importRequestedPayload) (int, error) {
@@ -190,6 +191,7 @@ func (t *ImportProcessor) processImport(ctx context.Context, payload importReque
 	// documents into one stream, losing the user's chapter boundaries, so build
 	// explicit heading boundaries from the EPUB navigation map instead.
 	var html string
+	var fb2 *fb2Document
 	if payload.FileFormat == "epub" {
 		epubChapters, epubErr := extractEPUBChapters(fileData)
 		if epubErr != nil {
@@ -204,6 +206,12 @@ func (t *ImportProcessor) processImport(ctx context.Context, payload importReque
 			fmt.Fprintf(&b, "<h1>%s</h1>%s", htmlpkg.EscapeString(title), ch.HTML)
 		}
 		html = b.String()
+	} else if payload.FileFormat == "fb2" {
+		fb2, err = extractFB2Document(fileData)
+		if err != nil {
+			return 0, err
+		}
+		html = fb2.HTML
 	} else {
 		html, err = t.callPandoc(ctx, fileData, payload.FileFormat)
 		if err != nil {
@@ -221,6 +229,15 @@ func (t *ImportProcessor) processImport(ctx context.Context, payload importReque
 	tree, err := t.parseClient.Call(ctx, "html", html, lang, "")
 	if err != nil {
 		return 0, fmt.Errorf("parse: %w", err)
+	}
+	// Metadata is durable source provenance, not a post-processing decoration.
+	// Persist it before the independently committed chapter loop so a later
+	// partial chapter failure does not discard the title, annotation, or cover
+	// that identifies the newly created book.
+	if fb2 != nil {
+		if err := t.persistFB2Metadata(ctx, payload, fb2); err != nil {
+			return 0, err
+		}
 	}
 
 	// 4. Find current max sort_order ONCE — we apply chapterGlobalSort
@@ -264,13 +281,13 @@ func (t *ImportProcessor) processImport(ctx context.Context, payload importReque
 			// import-job UUID + per-part counter).
 			var origFilename, storageKey string
 			if multiPart {
-				origFilename = fmt.Sprintf("import-pt%02d-ch%03d.epub", partIdx+1, chIdxInPart+1)
+				origFilename = fmt.Sprintf("import-pt%02d-ch%03d.%s", partIdx+1, chIdxInPart+1, importSourceExtension(payload.FileFormat))
 				storageKey = fmt.Sprintf(
 					"chapters/%s/import-%s-pt%d-ch%d",
 					payload.BookID, payload.JobID, partIdx+1, chIdxInPart+1,
 				)
 			} else {
-				origFilename = fmt.Sprintf("import-ch%03d.epub", chapterGlobalSort)
+				origFilename = fmt.Sprintf("import-ch%03d.%s", chapterGlobalSort, importSourceExtension(payload.FileFormat))
 				storageKey = fmt.Sprintf(
 					"chapters/%s/import-%s-%d",
 					payload.BookID, payload.JobID, chapterGlobalSort-1,
@@ -380,6 +397,73 @@ RETURNING id
 	_ = t.Minio.RemoveObject(ctx, t.Cfg.MinioBucket, payload.FileStorageKey, minio.RemoveObjectOptions{})
 
 	return count, nil
+}
+
+func importSourceExtension(format string) string {
+	switch format {
+	case "markdown":
+		return "md"
+	case "docx", "epub", "fb2":
+		return format
+	default:
+		return "import"
+	}
+}
+
+// persistFB2Metadata retains the structured source data for every FB2 job.
+// Only create-mode jobs project it onto books and cover assets: an editor who
+// imports chapters into an existing book must never have their own metadata
+// silently overwritten by an unrelated source file.
+func (t *ImportProcessor) persistFB2Metadata(ctx context.Context, payload importRequestedPayload, doc *fb2Document) error {
+	metadata, err := json.Marshal(doc.Metadata)
+	if err != nil {
+		return fmt.Errorf("fb2: marshal metadata: %w", err)
+	}
+	tx, err := t.BookDB.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("fb2: begin metadata transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `
+INSERT INTO book_import_metadata(import_job_id,book_id,source_format,metadata,applied_to_book)
+VALUES($1,$2,'fb2',$3,$4)
+ON CONFLICT(import_job_id) DO UPDATE SET metadata=EXCLUDED.metadata, applied_to_book=EXCLUDED.applied_to_book
+`, payload.JobID, payload.BookID, metadata, payload.CreateBookFromMetadata); err != nil {
+		return fmt.Errorf("fb2: store metadata: %w", err)
+	}
+	if !payload.CreateBookFromMetadata {
+		if err := tx.Commit(ctx); err != nil {
+			return fmt.Errorf("fb2: commit metadata: %w", err)
+		}
+		slog.Info("fb2: retained metadata for existing book", "job_id", payload.JobID, "book_id", payload.BookID)
+		return nil
+	}
+	language := payload.OriginalLanguage
+	if language == "" {
+		language = doc.Language
+	}
+	if _, err := tx.Exec(ctx, `UPDATE books SET title=$2,description=$3,original_language=$4,genre_tags=$5,updated_at=now() WHERE id=$1`, payload.BookID, doc.Title, nullIfEmpty(doc.Summary), nullIfEmpty(language), doc.Genres); err != nil {
+		return fmt.Errorf("fb2: apply book metadata: %w", err)
+	}
+	if doc.Cover != nil {
+		contentType := http.DetectContentType(doc.Cover.Data)
+		if strings.HasPrefix(contentType, "image/") {
+			if _, err := tx.Exec(ctx, `
+INSERT INTO book_cover_assets(book_id,content_type,byte_size,storage_key,data,updated_at)
+VALUES($1,$2,$3,$4,$5,now())
+ON CONFLICT(book_id) DO UPDATE SET content_type=EXCLUDED.content_type,byte_size=EXCLUDED.byte_size,storage_key=EXCLUDED.storage_key,data=EXCLUDED.data,updated_at=now()
+`, payload.BookID, contentType, len(doc.Cover.Data), fmt.Sprintf("covers/%s", payload.BookID), doc.Cover.Data); err != nil {
+				return fmt.Errorf("fb2: store cover: %w", err)
+			}
+		} else {
+			slog.Warn("fb2: skipped cover with non-image signature", "job_id", payload.JobID, "declared_content_type", doc.Cover.ContentType, "detected_content_type", contentType)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("fb2: commit metadata: %w", err)
+	}
+	slog.Info("fb2: applied metadata to created book", "job_id", payload.JobID, "book_id", payload.BookID, "genres", len(doc.Genres), "cover_present", doc.Cover != nil)
+	return nil
 }
 
 // writeBackSceneLinks runs the 26 IX-12 loop: decompile via composition, then write the

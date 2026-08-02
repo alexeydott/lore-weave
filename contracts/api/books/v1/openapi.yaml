@@ -503,7 +503,7 @@ paths:
   /v1/books/{book_id}/import:
     post:
       tags: [chapters]
-      summary: Import a whole book file (.docx, .epub, .md, .pdf, .txt) as chapters
+      summary: Import a whole book file (.docx, .epub, .fb2, .md, .pdf, .txt) as chapters into an existing book
       description: >
         docs/specs/2026-07-06-pdf-book-import.md. .txt is parsed synchronously (source_format=plain)
         and returns the created chapter(s) directly. All other formats are stored and processed
@@ -527,7 +527,7 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: .txt, .docx, .epub, .md, or .pdf — up to 200 MB.
+                  description: .txt, .docx, .epub, .fb2, .md, or .pdf — up to 200 MB.
                 original_language:
                   type: string
                   maxLength: 35
@@ -557,7 +557,51 @@ paths:
                   - $ref: '#/components/schemas/Chapter'
                   - $ref: '#/components/schemas/BulkImportSummary'
         '202':
-          description: .docx/.epub/.md/.pdf — queued for async processing by worker-infra.
+          description: .docx/.epub/.fb2/.md/.pdf — queued for async processing by worker-infra. FB2 metadata is retained with the import but does not overwrite existing book metadata.
+
+  /v1/books/import/fb2:
+    post:
+      tags: [books, chapters]
+      summary: Create a book and import an FB2 file
+      description: >
+        Creates a new book owned by the authenticated user and queues its FB2 source for
+        asynchronous import. The worker preserves source hierarchy as chapters/scenes, projects
+        title, annotation, language, genres, and cover image to the new book, and retains the
+        complete supported FB2 metadata record with the import job.
+      operationId: startNewFB2Import
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: .fb2 FictionBook 2.0/2.1/2.2-compatible XML — up to 200 MB.
+                original_language:
+                  type: string
+                  maxLength: 35
+                  description: Optional BCP-47 override. Otherwise the FB2 title-info language is used.
+      responses:
+        '202':
+          description: New book created and FB2 import queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportJob'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
+        '413':
+          $ref: '#/components/responses/ErrorResponse'
           content:
             application/json:
               schema:
@@ -1348,7 +1392,7 @@ components:
           type: string
         file_format:
           type: string
-          enum: [docx, epub, markdown, pdf]
+          enum: [docx, epub, fb2, markdown, pdf]
         file_size:
           type: integer
           minimum: 0

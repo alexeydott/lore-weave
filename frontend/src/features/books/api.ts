@@ -796,7 +796,38 @@ export const booksApi = {
     return res.json();
   },
 
-  // ── Import (.docx/.epub/.pdf) ─────────────────────────────────────────
+  // ── Import (.docx/.epub/.fb2/.pdf) ────────────────────────────────────
+
+  startNewFB2Import(
+    token: string,
+    file: File,
+    originalLanguage?: string,
+    onProgress?: (pct: number) => void,
+  ): Promise<ImportJob> {
+    return new Promise((resolve, reject) => {
+      const form = new FormData();
+      form.append('file', file);
+      if (originalLanguage) form.append('original_language', originalLanguage);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${base()}/v1/books/import/fb2`);
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+        });
+      }
+      xhr.addEventListener('load', () => {
+        try {
+          const body = JSON.parse(xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 300) resolve(body);
+          else reject(Object.assign(new Error(body?.message || xhr.statusText), { status: xhr.status, code: body?.code }));
+        } catch { reject(new Error('Invalid response')); }
+      });
+      xhr.addEventListener('error', () => reject(new Error('Network error')));
+      xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+      xhr.send(form);
+    });
+  },
 
   startImport(
     token: string,

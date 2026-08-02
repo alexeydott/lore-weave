@@ -1,5 +1,28 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## 📚 FB2 BOOK IMPORT — SOURCE IMPLEMENTED, LIVE UI CHECK PENDING (2026-08-02)
+
+Spec: `docs/specs/2026-08-02-fb2-book-import.md`. FB2 is a direct bounded parser in
+`worker-infra`, beside EPUB structure preservation; it does not flatten source sections through
+Pandoc. Existing-book import is `POST /v1/books/{book_id}/import` with `.fb2`. New-book import
+is `POST /v1/books/import/fb2`: book + queued import job are created together, then the worker
+creates chapters/scenes and applies source title, annotation, language, genres, and a valid cover.
+
+The source metadata is retained per job in `book_import_metadata`. Crucial ownership rule:
+existing-book mode records provenance but does **not** overwrite a user's title, description,
+language, genres, or cover; only create-mode projects those fields. The FB2 2.2 schema family is
+vendored at `contracts/schemas/fb2/2.2/` with checksums and original licence notices.
+
+**Evidence so far:** worker parser tests cover hierarchy, metadata, inline images, malformed XML,
+wrong namespace, DTD rejection, and binary limits; six supplied local FB2 samples parsed
+successfully. Go package suites and frontend TypeScript compile are green; rebuilt `book-service`,
+`worker-infra`, and frontend images start successfully, and the gateway returns 401 for the new
+route without authentication. A live authenticated browser upload of a supplied FB2 completed with
+20 chapters, source title, annotation, language, and genres. The source contains `cover.jpg`, but
+the created book still shows no cover: treat cover persistence as an open defect. The FB2 dialog
+also has no chapter-selection control, so importing only selected chapters requires follow-up work.
+Do not copy supplied source books into Git.
+
 ## 🗳️ ENTITY KIND: FIRST-WRITER-WINS → A RESOLVED VOTE (2026-08-02)
 
 Spec: `docs/specs/2026-08-02-entity-kind-resolution.md`. PO chose **all three** directions
