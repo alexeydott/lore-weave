@@ -434,3 +434,12 @@
   pointer-events: none;
   height: 0;
 }
+
+
+/* App-wide request feedback. The bar moves continuously because the total
+   duration of an API operation is not known in advance. */
+@keyframes global-operation-progress {
+  0% { transform: translateX(-120%); }
+  50% { transform: translateX(210%); }
+  100% { transform: translateX(420%); }
+}

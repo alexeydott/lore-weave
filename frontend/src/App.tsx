@@ -62,6 +62,7 @@ import { ActivityPage } from '@/features/home/components/ActivityPage';
 import { YouPage } from '@/features/home/components/YouPage';
 import { UpdatePrompt } from '@/pwa/UpdatePrompt';
 import { MobileNav } from '@/app/shell/MobileNav';
+import { GlobalOperationProgress } from '@/components/shared/GlobalOperationProgress';
 
 function AuthenticatedThemeProvider({ children }: { children: React.ReactNode }) {
   const { accessToken } = useAuth();
@@ -76,6 +77,7 @@ export function App() {
     <SidebarProvider>
       <BrowserRouter>
         <Toaster position="bottom-right" richColors closeButton />
+        <GlobalOperationProgress />
         <UpdatePrompt />
         {/* The always-visible mobile bottom navigator (fixed; every app screen). */}
         <MobileNav />
