@@ -239,6 +239,10 @@ services/auth-service/tmp/
 
 .claude/worktrees/cranky-margulis
 
+# AI Factory working state may contain sensitive project context.
+# Keep it local; publish only explicitly reviewed, sanitized artifacts elsewhere.
+/.ai-factory/
+
 .claude/worktrees/strange-gagarin
 
 node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/results.json
