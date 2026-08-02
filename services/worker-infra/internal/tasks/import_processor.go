@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	htmlpkg "html"
 	"io"
 	"log/slog"
 	"net/http"
@@ -33,14 +34,14 @@ type amqpPublisher interface {
 }
 
 type ImportProcessor struct {
-	Cfg     *config.Config
-	Redis   *redis.Client
-	BookDB  *pgxpool.Pool
-	Minio   *minio.Client
+	Cfg    *config.Config
+	Redis  *redis.Client
+	BookDB *pgxpool.Pool
+	Minio  *minio.Client
 
 	amqpCh            amqpPublisher
-	parseClient       *ParseClient        // P1 — initialised lazily in Run()
-	materializeClient *MaterializeClient  // 26 IX-12 — initialised lazily in Run()
+	parseClient       *ParseClient       // P1 — initialised lazily in Run()
+	materializeClient *MaterializeClient // 26 IX-12 — initialised lazily in Run()
 }
 
 func (t *ImportProcessor) Name() string { return "import-processor" }
@@ -184,10 +185,30 @@ func (t *ImportProcessor) processImport(ctx context.Context, payload importReque
 		return 0, fmt.Errorf("minio read: %w", err)
 	}
 
-	// 2. Convert via pandoc-server
-	html, err := t.callPandoc(ctx, fileData, payload.FileFormat)
-	if err != nil {
-		return 0, fmt.Errorf("pandoc: %w", err)
+	// 2. Convert to HTML. EPUBs generated from FB2 contain one XHTML document
+	// per source chapter and an NCX navigation map. Pandoc flattens those
+	// documents into one stream, losing the user's chapter boundaries, so build
+	// explicit heading boundaries from the EPUB navigation map instead.
+	var html string
+	if payload.FileFormat == "epub" {
+		epubChapters, epubErr := extractEPUBChapters(fileData)
+		if epubErr != nil {
+			return 0, fmt.Errorf("epub structure: %w", epubErr)
+		}
+		var b strings.Builder
+		for i, ch := range epubChapters {
+			title := strings.TrimSpace(ch.Title)
+			if title == "" {
+				title = fmt.Sprintf("Глава %d", i+1)
+			}
+			fmt.Fprintf(&b, "<h1>%s</h1>%s", htmlpkg.EscapeString(title), ch.HTML)
+		}
+		html = b.String()
+	} else {
+		html, err = t.callPandoc(ctx, fileData, payload.FileFormat)
+		if err != nil {
+			return 0, fmt.Errorf("pandoc: %w", err)
+		}
 	}
 
 	// 3. P1 — structural decomposition via knowledge-service /internal/parse
@@ -213,15 +234,11 @@ func (t *ImportProcessor) processImport(ctx context.Context, payload importReque
 	// L3 fix: multi-part filename pattern when len(parts) > 1.
 	multiPart := len(tree.Parts) > 1
 
-	// 5. Write parts + chapters + scenes per spec D7 3-level Tx scoping.
+	// 5. Write chapters + scenes. Manuscript parts were moved from book-service
+	// into composition (C-merge/C4); imported chapters start flat and can be
+	// grouped later by the composition structure tools.
 	count := 0
 	for partIdx, part := range tree.Parts {
-		// (a) Per-part Tx: insert ONE parts row.
-		partID, err := t.insertPart(ctx, payload.BookID, partIdx+1, part.Title, part.Path)
-		if err != nil {
-			return count, fmt.Errorf("insert part: %w", err)
-		}
-
 		for chIdxInPart, ch := range part.Chapters {
 			tiptapJSON := htmlToTiptapJSON(ch.HTML)
 
@@ -272,12 +289,12 @@ func (t *ImportProcessor) processImport(ctx context.Context, payload importReque
 				chapterTitle = *ch.Title
 			}
 			err = tx.QueryRow(ctx, `
-INSERT INTO chapters(book_id, title, original_filename, original_language, content_type, byte_size, sort_order, storage_key, lifecycle_state, draft_updated_at, updated_at, part_id, structural_path)
-VALUES($1, $2, $3, $4, 'application/json', $5, $6, $7, 'active', now(), now(), $8, $9)
+INSERT INTO chapters(book_id, title, original_filename, original_language, content_type, byte_size, sort_order, storage_key, lifecycle_state, draft_updated_at, updated_at, structural_path)
+VALUES($1, $2, $3, $4, 'application/json', $5, $6, $7, 'active', now(), now(), $8)
 RETURNING id
 `, payload.BookID, nullIfEmpty(chapterTitle), origFilename, lang,
 				len(tiptapJSON), chapterGlobalSort, storageKey,
-				partID, ch.Path,
+				ch.Path,
 			).Scan(&chapterID)
 			if err != nil {
 				tx.Rollback(ctx)
@@ -434,11 +451,11 @@ func (t *ImportProcessor) writeBackSceneLinks(ctx context.Context, bookID, owner
 // inside the caller's tx (INV-O12: an emit that cannot be written must roll the mutation back).
 //
 // THE CENSUS THAT WAS WRONG TWICE. `scenes.source_scene_id` is written in FIVE places, not three:
-//   1. book-service parse.go        — the .txt import INSERT
-//   2. book-service reparse.go      — via FOUR emit sites (publish, kg-index, mcp-publish, sweeper)
-//   3. worker-infra import (here)   — the HTML/txt import INSERT      <- emitted NOTHING
-//   4. worker-infra import_pdf      — the PDF import INSERT           <- emitted NOTHING
-//   5. worker-infra IX-12 write-back— the decompile back-link fill    <- emitted NOTHING
+//  1. book-service parse.go        — the .txt import INSERT
+//  2. book-service reparse.go      — via FOUR emit sites (publish, kg-index, mcp-publish, sweeper)
+//  3. worker-infra import (here)   — the HTML/txt import INSERT      <- emitted NOTHING
+//  4. worker-infra import_pdf      — the PDF import INSERT           <- emitted NOTHING
+//  5. worker-infra IX-12 write-back— the decompile back-link fill    <- emitted NOTHING
 //
 // (3) and (4) matter because they set the link from a parser-recovered anchor, and the IX-12
 // write-back at (5) only fills NULLs — so a scene that arrives ALREADY ANCHORED is never touched
