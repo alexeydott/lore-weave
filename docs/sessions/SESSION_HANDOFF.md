@@ -70,6 +70,18 @@ at all, so the overlay is signal rather than decoration.
    it is a cross-service contract change, and you have a glossary↔KG entity-consistency
    refactor coming that will re-cut this seam. Trigger: that refactor.
 
+**Follow-up fix — transaction and outbox truth are now aligned (2026-08-02).** A review found
+two holes in the just-shipped path, both now covered by real PostgreSQL HTTP regressions:
+- a duplicate target can block a re-kind (correct: it needs a destructive merge decision), but
+  extraction previously returned the candidate kind and emitted it to KG anyway. It now reports
+  and emits only a **persisted** move; a blocked re-kind retains the glossary kind, records its
+  conflict, and emits no false `glossary.entity_updated` event.
+- the backfill's default preview previously committed its vote ledger. It now resolves against a
+  transaction and rolls it back; only `--apply` persists votes, re-kinds, and emits outbox rows.
+
+**Verified fresh:** both new DB regressions red before the fix and green after; glossary
+`internal/...` passed against isolated `loreweave_glossary_test`.
+
 ## 🧭 THE KIND WAS WRONG, AND SO WAS MY READING OF ITS ZERO (2026-08-02)
 
 The PO challenged a claim rather than a line of code, and was right on both counts.

@@ -1082,17 +1082,25 @@ func (s *Server) bulkExtractEntities(w http.ResponseWriter, r *http.Request) {
 		kindMoved := false
 		if kindOK && result.EntityID != "" && result.SkipReason != "tombstoned" {
 			if entID, perr := uuid.Parse(result.EntityID); perr == nil {
-				res, rerr := s.resolveEntityKind(ctx, tx, entID, kindID, mergeKindID, kindParents)
+				res, moved, rerr := s.resolveEntityKind(ctx, tx, entID, kindID, mergeKindID, kindParents)
 				if rerr != nil {
 					BulkExtractTotal.WithLabelValues(OutcomeQueryFailed).Inc()
 					writeError(w, http.StatusInternalServerError, "GLOSS_INTERNAL",
 						"kind resolution failed: "+rerr.Error())
 					return
 				}
-				if c, ok := codeByKind[res.Primary]; ok {
+				// Start with the matched entity's actual kind. A duplicate target can block
+				// a requested re-kind (the correct operation is then a merge), in which case
+				// ResolveKind's candidate must not leak into the response or the KG outbox.
+				if c, ok := codeByKind[mergeKindID]; ok {
 					resolvedKindCode = c
 				}
-				kindMoved = res.Changed
+				if moved {
+					if c, ok := codeByKind[res.Primary]; ok {
+						resolvedKindCode = c
+					}
+				}
+				kindMoved = moved
 				result.KindCode = resolvedKindCode
 			}
 		}
