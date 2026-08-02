@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { FormDialog } from '../FormDialog';
 
 describe('FormDialog', () => {
@@ -75,6 +75,19 @@ describe('FormDialog', () => {
   // The dialog caps its height and scrolls the BODY only; the footer is pinned
   // and a SIBLING of the scroll region (adversary: must not be nested inside it,
   // else the action scrolls away or overlaps content on tall forms).
+  it('does not close when the backdrop is clicked', () => {
+    const onOpenChange = vi.fn();
+    render(
+      <FormDialog {...defaultProps} onOpenChange={onOpenChange}>
+        <div>content</div>
+      </FormDialog>,
+    );
+    const overlay = document.querySelector('[data-radix-dialog-overlay]');
+    expect(overlay).not.toBeNull();
+    fireEvent.pointerDown(overlay!);
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
   it('caps height and makes the body scrollable (C0)', () => {
     render(
       <FormDialog {...defaultProps}>

@@ -71,6 +71,15 @@ _billing_user_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVa
 )
 
 
+# Provider-reported usage accumulated by one extraction worker task.
+# The decoupled path consumes this immediately after get_job(); the synchronous
+# path consumes it after extract_pass2 returns. Context-local storage keeps
+# concurrent extraction jobs isolated.
+_usage_ctx: contextvars.ContextVar[tuple[int, int]] = contextvars.ContextVar(
+    "worker_ai_llm_usage", default=(0, 0),
+)
+
+
 def set_billing_user_id(billing_user_id: str | None) -> None:
     """Set the billing user (collaborator) for provider jobs on this async task.
     Call once at the start of processing a job; pass None to clear (an owner-
@@ -92,6 +101,26 @@ class LLMClient:
     @property
     def sdk(self) -> SDKClient:
         return self._sdk
+
+    def _record_usage(self, job: Job) -> None:
+        usage = (job.result or {}).get("usage") if job.result else None
+        if not isinstance(usage, dict):
+            return
+        input_tokens = usage.get("input_tokens", usage.get("prompt_tokens", 0)) or 0
+        output_tokens = usage.get("output_tokens", usage.get("completion_tokens", 0)) or 0
+        try:
+            current_in, current_out = _usage_ctx.get()
+            _usage_ctx.set((
+                current_in + max(0, int(input_tokens)),
+                current_out + max(0, int(output_tokens)),
+            ))
+        except (TypeError, ValueError):
+            return
+
+    def take_usage(self) -> tuple[int, int]:
+        usage = _usage_ctx.get()
+        _usage_ctx.set((0, 0))
+        return usage
 
     async def aclose(self) -> None:
         await self._sdk.aclose()
@@ -173,6 +202,7 @@ class LLMClient:
                     if exc.retry_after_s and exc.retry_after_s > 0:
                         await asyncio.sleep(exc.retry_after_s)
                     continue
+                self._record_usage(job)
                 return job
             except LLMError:
                 raise
@@ -216,8 +246,10 @@ class LLMClient:
         )
 
     async def get_job(self, job_id, *, user_id: str | None = None) -> Job:
-        """Fetch the terminal Job (the consumer's resume reads result + status)."""
-        return await self._sdk.get_job(job_id, user_id=user_id)
+        """Fetch the terminal Job and retain its provider-reported token usage."""
+        job = await self._sdk.get_job(job_id, user_id=user_id)
+        self._record_usage(job)
+        return job
 
 
 # ── Module-level singleton ────────────────────────────────────────────
