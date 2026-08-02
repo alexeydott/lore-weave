@@ -27,6 +27,28 @@ export function findJobModelPricing(
   return match?.pricing ?? null;
 }
 
+/** Extrapolate the total job cost from the cost already incurred and progress.
+ * Jobs record spend incrementally, so this is the most faithful estimate when a
+ * progress total is available. It deliberately never reports less than the
+ * already-spent amount. */
+export function estimateTotalJobCost(
+  costUsd: number | null | undefined,
+  progress: { done: number; total?: number } | null | undefined,
+): number | null {
+  if (costUsd == null || !Number.isFinite(costUsd) || !progress) return null;
+  const { done, total } = progress;
+  if (
+    total == null ||
+    !Number.isFinite(done) ||
+    !Number.isFinite(total) ||
+    done <= 0 ||
+    total <= 0
+  ) {
+    return null;
+  }
+  return costUsd * Math.max(1, total / done);
+}
+
 /** Approximate USD spend at the model's current per-million-token rates.
  * Returns null when neither token count nor either relevant rate is available.
  * This is intentionally a display-only estimate; recorded job.cost_usd remains authoritative.
