@@ -960,6 +960,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # The worker is headless and overrides the API image command, so the image's
+    # HTTP /health probe would always fail. Check event-loop liveness instead.
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.worker.healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
   chat-service:
