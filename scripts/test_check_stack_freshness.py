@@ -74,3 +74,10 @@ def test_provider_registry_is_probed():
     assert "provider-registry-service" in probed
     pr = next(r for r in g.PROBE_ROUTES if r[0] == "provider-registry-service")
     assert "/internal/embed" in pr[3]
+
+
+def test_lore_enrichment_mcp_is_probed():
+    probed = {svc for svc, _env, _default, _routes in g.PROBE_ROUTES}
+    assert "lore-enrichment-service" in probed
+    le = next(r for r in g.PROBE_ROUTES if r[0] == "lore-enrichment-service")
+    assert "/mcp" in le[3]
