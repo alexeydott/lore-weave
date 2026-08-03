@@ -108,6 +108,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
 
+  /v1/epub-imports/{source_id}/shadow-comparison:
+    get:
+      tags: [imports]
+      summary: Read durable legacy-vs-V2 shadow comparison evidence
+      operationId: getEpubShadowComparison
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: source_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Shadow comparison for the retained source
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpubShadowComparison'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
   /v1/import-jobs/{job_id}:
     get:
       tags: [imports]
@@ -1571,6 +1597,26 @@ components:
           type: object
           additionalProperties:
             type: integer
+
+    EpubShadowComparison:
+      type: object
+      required: [legacy_chapter_count, v2_chapter_count, delta, legacy_projection, differences]
+      properties:
+        legacy_chapter_count:
+          type: integer
+          minimum: 0
+        v2_chapter_count:
+          type: integer
+          minimum: 0
+        delta:
+          type: integer
+        legacy_projection:
+          type: string
+          enum: [linear_content_document_order]
+        differences:
+          type: array
+          items:
+            type: string
 
     EpubImportTarget:
       type: object

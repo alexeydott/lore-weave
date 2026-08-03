@@ -266,6 +266,7 @@ func (s *Server) Router() http.Handler {
 	// create a new book later, so a target book is optional at upload time.
 	r.Post("/v1/epub-imports/inspect", s.inspectEpubImport)
 	r.Post("/v1/epub-imports", s.startEpubImport)
+	r.Get("/v1/epub-imports/{source_id}/shadow-comparison", s.getEPUBShadowComparison)
 	r.Get("/v1/import-jobs/{job_id}", s.getEpubImportJob)
 	r.Get("/v1/import-jobs/{job_id}/items", s.listEpubImportJobItems)
 	r.Post("/v1/import-jobs/{job_id}/cancel", s.cancelEpubImportJob)

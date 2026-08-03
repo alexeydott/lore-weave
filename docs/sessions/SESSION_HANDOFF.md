@@ -59,6 +59,13 @@ successful retry mapping. Book Service runs a configurable EPUB asset retention 
 objects and leaves failed MinIO deletes for retry. The DB suites require a throwaway
 `BOOK_TEST_DATABASE_URL`; without it they skip safely.
 
+**Rollout checkpoint (2026-08-03):** `EPUB_IMPORT_V2_MODE=shadow` now persists a source-scoped,
+durable legacy document-order versus V2 navigation comparison without creating jobs or chapters.
+The comparison is available through `GET /v1/epub-imports/{source_id}/shadow-comparison` and is
+covered by API/unit contract tests. `opt_in`, `default`, and `legacy_disabled` continue to route
+new EPUB jobs through the V2 worker. Promotion still requires live shadow corpus evidence and a
+documented default-mode decision; shadow is not treated as proof of semantic equivalence.
+
 **Worker recovery checkpoint (2026-08-03):** Redis Stream consumers now use a hostname-qualified
 consumer ID and scan the group PENDING list with `XAUTOCLAIM` only after a 15-minute idle period.
 This lets a restarted worker reclaim stranded import jobs without racing a healthy worker. Book

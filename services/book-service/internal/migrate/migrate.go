@@ -1652,6 +1652,19 @@ CREATE TABLE IF NOT EXISTS import_sources (
 );
 CREATE INDEX IF NOT EXISTS idx_import_sources_owner_created ON import_sources(owner_user_id, created_at DESC);
 
+-- Shadow rollout evidence is source-scoped and never creates chapters. The
+-- comparison is immutable per source fingerprint but refreshable when the
+-- inspector is rerun after a parser change.
+CREATE TABLE IF NOT EXISTS epub_import_shadow_comparisons (
+  source_id              UUID PRIMARY KEY REFERENCES import_sources(id) ON DELETE CASCADE,
+  legacy_chapter_count   INT NOT NULL,
+  v2_chapter_count       INT NOT NULL,
+  delta                  INT NOT NULL,
+  comparison_json        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS source_id UUID REFERENCES import_sources(id) ON DELETE RESTRICT;
 ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS target_mode TEXT;
 ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS options_json JSONB NOT NULL DEFAULT '{}'::jsonb;

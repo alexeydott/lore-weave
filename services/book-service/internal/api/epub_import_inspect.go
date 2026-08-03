@@ -132,6 +132,13 @@ RETURNING id
 			return
 		}
 	}
+	if s.cfg.EPUBImportV2Mode == "shadow" {
+		if err := s.persistEPUBShadowComparison(r.Context(), sourceID, *inspection); err != nil {
+			slog.ErrorContext(r.Context(), "epub shadow comparison persistence failed", "error", err, "source_id", sourceID)
+			writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to persist shadow comparison")
+			return
+		}
+	}
 
 	slog.InfoContext(r.Context(), "epub import source inspected",
 		"source_id", sourceID,
