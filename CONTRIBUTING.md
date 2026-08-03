@@ -145,9 +145,27 @@ go test ./... -count=1
 # Rust
 cargo test
 
-# Frontend
-cd frontend && pnpm test
+# Frontend — there is no lockfile committed, so install first
+cd frontend && npm install && npm test
 ```
+
+### Why so much of the suite says SKIPPED
+
+A full run reports roughly a thousand skipped tests. Almost none of that is dead code — they are
+integration tests that need a live Postgres, Neo4j, Redis, MinIO or KMS, and they skip cleanly when
+the matching `*_TEST_*` variable is unset. Unit tests run for everyone; **you do not need any of
+this to open a PR.**
+
+To see exactly which suites are switched off and what would switch them on:
+
+```bash
+python scripts/test-skip-census.py            # grouped by gating variable
+python scripts/test-skip-census.py --files    # which files each one covers
+```
+
+It walks the tree rather than reading a list, so a suite added tomorrow shows up without anyone
+maintaining an inventory. Point the variables at a throwaway database — never a real one — and
+read [`docs/dev/LOCAL_TEST_ENV.example.md`](docs/dev/LOCAL_TEST_ENV.example.md) first.
 
 A new test file that touches a real database or port must carry
 `pytestmark = pytest.mark.xdist_group("pg")`, or parallel workers interleave and the counts lie.

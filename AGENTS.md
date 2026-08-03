@@ -163,8 +163,10 @@ Python suites run under **pytest-xdist**: `python -m pytest tests -q -n auto --d
 - **EXCEPT composition-service, which uses `--dist load`** (2026-08-01). Its `tests/conftest.py`
   gives every xdist worker its OWN database (`…_s1test_gw0`, `_gw1`, …, created on demand from
   `PYTEST_XDIST_WORKER`), so the reason to serialise the group is gone and the marks are inert.
-  **Measured, clean, same 11 pre-existing failures either way: 508.4s → 106.6s (4.8×)**; the pg
-  group alone 495.5s → 51.5s. The conftest no-ops when `PYTEST_XDIST_WORKER` is unset, so serial
+  **Measured, clean, identical results either way: 508.4s → 106.6s (4.8×)**; the pg
+  group alone 495.5s → 51.5s. (The 11 pre-existing failures this line used to cite are gone —
+  re-measured 2026-08-03: **3652 passed, 403 skipped, 0 failed**. A number in a document is a
+  claim with an expiry date; re-measure before repeating one.) The conftest no-ops when `PYTEST_XDIST_WORKER` is unset, so serial
   runs and CI (which runs this suite serially, on purpose) are unaffected.
   It also memoises `run_migrations` per schema-fingerprint — worth ~48s, and far less than the
   arithmetic suggested; the parallelisation is the lever that matters. A test whose SUBJECT is
