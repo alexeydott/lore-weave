@@ -30,7 +30,7 @@ description: Run the 12-phase v2.2 human-in-loop workflow on a task — classify
 6. **REVIEW (code)** is 2-stage (spec compliance + code quality). **At POST-REVIEW:** present a concise summary (files, decisions, verify evidence), **STOP and WAIT**. Proactively suggest **`/review-impl`** for load-bearing code (auth/credentials, tenant isolation, destructive ops, injection defenses, new service boundaries, concurrency, migrations).
 7. **SESSION:** overwrite the **▶ NEXT SESSION** block in the relevant `SESSION_HANDOFF.md` (date/HEAD, NEXT items, Deferred). Land it in the **same commit** as the code.
 8. **COMMIT:** stage only changed files (no `git add -A`); message names the phase/milestone + review fixes + test count. **Push only with explicit user approval.**
-9. **RETRO:** non-obvious decisions or workarounds → `add_lesson` to ContextHub if available, else a note in the handoff. Skip if nothing notable.
+9. **RETRO:** non-obvious decisions or workarounds → write them into the repo: amend the standard/spec they belong to, else a note in the handoff. Skip if nothing notable.
 
 ## Operational notes
 - Run `scripts/workflow-gate.sh` (or `python scripts/workflow-gate.py`) **from the repo root** — a subdir invocation splits the `.workflow-state.json`.
