@@ -1628,4 +1628,120 @@ DO $$ BEGIN
     EXECUTE FUNCTION fn_recompute_chapter_word_count();
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- ── EPUB Import V2 — source-retained, item-level import provenance ───────
+-- The V2 tables are additive and deliberately live in Book Service: source
+-- objects, chapter mutations, user grants, and rollback effects all share the
+-- same tenant boundary. Worker-infra reaches them only through internal Book
+-- Service commands; it must not write this database directly.
+CREATE TABLE IF NOT EXISTS import_sources (
+  id                UUID PRIMARY KEY DEFAULT uuidv7(),
+  owner_user_id     UUID NOT NULL,
+  source_type       TEXT NOT NULL DEFAULT 'epub',
+  original_filename TEXT NOT NULL,
+  object_key        TEXT NOT NULL,
+  sha256            TEXT NOT NULL,
+  compressed_size   BIGINT NOT NULL,
+  uncompressed_size BIGINT,
+  epub_version      TEXT,
+  metadata_json     JSONB NOT NULL DEFAULT '{}'::jsonb,
+  inspection_json   JSONB,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at        TIMESTAMPTZ,
+  UNIQUE(owner_user_id, sha256)
+);
+CREATE INDEX IF NOT EXISTS idx_import_sources_owner_created ON import_sources(owner_user_id, created_at DESC);
+
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS source_id UUID REFERENCES import_sources(id) ON DELETE RESTRICT;
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS target_mode TEXT;
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS options_json JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS progress_total INT NOT NULL DEFAULT 0;
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS progress_completed INT NOT NULL DEFAULT 0;
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS progress_failed INT NOT NULL DEFAULT 0;
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS cancel_requested_at TIMESTAMPTZ;
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS finalized_at TIMESTAMPTZ;
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS rolled_back_at TIMESTAMPTZ;
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS report_json JSONB;
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS pipeline_version TEXT;
+CREATE INDEX IF NOT EXISTS idx_import_jobs_source ON import_jobs(source_id, created_at DESC) WHERE source_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS import_job_items (
+  id                UUID PRIMARY KEY DEFAULT uuidv7(),
+  job_id            UUID NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+  source_key        TEXT NOT NULL,
+  source_href       TEXT,
+  source_fragment   TEXT,
+  source_hash       TEXT,
+  parent_source_key TEXT,
+  depth             INT NOT NULL DEFAULT 0,
+  role              TEXT,
+  ordinal           INT NOT NULL,
+  title             TEXT,
+  selected          BOOLEAN NOT NULL DEFAULT true,
+  status            TEXT NOT NULL DEFAULT 'pending',
+  chapter_id        UUID REFERENCES chapters(id) ON DELETE SET NULL,
+  staging_payload   JSONB,
+  error_code        TEXT,
+  error_message     TEXT,
+  warnings_json     JSONB NOT NULL DEFAULT '[]'::jsonb,
+  started_at        TIMESTAMPTZ,
+  completed_at      TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(job_id, source_key)
+);
+CREATE INDEX IF NOT EXISTS idx_import_job_items_job_ordinal ON import_job_items(job_id, ordinal);
+CREATE INDEX IF NOT EXISTS idx_import_job_items_job_status ON import_job_items(job_id, status);
+
+CREATE TABLE IF NOT EXISTS import_assets (
+  id                UUID PRIMARY KEY DEFAULT uuidv7(),
+  source_id         UUID NOT NULL REFERENCES import_sources(id) ON DELETE CASCADE,
+  source_path       TEXT NOT NULL,
+  source_media_type TEXT,
+  sha256            TEXT NOT NULL,
+  size_bytes        BIGINT NOT NULL,
+  object_key        TEXT NOT NULL,
+  public_url        TEXT,
+  status            TEXT NOT NULL DEFAULT 'pending',
+  reference_count   INT NOT NULL DEFAULT 0,
+  warnings_json     JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(source_id, source_path)
+);
+CREATE INDEX IF NOT EXISTS idx_import_assets_sha256 ON import_assets(sha256);
+
+-- One immutable provenance row per chapter created by V2 makes a redelivered
+-- item and a repeated finalization harmless without assigning ownership to
+-- legacy imports.
+CREATE TABLE IF NOT EXISTS chapter_import_provenance (
+  chapter_id      UUID PRIMARY KEY REFERENCES chapters(id) ON DELETE CASCADE,
+  book_id         UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+  import_job_id   UUID NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+  import_item_id  UUID NOT NULL REFERENCES import_job_items(id) ON DELETE CASCADE,
+  source_id       UUID NOT NULL REFERENCES import_sources(id) ON DELETE RESTRICT,
+  source_sha256   TEXT NOT NULL,
+  source_key      TEXT NOT NULL,
+  source_href     TEXT,
+  source_fragment TEXT,
+  source_hash     TEXT,
+  finalized_at    TIMESTAMPTZ,
+  UNIQUE(book_id, source_sha256, source_key)
+);
+CREATE INDEX IF NOT EXISTS idx_chapter_import_provenance_job ON chapter_import_provenance(import_job_id);
+
+-- Effects are written before Book metadata/cover mutations. They supply the
+-- compensating cleanup path for rollback without touching user edits made after
+-- finalization.
+CREATE TABLE IF NOT EXISTS import_job_effects (
+  id               UUID PRIMARY KEY DEFAULT uuidv7(),
+  job_id           UUID NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+  effect_type      TEXT NOT NULL,
+  effect_key       TEXT NOT NULL,
+  before_json      JSONB,
+  after_json       JSONB,
+  applied_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  rolled_back_at   TIMESTAMPTZ,
+  UNIQUE(job_id, effect_type, effect_key)
+);
+CREATE INDEX IF NOT EXISTS idx_import_job_effects_job ON import_job_effects(job_id, applied_at);
 `

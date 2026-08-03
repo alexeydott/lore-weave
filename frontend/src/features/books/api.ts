@@ -972,7 +972,7 @@ export type ReadingHistoryEntry = {
 export type ImportJob = {
   id: string;
   book_id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'queued' | 'processing' | 'running' | 'import_staging' | 'completed' | 'completed_with_warnings' | 'failed' | 'cancelling' | 'cancelled';
   filename: string;
   file_format: string;
   file_size: number;
@@ -981,6 +981,11 @@ export type ImportJob = {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  /** Present for EPUB Import V2 jobs; absent on the legacy import route. */
+  progress_total?: number;
+  progress_completed?: number;
+  progress_failed?: number;
+  current_item?: { item_id: string; title: string | null; ordinal: number } | null;
 };
 
 // ── Types ───────────────────────────────────────────────────────────────

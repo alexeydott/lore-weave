@@ -240,6 +240,10 @@ func (s *Server) Router() http.Handler {
 		// contract (200-id cap, partial responses) but is book-scoped by the path.
 		r.Post("/books/{book_id}/chapters/canon-markers", s.postInternalChapterCanonMarkers)
 		r.Patch("/imports/{import_id}", s.updateImportJobStatus)
+		r.Post("/epub-import-jobs/{job_id}/claim-next", s.claimNextEPUBImportItem)
+		r.Post("/epub-import-jobs/{job_id}/items/{item_id}/stage", s.stageEPUBImportItem)
+		r.Post("/epub-import-jobs/{job_id}/items/{item_id}/fail", s.failEPUBImportItem)
+		r.Post("/epub-import-jobs/{job_id}/finalize", s.finalizeEPUBImport)
 		// WS-1.8 (spec 06 §Q10) — the journal distiller's ONLY write seam: draft-only,
 		// owner-scoped, idempotent primary-per-day diary entry. Internal-token (the worker
 		// has no user JWT); the (book, owner) pair is verified to be the caller's own diary.
@@ -252,6 +256,17 @@ func (s *Server) Router() http.Handler {
 		r.Get("/books/diary", s.getInternalDiaryBook)
 		r.Delete("/books/{book_id}/diary/erase", s.eraseDiaryBook)
 	})
+
+	// EPUB Import V2 is deliberately mounted outside /v1/books: inspection can
+	// create a new book later, so a target book is optional at upload time.
+	r.Post("/v1/epub-imports/inspect", s.inspectEpubImport)
+	r.Post("/v1/epub-imports", s.startEpubImport)
+	r.Get("/v1/import-jobs/{job_id}", s.getEpubImportJob)
+	r.Get("/v1/import-jobs/{job_id}/items", s.listEpubImportJobItems)
+	r.Post("/v1/import-jobs/{job_id}/cancel", s.cancelEpubImportJob)
+	r.Post("/v1/import-jobs/{job_id}/resume", s.resumeEpubImportJob)
+	r.Post("/v1/import-jobs/{job_id}/rollback", s.rollbackEpubImportJob)
+	r.Get("/v1/import-jobs/{job_id}/report", s.getEpubImportReport)
 
 	r.Route("/v1/books", func(r chi.Router) {
 		r.Get("/storage-usage", s.getStorageUsage)

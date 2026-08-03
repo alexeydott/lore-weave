@@ -1,5 +1,36 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## EPUB IMPORT V2 — STRUCTURE-PRESERVING FOUNDATION IMPLEMENTED (2026-08-03)
+
+Spec: `docs/specs/2026-08-03-epub-import-v2.md`. The new pipeline is feature-flagged and keeps
+the Book Service as the only owner of Book database writes. EPUB inspection persists the source
+and its SHA-256; `pkg/epubimport` validates bounded archives, reads OPF/nav/NCX/spine structure,
+and performs DOM-based chapter-range extraction. The worker claims and stages one logical EPUB
+chapter at a time through Book Service internal endpoints; it does not write Book tables directly.
+
+Book Service materializes staging payloads idempotently with immutable chapter provenance. It now
+exposes inspect, start, status/items, resume, cancel, rollback, and report endpoints. Rollback
+requires explicit confirmation, is safe to retry, removes only chapters owned by the job, and
+retains a chapter that changed after finalization as a durable warning. Reports aggregate current
+item, asset, and rollback state rather than relying on a stale finalization JSON snapshot.
+
+The Knowledge parser has a preserve-boundary chapter mode: EPUB defines chapters, while parsing
+only discovers scenes inside the supplied chapter. The existing import dialog shows durable queued
+worker state without a fixed client timeout. Local Docker Compose raises PostgreSQL
+`max_connections` to 300 for the multi-service development stack.
+
+**Verified:** `go test ./...` passes for Book Service and worker-infra; `pnpm build` passes for
+the frontend; targeted Knowledge parser tests pass (12). Full Knowledge pytest currently reports
+`4080 passed, 561 skipped, 9 failed`; failures are unrelated router/test-double compatibility in
+`test_causal_edges`, `test_motif_*`, `test_tag_beats`, `test_thread_tag`, and
+`test_internal_job_control`. BFF Jest cannot run locally because its `node_modules` are absent.
+The Book OpenAPI Spectral run is also blocked by pre-existing duplicate FB2 response keys in the
+base contract; do not conflate those failures with EPUB V2.
+
+**Next EPUB work:** assets and URL rewriting, internal-link/footnote finalize pass, hierarchy
+materialization in Composition, the full preview wizard, worker redelivery recovery, and live
+E2E fixtures. Do not reintroduce the legacy combined-HTML chapter path.
+
 ## 📚 FB2 BOOK IMPORT — SOURCE IMPLEMENTED, LIVE UI CHECK PENDING (2026-08-02)
 
 Spec: `docs/specs/2026-08-02-fb2-book-import.md`. FB2 is a direct bounded parser in

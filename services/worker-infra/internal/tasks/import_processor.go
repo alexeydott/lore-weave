@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	htmlpkg "html"
 	"io"
 	"log/slog"
 	"net/http"
@@ -22,6 +21,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/loreweave/epubimport"
 	"github.com/loreweave/observability"
 	"github.com/loreweave/worker-infra/internal/config"
 )
@@ -125,6 +125,17 @@ func (t *ImportProcessor) Run(ctx context.Context) error {
 				}
 
 				slog.Info("import-processor processing", "job_id", payload.JobID, "format", payload.FileFormat)
+				if payload.PipelineVersion == epubImportPipelineVersion {
+					if err := t.processEPUBV2(ctx, payload); err != nil {
+						slog.Error("epub v2 staging failed", "job_id", payload.JobID, "error", err)
+						// The item status is owned by Book Service. Do not overwrite it
+						// through the legacy job endpoint or acknowledge a retryable
+						// transport failure as if it had completed.
+						continue
+					}
+					t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
+					continue
+				}
 				t.updateJobStatus(ctx, payload.JobID, "processing", 0, nil)
 				t.publishWSEvent(ctx, payload.UserID, payload.JobID, "processing", 0, nil)
 
@@ -172,6 +183,8 @@ type importRequestedPayload struct {
 	VisionModelSource      string `json:"vision_model_source"`
 	VisionModelRef         string `json:"vision_model_ref"`
 	CreateBookFromMetadata bool   `json:"create_book_from_metadata"`
+	SourceID               string `json:"source_id"`
+	PipelineVersion        string `json:"pipeline_version"`
 }
 
 func (t *ImportProcessor) processImport(ctx context.Context, payload importRequestedPayload) (int, error) {
@@ -186,26 +199,41 @@ func (t *ImportProcessor) processImport(ctx context.Context, payload importReque
 		return 0, fmt.Errorf("minio read: %w", err)
 	}
 
-	// 2. Convert to HTML. EPUBs generated from FB2 contain one XHTML document
-	// per source chapter and an NCX navigation map. Pandoc flattens those
-	// documents into one stream, losing the user's chapter boundaries, so build
-	// explicit heading boundaries from the EPUB navigation map instead.
+	// 2. Convert to HTML. EPUB navigation nodes are parsed independently: their
+	// boundaries are authoritative and must never be reconstructed from headings.
 	var html string
+	var tree *StructuralTree
 	var fb2 *fb2Document
 	if payload.FileFormat == "epub" {
 		epubChapters, epubErr := extractEPUBChapters(fileData)
 		if epubErr != nil {
 			return 0, fmt.Errorf("epub structure: %w", epubErr)
 		}
-		var b strings.Builder
-		for i, ch := range epubChapters {
-			title := strings.TrimSpace(ch.Title)
-			if title == "" {
-				title = fmt.Sprintf("Глава %d", i+1)
-			}
-			fmt.Fprintf(&b, "<h1>%s</h1>%s", htmlpkg.EscapeString(title), ch.HTML)
+		lang := payload.OriginalLanguage
+		if lang == "" {
+			lang = "auto"
 		}
-		html = b.String()
+		tree = &StructuralTree{SourceFormat: "html", WalkerPath: "epub-navigation"}
+		for i, ch := range epubChapters {
+			sanitized, _, sanitizeErr := epubimport.SanitizeHTML(ch.HTML)
+			if sanitizeErr != nil {
+				return 0, fmt.Errorf("sanitize EPUB chapter %q: %w", ch.SourceKey, sanitizeErr)
+			}
+			chapterTree, parseErr := t.parseClient.CallChapter(ctx, sanitized, lang, ch.Title, ch.SourceKey)
+			if parseErr != nil {
+				return 0, fmt.Errorf("parse EPUB chapter %q: %w", ch.SourceKey, parseErr)
+			}
+			if len(chapterTree.Parts) != 1 || len(chapterTree.Parts[0].Chapters) != 1 {
+				return 0, fmt.Errorf("parse EPUB chapter %q: parser returned invalid chapter count", ch.SourceKey)
+			}
+			parsed := chapterTree.Parts[0].Chapters[0]
+			parsed.Path = fmt.Sprintf("book/epub-chapter-%d", i+1)
+			tree.Parts = append(tree.Parts, Part{
+				SortOrder: i + 1,
+				Path:      fmt.Sprintf("book/epub-part-%d", i+1),
+				Chapters:  []ParsedChapter{parsed},
+			})
+		}
 	} else if payload.FileFormat == "fb2" {
 		fb2, err = extractFB2Document(fileData)
 		if err != nil {
@@ -226,9 +254,11 @@ func (t *ImportProcessor) processImport(ctx context.Context, payload importReque
 	if lang == "" {
 		lang = "auto"
 	}
-	tree, err := t.parseClient.Call(ctx, "html", html, lang, "")
-	if err != nil {
-		return 0, fmt.Errorf("parse: %w", err)
+	if tree == nil {
+		tree, err = t.parseClient.Call(ctx, "html", html, lang, "")
+		if err != nil {
+			return 0, fmt.Errorf("parse: %w", err)
+		}
 	}
 	// Metadata is durable source provenance, not a post-processing decoration.
 	// Persist it before the independently committed chapter loop so a later

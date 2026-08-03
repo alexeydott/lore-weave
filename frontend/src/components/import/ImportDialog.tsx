@@ -35,9 +35,11 @@ export function ImportDialog({ open, onOpenChange, bookId, onImported }: ImportD
   const inputRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement | null>(null);
 
-  const resolveRef = useRef<(() => void) | null>(null);
+  const resolveRef = useRef<((job: ImportJob) => void) | null>(null);
   const rejectRef = useRef<((err: Error) => void) | null>(null);
   const activeJobIdRef = useRef<string | null>(null);
+  const currentJobRef = useRef<ImportJob | null>(null);
+  const jobPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const token = (() => {
     try {
@@ -50,13 +52,21 @@ export function ImportDialog({ open, onOpenChange, bookId, onImported }: ImportD
   const handleWSEvent = useCallback(
     (event: { job_id: string; status: string; chapters_created: number; error?: string }) => {
       if (event.job_id !== activeJobIdRef.current) return;
-      setCurrentJob((prev) =>
-        prev ? { ...prev, status: event.status as ImportJob['status'], chapters_created: event.chapters_created, error: event.error ?? null } : prev,
-      );
+      const updated = currentJobRef.current
+        ? { ...currentJobRef.current, status: event.status as ImportJob['status'], chapters_created: event.chapters_created, error: event.error ?? null }
+        : null;
+      if (updated) {
+        currentJobRef.current = updated;
+        setCurrentJob(updated);
+      }
       if (event.status === 'completed') {
-        resolveRef.current?.();
+        if (jobPollRef.current) clearInterval(jobPollRef.current);
+        jobPollRef.current = null;
+        if (updated) resolveRef.current?.(updated);
         resolveRef.current = null; rejectRef.current = null;
       } else if (event.status === 'failed') {
+        if (jobPollRef.current) clearInterval(jobPollRef.current);
+        jobPollRef.current = null;
         rejectRef.current?.(new Error(event.error || 'Import failed'));
         resolveRef.current = null; rejectRef.current = null;
       }
@@ -134,22 +144,31 @@ export function ImportDialog({ open, onOpenChange, bookId, onImported }: ImportD
         setUploadProgress(0);
         const job = await booksApi.startImport(token, bookId, file, 'auto', (pct) => setUploadProgress(pct));
         setCurrentJob(job);
+        currentJobRef.current = job;
         setImportState('processing');
         activeJobIdRef.current = job.id;
-        await new Promise<void>((resolve, reject) => {
+        const finalJob = await new Promise<ImportJob>((resolve, reject) => {
           resolveRef.current = resolve; rejectRef.current = reject;
-          const interval = setInterval(async () => {
+          jobPollRef.current = setInterval(async () => {
             try {
               const updated = await booksApi.getImportJob(token, bookId, job.id);
+              currentJobRef.current = updated;
               setCurrentJob(updated);
-              if (updated.status === 'completed') { clearInterval(interval); resolveRef.current?.(); resolveRef.current = null; rejectRef.current = null; }
-              else if (updated.status === 'failed') { clearInterval(interval); rejectRef.current?.(new Error(updated.error || 'Import failed')); resolveRef.current = null; rejectRef.current = null; }
+              if (updated.status === 'completed' || updated.status === 'completed_with_warnings') {
+                if (jobPollRef.current) clearInterval(jobPollRef.current);
+                jobPollRef.current = null;
+                resolveRef.current?.(updated); resolveRef.current = null; rejectRef.current = null;
+              } else if (updated.status === 'failed') {
+                if (jobPollRef.current) clearInterval(jobPollRef.current);
+                jobPollRef.current = null;
+                rejectRef.current?.(new Error(updated.error || 'Import failed')); resolveRef.current = null; rejectRef.current = null;
+              }
             } catch { /* keep polling */ }
           }, 5000);
-          setTimeout(() => { clearInterval(interval); rejectRef.current?.(new Error('Import timed out')); resolveRef.current = null; rejectRef.current = null; }, 10 * 60 * 1000);
         });
-        created += currentJob?.chapters_created ?? 0;
+        created += finalJob.chapters_created;
         activeJobIdRef.current = null;
+        currentJobRef.current = null;
       } catch (e) {
         errors.push(`${file.name}: ${(e as Error).message}`);
       }
@@ -167,6 +186,9 @@ export function ImportDialog({ open, onOpenChange, bookId, onImported }: ImportD
     setReadProgress({ done: 0, total: 0 }); setBulkProgress({ done: 0, total: 0 });
     setUploadProgress(0); setCurrentJob(null); setCreatedCount(0); setSkippedCount(0); setError('');
     activeJobIdRef.current = null;
+    currentJobRef.current = null;
+    if (jobPollRef.current) clearInterval(jobPollRef.current);
+    jobPollRef.current = null;
     onOpenChange(false);
   };
 
@@ -275,8 +297,10 @@ export function ImportDialog({ open, onOpenChange, bookId, onImported }: ImportD
                 pct={(bulkProgress.done / bulkProgress.total) * 100} />
             )}
             {docFiles.length > 0 && (
-              <ProgressBar label={importState === 'uploading' ? `Uploading document… ${uploadProgress}%` : 'Converting document…'}
-                pct={importState === 'uploading' ? uploadProgress : 100} />
+              <ProgressBar
+                label={importProgressLabel(importState, uploadProgress, currentJob)}
+                pct={importProgressPercent(importState, uploadProgress, currentJob)}
+              />
             )}
           </div>
         )}
@@ -290,6 +314,20 @@ export function ImportDialog({ open, onOpenChange, bookId, onImported }: ImportD
       </div>
     </FormDialog>
   );
+}
+
+function importProgressLabel(state: ImportState, uploadProgress: number, job: ImportJob | null): string {
+  if (state === 'uploading') return `Uploading document… ${uploadProgress}%`;
+  if (job?.status === 'queued' || job?.status === 'pending') return 'Waiting for an import worker…';
+  if (job?.current_item?.title) return `Importing ${job.current_item.title}…`;
+  if (job?.progress_total) return `Importing chapters… ${job.progress_completed ?? 0}/${job.progress_total}`;
+  return 'Converting document…';
+}
+
+function importProgressPercent(state: ImportState, uploadProgress: number, job: ImportJob | null): number {
+  if (state === 'uploading') return uploadProgress;
+  if (!job?.progress_total) return 0;
+  return Math.min(100, Math.round(((job.progress_completed ?? 0) / job.progress_total) * 100));
 }
 
 function ProgressBar({ label, pct }: { label: string; pct: number }) {
