@@ -3,6 +3,21 @@
 **Bundle version 2.3** — default v2.2 workflow + opt-in AMAW v3.0 extension
 **Repo-tailored:** session paths, planning paths, ContextHub MCP `project_id`, and `scripts/workflow-gate.{sh,py}` dual-impl all wired for `lore-weave-zone-map-design`.
 
+> ## ⚠️ STALE — do not run `install.sh` against this repo
+>
+> **LoreWeave removed the ContextHub MCP integration on 2026-08-03** (it was configuration that
+> looked like a capability — no agent ever called it; see `docs/amaw-workflow.md` → *"Where AMAW's
+> memory lives"*). **This bundle was not updated with it** and still ships `scripts/mcp-query.py`,
+> a `workflow-gate.py` carrying the `_bridge_to_contexthub` bridge and the `amaw-pre-commit` verb,
+> ContextHub prose below and in `AMAW.md`, and a `.claude/settings.json` wiring hooks whose scripts
+> no longer exist in the parent repo.
+>
+> **`install.sh` copies those files into its target.** Running it against LoreWeave would reinstate
+> everything that was just removed and re-break `scripts/gate-wiring-gate.py`. Nothing here executes
+> on its own, so the bundle is inert until someone installs it.
+>
+> Tracked as **DEFERRED 013** — reconcile before this bundle is next installed or published.
+
 A drop-in structured workflow for AI coding agents (Claude Code, Cursor, Codex, etc.).
 Prevents agents from skipping phases, undersizing tasks, and committing without verification.
 
