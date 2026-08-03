@@ -83,9 +83,15 @@ FROM import_jobs WHERE id=$1 AND pipeline_version=$2 FOR UPDATE
 	}
 
 	rows, err := tx.Query(ctx, `
-SELECT p.chapter_id,p.import_item_id,c.updated_at > p.finalized_at
+SELECT p.chapter_id,p.import_item_id,
+       c.updated_at > GREATEST(p.finalized_at, COALESCE(h.latest_hierarchy_applied_at, p.finalized_at))
 FROM chapter_import_provenance p
 JOIN chapters c ON c.id=p.chapter_id
+LEFT JOIN LATERAL (
+  SELECT max(applied_at) AS latest_hierarchy_applied_at
+  FROM import_job_hierarchy_mappings h
+  WHERE h.job_id=p.import_job_id AND h.chapter_id=p.chapter_id AND h.rolled_back_at IS NULL
+) h ON true
 WHERE p.import_job_id=$1
 ORDER BY p.chapter_id
 FOR UPDATE OF p,c

@@ -63,7 +63,10 @@ func (t *ImportProcessor) processEPUBV2(ctx context.Context, payload importReque
 			if err := t.finalizeEPUBImport(ctx, payload.JobID); err != nil {
 				return err
 			}
-			return t.materializeEPUBV2Scenes(ctx, payload)
+			if err := t.materializeEPUBV2Scenes(ctx, payload); err != nil {
+				return err
+			}
+			return t.materializeEPUBV2Hierarchy(ctx, payload)
 		}
 		node := nodes[claim.SourceKey]
 		if node == nil {
