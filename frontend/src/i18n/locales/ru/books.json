@@ -185,6 +185,7 @@
     "continue": "Продолжить",
     "start": "Начать импорт",
     "reportSummary": "Создано глав: {{chapters}} · предупреждений: {{warnings}}",
+    "warningDetails": "Предупреждения",
     "progress": "{{done}}/{{total}} глав",
     "errors": { "extension": "Выберите файл .epub." },
     "steps": { "upload": "загрузка", "metadata": "метаданные", "chapters": "главы", "confirm": "подтверждение", "progress": "прогресс", "report": "отчёт" }

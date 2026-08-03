@@ -183,6 +183,7 @@
     "continue": "Continue",
     "start": "Start import",
     "reportSummary": "{{chapters}} chapters created · {{warnings}} warnings",
+    "warningDetails": "Warnings",
     "progress": "{{done}}/{{total}} chapters",
     "errors": { "extension": "Choose an .epub file." },
     "steps": { "upload": "upload", "metadata": "metadata", "chapters": "chapters", "confirm": "confirm", "progress": "progress", "report": "report" }

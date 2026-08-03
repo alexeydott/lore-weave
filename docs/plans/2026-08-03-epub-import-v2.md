@@ -43,6 +43,13 @@ base contract; these are tracked separately and are not EPUB V2 regressions.
   The test asserts legacy/V2 chapter counts, delta, navigation source, and the
   fallback warning. This is fixture evidence, not a substitute for authenticated
   production-sample evidence.
+- Added a Chromium browser smoke for the authenticated wizard context. It runs
+  against the real React route with mocked Book API responses and verifies nested
+  ToC preview, selection flow, destructive-strategy warning, durable completion,
+  warning summary/details, and report rendering. The runner accepts a system
+  Chrome path and optional DevTools port. Local BFF host forwarding currently
+  resets connections and the supplied account is not present in the local auth
+  database, so a real JWT-backed EPUB upload remains an environment-gated check.
 
 ### Safe production promotion gate
 
