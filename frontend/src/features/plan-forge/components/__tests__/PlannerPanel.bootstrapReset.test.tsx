@@ -21,7 +21,10 @@ vi.mock('../../hooks/usePlanRun', () => ({
     run: {
       id: 'r1', book_id: 'b1', status: 'compiled', mode: 'rules', model_ref: null,
       source_checksum: 'abc', active_job_id: null, job_status: null, error_detail: null,
-      checkpoint_state: {}, arcs: [{ id: 'arc_1', title: 'Arc 1' }], artifacts: [],
+      // A compiled run HAS a package artifact — that artifact, not the transient `compiled`
+      // status, is what the bootstrap panel now gates on (see PlannerPanel).
+      checkpoint_state: {}, arcs: [{ id: 'arc_1', title: 'Arc 1' }],
+      artifacts: [{ kind: 'package', artifact_id: 'pkg1' }],
       created_at: '', updated_at: '',
     },
     busy: false, polling: false, error: null,
@@ -47,7 +50,13 @@ vi.mock('../../hooks/useBootstrap', () => ({
 
 const listRuns = vi.fn();
 vi.mock('../../api', () => ({
-  planForgeApi: { listRuns: (...a: unknown[]) => listRuns(...a) },
+  planForgeApi: {
+    listRuns: (...a: unknown[]) => listRuns(...a),
+    // The panel loads the last material packet on mount. A partial module mock is how a
+    // new api method breaks unrelated panel tests — stub it rather than making the hook
+    // defensive, which would hide a genuinely missing method.
+    getMissingMaterial: () => Promise.resolve(null),
+  },
 }));
 
 import { PlannerPanel } from '../PlannerPanel';
@@ -76,6 +85,6 @@ describe('PlannerPanel — bootstrap reset on recompile', () => {
     fireEvent.click(screen.getByTestId('plan-compile-btn'));
 
     expect(bootstrapReset).toHaveBeenCalledTimes(1);
-    expect(runCompile).toHaveBeenCalledWith('arc_1');
+    expect(runCompile).toHaveBeenCalledWith('arc_1', undefined, undefined, undefined);
   });
 });
