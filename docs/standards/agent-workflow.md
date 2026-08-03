@@ -43,6 +43,29 @@ The corollary matters just as much: because it is shared, changing it is a chang
 | **2 · Agent runner** | `.codex/`, `.agents/`, `.github/skills/`, `.ai-factory/`, `.claude/`, `.cursor/` | how an agent moves through work | whoever runs that agent |
 | **3 · Personal** | `*.local.*`, `skill-context.local/` (git-ignored) | your own habits | you only |
 
+### The principle these layers serve — gates guard rot, workflows stay free
+
+The repo's design intent, stated by its owner and worth writing down before anyone adds another
+gate: **a gate exists to stop rot, never to stop improvement.** This project got where it is by
+accumulating and discarding several ways of working — a continuous self-improvement loop. A rule
+set that makes trying a new one expensive kills exactly the thing that produced the good ones.
+
+So the test for any new gate is: *does it prevent a wrong turn from becoming invisible, or does it
+prevent a turn?* The first is the job. The second is a defect in the gate.
+
+Measured against the gates as they stand (probed 2026-08-03, each by actually doing it):
+
+| Improving the workflow | Result |
+|---|---|
+| Add a new repo-local skill | **free** |
+| Fork a vendored `aif-*` skill under your own name and change it freely | **free** |
+| Add a new workflow document | **free** |
+| Add a new slash command | costs **one line** of documentation in AGENTS.md |
+| Hand-edit a vendored `aif-*` copy in place | **blocked** — and see §4.3: the gate is protecting your change from being silently reverted by the next `ai-factory update`, not protecting the skill from you |
+
+Four of five are free, and the fifth is the one where editing in place would lose your work anyway.
+If a future gate makes one of these expensive, that gate is wrong.
+
 **Precedence is strict and layer 1 wins.** A runner decides *how* to work; it never decides
 what the project permits. Where an agent skill's general instruction conflicts with layer 1,
 layer 1 wins and the conflict is a defect to report — not a judgement call to make in the moment.
@@ -148,6 +171,22 @@ then reverts your change without a word. `scripts/agent-skills-parity.py` blocks
 pre-commit — it normalises the three documented substitutions away and requires the rest to
 be byte-identical.
 
+**That is the only thing that is blocked, and it is narrower than it sounds.** The gate scopes
+itself to the skills `.ai-factory.json` says the generator installed. A skill you write, or a
+vendored one you **copy under a different name**, is outside it entirely — `.claude/skills/
+playwright-cli` has lived in exactly one agent's tree for months without the gate minding.
+
+So if you want to *improve* an `aif-*` skill rather than merely add rules to it:
+
+```bash
+cp -r .claude/skills/aif-review .claude/skills/lw-review   # then edit the name in its frontmatter
+```
+
+and change whatever you like. Verified free (probed 2026-08-03). You now own it, upstream cannot
+revert it, and it will not drift against the other agents because it is not one of theirs. The cost
+is real and worth naming: you also stop receiving upstream's fixes for it. Fork when you want to
+diverge; override when you want to add.
+
 To change skill behaviour, in order of preference:
 
 1. **Project override — the normal answer.** Write
@@ -173,6 +212,11 @@ Gates are the load-bearing part, so they have their own rules:
 - Prefer **default-covered** scope. An enumerated file list is default-*un*covered: ask what
   happens to a file created tomorrow. Recursive discovery with explicit exemptions beats a
   hand-maintained inventory.
+- **Then check the opposite failure: does it stop a wrong turn, or stop a turn?** Before wiring it,
+  actually try the three things someone improving the workflow would do — add a skill, fork one,
+  add a document — and confirm they still pass. A gate that makes experimenting expensive will be
+  worked around, and the thing people reach for is `--no-verify`, which switches off db-safety and
+  the provider gate along with yours.
 - Guard against your own vacuity. If the gate scans a tree, fail loudly when that tree is
   empty — otherwise "no files found" reads as "everything passed".
 
