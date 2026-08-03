@@ -119,6 +119,7 @@
     "count_other": "{{count}} 章節",
     "import": "匯入",
     "importPdf": "匯入 PDF",
+    "importEpub": "Import EPUB",
     "new": "新章節",
     "col": {
       "title": "標題",

@@ -119,6 +119,7 @@
     "count_other": "{{count}} bab",
     "import": "Impor",
     "importPdf": "Impor PDF",
+    "importEpub": "Import EPUB",
     "new": "Bab Baru",
     "col": {
       "title": "Judul",

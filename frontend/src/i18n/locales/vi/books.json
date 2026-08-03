@@ -119,6 +119,7 @@
     "count_other": "{{count}} chương",
     "import": "Nhập",
     "importPdf": "Nhập PDF",
+    "importEpub": "Import EPUB",
     "new": "Chương mới",
     "col": {
       "title": "Tiêu đề",

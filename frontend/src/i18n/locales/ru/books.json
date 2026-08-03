@@ -119,6 +119,7 @@
     "count_other": "{{count}} глав",
     "import": "Импорт",
     "importPdf": "Импорт PDF",
+    "importEpub": "Import EPUB",
     "new": "Новая глава",
     "col": {
       "title": "Название",

@@ -2,11 +2,11 @@
 
 > **Purpose:** The centralized map of `frontend/src/features/*` — every feature folder, where it mounts, what it does, and which backing service it talks to.
 > **Audience:** Developers and AI agents who need to find the code behind a screen (or the screen behind a service).
-> **Last updated:** 2026-07-17
+> **Last updated:** 2026-08-03
 >
 > **Companion docs:** [`ARCHITECTURE.md`](ARCHITECTURE.md) (services + tech stack) · [`DATA_ARCHITECTURE.md`](DATA_ARCHITECTURE.md) (where the data lives) · [`03_planning/LLM_MMO_RPG/features/_index.md`](03_planning/LLM_MMO_RPG/features/_index.md) (the **design-track** feature folders — a different tree, don't confuse them)
 
-**41 feature folders** as of 2026-07-17. Routes are from [`frontend/src/App.tsx`](../frontend/src/App.tsx); service targets are the **actual gateway proxy targets** from `services/api-gateway-bff/src/gateway-setup.ts`, not inferred from the path name.
+**43 feature folders** as of 2026-08-03. Routes are from [`frontend/src/App.tsx`](../frontend/src/App.tsx); service targets are the **actual gateway proxy targets** from `services/api-gateway-bff/src/gateway-setup.ts`, not inferred from the path name.
 
 ---
 
@@ -52,6 +52,7 @@ features/<name>/
 | **steering** (9) | studio panel | Per-book author steering rules ("story-bible-as-steering"). Rendered as a `<steering>` system part on book-scoped turns. | book-service |
 | **grammar** (2) | editor plugin | LanguageTool client (spell/grammar). Has a circuit breaker — a 502 disables checking for 60s. | LanguageTool (via frontend nginx) |
 | **pdf-import** (10) | (embedded) studio `BookImportPanel`, chapters tab | PDF → book import wizard. | book-service |
+| **epub-import** | (embedded) book chapters tab | EPUB V2 inspection and structure-preserving import wizard; source-defined ToC leaves become chapters and durable jobs expose resume/rollback state. | book-service, worker-infra, composition-service |
 | **trash** (4) | `/trash` | Recycle bin — restore/purge. | book-service, glossary-service |
 
 ### AI chat & agents
@@ -74,6 +75,7 @@ features/<name>/
 | **knowledge-temporal** (17) | (embedded) knowledge `EntityDetailPanel` → "Temporal" tab | Time-travel reads (`as_of`) over the KAL surface. Degrades on sparse reads. | **knowledge-gateway** (KAL) |
 | **glossary** (78) | `/books/:bookId/glossary` | Glossary entities, kinds, attributes, evidence, confirm-cards. | glossary-service |
 | **glossary-translate** (14) | (embedded) `GlossaryEntityList` | Glossary term translation. ⚠️ Routes to **translation-service**, not glossary. | **translation-service** |
+| **world-setup** (4) | studio panel `world-setup` (palette / `ui_open_studio_panel`) | The deterministic glossary-build wizard: describe → review the plan (CP1) → per-entity build → review drafts (CP2, the glossary inbox) → approve relationships (CP3). ⚠️ The FSM lives in **composition-service** (`/v1/composition/glossary-build`), which then writes to glossary + knowledge. | **composition-service** |
 | **extraction** (12) | (embedded) glossary / enrichment / pdf-import | Extraction profile + batch wizard. ⚠️ `/v1/extraction` routes to **translation-service**. | translation-service, glossary-service |
 | **enrichment** (77) | `/books/:bookId/enrichment` | Lore enrichment — gap detection, proposal review, promote-to-glossary. | lore-enrichment-service |
 | **wiki** (30) | `/books/:bookId/wiki`, `/books/:bookId/wiki/:articleId/edit` | Auto-generated wiki articles + revisions. The wiki lives in **glossary-service**, not a separate service. | glossary-service |

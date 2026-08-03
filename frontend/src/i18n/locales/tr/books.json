@@ -119,6 +119,7 @@
     "count_other": "{{count}} bölüm",
     "import": "İçe Aktar",
     "importPdf": "PDF İçe Aktar",
+    "importEpub": "Import EPUB",
     "new": "Yeni Bölüm",
     "col": {
       "title": "Başlık",

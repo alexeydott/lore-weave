@@ -119,6 +119,7 @@
     "count_other": "{{count}} chapitres",
     "import": "Importer",
     "importPdf": "Importer un PDF",
+    "importEpub": "Import EPUB",
     "new": "Nouveau chapitre",
     "col": {
       "title": "Titre",

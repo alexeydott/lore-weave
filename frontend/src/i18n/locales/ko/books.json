@@ -119,6 +119,7 @@
     "count_other": "{{count}}개 챕터",
     "import": "가져오기",
     "importPdf": "PDF 가져오기",
+    "importEpub": "Import EPUB",
     "new": "새 챕터",
     "col": {
       "title": "제목",

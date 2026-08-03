@@ -119,6 +119,7 @@
     "count_other": "{{count}} บท",
     "import": "นำเข้า",
     "importPdf": "นำเข้า PDF",
+    "importEpub": "Import EPUB",
     "new": "บทใหม่",
     "col": {
       "title": "ชื่อเรื่อง",

@@ -119,6 +119,7 @@
     "count_other": "{{count}} bab",
     "import": "Import",
     "importPdf": "Import PDF",
+    "importEpub": "Import EPUB",
     "new": "Bab Baru",
     "col": {
       "title": "Tajuk",
