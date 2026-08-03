@@ -39,7 +39,14 @@ logger = logging.getLogger(__name__)
 # a reasoning model; the proper fix is Q8 dedicated-distill-model resolution to a NON-reasoning
 # model. A non-reasoning model (Qwen2.5) works — see the enum-repair in `_extract_json_object` for
 # the OTHER local-model quirk this smoke found (unquoted enum values).
-DISTILL_MAX_TOKENS = 4096
+# S7 — RE-EXPORTED, not restated. This number is spent here and RESERVED in
+# `distiller.resolve_distill_window`, which sizes the input chunk as
+# `ctx - PROMPT_OVERHEAD_TOKENS - OUTPUT_RESERVE_TOKENS`. They were two independent literals
+# for one decision and they disagreed by 2x (reserve 2048, cap 4096), so on a small-context
+# BYOK model chunk + prompt + output could exceed the window — the exact overflow
+# `resolve_distill_window` exists to prevent, on exactly the models it was written for.
+from app.distiller import OUTPUT_RESERVE_TOKENS as DISTILL_MAX_TOKENS  # noqa: F401,E402
+from loreweave_llm.budget import OutputKind, call_budget
 
 
 class _LLMSubmitter(Protocol):
@@ -65,7 +72,10 @@ def make_distill_llm(
     user_id: str,
     model_source: str,
     model_ref: str,
-    max_tokens: int = DISTILL_MAX_TOKENS,
+    # `None`, not the reserve: a signature default is evaluated ONCE at import, so it can
+    # never see the model window it is reserving against. Resolved per call below, with the
+    # reserve kept as the CEILING — it is a real bound derived from the window, not a guess.
+    max_tokens: int | None = None,
     trace_id: str | None = None,
 ) -> LLMCall:
     """Adapt the worker-ai LLMClient (→ provider-registry, the sanctioned gateway) into the pure
@@ -87,7 +97,8 @@ def make_distill_llm(
                 "messages": [{"role": "user", "content": prompt}],
                 "response_format": {"type": "text"},
                 "temperature": 0.2,
-                "max_tokens": max_tokens,
+                "max_tokens": max_tokens or call_budget(
+                    OutputKind.PROSE, ceiling=DISTILL_MAX_TOKENS).max_output_tokens,
                 "chat_template_kwargs": {"thinking": False, "enable_thinking": False},
             },
             trace_id=trace_id,

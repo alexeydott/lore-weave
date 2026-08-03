@@ -17,6 +17,8 @@ import { useBootstrap } from '../hooks/useBootstrap';
 import { usePlanRun } from '../hooks/usePlanRun';
 import type { PlanRunMode } from '../types';
 import { BootstrapPanel } from './BootstrapPanel';
+import { MaterialReview } from './MaterialReview';
+import { useMaterialReview } from '../hooks/useMaterialReview';
 import { PlanRunView } from './PlanRunView';
 import { PlanRunsListView } from './PlanRunsListView';
 import { registerPlanArtifactDocumentProvider, PLAN_ARTIFACT_DOC_TYPE } from '../documents/planArtifactDocument';
@@ -120,8 +122,19 @@ export function PlannerPanel(props: IDockviewPanelProps) {
   const canPropose =
     !plan.busy && !plan.polling && effectiveMarkdown.trim().length > 0 && (mode === 'rules' || effectiveModelRef.length > 0);
 
-  // Bootstrap only makes sense once a run is compiled (it reads the run's package artifact).
-  const compiledRunId = plan.run?.status === 'compiled' ? plan.run.id : null;
+  // Bootstrap reads the run's PACKAGE artifact, so gate on that artifact existing — the same
+  // precondition the backend enforces ("run has no compiled package yet — call compile() first").
+  // Gating on `status === 'compiled'` instead was strictly narrower than the truth, and the
+  // natural order of work walked straight out of the window: compile writes the package and sets
+  // status='compiled', then Validate (which Agent Mode REQUIRES — it will not accept a plan that
+  // is not `validated`) moves the run on, and the panel that materialises the chapters vanishes.
+  // Measured 2026-08-03 on Mị Đế: a run with 11 compiled chapters and a package artifact offered
+  // no way to turn them into book chapters, because it had been validated. `compiled` is a moment;
+  // the package is a fact.
+  const compiledRunId = plan.run?.artifacts?.some((a) => a.kind === 'package') ? plan.run.id : null;
+  // The material keep-or-drop acts on the SPEC, which exists from `proposed` onward -- deliberately
+  // NOT gated on `compiled`: its whole value is fixing the spec BEFORE compile reads it.
+  const material = useMaterialReview(bookId ?? null, plan.run?.id ?? null, accessToken ?? null);
 
   const onPropose = () => {
     void plan.createRun({
@@ -286,7 +299,11 @@ export function PlannerPanel(props: IDockviewPanelProps) {
                 compileResult={plan.compileResult}
                 onSelfCheck={() => void plan.runSelfCheck()}
                 onValidate={() => void plan.runValidate()}
-                onCompile={(arcId) => { bootstrap.reset(); void plan.runCompile(arcId); }}
+                onCompile={(arcId, structureTemplateId) => {
+                  bootstrap.reset();
+                  void plan.runCompile(arcId, undefined, undefined, structureTemplateId);
+                }}
+                structures={plan.structures}
                 onOpenArtifact={openArtifact}
                 repairOutput={plan.repairOutput}
                 canRepair={!plan.busy && !plan.polling && effectiveModelRef.length > 0}
@@ -294,6 +311,7 @@ export function PlannerPanel(props: IDockviewPanelProps) {
                 onApplyFix={() => void plan.runRepairRefine(effectiveModelRef, (plan.selfCheck?.gaps ?? []).map((g) => g.path))}
                 onAutofix={() => void plan.runAutofix(effectiveModelRef)}
               />
+              <MaterialReview state={material} disabled={plan.busy || plan.polling} />
               {compiledRunId && (
                 <BootstrapPanel
                   proposal={bootstrap.proposal}

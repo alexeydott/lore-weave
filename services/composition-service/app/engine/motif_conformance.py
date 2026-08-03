@@ -32,12 +32,14 @@ import logging
 import random
 from typing import Any, Protocol
 
+from loreweave_llm import no_thinking_fields
 from loreweave_llm.errors import LLMError
 
 from app.clients.eval_client import extract_judge_content
 from app.engine.adaptive_k import HIGH_WEIGHT_BEATS
 from app.engine.critic import parse_critique_json  # REUSE the tolerant fence-stripping parser
 from app.packer.profile import BookProfile
+from app.llm_budget import max_tokens_for
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +146,7 @@ async def judge_motif_conformance(
     expected_roles: list[str],
     passage: str,
     profile: BookProfile,
-    max_tokens: int = 512,
+    max_tokens: int | None = None,
     trace_id: str | None = None,
 ) -> dict[str, Any]:
     """Run the binary conformance judge. Returns the judge-output dict (WITHOUT
@@ -153,6 +155,12 @@ async def judge_motif_conformance(
     never raises (advisory must not block)."""
     if not passage.strip():
         return {**_EMPTY, "error": "conformance_no_passage"}
+    # ONE verdict about one motif, so the count is genuinely fixed; `language` is what varies.
+    # The row's floor decides the number at this size and will keep deciding it — that is the
+    # correct answer for a bounded call, not rot. What was wrong was computing it at IMPORT,
+    # where even the language could not reach it.
+    max_tokens = max_tokens or max_tokens_for(
+        "judge_motif_conformance", target=1, language=profile.source_language)
     system, user = build_conformance_prompt(
         beat_intent=beat_intent, beat_key=beat_key, motif_name=motif_name,
         tension_band=tension_band, expected_roles=expected_roles,
@@ -171,10 +179,7 @@ async def judge_motif_conformance(
                 "temperature": 0.0,
                 "max_tokens": max_tokens,
                 # The judge emits tiny JSON — reasoning tokens are pure budget burn.
-                # reasoning_effort is the knob that actually works for LM Studio +
-                # Qwen3; chat_template_kwargs covers models honouring the template.
-                "reasoning_effort": "none",
-                "chat_template_kwargs": {"thinking": False, "enable_thinking": False},
+                **no_thinking_fields(),
             },
             job_meta={"extractor": "motif_conformance"},
             trace_id=trace_id,

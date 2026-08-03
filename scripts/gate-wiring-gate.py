@@ -183,36 +183,27 @@ TOO_SLOW: dict[str, str] = {
 #                         names and span excerpts reached an LLM judge prompt
 #                         unsanitized. Fixed, and the lint tightened from
 #                         "mentions the sanitizer" to "calls it".
+#: Gates that WRITE to the working tree while they run. They must not share the tree with a
+#: concurrent reader, so the runner executes them serially, after everything else.
+#: `guard-redability-gate` injects a real violation into real source and restores it from saved
+#: bytes; that is its mechanism, not a bug, and the isolation belongs to the RUNNER.
+MUTATES_TREE: frozenset[str] = frozenset({
+    "scripts/guard-redability-gate.py",
+})
+
 KNOWN_RED: dict[str, tuple[str, str]] = {
-    "scripts/language-bias-gate.py": (
-        "D-GATE-ROT-LANGUAGE-BIAS",
-        "10 offenders in chat-service + composition-service (was 13; class 1 CLEARED "
-        "2026-07-30). NOT A SWEEP, and the classification below is the deliverable so "
-        "the next pass starts from analysis rather than a list — TWO of the remaining "
-        "classes change bytes that are already persisted. "
-        "(1) json.dumps -> a DB column, x3 (internal.py, work_chapter_drafts.py, "
-        "pg_task_store.py): DONE 2026-07-30. Was called merely safe; internal.py:76 "
-        "turned out to be a SECURITY fix, found by /review-impl asking the "
-        "does-an-upstream-step-defeat-a-downstream-defense question. That json.dumps "
-        "feeds screen() from loreweave_safety, which NFKC-folds its input SPECIFICALLY "
-        "so 'unicode look-alikes and width variants dont slip' (floor.py:120). "
-        "ensure_ascii=True escaped those characters to backslash-u escapes BEFORE the "
-        "fold ran, so "
-        "a full-width payload in working_memory_seed bypassed the safety floor. The "
-        "serializer was defeating the screener. "
-        "(2) json.dumps(...).encode() -> a DIGEST, x2 (stream_service.py:3749, "
-        "arc_conformance_orchestrate.py:214): flipping it changes EVERY hash, so "
-        "it is a cache/dedup invalidation decision, not an edit. "
-        "(3) casefold() as a PERSISTED IDENTITY KEY, x5 (plan_forge_service x3, "
-        "world_plan, operations): wants NFC/NFKC first — and normalizing changes "
-        "lookups against rows ALREADY keyed the old way, so it needs a backfill "
-        "plan or it orphans them. "
-        "(4) re.findall(r'\\w{4,}') x2 (propose.py): space-delimited word "
-        "tokenizing, which cannot work for CJK at all — a design choice, not a fix. "
-        "Plus ONE FALSE POSITIVE: tool_surface.py:103 lowercases an MCP tool name, "
-        "ASCII by contract (closed-set snake_case), where casefold() is identical. "
-        "Defer gate #2 (large/structural — needs a plan) + #1 (platform track, not "
-        "the game tier)"),
+    # EMPTY, and that is the point: this list SHRINKS. `--run-all` fails when a row's gate
+    # turns green, which is what forces the deletion instead of letting an acknowledgement
+    # quietly become a permanent exemption.
+    #
+    # Last row removed 2026-08-03: `scripts/language-bias-gate.py` / D-GATE-ROT-LANGUAGE-BIAS.
+    # It went green legitimately at e84214cc5 (16 offenders FIXED, 3 baselined with a stated
+    # reason, 0 new) — the gate had been failing on 19 NEW offenders stacked on its 41-row
+    # baseline, so a fresh violation was indistinguishable from the backlog. The remaining
+    # analysis it carried (4 classes, two of which change bytes already persisted — a digest
+    # input and casefold() as an identity key, so both are migrations rather than edits) lives
+    # in the game-tier SESSION_HANDOFF's deferral table, which is its home. Nothing was lost
+    # by deleting the row; leaving it would have failed this gate forever.
 }
 
 
@@ -383,9 +374,30 @@ def run_all() -> int:
             print(f"  {n:<44} SKIP           needs a live stack: {NEEDS_STACK[n]}")
 
     runnable = [n for n in names if n not in NEEDS_STACK and n not in TOO_SLOW]
+
+    # MUTATORS RUN ALONE, AND LAST. `guard-redability-gate` proves a guard can fail by writing a
+    # real violation into real source, running the guard, and restoring the bytes. That is the
+    # whole point of it — and it means that for a few milliseconds per case the working tree is
+    # WRONG ON PURPOSE. Running it inside the thread pool let every other gate read those bytes.
+    #
+    # It produced exactly the failure you would predict and it was misread for weeks: CI
+    # reported `llm-budget-ssot-gate: a row claims signal_inert on a kind that DOES respond to
+    # signal` — which is, verbatim, the violation guard-redability injects into `llm_budget.py`
+    # in its "S7 gate" case. Three gates flapped this way (`llm-budget-ssot-gate`, `design-lint`,
+    # and guard-redability accusing ITSELF of BASELINE-RED when its baseline probe read a tree
+    # another case had mid-mutation). All three pass standalone, which is why it read as a
+    # local/CI divergence rather than a race.
+    #
+    # Keyed on a declared SET, not a name guess: a second mutating gate added tomorrow joins it
+    # here, and `--self-test` asserts every name in it is a real gate.
+    mutators = [n for n in runnable if n in MUTATES_TREE]
+    parallel = [n for n in runnable if n not in MUTATES_TREE]
     workers = min(8, (os.cpu_count() or 4))
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        results = list(pool.map(_run, runnable))
+        parallel_results = list(pool.map(_run, parallel))
+    mutator_results = [_run(n) for n in mutators]        # serial, after the pool has drained
+    runnable = parallel + mutators
+    results = parallel_results + mutator_results
 
     for n, (ok, secs, out) in zip(runnable, results):
         expected_red = n in KNOWN_RED
@@ -404,8 +416,21 @@ def run_all() -> int:
     if failures:
         print(f"\ngate-wiring-gate: {len(failures)} gate(s) FAILED and are not tracked:\n")
         for n, out in failures:
-            head = next((l for l in out.splitlines() if l.strip()), "")
+            # The FIRST non-empty line is usually the gate's BANNER, not its finding — every
+            # gate here opens by saying what it scanned. Printing only that told CI readers
+            # "design-lint: scanned 385 .md files under …" and nothing about WHY it was red,
+            # which cost a full CI round-trip per diagnosis (the real answer was one broken
+            # link, on line 5475 of a file the banner never mentions). Print a bounded TAIL as
+            # well: a gate's verdict is at the end, and lines that mention a path or a finding
+            # keyword are the ones a reader can act on.
+            lines = [l.rstrip() for l in out.splitlines() if l.strip()]
+            head = lines[0] if lines else ""
             print(f"  {n}: {head[:110]}")
+            keyed = [l for l in lines[1:] if any(
+                k in l.lower() for k in ("finding", "error", "fail", "missing", "does not exist",
+                                         "broken", "unregistered", "drift", ".md:", ".py:", ".go:"))]
+            for l in (keyed or lines[1:])[-6:]:
+                print(f"      {l.strip()[:160]}")
         print("\nFix it, or add a KNOWN_RED row naming a tracked deferral. A gate that "
               "is red and unacknowledged is how a whole suite becomes background noise.")
         rc = 1
@@ -444,6 +469,14 @@ def self_test() -> int:
     _, stale = wiring_report()
     if stale:
         fails.append(f"rows for files that no longer exist: {', '.join(stale)}")
+
+    # A MUTATES_TREE name that is not a real gate is a silent LOSS of isolation: the runner
+    # would find nothing to serialise, put every gate back in the pool, and the race this set
+    # exists to prevent returns with no message anywhere. Same shape as the REQUIRES_ENV orphan
+    # check in guard-redability-gate, and for the same reason.
+    for n in sorted(MUTATES_TREE):
+        if not (REPO / n).exists():
+            fails.append(f"MUTATES_TREE names {n}, which does not exist — isolation lost silently")
 
     # Every KNOWN_RED row must name a deferral id, or "tracked" means nothing.
     for n, (did, why) in KNOWN_RED.items():

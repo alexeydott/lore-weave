@@ -24,7 +24,9 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from ..llm_budget import budget_for
 from ..llm_client import LLMClient
+from .injection_report import record_source_injection
 from .chunk_splitter import estimate_tokens, split_chapter
 from .session_translator import (
     _build_messages,
@@ -161,6 +163,16 @@ async def start_chapter(
     # with the synchronous path. Redundant with `chunks` (a split of this) but the
     # split isn't guaranteed byte-lossless, and the storage cost is trivial.
     rs["chapter_text"] = chapter_text
+    # Scanned ONCE per chapter, here, where the untrusted bytes enter — not per chunk (the
+    # same finding N times is noise) and never mutated: this text IS the product. See
+    # `injection_report` for why translation cannot use composition's neutralisers.
+    # Recorded even when clean, so "nothing found" and "nobody looked" stay distinguishable.
+    # …and on the ROW, not only in `resume_state` — which `_clear_resume_state` wipes the
+    # moment the chapter finishes, so the only record of the scan used to disappear exactly
+    # when the translation became readable. One call, so a path cannot take the scan without
+    # the telling; that split is what left three of the five chapter paths silent.
+    _injection = await record_source_injection(pool, chapter_translation_id, chapter_text)
+    rs["injection_scan"] = _injection.as_payload()
     await _submit_next(ex=pool, llm_client=llm_client,
                        chapter_translation_id=chapter_translation_id, rs=rs)
 
@@ -264,7 +276,16 @@ async def _submit_next(
     submit = await llm_client.submit_job(
         user_id=msg["user_id"], operation="translation",
         model_source=model_source, model_ref=str(model_ref),
-        input={"messages": messages}, chunking=None, job_meta=job_meta,
+        # The two branches above are different calls; the profile follows the branch. The
+        # translate branch is a SESSION chunk, not a stateless one — `build_chunk_messages`
+        # threads `session_history` + `compact_memo` — so it takes the session row. Both
+        # resolve to MIRROR today, which is exactly why the wrong label would have gone
+        # unnoticed until one of them grew a real cap.
+        # MIRROR → 0 → stripped by the SDK, so the wire is unchanged. app/llm_budget.py.
+        input={"messages": messages,
+               "max_tokens": budget_for(
+                   "compact_memo" if action[0] == "compact" else "translate_session_chunk")},
+        chunking=None, job_meta=job_meta,
     )
     await _persist_inflight(ex, chapter_translation_id, submit.job_id, rs)
 

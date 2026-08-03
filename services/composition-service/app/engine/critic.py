@@ -23,11 +23,13 @@ import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from loreweave_llm import no_thinking_fields
 from loreweave_llm.errors import LLMError
 
 from app.clients.eval_client import extract_judge_content
 from app.clients.llm_client import LLMClient
 from app.packer.profile import BookProfile
+from app.llm_budget import max_tokens_for
 
 logger = logging.getLogger(__name__)
 
@@ -136,12 +138,20 @@ def build_critique_prompt(
 async def judge_prose(
     judge: LLMClient, *, user_id: str, model_source: str, model_ref: str,
     passage: str, active_rules: list[dict[str, Any]], present_facts: list[str],
-    profile: BookProfile, max_tokens: int = 1536, trace_id: str | None = None,
+    profile: BookProfile, max_tokens: int | None = None, trace_id: str | None = None,
     cancel_check: Callable[[], Awaitable[bool]] | None = None,
 ) -> dict[str, Any]:
     """Run the advisory critique. Returns the generation_job.critic dict. CC4:
     any LLM/timeout/parse failure degrades to an empty critique with an `error`
     marker — NEVER raises (advisory must not block accept)."""
+    # The critique is FOUR scored dimensions plus at most one violation per active canon
+    # rule, so the rule count is the part that varies per call — a book with 40 active rules
+    # can return an order of magnitude more than one with two, and the old import-time
+    # default gave both the same room. `language` because the reason strings are written in
+    # the book's language and VERDICT is a branch that reads it.
+    max_tokens = max_tokens or max_tokens_for(
+        "judge_prose", target=len(_DIMENSIONS) + len(active_rules),
+        language=profile.source_language)
     system, user = build_critique_prompt(passage, active_rules, present_facts, profile)
     try:
         job = await judge.submit_and_wait(
@@ -152,13 +162,8 @@ async def judge_prose(
                              {"role": "user", "content": user}],
                 "response_format": {"type": "text"}, "temperature": 0.0,
                 "max_tokens": max_tokens,
-                # Disable hidden thinking: reasoning_effort="none" is the knob
-                # that actually works for LM Studio + Qwen3.6 (chat_template_kwargs
-                # alone is a no-op there). The critic emits JSON, so reasoning
-                # tokens are pure budget-burn. Kept chat_template_kwargs for models
-                # that honor the template flag instead.
-                "reasoning_effort": "none",
-                "chat_template_kwargs": {"thinking": False, "enable_thinking": False},
+                # The critic emits JSON, so reasoning tokens are pure budget-burn.
+                **no_thinking_fields(),
             },
             job_meta={"usage_purpose": "prose_critic", "extractor": "judge_prose"}, trace_id=trace_id,
             cancel_check=cancel_check,

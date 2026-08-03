@@ -1411,11 +1411,23 @@ func BackfillShortDescription(
 			         ORDER BY CASE ad.code WHEN 'name' THEN 0 WHEN 'term' THEN 1 ELSE 2 END
 			         LIMIT 1
 			       ), '') AS name,
+			       -- D-GLOSSARY-SHORTDESC-KIND-BLIND: mirrors regenerateAutoShortDescription.
+			       -- Hardcoding 'description' finds nothing on a kind that names its prose
+			       -- field otherwise (terminology uses 'definition'), so the summary fell
+			       -- back to kind+name and produced the stub "Terminology: <name>". The name
+			       -- lookup above already knew kinds differ; the description one did not.
+			       -- The two paths must agree, or a repair run re-creates what the write
+			       -- path just stopped producing.
 			       COALESCE((
 			         SELECT av.original_value
 			         FROM entity_attribute_values av
 			         JOIN book_attributes ad ON ad.attr_id = av.attr_def_id
-			         WHERE av.entity_id = e.entity_id AND ad.code = 'description'
+			         WHERE av.entity_id = e.entity_id
+			           AND COALESCE(av.original_value, '') <> ''
+			           AND ad.code NOT IN ('name', 'aliases')
+			         ORDER BY (ad.code = 'description') DESC,
+			                  (ad.field_type IN ('textarea', 'richtext')) DESC,
+			                  ad.sort_order
 			         LIMIT 1
 			       ), '') AS description,
 			       ek.name AS kind_name
@@ -2064,6 +2076,51 @@ func SeedGenreKindAttr(ctx context.Context, pool *pgxpool.Pool) error {
 			); err != nil {
 				return fmt.Errorf("seed system attr %s.%s: %w", k.Code, a.Code, err)
 			}
+		}
+	}
+
+	// 3b) the `unknown` PARKING kind. It is deliberately not a DefaultKind — it is the
+	// runtime review bucket an unresolvable kind_code parks under — so the loop above,
+	// which iterates DefaultKinds, gives it a `universal` genre link (2a's catch-all) and
+	// ZERO attributes. `createExtractedEntity` then refuses the write:
+	//
+	//     kind <id> has no display attribute (neither 'name' nor 'term'):
+	//     refusing to create a nameless entity, which cannot be deduped or linked
+	//
+	// …and that refusal is correct — it is the guard that stopped 215 of 224 nameless
+	// `terminology` rows. The consequence is that PARKING IS IMPOSSIBLE: every extraction
+	// that meets an unresolvable kind returns 500 for the whole call, which is the exact
+	// opposite of the "extract-entities never drops" property parking exists to provide.
+	//
+	// schemaSQL already carries this intent — an INSERT of name/aliases/description for
+	// `unknown` — but it writes to `system_kind_attributes`, the pre-G4 table that G4e
+	// DROPS later in the same chain. So the statement runs, succeeds, and is discarded;
+	// on a freshly migrated database the table does not survive to be read. Dead code that
+	// looks like coverage, which is why the live `loreweave_glossary` shows `unknown` with
+	// no attributes at all while every other kind has its set.
+	//
+	// Seeded here instead, in the tier the readers actually use, on `universal` so it
+	// applies regardless of the book's genres.
+	for _, a := range []struct {
+		Code, Name, FieldType string
+		Required              bool
+		Sort                  int
+	}{
+		{"name", "Name", "text", true, 1},
+		{"aliases", "Aliases", "tags", false, 2},
+		{"description", "Description", "textarea", false, 3},
+	} {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO system_attributes
+			  (kind_id, genre_id, code, name, field_type, is_required, sort_order, content_hash)
+			SELECT k.kind_id, g.genre_id, $1, $2, $3, $4::boolean, $5,
+			       md5($1||'|'||$2||'|'||$3||'|'||($4::boolean)::text)
+			FROM system_kinds k, system_genres g
+			WHERE k.code = 'unknown' AND g.code = 'universal'
+			ON CONFLICT (kind_id, genre_id, code) DO NOTHING`,
+			a.Code, a.Name, a.FieldType, a.Required, a.Sort,
+		); err != nil {
+			return fmt.Errorf("seed unknown-kind attr %s: %w", a.Code, err)
 		}
 	}
 

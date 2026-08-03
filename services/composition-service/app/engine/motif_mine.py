@@ -80,6 +80,7 @@ from app.clients.llm_client import LLMClient
 from app.config import settings
 from app.db.models import Motif, MotifBeat, MotifCreateArgs, MotifRole
 from app.engine.critic import parse_critique_json
+from app.llm_budget import unusable, max_tokens_for
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,20 @@ __all__ = [
 
 _VALID_ACTANTS = {"subject", "object", "sender", "receiver", "helper", "opponent"}
 _VALID_KINDS = {"sequence", "situation", "hook", "emotion_arc", "trope", "pattern", "scheme"}
+
+#: The abstraction shape, with both closed sets enforced at the decoder. `beats` stays loose — its
+#: contents are the craft, and constraining prose is what this must never do.
+_ABSTRACTION_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "kind": {"type": "string", "enum": sorted(_VALID_KINDS)},
+        "summary": {"type": "string"},
+        "actants": {"type": "array", "items": {"type": "string", "enum": sorted(_VALID_ACTANTS)}},
+    },
+    "required": ["name", "kind", "summary"],
+    "additionalProperties": True,
+}
 
 # D-W8-MOTIF-BEAT-LLM-EXTRACTOR — how many of the user's visible motifs form the tag-beats
 # vocabulary. The whole seeded system catalog (~60) + a user's own motifs fits comfortably in
@@ -293,7 +308,7 @@ def _motif_args(spec: dict[str, Any], *, index: int, language: str) -> MotifCrea
     return MotifCreateArgs(
         code=_slug(spec.get("code"), f"mined.motif-{index}"),
         name=str(spec.get("name") or f"Mined Motif {index + 1}")[:500],
-        language=language,
+        original_language=language,
         kind=kind,
         summary=str(spec.get("summary") or "")[:20000],
         roles=roles,
@@ -385,14 +400,19 @@ async def mine_motifs(
             input={
                 "messages": [{"role": "system", "content": sys_a},
                              {"role": "user", "content": usr_a}],
-                "response_format": {"type": "text"}, "temperature": 0.3,
-                "max_tokens": 1024,
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {"name": "motif_abstraction", "schema": _ABSTRACTION_SCHEMA},
+                },
+                "temperature": 0.3,
+                # `target=1`: one abstraction object per pattern.
+                "max_tokens": max_tokens_for("motif_abstraction", target=1),
             },
             job_meta={"extractor": "motif_mine", "pattern": list(pattern)},
         )
-        if getattr(job, "status", None) != "completed":
+        if (why := unusable(job, "motif_abstraction")):
             logger.warning("mine: abstraction not completed for pattern=%s: %s",
-                           pattern, getattr(job, "status", None))
+                           pattern, why)
             candidates.append({
                 "pattern": list(pattern), "mining_support": support,
                 "judge_score": 0.0, "passed_gate": False,
@@ -415,7 +435,7 @@ async def mine_motifs(
                 "messages": [{"role": "system", "content": sys_j},
                              {"role": "user", "content": usr_j}],
                 "response_format": {"type": "text"}, "temperature": 0.0,
-                "max_tokens": 256,
+                "max_tokens": max_tokens_for("motif_mine_judge", target=1),
             },
             job_meta={"extractor": "motif_mine_judge", "pattern": list(pattern)},
         )
