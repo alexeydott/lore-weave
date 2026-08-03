@@ -65,6 +65,8 @@ The comparison is available through `GET /v1/epub-imports/{source_id}/shadow-com
 covered by API/unit contract tests. `opt_in`, `default`, and `legacy_disabled` continue to route
 new EPUB jobs through the V2 worker. Promotion still requires live shadow corpus evidence and a
 documented default-mode decision; shadow is not treated as proof of semantic equivalence.
+Local Docker Compose now uses `EPUB_IMPORT_V2_MODE=opt_in` by default; production deployments
+must set the mode explicitly during staged rollout.
 
 **Worker recovery checkpoint (2026-08-03):** Redis Stream consumers now use a hostname-qualified
 consumer ID and scan the group PENDING list with `XAUTOCLAIM` only after a 15-minute idle period.
