@@ -127,6 +127,12 @@ func safeResourceURL(raw string, image bool) bool {
 	if err != nil || parsed.IsAbs() || strings.HasPrefix(value, "//") {
 		return false
 	}
+	// Resolved EPUB assets are served through the platform media route. This is
+	// the only absolute-path resource allowed by the import profile; all other
+	// absolute references could escape the Book-owned asset boundary.
+	if strings.HasPrefix(parsed.Path, "/media/") {
+		return image && parsed.RawQuery == "" && parsed.Fragment == ""
+	}
 	return !strings.HasPrefix(parsed.Path, "/") && !strings.Contains(parsed.Path, "\\")
 }
 

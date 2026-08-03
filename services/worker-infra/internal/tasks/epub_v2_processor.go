@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -74,6 +76,16 @@ func (t *ImportProcessor) processEPUBV2(ctx context.Context, payload importReque
 			}
 			continue
 		}
+		html, assetWarnings, err := epubimport.ResolveAndRewriteAssets(data, node.SourceHref, html, epubimport.DefaultLimits(), func(asset epubimport.ResolvedAsset) (string, error) {
+			return t.storeEPUBAsset(ctx, payload.JobID, inspection.SHA256, claim.SourceKey, asset)
+		})
+		warnings = append(warnings, assetWarnings...)
+		if err != nil {
+			if failErr := t.failEPUBItem(ctx, payload.JobID, claim.ItemID, "epub_asset_resolution_failed", "failed to resolve chapter assets"); failErr != nil {
+				return failErr
+			}
+			continue
+		}
 		sanitized, sanitizeWarnings, err := epubimport.SanitizeHTML(html)
 		warnings = append(warnings, sanitizeWarnings...)
 		if err != nil {
@@ -82,6 +94,8 @@ func (t *ImportProcessor) processEPUBV2(ctx context.Context, payload importReque
 			}
 			continue
 		}
+		links, linkWarnings := epubimport.CollectInternalLinks(node.SourceHref, sanitized)
+		warnings = append(warnings, linkWarnings...)
 		lang := payload.OriginalLanguage
 		if lang == "" {
 			lang = "und"
@@ -96,7 +110,7 @@ func (t *ImportProcessor) processEPUBV2(ctx context.Context, payload importReque
 		chapter := tree.Parts[0].Chapters[0]
 		staging, err := json.Marshal(map[string]any{
 			"source_key": claim.SourceKey, "title": claim.Title,
-			"tiptap_json": json.RawMessage(htmlToTiptapJSON(chapter.HTML)), "scenes": chapter.Scenes,
+			"tiptap_json": json.RawMessage(htmlToTiptapJSON(chapter.HTML)), "scenes": chapter.Scenes, "links": links,
 		})
 		if err != nil {
 			return fmt.Errorf("marshal staging payload: %w", err)
@@ -104,6 +118,50 @@ func (t *ImportProcessor) processEPUBV2(ctx context.Context, payload importReque
 		if err := t.stageEPUBItem(ctx, payload.JobID, claim.ItemID, staging, warnings); err != nil {
 			return err
 		}
+	}
+}
+
+func (t *ImportProcessor) storeEPUBAsset(ctx context.Context, jobID, sourceSHA, sourceKey string, asset epubimport.ResolvedAsset) (string, error) {
+	objectKey := fmt.Sprintf("imports/assets/%s/%s%s", sourceSHA, asset.SHA256, path.Ext(asset.SourcePath))
+	if strings.HasPrefix(asset.SourcePath, "data:") {
+		objectKey = fmt.Sprintf("imports/assets/%s/%s%s", sourceSHA, asset.SHA256, epubAssetExtension(asset.MediaType))
+	}
+	if _, err := t.Minio.PutObject(ctx, t.Cfg.MinioBucket, objectKey, bytes.NewReader(asset.Data), asset.SizeBytes, minio.PutObjectOptions{ContentType: asset.MediaType}); err != nil {
+		return "", fmt.Errorf("store EPUB asset: %w", err)
+	}
+	var stored struct {
+		URL string `json:"url"`
+	}
+	if err := t.epubV2JSON(ctx, http.MethodPost, fmt.Sprintf("/internal/epub-import-jobs/%s/assets", jobID), map[string]any{
+		"source_path":       asset.SourcePath,
+		"source_media_type": asset.MediaType,
+		"sha256":            asset.SHA256,
+		"size_bytes":        asset.SizeBytes,
+		"object_key":        objectKey,
+	}, &stored); err != nil {
+		return "", err
+	}
+	if !strings.HasPrefix(stored.URL, "/media/") {
+		return "", fmt.Errorf("book service returned invalid EPUB asset URL")
+	}
+	slog.InfoContext(ctx, "epub import asset stored", "job_id", jobID, "source_key", sourceKey, "asset_sha256", asset.SHA256, "size_bytes", asset.SizeBytes)
+	return stored.URL, nil
+}
+
+func epubAssetExtension(mediaType string) string {
+	switch mediaType {
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/gif":
+		return ".gif"
+	case "image/webp":
+		return ".webp"
+	case "image/svg+xml":
+		return ".svg"
+	default:
+		return ".bin"
 	}
 }
 

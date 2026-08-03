@@ -86,3 +86,32 @@ func TestNormalizeEPUBReportWarningMakesRollbackConflictActionable(t *testing.T)
 		t.Fatal("rollback conflict did not receive an actionable message")
 	}
 }
+
+func TestValidEPUBImportAssetRequestRejectsUnsafeMetadata(t *testing.T) {
+	valid := upsertEPUBImportAssetRequest{
+		SourcePath:      "OPS/images/cover.png",
+		SourceMediaType: "image/png",
+		SHA256:          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		SizeBytes:       8,
+		ObjectKey:       "imports/assets/source/asset.png",
+	}
+	if !validEPUBImportAssetRequest(valid) {
+		t.Fatal("valid EPUB asset metadata was rejected")
+	}
+	valid.SHA256 = "not-a-sha"
+	if validEPUBImportAssetRequest(valid) {
+		t.Fatal("invalid EPUB asset digest was accepted")
+	}
+}
+
+func TestValidEPUBImportAssetObjectKeyIsScopedToDigest(t *testing.T) {
+	digest := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	body := upsertEPUBImportAssetRequest{SourceMediaType: "image/png", SHA256: digest, ObjectKey: "imports/assets/source/" + digest + ".png"}
+	if !validEPUBImportAssetObjectKey("source", body) {
+		t.Fatal("valid EPUB asset key was rejected")
+	}
+	body.ObjectKey = "imports/assets/source/../" + digest + ".png"
+	if validEPUBImportAssetObjectKey("source", body) {
+		t.Fatal("traversal asset key was accepted")
+	}
+}

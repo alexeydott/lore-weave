@@ -243,6 +243,7 @@ func (s *Server) Router() http.Handler {
 		r.Post("/epub-import-jobs/{job_id}/claim-next", s.claimNextEPUBImportItem)
 		r.Post("/epub-import-jobs/{job_id}/items/{item_id}/stage", s.stageEPUBImportItem)
 		r.Post("/epub-import-jobs/{job_id}/items/{item_id}/fail", s.failEPUBImportItem)
+		r.Post("/epub-import-jobs/{job_id}/assets", s.upsertEPUBImportAsset)
 		r.Post("/epub-import-jobs/{job_id}/finalize", s.finalizeEPUBImport)
 		// WS-1.8 (spec 06 §Q10) — the journal distiller's ONLY write seam: draft-only,
 		// owner-scoped, idempotent primary-per-day diary entry. Internal-token (the worker

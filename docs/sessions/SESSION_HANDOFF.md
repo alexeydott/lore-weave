@@ -19,17 +19,28 @@ only discovers scenes inside the supplied chapter. The existing import dialog sh
 worker state without a fixed client timeout. Local Docker Compose raises PostgreSQL
 `max_connections` to 300 for the multi-service development stack.
 
-**Verified:** `go test ./...` passes for Book Service and worker-infra; `pnpm build` passes for
-the frontend; targeted Knowledge parser tests pass (12). Full Knowledge pytest currently reports
+**Asset and link checkpoint (2026-08-03):** the shared EPUB package now resolves supported local
+and data-URI images by DOM, validates their declared type against byte signatures, hashes them,
+and rewrites source references only after worker-infra uploads to a deterministic Book-owned
+object key. Book Service records the asset provenance idempotently and returns the public media
+URL. Unsupported, external, missing, or invalid assets produce typed item warnings. Worker also
+records normalized internal EPUB href/fragment intents. During Book-owned finalize, only the
+matching TipTap link marks in newly materialized chapters are rewritten to reader routes after all
+chapter IDs exist; external links are untouched and excluded/missing targets remain intact with a
+warning. The asset endpoint additionally constrains object keys to the source SHA-256 namespace
+and MIME-specific digest filename.
+
+**Verified:** `go test ./...` passes for Book Service, worker-infra, and `pkg/epubimport`; `pnpm build`
+passes for the frontend; BFF dependencies were installed with `npm ci`, then `npm test` passed
+(14 suites, 201 tests) and `npm run build` passed. Targeted Knowledge parser tests pass (12). Full Knowledge pytest currently reports
 `4080 passed, 561 skipped, 9 failed`; failures are unrelated router/test-double compatibility in
 `test_causal_edges`, `test_motif_*`, `test_tag_beats`, `test_thread_tag`, and
-`test_internal_job_control`. BFF Jest cannot run locally because its `node_modules` are absent.
-The Book OpenAPI Spectral run is also blocked by pre-existing duplicate FB2 response keys in the
+`test_internal_job_control`. The Book OpenAPI Spectral run is also blocked by pre-existing duplicate FB2 response keys in the
 base contract; do not conflate those failures with EPUB V2.
 
-**Next EPUB work:** assets and URL rewriting, internal-link/footnote finalize pass, hierarchy
-materialization in Composition, the full preview wizard, worker redelivery recovery, and live
-E2E fixtures. Do not reintroduce the legacy combined-HTML chapter path.
+**Next EPUB work:** hierarchy materialization in Composition, the full preview wizard, worker
+redelivery recovery, strategy/asset-cleanup E2E coverage, and live fixtures. Do not reintroduce
+the legacy combined-HTML chapter path.
 
 ## 📚 FB2 BOOK IMPORT — SOURCE IMPLEMENTED, LIVE UI CHECK PENDING (2026-08-02)
 

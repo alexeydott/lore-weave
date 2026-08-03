@@ -219,6 +219,22 @@ type Asset struct {
 	SizeBytes  int64  `json:"size_bytes"`
 }
 
+// ResolvedAsset is an image extracted from an EPUB content document. Data is
+// deliberately transient: callers must store it in object storage and retain
+// only the returned URL and provenance metadata.
+type ResolvedAsset struct {
+	SourcePath string `json:"source_path"`
+	MediaType  string `json:"media_type"`
+	SHA256     string `json:"sha256"`
+	SizeBytes  int64  `json:"size_bytes"`
+	Data       []byte `json:"-"`
+}
+
+// AssetURLResolver persists a validated asset and returns the browser-safe URL
+// that replaces its EPUB-local reference. The resolver owns storage policy;
+// this package never accesses a network or object store.
+type AssetURLResolver func(ResolvedAsset) (string, error)
+
 // Inspection contains no extracted manuscript HTML. It is safe to persist as
 // the preview payload and use to initialize import items.
 type Inspection struct {

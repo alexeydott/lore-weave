@@ -11,15 +11,27 @@ import (
 )
 
 type epubStagingPayload struct {
-	SourceKey  string          `json:"source_key"`
-	Title      string          `json:"title"`
-	TiptapJSON json.RawMessage `json:"tiptap_json"`
+	SourceKey  string            `json:"source_key"`
+	Title      string            `json:"title"`
+	TiptapJSON json.RawMessage   `json:"tiptap_json"`
+	Links      []epubStagingLink `json:"links"`
 	Scenes     []struct {
 		SortOrder   int    `json:"sort_order"`
 		Path        string `json:"path"`
 		LeafText    string `json:"leaf_text"`
 		ContentHash string `json:"content_hash"`
 	} `json:"scenes"`
+}
+
+type materializedEPUBImportChapter struct {
+	itemID         uuid.UUID
+	chapterID      uuid.UUID
+	revisionID     uuid.UUID
+	sourceKey      string
+	sourceHref     string
+	sourceFragment string
+	tiptapJSON     json.RawMessage
+	links          []epubStagingLink
 }
 
 func (s *Server) finalizeEPUBImport(w http.ResponseWriter, r *http.Request) {
@@ -82,6 +94,7 @@ ORDER BY ordinal
 	}
 	defer rows.Close()
 	created := 0
+	materialized := make([]materializedEPUBImportChapter, 0)
 	for rows.Next() {
 		var itemID uuid.UUID
 		var sourceKey, title string
@@ -139,10 +152,20 @@ INSERT INTO chapter_import_provenance(
 		if _, err := tx.Exec(ctx, `UPDATE import_job_items SET chapter_id=$2,status='active',updated_at=now() WHERE id=$1`, itemID, chapterID); err != nil {
 			return 0, err
 		}
+		materialized = append(materialized, materializedEPUBImportChapter{
+			itemID: itemID, chapterID: chapterID, revisionID: revisionID,
+			sourceKey:  sourceKey,
+			sourceHref: dereferenceString(sourceHref), sourceFragment: dereferenceString(sourceFragment),
+			tiptapJSON: staging.TiptapJSON, links: staging.Links,
+		})
 		created++
 		nextSort++
 	}
 	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	rows.Close()
+	if err := rewriteMaterializedEPUBLinks(ctx, tx, bookID, jobID, materialized); err != nil {
 		return 0, err
 	}
 	var warningCount int
@@ -164,4 +187,71 @@ INSERT INTO chapter_import_provenance(
 		return 0, err
 	}
 	return created, nil
+}
+
+func rewriteMaterializedEPUBLinks(ctx context.Context, tx pgx.Tx, bookID, jobID uuid.UUID, materialized []materializedEPUBImportChapter) error {
+	if len(materialized) == 0 {
+		return nil
+	}
+	rows, err := tx.Query(ctx, `
+SELECT chapter_id,COALESCE(source_href,''),COALESCE(source_fragment,'')
+FROM import_job_items
+WHERE job_id=$1 AND selected AND status='active' AND chapter_id IS NOT NULL
+ORDER BY ordinal
+`, jobID)
+	if err != nil {
+		return err
+	}
+	targets := make([]epubChapterLinkTarget, 0)
+	for rows.Next() {
+		var target epubChapterLinkTarget
+		if err := rows.Scan(&target.ChapterID, &target.SourceHref, &target.SourceFragment); err != nil {
+			rows.Close()
+			return err
+		}
+		targets = append(targets, target)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	for _, chapter := range materialized {
+		rewritten, warnings, err := rewriteEPUBInternalLinks(chapter.tiptapJSON, bookID,
+			epubChapterLinkTarget{ChapterID: chapter.chapterID, SourceHref: chapter.sourceHref, SourceFragment: chapter.sourceFragment}, chapter.links, targets)
+		if err != nil {
+			return fmt.Errorf("rewrite chapter links: %w", err)
+		}
+		if string(rewritten) != string(chapter.tiptapJSON) {
+			if _, err := tx.Exec(ctx, `UPDATE chapter_drafts SET body=$2 WHERE chapter_id=$1`, chapter.chapterID, rewritten); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `UPDATE chapter_revisions SET body=$2 WHERE id=$1`, chapter.revisionID, rewritten); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `UPDATE chapters SET byte_size=$2 WHERE id=$1`, chapter.chapterID, len(rewritten)); err != nil {
+				return err
+			}
+		}
+		if len(warnings) > 0 {
+			for index := range warnings {
+				warnings[index].SourceKey = chapter.sourceKey
+			}
+			encoded, err := json.Marshal(warnings)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `UPDATE import_job_items SET warnings_json=warnings_json || $2::jsonb,updated_at=now() WHERE id=$1`, chapter.itemID, encoded); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func dereferenceString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

@@ -35,3 +35,13 @@ func TestSanitizeHTMLRejectsExternalAndScriptURLs(t *testing.T) {
 		t.Fatalf("safe data image removed: %q", result)
 	}
 }
+
+func TestSanitizeHTMLRetainsBookOwnedMediaURL(t *testing.T) {
+	result, _, err := SanitizeHTML(`<img src="/media/loreweave-dev-books/imports/assets/sha/image.png">`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result, `src="/media/loreweave-dev-books/imports/assets/sha/image.png"`) {
+		t.Fatalf("Book-owned media URL was removed: %q", result)
+	}
+}

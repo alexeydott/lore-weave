@@ -127,6 +127,15 @@ func TestParseClientCallChapterUsesBoundaryPreservingEndpoint(t *testing.T) {
 	}
 }
 
+func TestEPUBAssetExtensionUsesValidatedMediaType(t *testing.T) {
+	if got := epubAssetExtension("image/png"); got != ".png" {
+		t.Fatalf("epubAssetExtension(image/png) = %q, want .png", got)
+	}
+	if got := epubAssetExtension("application/octet-stream"); got != ".bin" {
+		t.Fatalf("epubAssetExtension(unknown) = %q, want .bin", got)
+	}
+}
+
 func TestParseClientCallOmitsEmptyLanguageAndFilename(t *testing.T) {
 	t.Parallel()
 
