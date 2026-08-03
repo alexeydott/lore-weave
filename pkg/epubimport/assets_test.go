@@ -90,3 +90,21 @@ func TestResolveAndRewriteAssetsDecodesDataURI(t *testing.T) {
 		t.Fatalf("data URI was not rewritten: %q", result)
 	}
 }
+
+func TestExtractCoverValidatesCandidateBytes(t *testing.T) {
+	png := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}
+	data := buildTestEPUB(t, map[string]string{
+		"mimetype":               epubMIME,
+		"META-INF/container.xml": `<container><rootfiles><rootfile full-path="book.opf"/></rootfiles></container>`,
+		"book.opf":               `<package><manifest><item id="cover" href="cover.png" media-type="image/png" properties="cover-image"/><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>`,
+		"chapter.xhtml":          `<html><body><p>fixture</p></body></html>`,
+		"cover.png":              string(png),
+	})
+	cover, err := ExtractCover(data, CoverCandidate{SourcePath: "cover.png", MediaType: "image/png"}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cover.MediaType != "image/png" || cover.SHA256 == "" || string(cover.Data) != string(png) {
+		t.Fatalf("cover = %#v", cover)
+	}
+}

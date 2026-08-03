@@ -46,6 +46,37 @@ func ResolveAndRewriteAssets(epub []byte, contentHref, rawHTML string, limits Li
 	return output.String(), resolver.diagnostics, nil
 }
 
+// ExtractCover reads the already inspected cover candidate from a retained
+// EPUB source. Callers own destination storage and must decide when the
+// user-approved cover policy permits applying it to a book.
+func ExtractCover(epub []byte, candidate CoverCandidate, limits Limits) (ResolvedAsset, error) {
+	archive, err := openEPUBAssetArchive(epub, limits.Normalize())
+	if err != nil {
+		return ResolvedAsset{}, err
+	}
+	sourcePath, err := canonicalArchivePath(candidate.SourcePath)
+	if err != nil {
+		return ResolvedAsset{}, err
+	}
+	file, ok := archive.files[sourcePath]
+	if !ok {
+		return ResolvedAsset{}, &Error{Code: CodeContentUnavailable, Message: "EPUB cover resource is unavailable"}
+	}
+	manifest, ok := archive.manifestAsset(sourcePath)
+	if !ok {
+		return ResolvedAsset{}, &Error{Code: CodeUnsupportedResource, Message: "EPUB cover is not declared in the manifest"}
+	}
+	data, err := archive.read(file)
+	if err != nil || int64(len(data)) > limits.Normalize().MaxSingleEntrySize {
+		return ResolvedAsset{}, &Error{Code: CodeUnsupportedResource, Message: "EPUB cover exceeds the configured size limit"}
+	}
+	mediaType, ok := validateImageBytes(data, manifest.MediaType)
+	if !ok {
+		return ResolvedAsset{}, &Error{Code: CodeUnsupportedResource, Message: "EPUB cover MIME type is invalid"}
+	}
+	return ResolvedAsset{SourcePath: sourcePath, MediaType: mediaType, SHA256: hash(data), SizeBytes: int64(len(data)), Data: data}, nil
+}
+
 func openEPUBAssetArchive(epub []byte, limits Limits) (*archive, error) {
 	inspection, err := Inspect(epub, limits)
 	if err != nil {
