@@ -38,6 +38,11 @@ base contract; these are tracked separately and are not EPUB V2 regressions.
 - Container inspection confirmed the runtime shadow mode and asset retention
   configuration. Shadow inspection remains source-scoped and non-mutating for
   jobs/chapters.
+- Added `TestEPUBShadowCorpusComparison` covering EPUB 3 nested navigation,
+  EPUB 2 NCX, and spine fallback through the real inspector and shadow projection.
+  The test asserts legacy/V2 chapter counts, delta, navigation source, and the
+  fallback warning. This is fixture evidence, not a substitute for authenticated
+  production-sample evidence.
 
 ### Safe production promotion gate
 
