@@ -30,6 +30,13 @@ chapter IDs exist; external links are untouched and excluded/missing targets rem
 warning. The asset endpoint additionally constrains object keys to the source SHA-256 namespace
 and MIME-specific digest filename.
 
+**Worker recovery checkpoint (2026-08-03):** Redis Stream consumers now use a hostname-qualified
+consumer ID and scan the group PENDING list with `XAUTOCLAIM` only after a 15-minute idle period.
+This lets a restarted worker reclaim stranded import jobs without racing a healthy worker. Book
+finalize treats `processing` items as unfinished, so a redelivered message cannot activate a
+partial import while another worker owns its current item. The original message is acknowledged
+only after durable finalize; retryable Book/MinIO/parser failures remain pending for reclaim.
+
 **Verified:** `go test ./...` passes for Book Service, worker-infra, and `pkg/epubimport`; `pnpm build`
 passes for the frontend; BFF dependencies were installed with `npm ci`, then `npm test` passed
 (14 suites, 201 tests) and `npm run build` passed. Targeted Knowledge parser tests pass (12). Full Knowledge pytest currently reports

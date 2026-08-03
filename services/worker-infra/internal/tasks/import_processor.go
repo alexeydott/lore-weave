@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -50,6 +51,13 @@ const (
 	importStream   = "loreweave:events:chapter" // outbox-relay publishes here with event_type=import.requested
 	importGroup    = "import-processor"
 	importConsumer = "worker-1"
+
+	// A claimed message represents a whole import job, so it is deliberately
+	// longer than the reference 500-chapter import target. A restarted worker
+	// reclaims only genuinely stale deliveries; concurrent healthy workers do
+	// not steal one another's in-flight job.
+	importPendingClaimIdle  = 15 * time.Minute
+	importPendingClaimCount = 4
 )
 
 func (t *ImportProcessor) Run(ctx context.Context) error {
@@ -81,8 +89,14 @@ func (t *ImportProcessor) Run(ctx context.Context) error {
 		}
 	}
 
-	// Create consumer group (ignore error if already exists)
-	t.Redis.XGroupCreateMkStream(ctx, importStream, importGroup, "0").Err()
+	// Create consumer group (ignore BUSYGROUP when another replica got there
+	// first). Each process gets its own consumer name so Redis can identify
+	// stale PENDING ownership after a restart.
+	if err := t.Redis.XGroupCreateMkStream(ctx, importStream, importGroup, "0").Err(); err != nil && !strings.Contains(err.Error(), "BUSYGROUP") {
+		return fmt.Errorf("create import consumer group: %w", err)
+	}
+	consumer := importConsumerID()
+	pendingClaimStart := "0-0"
 
 	for {
 		select {
@@ -92,79 +106,104 @@ func (t *ImportProcessor) Run(ctx context.Context) error {
 		default:
 		}
 
-		results, err := t.Redis.XReadGroup(ctx, &redis.XReadGroupArgs{
-			Group:    importGroup,
-			Consumer: importConsumer,
-			Streams:  []string{importStream, ">"},
-			Count:    1,
-			Block:    5 * time.Second,
+		messages, nextStart, claimErr := t.Redis.XAutoClaim(ctx, &redis.XAutoClaimArgs{
+			Stream: importStream, Group: importGroup, Consumer: consumer,
+			MinIdle: importPendingClaimIdle, Start: pendingClaimStart, Count: importPendingClaimCount,
 		}).Result()
-		if err != nil {
-			if err == redis.Nil || strings.Contains(err.Error(), "context") {
+		if claimErr != nil && claimErr != redis.Nil {
+			slog.Warn("import-processor XAUTOCLAIM", "error", claimErr)
+			messages = nil
+		} else if nextStart != "" {
+			pendingClaimStart = nextStart
+		}
+		if len(messages) == 0 {
+			results, err := t.Redis.XReadGroup(ctx, &redis.XReadGroupArgs{
+				Group: importGroup, Consumer: consumer, Streams: []string{importStream, ">"},
+				Count: 1, Block: 5 * time.Second,
+			}).Result()
+			if err != nil {
+				if err == redis.Nil || strings.Contains(err.Error(), "context") {
+					continue
+				}
+				slog.Error("import-processor XREADGROUP", "error", err)
+				time.Sleep(2 * time.Second)
 				continue
 			}
-			slog.Error("import-processor XREADGROUP", "error", err)
-			time.Sleep(2 * time.Second)
-			continue
-		}
-
-		for _, stream := range results {
-			for _, msg := range stream.Messages {
-				eventType, _ := msg.Values["event_type"].(string)
-				if eventType != "import.requested" {
-					t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
-					continue
-				}
-
-				payloadStr, _ := msg.Values["payload"].(string)
-				var payload importRequestedPayload
-				if err := json.Unmarshal([]byte(payloadStr), &payload); err != nil {
-					slog.Error("import-processor bad payload", "error", err, "msg_id", msg.ID)
-					t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
-					continue
-				}
-
-				slog.Info("import-processor processing", "job_id", payload.JobID, "format", payload.FileFormat)
-				if payload.PipelineVersion == epubImportPipelineVersion {
-					if err := t.processEPUBV2(ctx, payload); err != nil {
-						slog.Error("epub v2 staging failed", "job_id", payload.JobID, "error", err)
-						// The item status is owned by Book Service. Do not overwrite it
-						// through the legacy job endpoint or acknowledge a retryable
-						// transport failure as if it had completed.
-						continue
-					}
-					t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
-					continue
-				}
-				t.updateJobStatus(ctx, payload.JobID, "processing", 0, nil)
-				t.publishWSEvent(ctx, payload.UserID, payload.JobID, "processing", 0, nil)
-
-				var chaptersCreated int
-				var procErr error
-				if payload.FileFormat == "pdf" {
-					// docs/specs/2026-07-06-pdf-book-import.md — dedicated
-					// per-chunk pipeline (L6): skips pandoc, loops chunks
-					// against knowledge-service /internal/parse/pdf-chunk
-					// instead of one whole-book /internal/parse call.
-					chaptersCreated, procErr = t.processPdfImport(ctx, payload)
-				} else {
-					chaptersCreated, procErr = t.processImport(ctx, payload)
-				}
-				if procErr != nil {
-					slog.Error("import-processor failed", "job_id", payload.JobID, "error", procErr)
-					errMsg := procErr.Error()
-					t.updateJobStatus(ctx, payload.JobID, "failed", chaptersCreated, &errMsg)
-					t.publishWSEvent(ctx, payload.UserID, payload.JobID, "failed", chaptersCreated, &errMsg)
-				} else {
-					slog.Info("import-processor completed", "job_id", payload.JobID, "chapters", chaptersCreated)
-					t.updateJobStatus(ctx, payload.JobID, "completed", chaptersCreated, nil)
-					t.publishWSEvent(ctx, payload.UserID, payload.JobID, "completed", chaptersCreated, nil)
-				}
-
-				t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
+			for _, stream := range results {
+				messages = append(messages, stream.Messages...)
 			}
 		}
+
+		for _, msg := range messages {
+			eventType, _ := msg.Values["event_type"].(string)
+			if eventType != "import.requested" {
+				t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
+				continue
+			}
+
+			payloadStr, _ := msg.Values["payload"].(string)
+			var payload importRequestedPayload
+			if err := json.Unmarshal([]byte(payloadStr), &payload); err != nil {
+				slog.Error("import-processor bad payload", "error", err, "msg_id", msg.ID)
+				t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
+				continue
+			}
+
+			slog.Info("import-processor processing", "job_id", payload.JobID, "format", payload.FileFormat)
+			if payload.PipelineVersion == epubImportPipelineVersion {
+				if err := t.processEPUBV2(ctx, payload); err != nil {
+					slog.Error("epub v2 staging failed", "job_id", payload.JobID, "error", err)
+					// The item status is owned by Book Service. Do not overwrite it
+					// through the legacy job endpoint or acknowledge a retryable
+					// transport failure as if it had completed.
+					continue
+				}
+				t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
+				continue
+			}
+			t.updateJobStatus(ctx, payload.JobID, "processing", 0, nil)
+			t.publishWSEvent(ctx, payload.UserID, payload.JobID, "processing", 0, nil)
+
+			var chaptersCreated int
+			var procErr error
+			if payload.FileFormat == "pdf" {
+				// docs/specs/2026-07-06-pdf-book-import.md — dedicated
+				// per-chunk pipeline (L6): skips pandoc, loops chunks
+				// against knowledge-service /internal/parse/pdf-chunk
+				// instead of one whole-book /internal/parse call.
+				chaptersCreated, procErr = t.processPdfImport(ctx, payload)
+			} else {
+				chaptersCreated, procErr = t.processImport(ctx, payload)
+			}
+			if procErr != nil {
+				slog.Error("import-processor failed", "job_id", payload.JobID, "error", procErr)
+				errMsg := procErr.Error()
+				t.updateJobStatus(ctx, payload.JobID, "failed", chaptersCreated, &errMsg)
+				t.publishWSEvent(ctx, payload.UserID, payload.JobID, "failed", chaptersCreated, &errMsg)
+			} else {
+				slog.Info("import-processor completed", "job_id", payload.JobID, "chapters", chaptersCreated)
+				t.updateJobStatus(ctx, payload.JobID, "completed", chaptersCreated, nil)
+				t.publishWSEvent(ctx, payload.UserID, payload.JobID, "completed", chaptersCreated, nil)
+			}
+
+			t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
+		}
 	}
+}
+
+func importConsumerID() string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = ""
+	}
+	return importConsumerIDForHostname(hostname)
+}
+
+func importConsumerIDForHostname(hostname string) string {
+	if strings.TrimSpace(hostname) == "" {
+		return importConsumer
+	}
+	return importConsumer + "-" + strings.ReplaceAll(strings.TrimSpace(hostname), " ", "-")
 }
 
 // importRequestedPayload mirrors book-service's import.requested outbox

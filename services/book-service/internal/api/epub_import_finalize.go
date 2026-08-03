@@ -72,11 +72,11 @@ WHERE j.id=$1 AND j.pipeline_version=$2 FOR UPDATE`, jobID, epubImportPipelineVe
 		_ = tx.QueryRow(ctx, `SELECT chapters_created FROM import_jobs WHERE id=$1`, jobID).Scan(&existing)
 		return existing, tx.Commit(ctx)
 	}
-	var pending, failed int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE selected AND status IN ('pending','processing')), count(*) FILTER (WHERE selected AND status='failed') FROM import_job_items WHERE job_id=$1`, jobID).Scan(&pending, &failed); err != nil {
+	var pending, processing, failed int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE selected AND status='pending'), count(*) FILTER (WHERE selected AND status='processing'), count(*) FILTER (WHERE selected AND status='failed') FROM import_job_items WHERE job_id=$1`, jobID).Scan(&pending, &processing, &failed); err != nil {
 		return 0, err
 	}
-	if pending != 0 || failed != 0 {
+	if !canFinalizeEPUBImport(pending, processing, failed) {
 		return 0, fmt.Errorf("import items are not ready")
 	}
 	var nextSort int
@@ -187,6 +187,10 @@ INSERT INTO chapter_import_provenance(
 		return 0, err
 	}
 	return created, nil
+}
+
+func canFinalizeEPUBImport(pending, processing, failed int) bool {
+	return pending == 0 && processing == 0 && failed == 0
 }
 
 func rewriteMaterializedEPUBLinks(ctx context.Context, tx pgx.Tx, bookID, jobID uuid.UUID, materialized []materializedEPUBImportChapter) error {

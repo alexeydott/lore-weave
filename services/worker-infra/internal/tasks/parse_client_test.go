@@ -136,6 +136,15 @@ func TestEPUBAssetExtensionUsesValidatedMediaType(t *testing.T) {
 	}
 }
 
+func TestImportConsumerIDForHostname(t *testing.T) {
+	if got := importConsumerIDForHostname("worker-a"); got != "worker-1-worker-a" {
+		t.Fatalf("consumer = %q", got)
+	}
+	if got := importConsumerIDForHostname(" "); got != importConsumer {
+		t.Fatalf("empty consumer = %q", got)
+	}
+}
+
 func TestParseClientCallOmitsEmptyLanguageAndFilename(t *testing.T) {
 	t.Parallel()
 
