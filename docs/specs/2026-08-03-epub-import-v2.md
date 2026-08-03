@@ -88,6 +88,8 @@ required for EPUB V2 and rejects a missing source with `import_source_missing`.
 The supported modes are `off`, `shadow`, `opt_in`, `default`, and `legacy_disabled`.
 The deployment limits compressed bytes, uncompressed bytes, entry count, single-entry bytes,
 compression ratio, content documents, navigation nodes, assets, and chapter HTML bytes.
+`EPUB_IMPORT_ASSET_RETENTION_HOURS` controls the Book-owned orphaned-asset GC window (default
+168 hours); failed object deletions remain retryable and retained source EPUBs are never removed.
 
 The importer rejects encrypted/DRM EPUBs, unsafe archive paths, archive collisions, and
 executable or externally fetched HTML content with typed diagnostics. No default EPUB action

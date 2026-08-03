@@ -80,7 +80,8 @@ type Config struct {
 	// EPUBImportV2Mode controls whether the retained-source, item-level EPUB
 	// pipeline may create worker jobs. "off" remains the safe default while
 	// deployments roll out the Book and worker changes together.
-	EPUBImportV2Mode string
+	EPUBImportV2Mode              string
+	EPUBImportAssetRetentionHours int64
 }
 
 func Load() (*Config, error) {
@@ -110,12 +111,16 @@ func Load() (*Config, error) {
 		ReparseSweepBatchSize:            int(getInt64("REPARSE_SWEEP_BATCH", 20)),
 		EPUBImportLimits:                 epubimport.LimitsFromEnv(os.Getenv),
 		EPUBImportV2Mode:                 getEnv("EPUB_IMPORT_V2_MODE", "off"),
+		EPUBImportAssetRetentionHours:    getInt64("EPUB_IMPORT_ASSET_RETENTION_HOURS", 168),
 	}
 	if c.TenantAuditCoalesceWindowSeconds < 1 {
 		c.TenantAuditCoalesceWindowSeconds = 1 // floor: 0/negative would emit every read
 	}
 	if c.ReparseSweepBatchSize < 1 {
 		c.ReparseSweepBatchSize = 1 // floor: a zero/negative batch would sweep nothing
+	}
+	if c.EPUBImportAssetRetentionHours < 1 {
+		c.EPUBImportAssetRetentionHours = 1
 	}
 	if c.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")

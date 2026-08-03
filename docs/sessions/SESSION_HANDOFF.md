@@ -51,6 +51,14 @@ Composition materialization failure is persisted as a retryable job warning rath
 only in worker logs. Full strategy/E2E and outage evidence is still required before Task 10/11 gates
 can be marked complete.
 
+**P0 verification checkpoint (2026-08-03):** DB-gated Book tests now cover `replace_all` archival,
+effect idempotency, metadata merge/user-conflict rollback, durable worker warnings, and asset
+reference convergence. Worker HTTP contract tests cover Composition outage warning persistence and
+successful retry mapping. Book Service runs a configurable EPUB asset retention sweeper
+(`EPUB_IMPORT_ASSET_RETENTION_HOURS`, default 168h) that deletes only old, unreferenced orphaned
+objects and leaves failed MinIO deletes for retry. The DB suites require a throwaway
+`BOOK_TEST_DATABASE_URL`; without it they skip safely.
+
 **Worker recovery checkpoint (2026-08-03):** Redis Stream consumers now use a hostname-qualified
 consumer ID and scan the group PENDING list with `XAUTOCLAIM` only after a 15-minute idle period.
 This lets a restarted worker reclaim stranded import jobs without racing a healthy worker. Book
