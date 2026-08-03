@@ -3,27 +3,30 @@
 
 WHY THIS EXISTS
 ---------------
-`.ai-factory.json` installs the SAME skill pack three times, once per agent target
-(`codex` -> `.codex/skills`, `codex-app` -> `.agents/skills`, `copilot` ->
-`.github/skills`). They are generated renderings of one upstream source and differ
-only by mechanical substitution: the install root, the `npx skills install --agent
-<name>` flag, and the invocation sigil (`$aif-commit` for Codex, `/aif-commit` for
-Copilot).
+AI Factory (https://github.com/lee-to/ai-factory, MIT) installs the SAME skill pack
+once per agent target listed in `.ai-factory.json` — today `claude`, `cursor`,
+`codex`, `codex-app` and `copilot`. Each tree is a generated rendering of one
+upstream source, differing only by mechanical substitution: the install root, the
+`npx skills install --agent <name>` flag, and the invocation sigil (`$aif-commit`
+for Codex, `/aif-commit` for Claude/Copilot).
 
 That is fine until somebody hand-edits ONE copy. Then two contributors running two
 different agents silently follow two different processes on the same repository —
 the exact failure the committed workflow is meant to prevent, and an invisible one,
-because each copy looks self-consistent. Three near-identical 150-file trees are
+because each copy looks self-consistent. Five near-identical 150-file trees are
 also precisely what no human reviews line-by-line in a pull request.
 
 So the parity is checked mechanically instead of trusted: normalise the documented
-substitutions away, then require the renderings to be byte-identical.
+substitutions away, then require the renderings to be byte-identical. The target
+list is read from the manifest, so adding a sixth agent puts it under the gate
+without editing this file.
 
 Run:  python scripts/agent-skills-parity.py
 Wired as a pre-commit hook (see .githooks/pre-commit) and in CI.
 
-If this fails, the fix is NOT to patch the other two copies by hand — it is to edit
-the upstream skill and regenerate all three (`npx skills ...`), so the next
+If this fails, the fix is NOT to patch the other copies by hand — it is to change
+the upstream skill and regenerate every target
+(`npx ai-factory@<version> init --agents <all of them> --skills all`), so the next
 regeneration does not silently revert your change. See
 docs/standards/agent-workflow.md.
 """
@@ -70,23 +73,41 @@ def normalise(text: str, root: str) -> str:
 # Known upstream RENDERING quirks — differences the generator itself produces, not a
 # contributor hand-edit. Each needs a reason, and the gate reports an entry that has
 # become unnecessary so this list shrinks instead of accumulating.
-KNOWN_RENDER_QUIRKS: dict[tuple[str, str], str] = {
-    (".agents/skills", "aif/SKILL.md"):
-        "upstream renders the MCP-config path empty for the codex target and hardcodes "
-        "`.codex/config.toml` for codex-app; both describe the same file",
-    (".github/skills", "aif/SKILL.md"):
-        "same MCP-config-path quirk as codex-app, plus the copilot install-command spelling",
+#
+# Keyed by the skill-relative PATH, not by (target, path): which tree is canonical is
+# whatever `ai-factory init` happens to list first in the manifest, and it moved once
+# already when the `claude` target was added. A key that depends on that ordering
+# turns a green gate red for a reason having nothing to do with the files.
+KNOWN_RENDER_QUIRKS: dict[str, str] = {
+    "aif/SKILL.md":
+        "upstream renders the per-agent MCP-config path differently for each target "
+        "(empty for one, a literal `.codex/config.toml` for another) and spells the "
+        "install command per agent; all of them describe the same file",
 }
 
 
-def rel_files(base: Path) -> dict[str, Path]:
+def rel_files(base: Path, managed: set[str]) -> dict[str, Path]:
+    """Files under `base` belonging to an aif-MANAGED skill.
+
+    Scoped to the skills the manifest says the generator installed, because a skill
+    directory also holds project-authored skills that legitimately live in ONE
+    agent's tree — `.claude/skills/playwright-cli` is ours, not AI Factory's, and
+    demanding it exist for Copilot would be nonsense.
+
+    This enumeration is safe where a hand-written one would not be: the generator
+    maintains `installedSkills` itself, so a skill it adds tomorrow is in scope the
+    moment it lands, with nobody remembering to update a list.
+    """
     if not base.is_dir():
         return {}
-    return {
-        str(p.relative_to(base)).replace("\\", "/"): p
-        for p in sorted(base.rglob("*"))
-        if p.is_file()
-    }
+    out: dict[str, Path] = {}
+    for p in sorted(base.rglob("*")):
+        if not p.is_file():
+            continue
+        rel = str(p.relative_to(base)).replace("\\", "/")
+        if rel.split("/", 1)[0] in managed:
+            out[rel] = p
+    return out
 
 
 def main() -> int:
@@ -96,7 +117,8 @@ def main() -> int:
 
     agents = json.loads(MANIFEST.read_text(encoding="utf-8")).get("agents", [])
     targets = [
-        (a["id"], a["skillsDir"], "." + a["skillsDir"].split("/")[0].lstrip("."))
+        (a["id"], a["skillsDir"], "." + a["skillsDir"].split("/")[0].lstrip("."),
+         set(a.get("installedSkills") or []))
         for a in agents
         if a.get("skillsDir")
     ]
@@ -104,8 +126,12 @@ def main() -> int:
         print("agent-skills-parity: fewer than two skill targets — nothing to compare.")
         return 0
 
-    canon_id, canon_dir, canon_root = targets[0]
-    canon_files = rel_files(REPO / canon_dir)
+    canon_id, canon_dir, canon_root, canon_managed = targets[0]
+    if not canon_managed:
+        print(f"agent-skills-parity: FAIL — {canon_id} lists no installedSkills in the manifest; "
+              f"every comparison below would be trivially empty.")
+        return 1
+    canon_files = rel_files(REPO / canon_dir, canon_managed)
     if not canon_files:
         # An empty canonical tree would make every comparison trivially pass. That is
         # the "scope never reaches it" vacuity shape — fail loudly instead.
@@ -113,18 +139,22 @@ def main() -> int:
         return 1
 
     problems: list[str] = []
-    accounted: set[tuple[str, str]] = set()
+    accounted: set[str] = set()
 
-    for agent_id, skills_dir, root in targets[1:]:
-        files = rel_files(REPO / skills_dir)
+    for agent_id, skills_dir, root, managed in targets[1:]:
+        # Compare only skills BOTH targets are supposed to have. A target configured
+        # with a narrower skill set is a legitimate choice, not drift.
+        shared = canon_managed & managed
+        files = rel_files(REPO / skills_dir, shared)
+        canon_scoped = {k: v for k, v in canon_files.items() if k.split("/", 1)[0] in shared}
 
-        for missing in sorted(set(canon_files) - set(files)):
+        for missing in sorted(set(canon_scoped) - set(files)):
             problems.append(f"{skills_dir}/{missing}: MISSING (present in {canon_dir})")
-        for extra in sorted(set(files) - set(canon_files)):
+        for extra in sorted(set(files) - set(canon_scoped)):
             problems.append(f"{skills_dir}/{extra}: EXTRA (absent from {canon_dir})")
 
-        for name in sorted(set(canon_files) & set(files)):
-            a = canon_files[name].read_bytes()
+        for name in sorted(set(canon_scoped) & set(files)):
+            a = canon_scoped[name].read_bytes()
             b = files[name].read_bytes()
             if a == b:
                 continue
@@ -134,7 +164,7 @@ def main() -> int:
             except UnicodeDecodeError:
                 problems.append(f"{skills_dir}/{name}: binary content differs from {canon_dir}")
                 continue
-            key = (skills_dir, name)
+            key = name
             if na != nb:
                 if key not in KNOWN_RENDER_QUIRKS:
                     problems.append(
@@ -151,8 +181,8 @@ def main() -> int:
 
     for stale in sorted(set(KNOWN_RENDER_QUIRKS) - accounted):
         problems.append(
-            f"{stale[0]}/{stale[1]}: has a KNOWN_RENDER_QUIRKS entry but no longer exists "
-            f"in both trees — remove the stale entry"
+            f"{stale}: has a KNOWN_RENDER_QUIRKS entry but now renders identically in every "
+            f"target — remove the stale entry"
         )
 
     # Reported through the shared `aif-gate-result` contract (adopted from AI Factory —
