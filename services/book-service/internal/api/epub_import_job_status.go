@@ -657,15 +657,18 @@ func (s *Server) stageEPUBImportItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if result.RowsAffected() == 0 {
+		EPUBImportItemsTotal.WithLabelValues("failure").Inc()
 		writeError(w, http.StatusConflict, "IMPORT_ITEM_NOT_CLAIMED", "import item is not claimed")
 		return
 	}
 	_, err = s.pool.Exec(r.Context(), `UPDATE import_jobs SET progress_completed=(SELECT count(*) FROM import_job_items WHERE job_id=$1 AND status='import_ready'), updated_at=now() WHERE id=$1`, jobID)
 	if err != nil {
+		EPUBImportItemsTotal.WithLabelValues("failure").Inc()
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to update import progress")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+	EPUBImportItemsTotal.WithLabelValues("success").Inc()
 }
 
 func (s *Server) failEPUBImportItem(w http.ResponseWriter, r *http.Request) {
@@ -675,6 +678,7 @@ func (s *Server) failEPUBImportItem(w http.ResponseWriter, r *http.Request) {
 	}
 	itemID, err := uuid.Parse(chi.URLParam(r, "item_id"))
 	if err != nil {
+		EPUBImportItemsTotal.WithLabelValues("failure").Inc()
 		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid item_id")
 		return
 	}
@@ -688,13 +692,16 @@ func (s *Server) failEPUBImportItem(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = s.pool.Exec(r.Context(), `UPDATE import_job_items SET status='failed', error_code=$3, error_message=$4, completed_at=now(), updated_at=now() WHERE id=$1 AND job_id=$2 AND status='processing'`, itemID, jobID, body.Code, body.Message)
 	if err != nil {
+		EPUBImportItemsTotal.WithLabelValues("failure").Inc()
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to record import item failure")
 		return
 	}
 	_, err = s.pool.Exec(r.Context(), `UPDATE import_jobs SET status='failed', progress_failed=(SELECT count(*) FROM import_job_items WHERE job_id=$1 AND status='failed'), updated_at=now() WHERE id=$1`, jobID)
 	if err != nil {
+		EPUBImportItemsTotal.WithLabelValues("failure").Inc()
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to update import progress")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+	EPUBImportItemsTotal.WithLabelValues("failure").Inc()
 }

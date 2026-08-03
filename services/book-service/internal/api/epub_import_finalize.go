@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -37,15 +38,19 @@ type materializedEPUBImportChapter struct {
 }
 
 func (s *Server) finalizeEPUBImport(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
+	defer func() { EPUBImportDurationSeconds.Observe(time.Since(started).Seconds()) }()
 	jobID, ok := parseEPUBImportJobID(w, r)
 	if !ok {
 		return
 	}
 	created, err := s.materializeEPUBImport(r.Context(), jobID)
 	if err != nil {
+		EPUBImportJobsTotal.WithLabelValues("failure").Inc()
 		writeError(w, http.StatusConflict, "IMPORT_FINALIZE_FAILED", err.Error())
 		return
 	}
+	EPUBImportJobsTotal.WithLabelValues("success").Inc()
 	writeJSON(w, http.StatusOK, map[string]any{"job_id": jobID, "chapters_created": created, "status": "completed"})
 }
 

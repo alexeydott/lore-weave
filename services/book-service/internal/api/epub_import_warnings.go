@@ -36,6 +36,11 @@ func (s *Server) recordEPUBImportJobWarning(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to persist import warning")
 		return
 	}
+	stage := strings.TrimSpace(body.Stage)
+	if stage == "" {
+		stage = "worker"
+	}
+	EPUBImportWarningsTotal.WithLabelValues(stage).Inc()
 	_, _ = s.pool.Exec(r.Context(), `UPDATE import_jobs SET status='completed_with_warnings',updated_at=now() WHERE id=$1 AND status='completed'`, jobID)
 	writeJSON(w, http.StatusAccepted, map[string]any{"job_id": jobID, "status": "recorded"})
 }

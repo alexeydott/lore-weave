@@ -63,6 +63,7 @@ func (s *Server) inspectEpubImport(w http.ResponseWriter, r *http.Request) {
 		writeEPUBInspectionError(w, err)
 		return
 	}
+	EPUBImportUncompressedBytes.Observe(float64(inspection.UncompressedSize))
 	if s.minio == nil {
 		writeError(w, http.StatusServiceUnavailable, "IMPORT_STORAGE_UNAVAILABLE", "source storage is unavailable")
 		return

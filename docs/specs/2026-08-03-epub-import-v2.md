@@ -94,6 +94,9 @@ compression ratio, content documents, navigation nodes, assets, and chapter HTML
 The importer rejects encrypted/DRM EPUBs, unsafe archive paths, archive collisions, and
 executable or externally fetched HTML content with typed diagnostics. No default EPUB action
 can trigger a paid model or other provider request.
+Book Service exposes bounded Prometheus series for import job/item/asset outcomes, warning
+stages, finalize duration, and inspected uncompressed bytes. Labels contain only fixed
+outcome/stage enums; source keys, filenames, book IDs, and manuscript content are never labels.
 
 ## Migration and recovery
 

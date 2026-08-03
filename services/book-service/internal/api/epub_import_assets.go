@@ -39,6 +39,7 @@ FROM import_jobs j JOIN import_sources s ON s.id=j.source_id
 WHERE j.id=$1 AND j.pipeline_version=$2
 `, jobID, epubImportPipelineVersion).Scan(&sourceID, &sourceSHA)
 	if err != nil {
+		EPUBImportAssetsTotal.WithLabelValues("failure").Inc()
 		writeError(w, http.StatusNotFound, "IMPORT_NOT_FOUND", "import job not found")
 		return
 	}
@@ -58,6 +59,7 @@ SET source_media_type=EXCLUDED.source_media_type,sha256=EXCLUDED.sha256,size_byt
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to persist EPUB asset")
 		return
 	}
+	EPUBImportAssetsTotal.WithLabelValues("success").Inc()
 	writeJSON(w, http.StatusOK, map[string]any{"url": publicURL})
 }
 
