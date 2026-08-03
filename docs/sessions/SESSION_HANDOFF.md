@@ -37,6 +37,13 @@ the complete prior cover before mutation. Rollback restores the journaled cover 
 rollback conflict. Cover extraction rejects absent, undeclared, oversized, or MIME-spoofed bytes
 as a non-critical import warning.
 
+**Composition scene checkpoint (2026-08-03):** after a V2 job is finalized, worker-infra invokes
+Composition's deterministic scene decompiler and forwards only its returned mappings to Book
+Service's new internal job-scoped endpoint. Book Service verifies immutable import provenance,
+fills only empty `scenes.source_scene_id` fields, and emits `chapter.scenes_linked` atomically.
+Composition unavailability is logged as best-effort and does not roll back completed chapters.
+The separate ToC part/section hierarchy API is still required before Task 11 can be closed.
+
 **Worker recovery checkpoint (2026-08-03):** Redis Stream consumers now use a hostname-qualified
 consumer ID and scan the group PENDING list with `XAUTOCLAIM` only after a 15-minute idle period.
 This lets a restarted worker reclaim stranded import jobs without racing a healthy worker. Book

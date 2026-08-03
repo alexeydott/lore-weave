@@ -60,7 +60,10 @@ func (t *ImportProcessor) processEPUBV2(ctx context.Context, payload importReque
 			if claim.Cancelled {
 				return nil
 			}
-			return t.finalizeEPUBImport(ctx, payload.JobID)
+			if err := t.finalizeEPUBImport(ctx, payload.JobID); err != nil {
+				return err
+			}
+			return t.materializeEPUBV2Scenes(ctx, payload)
 		}
 		node := nodes[claim.SourceKey]
 		if node == nil {
@@ -119,6 +122,27 @@ func (t *ImportProcessor) processEPUBV2(ctx context.Context, payload importReque
 			return err
 		}
 	}
+}
+
+func (t *ImportProcessor) materializeEPUBV2Scenes(ctx context.Context, payload importRequestedPayload) error {
+	if t.materializeClient == nil {
+		if t.Cfg == nil || t.Cfg.CompositionServiceURL == "" {
+			return nil
+		}
+		t.materializeClient = NewMaterializeClient(t.Cfg.CompositionServiceURL, t.Cfg.InternalToken)
+	}
+	result, err := t.materializeClient.Materialize(ctx, payload.BookID, payload.UserID)
+	if err != nil {
+		slog.Warn("epub import composition materialization failed", "job_id", payload.JobID, "book_id", payload.BookID, "error", err)
+		return nil
+	}
+	if !result.WorkResolved || len(result.Mappings) == 0 {
+		return nil
+	}
+	if err := t.epubV2JSON(ctx, http.MethodPost, fmt.Sprintf("/internal/epub-import-jobs/%s/scene-mappings", payload.JobID), map[string]any{"mappings": result.Mappings}, nil); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (t *ImportProcessor) storeEPUBAsset(ctx context.Context, jobID, sourceSHA, sourceKey string, asset epubimport.ResolvedAsset) (string, error) {
