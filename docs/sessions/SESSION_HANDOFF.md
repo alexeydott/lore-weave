@@ -68,6 +68,14 @@ documented default-mode decision; shadow is not treated as proof of semantic equ
 Local Docker Compose now uses `EPUB_IMPORT_V2_MODE=opt_in` by default; production deployments
 must set the mode explicitly during staged rollout.
 
+**Live shadow evidence (2026-08-03):** rebuilt and started the local Book Service with
+`EPUB_IMPORT_V2_MODE=shadow`; `/health` returned `ok`, `/metrics` exposed all EPUB counters and
+histograms, and container inspection confirmed shadow mode plus asset retention. The Dockerfile
+was corrected to include the `pkg/epubimport` replacement target. No authenticated upload was
+generated in this check, so metric counters remain zero; authenticated corpus evidence is still
+required before production promotion. Safe rollout order is `shadow` → small `opt_in` cohort →
+reviewed `default` → `legacy_disabled`, with rollback to `shadow` at each gate.
+
 **Worker recovery checkpoint (2026-08-03):** Redis Stream consumers now use a hostname-qualified
 consumer ID and scan the group PENDING list with `XAUTOCLAIM` only after a 15-minute idle period.
 This lets a restarted worker reclaim stranded import jobs without racing a healthy worker. Book
