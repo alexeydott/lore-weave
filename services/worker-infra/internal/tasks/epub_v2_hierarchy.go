@@ -58,6 +58,7 @@ func (t *ImportProcessor) materializeEPUBV2Hierarchy(ctx context.Context, payloa
 	var response epubV2CompositionHierarchyResponse
 	if err := t.compositionEPUBHierarchyJSON(ctx, payload.JobID, hierarchy, &response); err != nil {
 		slog.Warn("epub import composition hierarchy materialization failed", "job_id", payload.JobID, "book_id", hierarchy.BookID, "error", err)
+		_ = t.epubV2JSON(ctx, http.MethodPost, fmt.Sprintf("/internal/epub-import-jobs/%s/warnings", payload.JobID), map[string]string{"code": "composition_materialization_pending", "message": "Composition hierarchy materialization is pending retry.", "stage": "composition"}, nil)
 		return nil
 	}
 	if len(response.Mappings) == 0 {

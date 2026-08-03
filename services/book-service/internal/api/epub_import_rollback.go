@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -58,13 +61,13 @@ func (s *Server) rollbackEPUBImport(ctx context.Context, jobID uuid.UUID) (epubR
 	}
 	defer tx.Rollback(ctx)
 
-	var userID, bookID uuid.UUID
+	var userID, bookID, sourceID uuid.UUID
 	var status string
 	var priorReport []byte
 	if err := tx.QueryRow(ctx, `
-SELECT user_id,book_id,status,COALESCE(report_json,'{}'::jsonb)
+SELECT user_id,book_id,source_id,status,COALESCE(report_json,'{}'::jsonb)
 FROM import_jobs WHERE id=$1 AND pipeline_version=$2 FOR UPDATE
-`, jobID, epubImportPipelineVersion).Scan(&userID, &bookID, &status, &priorReport); err != nil {
+`, jobID, epubImportPipelineVersion).Scan(&userID, &bookID, &sourceID, &status, &priorReport); err != nil {
 		return epubRollbackResult{}, fmt.Errorf("load import job: %w", err)
 	}
 	if status == "rolled_back" {
@@ -76,7 +79,14 @@ FROM import_jobs WHERE id=$1 AND pipeline_version=$2 FOR UPDATE
 		if err := tx.Commit(ctx); err != nil {
 			return epubRollbackResult{}, err
 		}
-		return epubRollbackResult{JobID: jobID, Status: status, ChaptersRolledBack: prior.ChaptersRolledBack, Conflicts: prior.RollbackConflicts}, nil
+		result := epubRollbackResult{JobID: jobID, Status: status, ChaptersRolledBack: prior.ChaptersRolledBack, Conflicts: prior.RollbackConflicts}
+		if err := s.cleanupEPUBImportComposition(ctx, jobID, bookID, userID); err != nil {
+			warning := map[string]any{"code": "composition_rollback_pending", "message": "Composition hierarchy cleanup will be retried.", "error": err.Error()}
+			encoded, _ := json.Marshal(warning)
+			_, _ = s.pool.Exec(ctx, `INSERT INTO import_job_effects(job_id,effect_type,effect_key,after_json) VALUES($1,'rollback_warning','composition',$2) ON CONFLICT (job_id,effect_type,effect_key) DO UPDATE SET after_json=EXCLUDED.after_json,applied_at=now()`, jobID, encoded)
+			result.Conflicts = append(result.Conflicts, warning)
+		}
+		return result, nil
 	}
 	if status != "completed" && status != "completed_with_warnings" {
 		return epubRollbackResult{}, fmt.Errorf("import job is not rollbackable")
@@ -133,6 +143,17 @@ ON CONFLICT (job_id,effect_type,effect_key) DO NOTHING
 			}
 			continue
 		}
+		if _, err := tx.Exec(ctx, `
+UPDATE chapters c
+SET structure_node_id=h.prior_structure_node_id,updated_at=now()
+FROM import_job_hierarchy_mappings h
+WHERE h.job_id=$1 AND h.chapter_id=c.id AND h.rolled_back_at IS NULL AND c.id=$2
+`, jobID, candidate.chapterID); err != nil {
+			return epubRollbackResult{}, err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE import_job_hierarchy_mappings SET rolled_back_at=now() WHERE job_id=$1 AND chapter_id=$2 AND rolled_back_at IS NULL`, jobID, candidate.chapterID); err != nil {
+			return epubRollbackResult{}, err
+		}
 		if _, err := tx.Exec(ctx, `DELETE FROM chapters WHERE id=$1`, candidate.chapterID); err != nil {
 			return epubRollbackResult{}, err
 		}
@@ -140,6 +161,15 @@ ON CONFLICT (job_id,effect_type,effect_key) DO NOTHING
 			return epubRollbackResult{}, err
 		}
 		result.ChaptersRolledBack++
+	}
+	if err := s.rollbackEPUBImportStrategy(ctx, tx, jobID, bookID, &result.Conflicts); err != nil {
+		return epubRollbackResult{}, err
+	}
+	if err := s.rollbackEPUBImportMetadata(ctx, tx, jobID, bookID, &result.Conflicts); err != nil {
+		return epubRollbackResult{}, err
+	}
+	if err := refreshEPUBImportAssetReferences(ctx, tx, sourceID); err != nil {
+		return epubRollbackResult{}, err
 	}
 	if err := rollbackEPUBImportCover(ctx, tx, jobID, bookID, &result.Conflicts); err != nil {
 		return epubRollbackResult{}, err
@@ -165,5 +195,33 @@ WHERE id=$1
 	if err := tx.Commit(ctx); err != nil {
 		return epubRollbackResult{}, err
 	}
+	if err := s.cleanupEPUBImportComposition(ctx, jobID, bookID, userID); err != nil {
+		warning := map[string]any{"code": "composition_rollback_pending", "message": "Composition hierarchy cleanup will be retried.", "error": err.Error()}
+		encoded, _ := json.Marshal(warning)
+		_, _ = s.pool.Exec(ctx, `INSERT INTO import_job_effects(job_id,effect_type,effect_key,after_json) VALUES($1,'rollback_warning','composition',$2) ON CONFLICT (job_id,effect_type,effect_key) DO UPDATE SET after_json=EXCLUDED.after_json,applied_at=now()`, jobID, encoded)
+		result.Conflicts = append(result.Conflicts, warning)
+	}
 	return result, nil
+}
+
+func (s *Server) cleanupEPUBImportComposition(ctx context.Context, jobID, bookID, userID uuid.UUID) error {
+	if s.cfg == nil || strings.TrimSpace(s.cfg.CompositionServiceURL) == "" {
+		return nil
+	}
+	endpoint := strings.TrimRight(s.cfg.CompositionServiceURL, "/") + "/internal/composition/books/" + url.PathEscape(bookID.String()) + "/epub-import-hierarchy/" + url.PathEscape(jobID.String()) + "?caller_user_id=" + url.QueryEscape(userID.String())
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Internal-Token", s.cfg.InternalServiceToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("composition cleanup returned status %d", resp.StatusCode)
+	}
+	return nil
 }

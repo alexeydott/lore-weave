@@ -42,7 +42,14 @@ Composition's deterministic scene decompiler and forwards only its returned mapp
 Service's new internal job-scoped endpoint. Book Service verifies immutable import provenance,
 fills only empty `scenes.source_scene_id` fields, and emits `chapter.scenes_linked` atomically.
 Composition unavailability is logged as best-effort and does not roll back completed chapters.
-The separate ToC part/section hierarchy API is still required before Task 11 can be closed.
+**P0 reliability checkpoint (2026-08-03):** finalize now applies journaled title/description/language/
+subject metadata policies, archives `replace_all` chapters with rollback conflict protection,
+recomputes asset reference counts, and aggregates worker/item/asset/link/rollback warnings. Book
+rollback restores job-owned chapter hierarchy assignments and calls Composition's idempotent
+`DELETE /internal/composition/books/{book_id}/epub-import-hierarchy/{job_id}` cleanup seam. A
+Composition materialization failure is persisted as a retryable job warning rather than remaining
+only in worker logs. Full strategy/E2E and outage evidence is still required before Task 10/11 gates
+can be marked complete.
 
 **Worker recovery checkpoint (2026-08-03):** Redis Stream consumers now use a hostname-qualified
 consumer ID and scan the group PENDING list with `XAUTOCLAIM` only after a 15-minute idle period.
@@ -59,8 +66,8 @@ passes for the frontend; BFF dependencies were installed with `npm ci`, then `np
 `test_internal_job_control`. The Book OpenAPI Spectral run is also blocked by pre-existing duplicate FB2 response keys in the
 base contract; do not conflate those failures with EPUB V2.
 
-**Next EPUB work:** hierarchy materialization in Composition, the full preview wizard, worker
-redelivery recovery, strategy/asset-cleanup E2E coverage, and live fixtures. Do not reintroduce
+**Next EPUB work:** strategy/asset-cleanup E2E coverage, full reliability/outage fixtures, wizard
+locale/browser coverage, observability, and rollout evidence. Do not reintroduce
 the legacy combined-HTML chapter path.
 
 ## 📚 FB2 BOOK IMPORT — SOURCE IMPLEMENTED, LIVE UI CHECK PENDING (2026-08-02)

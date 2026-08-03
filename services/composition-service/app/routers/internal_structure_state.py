@@ -252,6 +252,21 @@ async def get_epub_import_hierarchy(
     }
 
 
+@router.delete("/books/{book_id}/epub-import-hierarchy/{import_job_id}")
+async def rollback_epub_import_hierarchy(
+    book_id: UUID,
+    import_job_id: UUID,
+    caller_user_id: UUID = Query(...),
+    hierarchy=Depends(get_epub_import_hierarchy_repo),
+    grant=Depends(get_grant_client_dep),
+) -> dict:
+    """Idempotently clean Composition-owned hierarchy effects for one import."""
+    if await grant.resolve_owner(book_id, caller_user_id) is None:
+        raise HTTPException(status_code=404, detail="book not found or no access")
+    removed = await hierarchy.rollback(book_id=book_id, import_job_id=import_job_id)
+    return {"import_job_id": str(import_job_id), "status": "rolled_back", "nodes_removed": removed}
+
+
 @router.post("/books/{book_id}/parts", status_code=201)
 async def create_part_internal(
     book_id: UUID,

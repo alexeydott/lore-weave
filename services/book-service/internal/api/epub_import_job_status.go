@@ -360,6 +360,50 @@ ORDER BY applied_at
 	if err := rollbackRows.Err(); err != nil {
 		return nil, err
 	}
+	warningRows, err := s.pool.Query(ctx, `
+SELECT after_json FROM import_job_effects
+WHERE job_id=$1 AND effect_type='rollback_warning'
+ORDER BY applied_at
+`, jobID)
+	if err != nil {
+		return nil, err
+	}
+	for warningRows.Next() {
+		var rawWarning []byte
+		if err := warningRows.Scan(&rawWarning); err != nil {
+			warningRows.Close()
+			return nil, err
+		}
+		var warning any
+		if json.Unmarshal(rawWarning, &warning) == nil {
+			warnings = append(warnings, normalizeEPUBReportWarning(warning, "", ""))
+		}
+	}
+	if err := warningRows.Err(); err != nil {
+		warningRows.Close()
+		return nil, err
+	}
+	warningRows.Close()
+	jobWarningRows, err := s.pool.Query(ctx, `SELECT after_json FROM import_job_effects WHERE job_id=$1 AND effect_type='job_warning' ORDER BY applied_at`, jobID)
+	if err != nil {
+		return nil, err
+	}
+	for jobWarningRows.Next() {
+		var rawWarning []byte
+		if err := jobWarningRows.Scan(&rawWarning); err != nil {
+			jobWarningRows.Close()
+			return nil, err
+		}
+		var warning any
+		if json.Unmarshal(rawWarning, &warning) == nil {
+			warnings = append(warnings, normalizeEPUBReportWarning(warning, "", ""))
+		}
+	}
+	if err := jobWarningRows.Err(); err != nil {
+		jobWarningRows.Close()
+		return nil, err
+	}
+	jobWarningRows.Close()
 
 	var assetsDetected, assetsImported int
 	assetRows, err := s.pool.Query(ctx, `

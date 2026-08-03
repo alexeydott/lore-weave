@@ -82,6 +82,9 @@ WHERE j.id=$1 AND j.pipeline_version=$2 FOR UPDATE`, jobID, epubImportPipelineVe
 	if !canFinalizeEPUBImport(pending, processing, failed) {
 		return 0, fmt.Errorf("import items are not ready")
 	}
+	if err := s.applyEPUBImportStrategy(ctx, tx, jobID, bookID, optionsJSON); err != nil {
+		return 0, err
+	}
 	var nextSort int
 	if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(sort_order),0)+1 FROM chapters WHERE book_id=$1 AND lifecycle_state='active'`, bookID).Scan(&nextSort); err != nil {
 		return 0, err
@@ -171,7 +174,13 @@ INSERT INTO chapter_import_provenance(
 	if err := rewriteMaterializedEPUBLinks(ctx, tx, bookID, jobID, materialized); err != nil {
 		return 0, err
 	}
-	metadataApplied := []string{}
+	if err := refreshEPUBImportAssetReferences(ctx, tx, sourceID); err != nil {
+		return 0, err
+	}
+	metadataApplied, err := s.applyEPUBImportMetadata(ctx, tx, jobID, bookID, targetMode, optionsJSON, inspectionJSON)
+	if err != nil {
+		return 0, err
+	}
 	var coverWarning *epubimport.Diagnostic
 	if shouldApplyEPUBImportCover(targetMode, optionsJSON) {
 		var inspection epubimport.Inspection

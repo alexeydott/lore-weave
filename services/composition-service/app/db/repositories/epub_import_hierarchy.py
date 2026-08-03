@@ -167,3 +167,39 @@ class EpubImportHierarchyRepo:
                 import_job_id,
             )
         return [dict(row) for row in rows]
+
+    async def rollback(self, *, book_id: UUID, import_job_id: UUID) -> int:
+        """Remove this import's lossless tree and archive its projections.
+
+        Only rows keyed by the job are touched. Projection rows are archived
+        rather than hard-deleted so a concurrent reader never observes a
+        dangling structure reference and the operation remains retry-safe.
+        """
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                ids = await conn.fetch(
+                    """
+                    SELECT structure_node_id
+                    FROM epub_import_hierarchy_node
+                    WHERE book_id=$1 AND import_job_id=$2 AND structure_node_id IS NOT NULL
+                    FOR UPDATE
+                    """,
+                    book_id,
+                    import_job_id,
+                )
+                if ids:
+                    await conn.execute(
+                        """
+                        UPDATE structure_node
+                        SET is_archived=TRUE, updated_at=now()
+                        WHERE book_id=$1 AND id=ANY($2::uuid[])
+                        """,
+                        book_id,
+                        [row["structure_node_id"] for row in ids],
+                    )
+                result = await conn.execute(
+                    "DELETE FROM epub_import_hierarchy_node WHERE book_id=$1 AND import_job_id=$2",
+                    book_id,
+                    import_job_id,
+                )
+        return int(result.split()[-1]) if result else 0
