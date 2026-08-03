@@ -5,20 +5,5 @@
       "Bash(bash ./scripts/workflow-gate.sh:*)",
       "Bash(python scripts/workflow-gate.py:*)"
     ]
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && if echo \"$CLAUDE_TOOL_INPUT\" | grep -qE \"git commit\"; then bash ./scripts/workflow-gate.sh pre-commit; fi'",
-            "timeout": 30000,
-            "description": "Block git commit if VERIFY/POST-REVIEW/SESSION evidence is missing. The former ContextHub guardrail hooks (amaw-guardrail-gate.py, amaw-context-inject.py, amaw-pre-commit) were removed 2026-08-03 with the ContextHub MCP integration: they were fail-open wrappers around a server no agent ever actually called, so they added a per-Bash-call subprocess and a 75s commit timeout while gating nothing."
-          }
-        ]
-      }
-    ]
   }
 }

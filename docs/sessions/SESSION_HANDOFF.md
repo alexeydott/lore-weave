@@ -174,6 +174,16 @@ because `core.hooksPath` was unset. See NEXT-5.
    cause. Set it: `git config core.hooksPath .githooks`. **Do this on any checkout of this repo**;
    `CONTRIBUTING.md` says so and it is easy to skip.
 
+   Enabling it exposed a second gap, now closed: the **12-phase gate lived only in
+   `.claude/settings.json`**, so it fired when Claude Code issued `git commit` and for nobody else —
+   one caller in five, on a repo that became five-agent the same day. Moved into
+   `.githooks/pre-commit` (last in the chain, so a blocked commit reports code findings *and* the
+   missing phase). **It does not block a contributor who never started a run:** `workflow-gate.py
+   pre-commit` fails open with "No workflow state found" when there is no `.workflow-state.json`.
+   Measured both ways through the real chain — no state → exit 0; size classified with VERIFY
+   unrecorded → exit 1. The duplicate PreToolUse copy is gone; the bundle keeps its own, because
+   `install.sh` writes no git hook into a target repo.
+
 ### Not fixed, and not tracked anywhere else
 
 - **Book search is broken for Vietnamese diacritics** on a Vietnamese-first product: `eval` → 19
