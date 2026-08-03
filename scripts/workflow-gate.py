@@ -22,16 +22,15 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 STATE_FILE = Path(".workflow-state.json")
-AUDIT_LOG = Path("docs/audit/AUDIT_LOG.jsonl")
-# NOTE (2026-08-03): AMAW L3 used to bridge high-signal events to a ContextHub MCP
+# NOTE (2026-08-03): AMAW was retired here. Its L3 layer used to bridge events to a ContextHub MCP
 # server via scripts/mcp-query.py. That integration was never actually exercised —
 # the server was listed in config but no agent called it — so it has been removed
 # along with mcp-query.py, amaw-guardrail-gate.py, amaw-context-inject.py and
-# seed-amaw-guardrails.py. AMAW still logs to AUDIT_LOG.jsonl, which is the part
+# seed-amaw-guardrails.py. AUDIT_LOG.jsonl stays as committed history — the writer
 # that was carrying its weight. Do not re-add an MCP bridge here without a
 # consumer that demonstrably reads it.
 
@@ -57,110 +56,7 @@ INITIAL_STATE = {
     "verify_evidence": None,
     "started_at": None,
     "last_transition": None,
-    # AMAW v3.0 L3 deepen — flag set by `amaw-enable` verb (called by /amaw slash cmd).
-    # When True, cmd_complete writes events (sprint_complete, pragmatic_stop, REJECTED
-    # reviews) to AUDIT_LOG.jsonl. Default v2.2 mode → flag stays False, no AUDIT_LOG
-    # entries.
-    "amaw_enabled": False,
-    "amaw_enabled_at": None,
 }
-
-
-# ── AMAW L3 helpers (no-op when amaw_enabled=False) ─────────────────
-
-
-def _log_audit(event: dict) -> None:
-    """Append event to AUDIT_LOG.jsonl. Caller MUST gate on amaw_enabled."""
-    AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
-    with AUDIT_LOG.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(event, ensure_ascii=False) + "\n")
-
-
-def _parse_ts(raw) -> datetime | None:
-    """Parse an ISO-8601 timestamp to a timezone-AWARE UTC datetime.
-
-    /review-impl HIGH-1: AUDIT_LOG timestamps are heterogeneous — the main
-    agent writes naive local time (`datetime.now().isoformat()`), while the
-    Adversary/Scope-Guard sub-agents (separate LLM agents) emit a mix of naive,
-    `+offset`, and `Z` forms. Lexical string comparison of those is wrong: a
-    UTC `Z` timestamp on a UTC+7 machine sorts BEFORE the naive local string
-    of the same instant. Compare parsed datetimes, never raw strings.
-
-    Naive input is assumed local (correct for `amaw_enabled_at` and for naive
-    sub-agent timestamps written against the same wall clock). Unparseable
-    input returns None — the caller decides how to treat it.
-    """
-    if not raw:
-        return None
-    s = str(raw).strip()
-    if s.endswith("Z"):
-        s = s[:-1] + "+00:00"
-    try:
-        dt = datetime.fromisoformat(s)
-    except ValueError:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.astimezone()  # naive → assume local tz
-    return dt.astimezone(timezone.utc)
-
-
-def _had_rejected_review(task_slug: str, phase: str, since: str | None = None) -> bool:
-    """True if an adversary review event for this task AND this phase logged
-    status REJECTED (DEFERRED #002).
-
-    The bridge previously inferred rejection from a substring match on the
-    main agent's free-text evidence (`"REJECTED" in evidence.upper()`) — which
-    false-positives on "NOT REJECTED", "non-rejected", etc. This reads the
-    structured `status` field that the Adversary sub-agent writes to
-    AUDIT_LOG.jsonl, the authoritative signal. A rejected round is worth a
-    cross-session lesson even if a later round APPROVED — the rejection
-    captured a real defect pattern future Adversaries should be able to find.
-
-    `phase` is matched (Adversary r1 WARN-1): a REJECTED in `review-design`
-    must NOT cause `complete review-code` to file a lesson mislabeled
-    "...review-code". Each review phase reports its own rejections.
-
-    `since` scopes the scan to the CURRENT run (human-review finding A1):
-    AUDIT_LOG.jsonl is ONE append-only file shared by every task ever run.
-    Matching on task slug alone means a slug REUSED in a later sprint would
-    inherit an earlier sprint's REJECTED verdict and mis-fire an
-    adversary-rejection lesson. Passing the run's `amaw_enabled_at` as `since`
-    excludes events from prior runs. Timestamps are compared as PARSED
-    datetimes via `_parse_ts`, never as raw strings — /review-impl HIGH-1
-    found that lexical compare of mixed naive/`Z`/`+offset` forms silently
-    excludes genuine in-run events on non-UTC machines. An event whose `ts`
-    is missing or unparseable is excluded (consistent with A1's conservative
-    anti-false-positive intent). If `since` is None the scan is unscoped
-    (legacy behaviour).
-
-    Note (Adversary r1 WARN-3): this re-parses the whole append-only
-    AUDIT_LOG.jsonl per bridge call. Accepted — bridge calls happen only on
-    review-phase completion (rare), and the log is per-repo small. Correctness
-    relies on the Adversary's review event being flushed before cmd_complete
-    runs, which the AMAW orchestration guarantees (sub-agent completes, then
-    main calls `complete`).
-    """
-    if not AUDIT_LOG.exists():
-        return False
-    since_dt = _parse_ts(since) if since else None
-    for line in AUDIT_LOG.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            ev = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if since_dt is not None:
-            ev_dt = _parse_ts(ev.get("ts"))
-            if ev_dt is None or ev_dt < since_dt:
-                continue  # event predates this run (or unparseable) — A1 cross-run guard
-        if (ev.get("task") == task_slug
-                and ev.get("action") == "review"
-                and ev.get("phase") == phase
-                and str(ev.get("status", "")).strip().upper() == "REJECTED"):
-            return True
-    return False
 
 
 def _check_live_smoke_evidence(evidence: str) -> None:
@@ -449,123 +345,6 @@ def cmd_complete(args: list[str]) -> None:
     if phase == "verify":
         _check_live_smoke_evidence(evidence)
 
-    # AMAW L3 — log phase events to AUDIT_LOG.
-    # No-op for default v2.2 (amaw_enabled=False).
-    if state.get("amaw_enabled"):
-        # Defensive re-normalize (DEFERRED #001, Adversary r1 WARN-2): state["task"]
-        # may have been set before _normalize_slug existed, or via a path that
-        # bypassed cmd_amaw_enable. _normalize_slug is idempotent so this is free
-        # insurance — the slug becomes a tag below and MUST be comma-free.
-        raw_task = state.get("task")
-        task_slug = _normalize_slug(raw_task) if raw_task else "unnamed-task"
-        _log_audit({
-            "ts": completed_at,
-            "task": task_slug,
-            "phase": phase,
-            "agent": "main",
-            "action": "phase_complete",
-            "evidence": evidence,
-        })
-        # High-signal events get a second, distinctly-actioned AUDIT_LOG entry so they
-        # are greppable without replaying every phase_complete row.
-        if phase == "retro":
-            _log_audit({
-                "ts": completed_at,
-                "task": task_slug,
-                "phase": phase,
-                "agent": "main",
-                "action": "sprint_complete",
-                "evidence": evidence,
-            })
-        elif phase in ("review-design", "review-code") and _had_rejected_review(task_slug, phase, state.get("amaw_enabled_at")):
-            _log_audit({
-                "ts": completed_at,
-                "task": task_slug,
-                "phase": phase,
-                "agent": "main",
-                "action": "adversary_rejection",
-                "evidence": evidence,
-            })
-
-
-def _normalize_slug(raw: str) -> str:
-    """Slugify a task slug (DEFERRED #001): lowercase, collapse any run of
-    non-[a-z0-9] characters to a single dash, strip leading/trailing dashes.
-    Idempotent — normalizing an already-normalized slug is a no-op.
-
-    The slug is the `task` key on every AUDIT_LOG.jsonl row, so it must stay a
-    stable, punctuation-free join key — an un-normalized slug makes the same task
-    appear under several spellings when the log is grepped or aggregated. EVERY
-    entry point that lets a
-    user supply a slug must call this: `cmd_amaw_enable` (write side) and
-    `cmd_pragmatic_stop` (independent arg), plus `cmd_complete` re-normalizes
-    defensively on the read side (Adversary r1 BLOCK + WARN-2).
-
-    Empty/all-punctuation input falls back to the tag-safe string
-    'unnamed-task'. NOTE: this is distinct from the '(unnamed)' DISPLAY
-    sentinel used in print messages (cmd_amaw_enable / cmd_pragmatic_stop) —
-    the parens make '(unnamed)' deliberately NOT a valid slug, so it can never
-    be mistaken for or collide with a real normalized slug. 'unnamed-task' is
-    the value layer (a usable tag); '(unnamed)' is the display layer.
-    """
-    # str() guard (Adversary r2 WARN-2): a hand-edited state file could carry a
-    # non-string `task` (int, null); str() keeps this total instead of raising
-    # AttributeError deep in the bridge path.
-    slug = re.sub(r"[^a-z0-9]+", "-", str(raw).lower()).strip("-")
-    # 64-char cap (human-review finding A2): the slug becomes an AUDIT_LOG key;
-    # a pathologically long task name should not produce an unbounded field.
-    # Re-strip in case the cut landed mid-dash.
-    slug = slug[:64].strip("-")
-    return slug or "unnamed-task"
-
-
-def cmd_amaw_enable(args: list[str]) -> None:
-    """Enable AMAW mode for the current task. Optionally accepts task slug."""
-    state = load_state()
-    if state.get("amaw_enabled"):
-        slug = state.get("task") or "(unnamed)"
-        print(f"OK: AMAW mode already enabled for task '{slug}' (no-op)")
-        return
-    state["amaw_enabled"] = True
-    state["amaw_enabled_at"] = datetime.now().isoformat()
-    if args:
-        normalized = _normalize_slug(args[0])
-        if normalized != args[0]:
-            print(f"  NOTE: task slug normalized '{args[0]}' -> '{normalized}'")
-        state["task"] = normalized
-    save_state(state)
-    slug = state.get("task") or "(unnamed)"
-    print(f"OK: AMAW mode enabled for task '{slug}'")
-    print(f"  AUDIT_LOG: {AUDIT_LOG}")
-    print(f"  Triggers: retro→sprint_complete; REJECTED reviews; pragmatic-stop")
-
-
-def cmd_pragmatic_stop(args: list[str]) -> None:
-    """Record a pragmatic stop event with reason. Only meaningful in AMAW mode."""
-    if len(args) < 2:
-        fail("Usage: workflow-gate.py pragmatic-stop <task-slug> <reason>")
-    # Normalize the slug (DEFERRED #001, Adversary r1 BLOCK): this is a SECOND
-    # entry point — independent of cmd_amaw_enable — that feeds task_slug into a
-    # comma-joined tag list below. An un-normalized slug here re-introduces the
-    # exact comma-fragmentation defect #001 set out to close.
-    task_slug, reason = _normalize_slug(args[0]), args[1]
-    state = load_state()
-    if not state.get("amaw_enabled"):
-        print("WARN: pragmatic-stop has no effect in default v2.2 mode (amaw_enabled=False).", file=sys.stderr)
-        print("      Run `workflow-gate.py amaw-enable` first to enable AMAW logging.", file=sys.stderr)
-        sys.exit(1)
-
-    ts = datetime.now().isoformat()
-    _log_audit({
-        "ts": ts,
-        "task": task_slug,
-        "phase": state.get("current_phase") or "unknown",
-        "agent": "main",
-        "action": "pragmatic_stop",
-        "reason": reason,
-    })
-    print(f"OK: pragmatic stop recorded for task '{task_slug}'")
-
 
 def cmd_check(args: list[str]) -> None:
     if not args:
@@ -644,14 +423,8 @@ def cmd_status(_args: list[str]) -> None:
     size = state.get("size", "NOT SET")
     counts = state.get("size_counts", {})
 
-    amaw_enabled = state.get("amaw_enabled", False)
-    amaw_label = "ENABLED" if amaw_enabled else "disabled (default v2.2)"
-
     print(f"Task: {state.get('task') or '(unnamed)'}")
     print(f"Size: {size} (files={counts.get('files', 0)}, logic={counts.get('logic', 0)}, side_effects={counts.get('side_effects', 0)})")
-    print(f"AMAW: {amaw_label}")
-    if amaw_enabled and state.get("amaw_enabled_at"):
-        print(f"  enabled at: {state['amaw_enabled_at']}")
     print(f"Current phase: {current or 'none'}")
     print()
 
@@ -734,15 +507,12 @@ COMMANDS = {
     "pre-commit": cmd_pre_commit,
     "status": cmd_status,
     "reset": cmd_reset,
-    # AMAW v3.0 L3 deepen
-    "amaw-enable": cmd_amaw_enable,
-    "pragmatic-stop": cmd_pragmatic_stop,
 }
 
 
 def main() -> None:
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
-        print("Usage: workflow-gate.py {size|phase|complete|check|slices|skip|pre-commit|status|reset|amaw-enable|pragmatic-stop} [args]")
+        print("Usage: workflow-gate.py {size|phase|complete|check|slices|skip|pre-commit|status|reset} [args]")
         print()
         print("Commands:")
         print("  size <XS|S|M|L|XL> <files> <logic> <effects>  Classify task size")
@@ -755,10 +525,6 @@ def main() -> None:
         print("  slices <manifest.yaml|.json>                   /warp: assert slice write-sets are disjoint (gate before fan-out)")
         print("  status                                         Show current state")
         print("  reset                                          Reset for new task")
-        print()
-        print("AMAW v3.0 L3 (opt-in, fired by /amaw slash command):")
-        print("  amaw-enable [task-slug]                        Enable AMAW mode + AUDIT_LOG")
-        print("  pragmatic-stop <task-slug> <reason>            Record a pragmatic stop in AUDIT_LOG")
         sys.exit(1)
 
     cmd = sys.argv[1]

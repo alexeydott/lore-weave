@@ -1,7 +1,31 @@
 # Retire the unused workflow runners — `/warp`, `/raid`, `/amaw`
 
-**Status:** planned, not started · **Author:** 2026-08-03 · **Trigger:** the owner reports using none
-of them; `/review-impl` is the only runner still in daily use.
+**Status:** DONE 2026-08-03 · **Trigger:** the owner reports using none of them; `/review-impl` is the
+only runner still in daily use.
+
+> ## Outcome — and where this plan was wrong
+>
+> All four runners are retired. `/review-impl` is the only command left.
+>
+> **The plan's scope was too coarse, and measurement corrected it twice.** It first called `/warp`
+> "cheap to remove" (it has a live registered verb, three scripts, a green test and a spec). Then,
+> at execution, deleting `scripts/raid/` and `scripts/warp/` turned out to be the *wrong* move for a
+> different reason: those directories are **not runner plumbing**. They hold live-smoke and
+> slice-validation scripts that production tests cite by path (`verify-cycle-5.sh`,
+> `verify-cycle-13.sh`), that `scripts/capacity-thresholds.yaml` points at, and that
+> `gate-wiring-gate.py` carries an exemption for — 4–7 outside references each. Deleting them would
+> have turned dozens of `docs/**` references into lies, which is the rot this repo's gates exist to
+> prevent.
+>
+> **So: the runners were retired, the machinery stayed.** What was actually removed —
+> `.claude/commands/{raid,warp,amaw}.md`, and AMAW's whole surface inside
+> `scripts/workflow-gate.py` (state keys, the `amaw-enable`/`pragmatic-stop` verbs, the gated
+> AUDIT_LOG writer, four helpers that existed only to serve it, and a now-unused import): 49 of 769
+> lines. `docs/audit/AUDIT_LOG.jsonl` stays as committed history.
+>
+> **The behaviour change, stated plainly:** AMAW's Scope Guard was a *blocking* gate at POST-REVIEW.
+> The AI Factory sidecars that replace its reviews are read-only **advisors**. POST-REVIEW remains a
+> human checkpoint, and that is now the only thing that blocks there.
 
 ## Why
 

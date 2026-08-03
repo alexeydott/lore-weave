@@ -11,8 +11,8 @@
 > the standards, and the hard-won bug lore behind them. Most rules below exist because the described
 > failure actually shipped here. **Do not treat them as style preferences.**
 >
-> A handful of sections reference harness features of a specific agent CLI (`/goal`, `/compact`,
-> `/amaw`). Those are marked where they appear; the *discipline* they encode is tool-neutral
+> A handful of sections reference harness features of a specific agent CLI (`/goal`, `/compact`).
+> Those are marked where they appear; the *discipline* they encode is tool-neutral
 > and applies however you work.
 
 > **Your agent framework is a runner, not a rulebook.** This repo commits the `aif-*` skill pack
@@ -331,7 +331,7 @@ What actually carries memory across sessions, in the order to consult it:
 | A cross-cutting rule | [`docs/standards/README.md`](docs/standards/README.md) |
 | Why a past decision was made | `docs/specs/`, `docs/plans/`, then `git log` |
 | Code location | Glob / Grep / Read |
-| Phase + evidence history of a run | `docs/audit/AUDIT_LOG.jsonl` (AMAW mode) |
+| Phase + evidence history of past runs | `docs/audit/AUDIT_LOG.jsonl` (append-only; the AMAW writer was retired 2026-08-03, the record stays) |
 
 **A lesson that is not written into one of those files does not survive the session.** That is the
 whole reason the SESSION phase is mandatory — and the removal above is the proof. A handful of
@@ -403,7 +403,7 @@ LoreWeave is a hobby project with **no fixed deadline**. This shapes how reviews
   you mean "I'd have to build it" is the lazy tell this rule exists to kill.
 
 - **A deferral that passes the gate gets a tracked row** in the **Deferred Items** section of
-  `docs/sessions/SESSION_HANDOFF.md` (and `docs/deferred/DEFERRED.md` in AMAW mode): ID, origin
+  `docs/sessions/SESSION_HANDOFF.md` (and `docs/deferred/DEFERRED.md`): ID, origin
   phase, description, the gate reason (which of 1–5), and target phase/trigger.
 
 - **…and a row is not enough. A tracked deferral needs a MECHANISM (ENFORCED on the game tier).**
@@ -430,10 +430,10 @@ LoreWeave is a hobby project with **no fixed deadline**. This shapes how reviews
 
 ## Task Workflow
 
-**Bundle v2.3** — default v2.2 human-in-loop + opt-in AMAW v3.0. Full prose in [`agentic-workflow/WORKFLOW.md`](agentic-workflow/WORKFLOW.md) and [`docs/amaw-workflow.md`](docs/amaw-workflow.md). This section captures only what the agent must keep loaded at all times.
+**Bundle v2.3** — human-in-loop, with PO checkpoints at CLARIFY end and POST-REVIEW. Full prose in [`agentic-workflow/WORKFLOW.md`](agentic-workflow/WORKFLOW.md). This section captures only what the agent must keep loaded at all times.
 
 **Default mode (v2.2):** human-in-loop with PO checkpoints at CLARIFY end + POST-REVIEW.
-**Opt-in (AMAW v3.0) — HUMAN-INITIATED ONLY:** AMAW is an automated sub-agent flow that the agent **never** proposes, announces, or invokes on its own. It activates **only** when the human explicitly types `/amaw` (or asks for it) for a task. Do **not** suggest `/amaw` at CLARIFY, before BUILD, or anywhere else — even for L+ / load-bearing work (data migrations, schema changes, security-critical paths). If the human wants the cold-start sub-agent reviews, they will turn it on; otherwise stay in default v2.2. (Token cost ~$1-5/task is the human's call to make.)
+**Retired 2026-08-03: AMAW mode.** Its cold-start sub-agent reviews are covered by AI Factory's read-only sidecars (`review-sidecar`, `security-sidecar`, `rules-sidecar`, `best-practices-sidecar`) and by `/review-impl +check`. **One behaviour did NOT survive the swap:** AMAW's Scope Guard was a *blocking* gate at POST-REVIEW; the sidecars are advisors. POST-REVIEW is still a human checkpoint and that is now the only thing that blocks there.
 
 ### 12 phases
 
@@ -441,20 +441,20 @@ LoreWeave is a hobby project with **no fixed deadline**. This shapes how reviews
 CLARIFY → DESIGN → REVIEW → PLAN → BUILD → VERIFY → REVIEW → QC → POST-REVIEW → SESSION → COMMIT → RETRO
 ```
 
-| Phase | Default v2.2 role | AMAW role (opt-in) |
-|---|---|---|
-| 1. CLARIFY | Architect + PO | Main + Scribe |
-| 2. DESIGN | Lead | Main |
-| 3. REVIEW (design) | PO + Lead self-review | Adversary cold-start |
-| 4. PLAN | Lead + Developer | Main + Scribe |
-| 5. BUILD | Developer (TDD) | Main |
-| 6. VERIFY | Developer (evidence gate) | Main |
-| 7. REVIEW (code) | Lead self-review | Adversary cold-start |
-| 8. QC | QA / PO | Scope Guard |
-| 9. POST-REVIEW | Human checkpoint — present + WAIT | Scope Guard |
-| 10. SESSION | Developer | Scribe |
-| 11. COMMIT | Developer | Main |
-| 12. RETRO | All — record the lesson in the repo | Audit Logger |
+| Phase | Role |
+|---|---|
+| 1. CLARIFY | Architect + PO |
+| 2. DESIGN | Lead |
+| 3. REVIEW (design) | PO + Lead self-review |
+| 4. PLAN | Lead + Developer |
+| 5. BUILD | Developer (TDD) |
+| 6. VERIFY | Developer (evidence gate) |
+| 7. REVIEW (code) | Lead self-review |
+| 8. QC | QA / PO |
+| 9. POST-REVIEW | Human checkpoint — present + WAIT |
+| 10. SESSION | Developer |
+| 11. COMMIT | Developer |
+| 12. RETRO | All — record the lesson in the repo |
 
 **Status markers:** `[ ]` not started · `[C/D/P/B/V/R/Q/PR/S]` in phase · `[x]` done. **Task types:** `[FE]` frontend · `[BE]` backend · `[FS]` full-stack.
 
@@ -466,7 +466,7 @@ CLARIFY → DESIGN → REVIEW → PLAN → BUILD → VERIFY → REVIEW → QC �
 | Design-track session notes | `docs/03_planning/<TRACK>/SESSION_HANDOFF.md` |
 | New specs (CLARIFY) | `docs/specs/YYYY-MM-DD-<topic>.md` (or `docs/03_planning/<TRACK>/` for legacy tracks) |
 | New plans (PLAN) | `docs/plans/YYYY-MM-DD-<feature>.md` (or `docs/03_planning/<TRACK>/`) |
-| AMAW audit log | `docs/audit/AUDIT_LOG.jsonl` (append-only, committed) |
+| Audit log (historical) | `docs/audit/AUDIT_LOG.jsonl` (append-only, committed) |
 | Deferred items | `docs/deferred/DEFERRED.md` |
 | RETRO lessons | `docs/sessions/SESSION_HANDOFF.md`, or the standard/spec the lesson amends |
 
@@ -563,7 +563,6 @@ Both stages must pass. Issues found → fix → re-VERIFY → re-review.
 
 **Proactively suggest `/review-impl` (without being asked) when:** auth/credential code, tenant isolation boundaries, destructive ops, injection defenses, new service boundaries, or anything user previously flagged as load-bearing.
 
-**AMAW mode:** Scope Guard sub-agent runs the conservative final gate (CLEAR / BLOCKED). See `docs/amaw-workflow.md`.
 
 **Completion evidence:** `"summary presented, human approved: <one-liner>"`. If `/review-impl` ran, fold its findings into the evidence.
 
@@ -571,7 +570,7 @@ Both stages must pass. Issues found → fix → re-VERIFY → re-review.
 
 After QC succeeds, **do not** declare task done. Three more phases:
 
-1. **SESSION (10)** — update `docs/sessions/SESSION_HANDOFF.md` (or `docs/03_planning/<TRACK>/SESSION_HANDOFF.md` for design tracks): overwrite the **▶ NEXT SESSION** block — header (date, HEAD), NEXT items, Deferred list. Move cleared deferrals to "Recently cleared". AMAW mode also updates `docs/deferred/DEFERRED.md`.
+1. **SESSION (10)** — update `docs/sessions/SESSION_HANDOFF.md` (or `docs/03_planning/<TRACK>/SESSION_HANDOFF.md` for design tracks): overwrite the **▶ NEXT SESSION** block — header (date, HEAD), NEXT items, Deferred list. Move cleared deferrals to "Recently cleared".
 2. **COMMIT (11)** — stage only changed files (no `git add -A`); commit message names phase + review fixes + test count; SESSION update lands in the same commit as the code.
 3. **RETRO (12)** — non-obvious decisions or workarounds get written **into the repo**, where the
    next session will actually hit them: amend the standard/spec the lesson belongs to, or add a note
@@ -599,14 +598,29 @@ NO FIXES WITHOUT ROOT CAUSE.
 | Command | When |
 |---|---|
 | `/review-impl [task-id] [+check]` | On-demand deep adversarial review — the standards gate plus the coverage pass. Invoke when POST-REVIEW needs a deeper look, or after COMMIT when something feels off. Add **`+check`** to validate the findings through a fresh-context subagent before they are shown: it can drop a fabricated finding, correct a wrong citation, or promote one that was under-rated. It fails open and says so — a validator that dies never silently shrinks a review, and it may never drop a HIGH finding tagged with an ENFORCED/LOCKED standard. |
-| `/amaw` | **Human-initiated only** — the agent never suggests or invokes this. The human types `/amaw` to enable AMAW v3.0 for the current task (cold-start sub-agent reviews). For data migrations, schema changes, security-critical paths, multi-system contracts — but the decision is always the human's. |
 
-**Retired:** `/loom` (2026-08-03). It was a 43-line driver over the 12 phases; `aif-plan` + `aif-implement`
-+ `aif-verify` cover the same ground with about fifty times the detail and are maintained upstream. The
-12-phase gate itself is **not** retired — `scripts/workflow-gate.py` and the pre-commit hook are the
-mechanical part and stay. `/warp`, `/raid` and `/amaw` are candidates for the same treatment but are
-wired into the gate, CI and the distributed bundle; their removal is planned in
-[`docs/plans/2026-08-03-retire-unused-workflow-runners.md`](docs/plans/2026-08-03-retire-unused-workflow-runners.md).
+**Retired 2026-08-03: `/loom`, `/raid`, `/warp`, `/amaw`.** `/review-impl` is the only runner left, and
+it is the only one that was still being used. AI Factory's `aif-plan` (818 lines) + `aif-implement`
+(987) + `aif-verify` (556), its `implement-coordinator`/`implement-worker` pair with real worktree
+isolation, and its read-only sidecars cover what the four did, at roughly fifty times the detail and
+maintained upstream.
+
+**The 12-phase gate is NOT retired.** `scripts/workflow-gate.py` and the pre-commit hook are the
+mechanical part, they are independent of the runners, and they stay.
+
+Two things were deliberately kept rather than deleted, and the reason is the same in both cases —
+**deleting them would turn dozens of `docs/**` references into lies**, which is the rot this repo
+spends its gates preventing:
+
+- **`scripts/raid/` and `scripts/warp/`** are not runner plumbing. They are live-smoke and
+  slice-validation scripts that production tests cite by path (`verify-cycle-5.sh`,
+  `verify-cycle-13.sh`), that `scripts/capacity-thresholds.yaml` points at, and that
+  `gate-wiring-gate.py` carries an exemption for. Each has 4–7 references from outside its own
+  directory. The `slices` gate verb stays with them.
+- **`docs/audit/AUDIT_LOG.jsonl`** is committed history. The writer is gone; the record is not.
+
+See [`docs/plans/2026-08-03-retire-unused-workflow-runners.md`](docs/plans/2026-08-03-retire-unused-workflow-runners.md)
+for what was measured and where the plan's original scope turned out to be wrong.
 
 ---
 

@@ -100,7 +100,14 @@ def main() -> int:
     # A retirement note deliberately names commands that are gone ("Retired: /loom"),
     # and the vendored `/aif-*` skills are not files in this directory. Neither is a
     # broken promise, so neither counts as an orphan.
-    RETIRED = set(re.findall(r"\*\*Retired:\*\*\s*`/([a-z][a-z0-9-]*)`", section))
+    # Only a line that STARTS with a bold `**Retired…` marker exempts the commands
+    # named ON THAT LINE. Deliberately narrow: matching the whole paragraph would let
+    # a live-but-undocumented runner hide next to a retirement note, which is the
+    # blanket suppression this gate exists to avoid being.
+    RETIRED: set[str] = set()
+    for line in section.split("\n"):
+        if re.match(r"\s*\*\*Retired\b", line):
+            RETIRED.update(re.findall(r"`/([a-z][a-z0-9-]*)`", line))
     for name in sorted(mentioned - on_disk - RETIRED):
         if name.startswith("aif"):
             continue
