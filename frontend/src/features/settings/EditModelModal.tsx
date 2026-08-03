@@ -4,7 +4,7 @@ import { Save, Trash2, X, Loader2, Zap, CheckCircle, DollarSign } from 'lucide-r
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
-import { providerApi, type UserModel, type ModelPricing } from './api';
+import { providerApi, type UserModel, type ModelPricing, type ModelDeletionImpact } from './api';
 import { LOCAL_PROVIDER_KINDS } from '@/features/ai-models/api';
 import { KNOWN_FLAGS } from './CapabilityFlags';
 import { CapabilityFlags } from './CapabilityFlags';
@@ -35,6 +35,7 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deletionImpact, setDeletionImpact] = useState<ModelDeletionImpact | null>(null);
 
   // D-PRICING-REFRESH — pricing was frozen at creation with no edit path at
   // all; local (BYOK self-hosted) kinds are always explicit-zero server-side
@@ -148,7 +149,19 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
     if (!accessToken) return;
     setDeleting(true);
     try {
-      await providerApi.deleteUserModel(accessToken, model.user_model_id);
+      // The first click is a read-only preflight. It tells the author exactly
+      // what will be detached and, importantly, blocks deletion while a job is
+      // still running. The second click is the explicit destructive confirm.
+      if (!deletionImpact) {
+        const impact = await providerApi.getUserModelDeletionImpact(accessToken, model.user_model_id);
+        setDeletionImpact(impact);
+        if (!impact.can_delete) {
+          toast.error('Модель нельзя удалить: сначала остановите активные задачи.');
+        }
+        return;
+      }
+      if (!deletionImpact.can_delete) return;
+      await providerApi.deleteUserModel(accessToken, model.user_model_id, true);
       toast.success(t('model_modal.toast.deleted'));
       onUpdated();
       onClose();
@@ -366,10 +379,17 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
             </button>
           ) : (
             <div className="flex items-center gap-1.5">
-              <button onClick={handleDelete} disabled={deleting} className="rounded-md bg-destructive px-2.5 py-1.5 text-[11px] font-medium text-destructive-foreground disabled:opacity-50">
+              <button onClick={handleDelete} disabled={deleting || deletionImpact?.can_delete === false} className="rounded-md bg-destructive px-2.5 py-1.5 text-[11px] font-medium text-destructive-foreground disabled:opacity-50">
                 {deleting ? t('model_modal.edit.deleting') : t('model_modal.edit.confirm_delete')}
               </button>
               <button onClick={() => setConfirmDelete(false)} className="text-[11px] text-muted-foreground hover:text-foreground">{t('model_modal.edit.cancel')}</button>
+            </div>
+          )}
+          {deletionImpact && (
+            <div className={cn('absolute bottom-14 left-5 right-5 rounded-md border px-3 py-2 text-[10px]', deletionImpact.can_delete ? 'border-amber-500/30 bg-amber-500/5 text-amber-200' : 'border-destructive/30 bg-destructive/5 text-destructive')}>
+              {deletionImpact.can_delete
+                ? `Будут удалены ссылки: ${deletionImpact.references.length ? deletionImpact.references.map((r) => `${r.kind} (${r.count})`).join(', ') : 'нет'}. Повторно нажмите «Удалить» для подтверждения.`
+                : `Удаление заблокировано: активных задач — ${deletionImpact.active_tasks.length}. Сначала остановите их.`}
             </div>
           )}
           <div className="flex gap-2">

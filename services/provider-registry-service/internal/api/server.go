@@ -14,6 +14,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"path"
 	"slices"
 	"strconv"
@@ -434,6 +435,7 @@ func (s *Server) Router() http.Handler {
 		r.Put("/user-models/reorder", s.reorderUserModels)
 		r.Patch("/user-models/{user_model_id}", s.patchUserModel)
 		r.Delete("/user-models/{user_model_id}", s.deleteUserModel)
+		r.Get("/user-models/{user_model_id}/deletion-impact", s.userModelDeletionImpact)
 		r.Patch("/user-models/{user_model_id}/activation", s.patchUserModelActivation)
 		r.Patch("/user-models/{user_model_id}/favorite", s.patchUserModelFavorite)
 		r.Put("/user-models/{user_model_id}/tags", s.putUserModelTags)
@@ -2062,16 +2064,193 @@ func (s *Server) deleteUserModel(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	cmd, err := s.pool.Exec(r.Context(), `DELETE FROM user_models WHERE user_model_id=$1 AND owner_user_id=$2`, id, userID)
+
+	// Model deletion is deliberately a two-step operation.  The first request
+	// is a read-only impact preview; the UI displays it before asking for the
+	// final confirmation.  The second request carries this explicit header and
+	// repeats the active-job check inside the transaction (a job may have been
+	// started while the dialog was open).
+	impact, err := s.getUserModelDeletionImpact(r.Context(), userID, id)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "M03_USER_MODEL_NOT_FOUND", "user model not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, "M03_USER_MODEL_DELETE_FAILED", "failed to inspect model references")
+		}
+		return
+	}
+	if len(impact.ActiveTasks) > 0 {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"code":    "MODEL_DELETE_BLOCKED",
+			"message": "Модель нельзя удалить, пока выполняются активные задачи. Сначала остановите их.",
+			"impact":  impact,
+		})
+		return
+	}
+	if !strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Confirm-Model-Deletion")), "true") {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"code":    "MODEL_DELETE_CONFIRMATION_REQUIRED",
+			"message": "Перед удалением проверьте ссылки на модель и подтвердите операцию.",
+			"impact":  impact,
+		})
+		return
+	}
+	if err := s.cleanupKnowledgeModel(r.Context(), userID, id); errors.Is(err, errModelDeleteActive) {
+		writeError(w, http.StatusConflict, "MODEL_DELETE_BLOCKED", "Модель нельзя удалить, пока выполняются активные задачи. Сначала остановите их.")
+		return
+	} else if err != nil {
+		writeError(w, http.StatusInternalServerError, "M03_USER_MODEL_DELETE_FAILED", "failed to clear knowledge references")
+		return
+	}
+
+	if err := s.deleteUserModelData(r.Context(), userID, id); errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "M03_USER_MODEL_NOT_FOUND", "user model not found")
+		return
+	} else if errors.Is(err, errModelDeleteActive) {
+		writeError(w, http.StatusConflict, "MODEL_DELETE_BLOCKED", "Модель нельзя удалить, пока выполняются активные задачи. Сначала остановите их.")
+		return
+	} else if err != nil {
 		writeError(w, http.StatusInternalServerError, "M03_USER_MODEL_DELETE_FAILED", "failed to delete user model")
 		return
 	}
-	if cmd.RowsAffected() == 0 {
+	w.WriteHeader(http.StatusNoContent)
+}
+
+type modelDeletionReference struct {
+	Kind  string `json:"kind"`
+	Count int    `json:"count"`
+}
+
+type modelDeletionImpact struct {
+	UserModelID string                   `json:"user_model_id"`
+	References  []modelDeletionReference `json:"references"`
+	ActiveTasks []string                 `json:"active_tasks"`
+	CanDelete   bool                     `json:"can_delete"`
+}
+
+type remoteModelDeletionImpact struct {
+	References  []modelDeletionReference `json:"references"`
+	ActiveTasks int                      `json:"active_tasks"`
+}
+
+func (s *Server) knowledgeModelDeletionImpact(ctx context.Context, userID, modelID uuid.UUID) (remoteModelDeletionImpact, error) {
+	var out remoteModelDeletionImpact
+	if strings.TrimSpace(s.cfg.KnowledgeServiceURL) == "" {
+		return out, nil
+	}
+	u := strings.TrimRight(s.cfg.KnowledgeServiceURL, "/") + "/internal/admin/model-deletion/impact?user_id=" + url.QueryEscape(userID.String()) + "&model_id=" + url.QueryEscape(modelID.String())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return out, err
+	}
+	req.Header.Set("X-Internal-Token", s.cfg.InternalServiceToken)
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return out, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return out, fmt.Errorf("knowledge deletion impact returned %s", resp.Status)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+func (s *Server) cleanupKnowledgeModel(ctx context.Context, userID, modelID uuid.UUID) error {
+	if strings.TrimSpace(s.cfg.KnowledgeServiceURL) == "" {
+		return nil
+	}
+	u := strings.TrimRight(s.cfg.KnowledgeServiceURL, "/") + "/internal/admin/model-deletion/cleanup?user_id=" + url.QueryEscape(userID.String()) + "&model_id=" + url.QueryEscape(modelID.String())
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Internal-Token", s.cfg.InternalServiceToken)
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusConflict {
+		return errModelDeleteActive
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("knowledge deletion cleanup returned %s", resp.Status)
+	}
+	return nil
+}
+
+func (s *Server) getUserModelDeletionImpact(ctx context.Context, userID, modelID uuid.UUID) (modelDeletionImpact, error) {
+	var exists bool
+	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM user_models WHERE user_model_id=$1 AND owner_user_id=$2)`, modelID, userID).Scan(&exists); err != nil {
+		return modelDeletionImpact{}, err
+	}
+	if !exists {
+		return modelDeletionImpact{}, pgx.ErrNoRows
+	}
+	out := modelDeletionImpact{UserModelID: modelID.String(), References: []modelDeletionReference{}}
+	var n int
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM user_default_models WHERE owner_user_id=$1 AND user_model_id=$2`, userID, modelID).Scan(&n); err != nil {
+		return out, err
+	}
+	if n > 0 {
+		out.References = append(out.References, modelDeletionReference{Kind: "model defaults", Count: n})
+	}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM llm_jobs WHERE owner_user_id=$1 AND model_source='user_model' AND model_ref=$2`, userID, modelID).Scan(&n); err != nil {
+		return out, err
+	}
+	if n > 0 {
+		out.References = append(out.References, modelDeletionReference{Kind: "LLM jobs and history", Count: n})
+	}
+	rows, err := s.pool.Query(ctx, `SELECT job_id::text FROM llm_jobs WHERE owner_user_id=$1 AND model_source='user_model' AND model_ref=$2 AND status IN ('pending','running') ORDER BY submitted_at`, userID, modelID)
+	if err != nil {
+		return out, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return out, err
+		}
+		out.ActiveTasks = append(out.ActiveTasks, id)
+	}
+	if err := rows.Err(); err != nil {
+		return out, err
+	}
+	remote, err := s.knowledgeModelDeletionImpact(ctx, userID, modelID)
+	if err != nil {
+		return out, err
+	}
+	out.References = append(out.References, remote.References...)
+	for i := 0; i < remote.ActiveTasks; i++ {
+		out.ActiveTasks = append(out.ActiveTasks, fmt.Sprintf("knowledge:active-%d", i+1))
+	}
+	out.CanDelete = len(out.ActiveTasks) == 0
+	return out, nil
+}
+
+func (s *Server) userModelDeletionImpact(w http.ResponseWriter, r *http.Request) {
+	userID, ok := s.auth(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "M03_UNAUTHORIZED", "unauthorized")
+		return
+	}
+	id, ok := parseUUIDParam(w, r, "user_model_id")
+	if !ok {
+		return
+	}
+	impact, err := s.getUserModelDeletionImpact(r.Context(), userID, id)
+	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "M03_USER_MODEL_NOT_FOUND", "user model not found")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "M03_USER_MODEL_DELETE_FAILED", "failed to inspect model references")
+		return
+	}
+	writeJSON(w, http.StatusOK, impact)
 }
 
 func (s *Server) patchUserModelActivation(w http.ResponseWriter, r *http.Request) {

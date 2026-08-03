@@ -81,6 +81,13 @@ export type InventoryModel = {
   capability_flags?: Record<string, unknown>;
 };
 
+export type ModelDeletionImpact = {
+  user_model_id: string;
+  references: Array<{ kind: string; count: number }>;
+  active_tasks: string[];
+  can_delete: boolean;
+};
+
 // C0 rerank/reranker reconcile (BL-1): the canonical capability token is
 // `rerank` — the value provider-registry tags rerank models with and the value
 // RerankModelPicker/ModelRolePicker filter on. The settings display layer used
@@ -215,8 +222,15 @@ export const providerApi = {
     });
   },
 
-  deleteUserModel(token: string, modelId: string) {
-    return apiJson<void>(`/v1/model-registry/user-models/${modelId}`, { method: 'DELETE', token });
+  getUserModelDeletionImpact(token: string, modelId: string) {
+    return apiJson<ModelDeletionImpact>(`/v1/model-registry/user-models/${modelId}/deletion-impact`, { token });
+  },
+
+  deleteUserModel(token: string, modelId: string, confirmed = false) {
+    return apiJson<void>(`/v1/model-registry/user-models/${modelId}`, {
+      method: 'DELETE', token,
+      headers: confirmed ? { 'X-Confirm-Model-Deletion': 'true' } : undefined,
+    });
   },
 
   verifyUserModel(token: string, modelId: string) {

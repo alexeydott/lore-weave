@@ -216,11 +216,21 @@ export function ProvidersTab() {
     if (!accessToken) return;
     setDeletingModelId(model.user_model_id);
     try {
-      await providerApi.deleteUserModel(accessToken, model.user_model_id);
+      const impact = await providerApi.getUserModelDeletionImpact(accessToken, model.user_model_id);
+      if (!impact.can_delete) {
+        toast.error(`Модель нельзя удалить: активных задач — ${impact.active_tasks.length}. Сначала остановите их.`);
+        return;
+      }
+      const refs = impact.references.length
+        ? impact.references.map((r) => `${r.kind} (${r.count})`).join(', ')
+        : 'ссылок нет';
+      if (!window.confirm(`Удалить модель «${model.alias || model.provider_model_name}»?\n\nБудут удалены ссылки: ${refs}.`)) return;
+      await providerApi.deleteUserModel(accessToken, model.user_model_id, true);
       toast.success(t('providers.toast.model_removed', { name: model.alias || model.provider_model_name }));
       await refresh();
-    } catch {
-      toast.error(t('providers.toast.model_delete_failed'));
+    } catch (e) {
+      const detail = (e as { body?: { message?: string } }).body?.message;
+      toast.error(detail || t('providers.toast.model_delete_failed'));
     } finally {
       setDeletingModelId(null);
     }
