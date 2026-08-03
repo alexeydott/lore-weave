@@ -27,6 +27,16 @@ Prevents agents from skipping phases, undersizing tasks, and committing without 
 >
 > **AMAW v3.0 — opt-in.** First production run (Phase 14 model swap, 2026-05-15) caught 8 distinct findings across 6 sub-agent calls (~420K tokens), 5 of which were BLOCKs that would have been production bugs. Genuinely valuable for critical work; overkill for everyday tasks.
 
+> **Where the phase gate is enforced — this bundle differs from the parent repo on purpose.**
+> The bundle installs `scripts/workflow-gate.{sh,py}` plus a `.claude/settings.json` PreToolUse hook,
+> and that hook is its ONLY enforcement path: `install.sh` does not write a git hook into the target.
+> So in a bundle-installed repo the gate fires for Claude Code and for nobody else.
+>
+> LoreWeave itself moved the gate into `.githooks/pre-commit` on 2026-08-03, because it became a
+> five-agent repo and a check that reaches one caller in five is not a check. A target repo with
+> more than one agent should do the same: add `workflow-gate.py pre-commit` to its own pre-commit
+> hook and drop the PreToolUse copy, so git enforces it regardless of what wrote the commit.
+
 ## What's inside
 
 ```
