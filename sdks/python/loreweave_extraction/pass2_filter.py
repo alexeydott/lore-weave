@@ -478,7 +478,16 @@ def compute_filter_kept(
     config: "PrecisionFilterConfig", on_decision: "DecisionHandler | None",
 ) -> tuple[list[int], float]:
     """Pure (modulo the on_decision callback): walk every input item → kept set +
-    per-item decision emit + coverage. Identical to _filter_one_category's tail."""
+    per-item decision emit + coverage. Identical to _filter_one_category's tail.
+
+    Empty categories are valid in a chapter. They have no items to judge and are
+    therefore fully covered, matching ``_filter_one_category``'s empty-input
+    contract. The explicit guard is required by the decoupled filter finalizer,
+    which calls this function directly after fan-in.
+    """
+    if n_input == 0:
+        return [], 1.0
+
     partial_resolved = _resolve_partial(config.partial_policy)
     kept_indices: list[int] = []
     for idx in range(n_input):
