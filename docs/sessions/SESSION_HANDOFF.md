@@ -107,6 +107,43 @@ are planned, not done — NEXT-5.
 **Verified on merged `main`, not on either side of it:** frontend 6381 · worker-ai 511 ·
 knowledge-service 4115 · composition-service 3652 · three Go suites · 8 gates · language-rule PASS.
 
+### …and then the runners were retired, which found two more things
+
+`/review-impl` is the **only** slash command left. `/loom`, `/raid`, `/warp` and `/amaw` are gone —
+the owner had already stopped using all four, and AI Factory's coordinators, worktree-isolated
+workers and read-only sidecars cover what they did, maintained upstream.
+
+**The retirement plan was wrong twice, and measurement corrected it both times.** It first called
+`/warp` cheap to remove (live registered verb, three scripts, a green test, a spec). Then at
+execution the bigger correction: **`scripts/raid/` and `scripts/warp/` are not runner plumbing** —
+they are live-smoke and slice-validation scripts that production tests cite by path
+(`verify-cycle-5.sh`, `verify-cycle-13.sh`), that `capacity-thresholds.yaml` points at, and that
+`gate-wiring-gate.py` carries an exemption for; 4–7 outside references each. Deleting them would
+have turned dozens of `docs/**` references into lies. **So: runners retired, machinery kept.** What
+actually went was three command files and AMAW's whole surface inside `workflow-gate.py` (state
+keys, two verbs, the gated AUDIT_LOG writer, four helpers, one orphaned import — 49 of 769 lines).
+`AUDIT_LOG.jsonl` stays: the writer is gone, the record is not.
+
+**One behaviour did not survive, and is recorded rather than buried:** AMAW's Scope Guard was a
+*blocking* gate at POST-REVIEW; the sidecars replacing it are advisors. POST-REVIEW is still a human
+checkpoint and that is now the only thing that blocks there.
+
+**`slash-command-doc-gate` — written that morning — caught the afternoon's change twice.** Once on
+four orphaned commands (its purpose), and once because the retirement note's wording changed from
+`**Retired:**` to `**Retired 2026-08-03:**` and the exemption regex stopped matching. Narrowed:
+only commands named *on a line starting with a bold Retired marker* are exempt, so a live-but-
+undocumented runner cannot hide beside a retirement note. A ghost command one line below still reds.
+
+**Then the hook chain was enabled for the first time and immediately failed on a real bug.**
+`scripts/fe-door-scan.py` had `ROOT = pathlib.Path("d:/Works/source/lore-weave/frontend/src")` — a
+path that **exists on this machine but is a different checkout**, so the scan had been reporting on
+a sibling repo. Derived from `__file__` now: 743 components / 624 test files under *this* tree. The
+`no-absolute-host-paths` gate was written for exactly this and was right; nothing was listening,
+because `core.hooksPath` was unset. See NEXT-5.
+
+**43 merged remote branches deleted** (each verified an ancestor of `main` first, not trusted from
+`--merged`). 26 remain, all genuinely unmerged.
+
 ### ▶ NEXT
 
 1. **`NO_CHAPTER_PLAN` is a dead end with no signpost.** Agent Mode's preflight shows 4/4 green
@@ -131,23 +168,11 @@ knowledge-service 4115 · composition-service 3652 · three Go suites · 8 gates
    and `canon_consistency` scored **5/5** on all three chapters. A design that cannot prevent
    that has not addressed the refactor.
 
-5. **Retire `/warp`, `/raid`, `/amaw`** —
-   [`docs/plans/2026-08-03-retire-unused-workflow-runners.md`](../plans/2026-08-03-retire-unused-workflow-runners.md),
-   ordered `/raid` → `/warp` → `/amaw`. The owner uses none of them; AI Factory's coordinators and
-   read-only sidecars cover the same ground and are maintained upstream. **Not a delete:** `/warp`
-   has a live registered verb (`"slices"` → `cmd_slices`), three scripts, a green test and a spec;
-   `/amaw` threads `amaw_enabled` through the gate **every commit passes**. Two sub-decisions are the
-   human's: the `aif-*` sidecars are read-only advisors where AMAW's Scope Guard was a *blocking*
-   gate (a behaviour change, not a rename), and `docs/audit/AUDIT_LOG.jsonl` stays — the writer goes,
-   the record does not. `slash-command-doc-gate.py` is the mechanism that stops the prose being left
-   behind. **Trap:** `loom` is also a Rust model-checking crate used by `conformance-ci.yml`; a
-   `grep -r loom` sweep will hit it.
-6. **The workflow gate is parked at `post-review` and this session committed with `--no-verify`.**
-   That is a real bypass of the repo's own rule, not a technicality: `workflow-gate.sh status` still
-   reports `[>] post-review`, so the next commit through the hook will block. Either walk it through
-   `complete post-review` / `complete session`, or reset the state deliberately — but do it knowingly.
-7. **42 merged remote branches remain** (this session's four are deleted). They are historical, not
-   mine to delete unasked; `git branch -r --merged origin/main` lists them.
+5. **The hook chain had never been enabled in this checkout.** `core.hooksPath` was unset, so every
+   `scripts/*-gate.py` in `.githooks/pre-commit` was inert — and several commits this session used
+   `--no-verify` believing they were bypassing a gate that was not there. Same outcome, different
+   cause. Set it: `git config core.hooksPath .githooks`. **Do this on any checkout of this repo**;
+   `CONTRIBUTING.md` says so and it is easy to skip.
 
 ### Not fixed, and not tracked anywhere else
 
