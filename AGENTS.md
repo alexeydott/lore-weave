@@ -12,7 +12,7 @@
 > failure actually shipped here. **Do not treat them as style preferences.**
 >
 > A handful of sections reference harness features of a specific agent CLI (`/goal`, `/compact`,
-> `/loom`, `/amaw`). Those are marked where they appear; the *discipline* they encode is tool-neutral
+> `/amaw`). Those are marked where they appear; the *discipline* they encode is tool-neutral
 > and applies however you work.
 
 > **Your agent framework is a runner, not a rulebook.** This repo commits the `aif-*` skill pack
@@ -260,7 +260,7 @@ Overwrite the **▶ NEXT SESSION** block in `docs/sessions/SESSION_HANDOFF.md` i
 A commit is a **task checkpoint, not a session boundary**. Once code is committed, the next task continues in the *same* session.
 
 - **Do NOT** suggest opening a new session, "starting fresh", pausing, or "wrapping up" based on commit count, number of milestones done, elapsed time, or conversation length. None of these are reasons to stop.
-- This matters most during **`/loom`** multi-milestone runs: after each milestone commits, just present the close-out and continue to the next `/loom <…>` — never advise a new session in between.
+- This matters most during **multi-milestone runs**: after each milestone commits, just present the close-out and continue to the next one — never advise a new session in between.
 - Only mention context at all when it is **genuinely near full (>90% used)**. At normal usage (e.g. a 1M window with most of it free) context is a non-issue — say nothing about it.
 - If compaction is truly needed, run `/compact`. Do not ask the user to restart.
 
@@ -268,7 +268,7 @@ The legitimate stop points are the workflow's own PO checkpoints (CLARIFY end, P
 
 ### Long autonomous runs — the GOAL COMMITMENT (anti-drift) — MANDATORY
 
-Before any long / multi-phase / unattended run (`/loom` across milestones, a build track, an autonomous
+Before any long / multi-phase / unattended run (a multi-milestone build track, an autonomous
 implementation), **establish an explicit GOAL first — it is a commitment between the human and the agent, and
 the agent must ASK for it, never invent it.** A run with no agreed finish line drifts by construction.
 
@@ -598,8 +598,15 @@ NO FIXES WITHOUT ROOT CAUSE.
 
 | Command | When |
 |---|---|
-| `/review-impl [task-id]` | On-demand deep adversarial review. Invoke when POST-REVIEW needs deeper look, or after COMMIT when something feels off. Default mode. |
+| `/review-impl [task-id] [+check]` | On-demand deep adversarial review — the standards gate plus the coverage pass. Invoke when POST-REVIEW needs a deeper look, or after COMMIT when something feels off. Add **`+check`** to validate the findings through a fresh-context subagent before they are shown: it can drop a fabricated finding, correct a wrong citation, or promote one that was under-rated. It fails open and says so — a validator that dies never silently shrinks a review, and it may never drop a HIGH finding tagged with an ENFORCED/LOCKED standard. |
 | `/amaw` | **Human-initiated only** — the agent never suggests or invokes this. The human types `/amaw` to enable AMAW v3.0 for the current task (cold-start sub-agent reviews). For data migrations, schema changes, security-critical paths, multi-system contracts — but the decision is always the human's. |
+
+**Retired:** `/loom` (2026-08-03). It was a 43-line driver over the 12 phases; `aif-plan` + `aif-implement`
++ `aif-verify` cover the same ground with about fifty times the detail and are maintained upstream. The
+12-phase gate itself is **not** retired — `scripts/workflow-gate.py` and the pre-commit hook are the
+mechanical part and stay. `/warp`, `/raid` and `/amaw` are candidates for the same treatment but are
+wired into the gate, CI and the distributed bundle; their removal is planned in
+[`docs/plans/2026-08-03-retire-unused-workflow-runners.md`](docs/plans/2026-08-03-retire-unused-workflow-runners.md).
 
 ---
 
