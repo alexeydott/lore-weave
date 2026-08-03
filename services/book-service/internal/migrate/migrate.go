@@ -1729,6 +1729,24 @@ CREATE TABLE IF NOT EXISTS chapter_import_provenance (
 );
 CREATE INDEX IF NOT EXISTS idx_chapter_import_provenance_job ON chapter_import_provenance(import_job_id);
 
+-- Composition owns the lossless EPUB ToC tree. Book Service stores only the
+-- opaque mapping it received through its internal boundary plus the chapter
+-- assignment it applied, so retries and rollback remain job-scoped without a
+-- cross-service database dependency.
+CREATE TABLE IF NOT EXISTS import_job_hierarchy_mappings (
+  job_id                 UUID NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+  source_key             TEXT NOT NULL,
+  chapter_id             UUID REFERENCES chapters(id) ON DELETE SET NULL,
+  hierarchy_node_id      UUID NOT NULL,
+  structure_node_id      UUID,
+  prior_structure_node_id UUID,
+  applied_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  rolled_back_at         TIMESTAMPTZ,
+  PRIMARY KEY(job_id, source_key)
+);
+CREATE INDEX IF NOT EXISTS idx_import_job_hierarchy_chapter
+  ON import_job_hierarchy_mappings(chapter_id) WHERE chapter_id IS NOT NULL;
+
 -- Effects are written before Book metadata/cover mutations. They supply the
 -- compensating cleanup path for rollback without touching user edits made after
 -- finalization.
