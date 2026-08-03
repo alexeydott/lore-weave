@@ -15,6 +15,20 @@
 > `/loom`, `/amaw`). Those are marked where they appear; the *discipline* they encode is tool-neutral
 > and applies however you work.
 
+> **Your agent framework is a runner, not a rulebook.** This repo also commits the `aif-*` skill
+> pack (`.codex/`, `.agents/`, `.github/skills/`, `.ai-factory/`) alongside `.claude/` and
+> `.cursor/`. Those decide *how* an agent moves through work; they never decide what this project
+> permits. **Where a skill's default conflicts with this file, this file wins** — and that conflict
+> is a defect to report, not a judgement call to make mid-task. (Live example: `aif-implement` says
+> *"do not add tests by default"*, which is wrong here, and is overridden.)
+>
+> Project rules are bound into those skills at `.ai-factory/skill-context/<skill>/SKILL.md` — the
+> pack's own sanctioned override hook, which it treats as a mandatory read that beats its defaults.
+> **The three skill trees are GENERATED and installed once per agent target; never hand-edit one
+> copy** (`scripts/agent-skills-parity.py` blocks it at pre-commit). How to contribute to the
+> workflow, and how to personalise it without changing it for everyone else:
+> [`docs/standards/agent-workflow.md`](docs/standards/agent-workflow.md).
+
 ## What This Project Is
 
 LoreWeave is a multi-agent platform for multilingual novel workflows (translation, analysis, knowledge building, assisted creation). Cloud-hosted (AWS) monorepo with Docker Compose for local development. Serves multiple users across multiple devices (PC, mobile, tablet).
