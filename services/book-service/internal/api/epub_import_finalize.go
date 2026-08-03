@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/loreweave/epubimport"
 )
 
 type epubStagingPayload struct {
@@ -57,13 +59,14 @@ func (s *Server) materializeEPUBImport(ctx context.Context, jobID uuid.UUID) (in
 	}
 	defer tx.Rollback(ctx)
 	var bookID, sourceID, userID uuid.UUID
-	var sourceSHA, language, status string
+	var sourceSHA, language, status, targetMode, sourceObjectKey string
+	var optionsJSON, inspectionJSON []byte
 	var progressTotal int
 	err = tx.QueryRow(ctx, `
-SELECT j.book_id,j.source_id,j.user_id,s.sha256,COALESCE(s.metadata_json->>'language','und'),j.status,j.progress_total
+SELECT j.book_id,j.source_id,j.user_id,s.sha256,COALESCE(s.metadata_json->>'language','und'),j.status,j.progress_total,j.target_mode,j.options_json,s.object_key,s.inspection_json
 FROM import_jobs j JOIN import_sources s ON s.id=j.source_id
 WHERE j.id=$1 AND j.pipeline_version=$2 FOR UPDATE`, jobID, epubImportPipelineVersion).
-		Scan(&bookID, &sourceID, &userID, &sourceSHA, &language, &status, &progressTotal)
+		Scan(&bookID, &sourceID, &userID, &sourceSHA, &language, &status, &progressTotal, &targetMode, &optionsJSON, &sourceObjectKey, &inspectionJSON)
 	if err != nil {
 		return 0, fmt.Errorf("load import job: %w", err)
 	}
@@ -168,15 +171,35 @@ INSERT INTO chapter_import_provenance(
 	if err := rewriteMaterializedEPUBLinks(ctx, tx, bookID, jobID, materialized); err != nil {
 		return 0, err
 	}
+	metadataApplied := []string{}
+	var coverWarning *epubimport.Diagnostic
+	if shouldApplyEPUBImportCover(targetMode, optionsJSON) {
+		var inspection epubimport.Inspection
+		if err := json.Unmarshal(inspectionJSON, &inspection); err != nil {
+			return 0, fmt.Errorf("decode EPUB source inspection: %w", err)
+		}
+		coverApplied, warning, err := s.applyEPUBImportCover(ctx, tx, jobID, bookID, sourceObjectKey, inspection)
+		if err != nil {
+			return 0, err
+		}
+		if coverApplied {
+			metadataApplied = append(metadataApplied, "cover")
+		}
+		coverWarning = warning
+	}
 	var warningCount int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM import_job_items WHERE job_id=$1 AND selected AND jsonb_array_length(warnings_json)>0`, jobID).Scan(&warningCount); err != nil {
 		return 0, err
 	}
 	finalStatus := "completed"
-	if warningCount > 0 {
+	if warningCount > 0 || coverWarning != nil {
 		finalStatus = "completed_with_warnings"
 	}
-	report, _ := json.Marshal(map[string]any{"job_id": jobID, "status": finalStatus, "chapters_created": created, "warnings": []any{}, "errors": []any{}, "metadata_applied": []string{}})
+	warnings := []any{}
+	if coverWarning != nil {
+		warnings = append(warnings, coverWarning)
+	}
+	report, _ := json.Marshal(map[string]any{"job_id": jobID, "status": finalStatus, "chapters_created": created, "warnings": warnings, "errors": []any{}, "metadata_applied": metadataApplied})
 	if _, err := tx.Exec(ctx, `UPDATE import_jobs SET status=$2,chapters_created=$3,report_json=$4,finalized_at=now(),completed_at=now(),updated_at=now() WHERE id=$1`, jobID, finalStatus, created, report); err != nil {
 		return 0, err
 	}

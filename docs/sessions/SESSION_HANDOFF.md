@@ -30,6 +30,13 @@ chapter IDs exist; external links are untouched and excluded/missing targets rem
 warning. The asset endpoint additionally constrains object keys to the source SHA-256 namespace
 and MIME-specific digest filename.
 
+**Cover checkpoint (2026-08-03):** finalize now applies a validated EPUB cover to a newly created
+book by default, or to an existing book only when `metadata_policy.cover=use_source`. It journals
+the complete prior cover before mutation. Rollback restores the journaled cover unless its
+`updated_at` proves a user changed it after import finalization; that case is retained as a
+rollback conflict. Cover extraction rejects absent, undeclared, oversized, or MIME-spoofed bytes
+as a non-critical import warning.
+
 **Worker recovery checkpoint (2026-08-03):** Redis Stream consumers now use a hostname-qualified
 consumer ID and scan the group PENDING list with `XAUTOCLAIM` only after a 15-minute idle period.
 This lets a restarted worker reclaim stranded import jobs without racing a healthy worker. Book

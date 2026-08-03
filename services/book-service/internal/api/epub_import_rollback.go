@@ -58,13 +58,13 @@ func (s *Server) rollbackEPUBImport(ctx context.Context, jobID uuid.UUID) (epubR
 	}
 	defer tx.Rollback(ctx)
 
-	var userID uuid.UUID
+	var userID, bookID uuid.UUID
 	var status string
 	var priorReport []byte
 	if err := tx.QueryRow(ctx, `
-SELECT user_id,status,COALESCE(report_json,'{}'::jsonb)
+SELECT user_id,book_id,status,COALESCE(report_json,'{}'::jsonb)
 FROM import_jobs WHERE id=$1 AND pipeline_version=$2 FOR UPDATE
-`, jobID, epubImportPipelineVersion).Scan(&userID, &status, &priorReport); err != nil {
+`, jobID, epubImportPipelineVersion).Scan(&userID, &bookID, &status, &priorReport); err != nil {
 		return epubRollbackResult{}, fmt.Errorf("load import job: %w", err)
 	}
 	if status == "rolled_back" {
@@ -134,6 +134,9 @@ ON CONFLICT (job_id,effect_type,effect_key) DO NOTHING
 			return epubRollbackResult{}, err
 		}
 		result.ChaptersRolledBack++
+	}
+	if err := rollbackEPUBImportCover(ctx, tx, jobID, bookID, &result.Conflicts); err != nil {
+		return epubRollbackResult{}, err
 	}
 	report, err := json.Marshal(map[string]any{
 		"status":               result.Status,
