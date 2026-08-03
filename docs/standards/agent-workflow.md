@@ -108,11 +108,38 @@ A rule change binds everyone, so it is a normal reviewed change:
    paste the output into the VERIFY evidence. "I added a test" is not evidence. See
    [`non-vacuity.md`](non-vacuity.md).
 
-### 4.2 Changing an agent skill (layer 2)
+### 4.2 Where the `aif-*` pack comes from, and how to upgrade it
 
-The `aif-*` skills are **generated**, installed once per agent target
-(`codex` → `.codex/skills`, `codex-app` → `.agents/skills`, `copilot` → `.github/skills`).
-The three trees are renderings of one upstream source and differ only by install root,
+It is **[AI Factory](https://github.com/lee-to/ai-factory)** by [lee-to](https://github.com/lee-to)
+(CutCode) — MIT licensed, docs at [aif.cutcode.dev](https://aif.cutcode.dev/). We did not write it.
+It is vendored here, at the version recorded in `.ai-factory.json` (`2.17.0` at time of writing).
+
+```bash
+npx ai-factory@<version> init --agents claude,cursor,codex,codex-app,copilot --skills all
+npx ai-factory@<version> update          # refresh installed skills
+npm view ai-factory version              # what upstream is on now
+```
+
+Adding a target is one command — the tool supports Claude Code, Cursor, Windsurf, Roo, Kilo,
+OpenCode, Warp, Zencoder, Codex CLI/app, Copilot, Gemini CLI, Junie, Qwen and others. It edits
+`.ai-factory.json` itself, and the parity gate reads its target list from there, so a sixth agent
+comes under the gate without anyone editing the gate.
+
+**Pin the version deliberately.** Re-running `init` at a newer version rewrites every tree at once —
+a diff nobody reviews line by line. Upgrade as its own commit, with the version bump in the message,
+never as a side effect of adding an agent. When the `claude` and `cursor` targets were added, upstream
+was on the exact version already vendored, so the existing trees came back byte-identical; that is the
+outcome to aim for.
+
+**Two things the tool does not own**, and must not be clobbered when re-running it:
+`.claude/settings.json` (this repo's workflow-gate hook) and `.claude/commands/*` (the LoreWeave
+runners). Verified: `init` leaves both untouched. Check the diff anyway.
+
+### 4.3 Changing an agent skill (layer 2)
+
+The `aif-*` skills are **generated**, installed once per agent target — today `claude`,
+`cursor`, `codex`, `codex-app` and `copilot`; `.ai-factory.json` is the live list.
+The trees are renderings of one upstream source and differ only by install root,
 `npx skills install --agent <name>` flag, and invocation sigil (`$aif-…` vs `/aif-…`).
 
 **Do not hand-edit one copy.** It looks self-consistent, so nobody notices, and two
@@ -136,7 +163,7 @@ If a genuine upstream rendering quirk makes two copies differ, add a `KNOWN_REND
 entry in the parity gate **with a reason**. That list is shrink-checked: the gate fails when
 an entry is no longer needed, so it cannot quietly become a dumping ground.
 
-### 4.3 Adding a gate
+### 4.4 Adding a gate
 
 Gates are the load-bearing part, so they have their own rules:
 
@@ -209,7 +236,7 @@ These are structural, so they get a plan rather than a drive-by edit: tracked as
 
 ```bash
 git config core.hooksPath .githooks       # once per checkout — enables every gate
-python scripts/agent-skills-parity.py     # are the three skill trees still in lockstep?
+python scripts/agent-skills-parity.py     # are the per-agent skill trees still in lockstep?
 python scripts/gate-wiring-gate.py        # is every gate script actually wired?
 ./scripts/workflow-gate.sh status         # where am I in the 12 phases?
 ```
@@ -220,5 +247,5 @@ python scripts/gate-wiring-gate.py        # is every gate script actually wired?
 | Is there a rule about X? | [`docs/standards/README.md`](README.md) |
 | What is happening right now? | [`docs/sessions/SESSION_HANDOFF.md`](../sessions/SESSION_HANDOFF.md) |
 | I use Codex/Copilot — where do I start? | [`AGENTS.md`](../../AGENTS.md) |
-| How do I change a skill? | §4.2 — override in `skill-context/`, don't hand-edit a copy |
+| How do I change a skill? | §4.3 — override in `skill-context/`, don't hand-edit a copy |
 | How do I keep my own habits? | §5 — the `.local` layer |

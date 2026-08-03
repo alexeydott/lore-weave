@@ -356,7 +356,7 @@ services/publisher/pub.exe~
 # The agent workflow IS committed on purpose (see docs/standards/agent-workflow.md):
 # when several people and several agents work the same repo, a shared, versioned
 # process is what makes a wrong turn reviewable instead of invisible. Committed:
-# CLAUDE.md, AGENTS.md, .claude/, .cursor/, .codex/, .agents/, .github/skills/,
+# AGENTS.md, CLAUDE.md, .claude/, .cursor/, .codex/, .agents/, .github/skills/,
 # .ai-factory/, .githooks/, scripts/*-gate.py.
 #
 # Personal layer — never committed. Put your own overrides here and they stay
