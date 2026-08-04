@@ -122,6 +122,22 @@ describe('useManuscriptTree', () => {
     expect(listChaptersPage).toHaveBeenCalled();     // the real chapters loaded
   });
 
+  it('has Work with only root scenes → uses manuscript chapters instead of hiding them', async () => {
+    work.value = { data: { status: 'found', work: { project_id: 'p1' } }, isLoading: false };
+    listOutlineChildren.mockResolvedValue({
+      items: [{ id: 'scene1', kind: 'scene', title: '', chapter_id: 'c1', status: 'empty' }],
+      next_cursor: null,
+    });
+    listChaptersPage.mockResolvedValue({
+      items: [{ chapter_id: 'c1', sort_order: 1, title: 'Chapter 1', original_filename: 'a.txt' }],
+      next_cursor: null, total: 1,
+    });
+    listParts.mockResolvedValue({ items: [] });
+    const { result } = renderHook(() => useManuscriptTree('b1', 't'));
+    await waitFor(() => expect(result.current.rows.some((r) => isNode(r, 'c1'))).toBe(true));
+    expect(result.current.source).toBe('chapters');
+  });
+
   it('has Work → outline source: loads top-level arcs with parentId null', async () => {
     work.value = { data: { status: 'found', work: { project_id: 'p1' } }, isLoading: false };
     listOutlineChildren.mockResolvedValue({

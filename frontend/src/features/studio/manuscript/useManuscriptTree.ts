@@ -247,7 +247,12 @@ export function useManuscriptTree(bookId: string, token: string | null) {
         ]);
         if (genRef.current !== gen) return;
         const nodes = page.items.filter((n) => n.kind !== 'beat').map(outlineToNode);
-        if (nodes.length === 0) {
+        // Imported books can have a Work populated only with root-level scene nodes. That is
+        // not a manuscript outline: the chapter rows still live in book-service, and choosing
+        // the outline lens in this shape makes the editor appear to have no chapters. Fall back
+        // to the authoritative chapter list whenever the outline has no chapter/arc structure.
+        const hasChapterStructure = nodes.some((n) => n.kind === 'chapter' || n.kind === 'arc');
+        if (nodes.length === 0 || (!hasChapterStructure && chapters?.items?.length)) {
           setOutlineEmptyFallback(true); // re-runs resetAndLoad as 'chapters' (source flips)
           return;
         }
