@@ -102,6 +102,9 @@ NON_JUDGE_COMPARES: dict[str, str] = {
     "services/chat-service/app/services/stream_service.py":
         "a sub-agent inheriting the parent's model, compared to avoid re-resolving it. "
         "No grading involved.",
+    "services/knowledge-service/app/clients/embedding_client.py":
+        "a stale user-model identifier compared with provider-registry's current embedding "
+        "default before one recovery retry. Neither reference selects or evaluates a judge.",
 }
 
 
