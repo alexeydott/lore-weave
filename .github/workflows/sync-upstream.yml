@@ -35,7 +35,7 @@ jobs:
 
       - name: keep agent configuration local
         run: |
-          git rm -r --cached --ignore-unmatch .agents .ai-factory .claude .codex .cursor
+          git rm -r --cached --ignore-unmatch .agents .ai-factory .claude .codex .cursor .github/skills .ai-factory.json
           git add .gitignore
 
       - name: commit and push when upstream changed

@@ -326,8 +326,8 @@ The complete design lives in [`docs/03_planning/LLM_MMO_RPG/`](docs/03_planning/
 
 This fork automatically merges `letuhao/lore-weave` `main` every day at 03:17 UTC and can be
 run manually from the **sync upstream** GitHub Actions workflow. The workflow carries product code,
-contracts, documentation, plans, specifications, and checklists forward. Agent configuration and
-generated agent skills remain local and are intentionally excluded from synchronization.
+contracts, documentation, plans, specifications, and checklists forward. Agent configuration,
+manifests, and generated agent skills remain local and are intentionally excluded from synchronization.
 
 If upstream introduces a merge conflict, the workflow stops without pushing; resolve the conflict
 on `main`, then rerun the workflow.
