@@ -161,7 +161,9 @@ var chain = []Step{
 	// by whichever extraction batch named it first (BTG-A49/A66) and becomes the argmax over
 	// every observation, with a refinement rule so a corrected ontology can correct the data
 	// the wrong one produced.
+	// Curated default genre-to-kind links, including repair for existing book ontologies.
 	{"0058_entity_kind_votes", UpEntityKindVotes},
+	{"0059_seed_genre_kind_links", SeedGenreKindLinks},
 }
 
 // EnsureLedger creates the schema_migrations bookkeeping table. Idempotent; must run
