@@ -196,6 +196,16 @@ Access the UI at **[http://localhost:5174](http://localhost:5174)** · gateway o
 
 `docker compose up` starts the **novel platform**. The Living Worlds reality-ops tier (14 SRE services, the Rust world/travel services, and the meta Patroni cluster) is not in the default stack.
 
+### Test environments
+
+Create or refresh isolated Python test environments for all Python services:
+
+```bash
+make test-env-python
+```
+
+To refresh one service only, run `bash ./scripts/bootstrap-python-test-envs.sh knowledge-service`.
+
 ---
 
 ## AI Models (BYOK)
