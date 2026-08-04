@@ -524,5 +524,18 @@
       "deleted": "Model deleted",
       "delete_failed": "Failed to delete"
     }
+  },
+  "defaultModels": {
+    "heading": "Default models",
+    "subtitle": "Your per-user fallback models (BYOK — your own). Used when no per-scope model is set.",
+    "chat": "Default chat model",
+    "chatHint": "Preselected when you start a new chat. Leave empty to default to your favorites.",
+    "rerank": "Default reranker",
+    "rerankHint": "Cross-encoder rerank for raw-search junk-rejection. Optional — applies when a project has no rerank model set.",
+    "planner": "Default planner",
+    "plannerHint": "The chat model the glossary assistant uses to build multi-step plans. Pick a strong, tool-capable model — otherwise planning falls back to an arbitrary chat model and often fails.",
+    "none": "None",
+    "empty": "No capable models configured.",
+    "saved": "Default updated"
   }
 }
