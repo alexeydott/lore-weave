@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { UserModel } from '@/features/ai-models/api';
-import { estimateJobTotalCost, estimateTokenCost, findJobModelPricing } from '../modelPricing';
+import { estimateTotalJobCost, estimateTokenCost, findJobModelPricing } from '../modelPricing';
 
 const model = {
   user_model_id: 'm1',
@@ -23,9 +23,9 @@ describe('job model pricing', () => {
   });
 
   it('extrapolates total cost from current spend and progress', () => {
-    expect(estimateJobTotalCost(0.22, { done: 55, total: 216 })).toBeCloseTo(0.864, 6);
-    expect(estimateJobTotalCost(0.22, { done: 216, total: 216 })).toBeCloseTo(0.22, 6);
-    expect(estimateJobTotalCost(0.22, { done: 0, total: 216 })).toBeNull();
+    expect(estimateTotalJobCost(0.22, { done: 55, total: 216 })).toBeCloseTo(0.864, 6);
+    expect(estimateTotalJobCost(0.22, { done: 216, total: 216 })).toBeCloseTo(0.22, 6);
+    expect(estimateTotalJobCost(0.22, { done: 0, total: 216 })).toBeNull();
   });
 
   it('returns no hint when pricing or token counts are unavailable', () => {

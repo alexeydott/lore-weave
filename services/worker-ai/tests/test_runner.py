@@ -120,9 +120,14 @@ def _mock_pool(book_id=_TEST_BOOK_ID):
     # the happy path emits; tests inspect `pool.acquired_conn.fetchrow`.
     # P4 carries the final cost on the terminal event — _complete_job/_fail_job read
     # row["cost_spent_usd"] from the RETURNING row, so the mock must supply it.
+    # The terminal events also carry the job's cumulative provider token counts, which
+    # _complete_job/_fail_job read off the same RETURNING row — a real DB always returns
+    # them (the columns are NOT NULL DEFAULT 0), so the fake must too.
     conn.fetchrow = AsyncMock(return_value={
         "job_id": "00000000-0000-0000-0000-000000000001",
         "cost_spent_usd": Decimal("0.004"),
+        "tokens_in": 0,
+        "tokens_out": 0,
     })
     _acq = MagicMock()
     _acq.__aenter__ = AsyncMock(return_value=conn)
@@ -152,8 +157,12 @@ def _mock_knowledge_client():
 def _mock_llm_client():
     """Phase 4b-gamma: LLMClient is required by process_job/poll_and_run
     but is never invoked in tests because _extract_and_persist is
-    patched. A MagicMock placeholder is enough."""
-    return MagicMock()
+    patched. A MagicMock placeholder is enough — except for take_usage, which
+    process_job unpacks as a 2-tuple; a bare MagicMock iterates empty and would
+    raise "not enough values to unpack" before the assertion under test runs."""
+    client = MagicMock()
+    client.take_usage.return_value = (0, 0)
+    return client
 
 
 # ── D-KG-WORKER-GRADED-EFFORT — sync path threads job effort to the SDK ─────
@@ -689,6 +698,83 @@ async def test_process_job_chat_records_spending_on_success(mock_extract_persist
         and "current_month_spent_usd" in c.args[0]
     ]
     assert len(spending_calls) == 2
+
+
+# ── D-CHAT-TURN-RETRYABLE-SWALLOW ──────────────────────────────────────────
+#
+# The chat branch failed the job on a NON-retryable error and then fell straight
+# through to _mark_pending_processed + _advance_cursor — so a RETRYABLE error marked
+# the turn DONE and moved on. The turn's memory was lost with nothing going red. The
+# chapters branch has had bounded retry-in-cursor since CM3b; chat never got it.
+#
+# It matters more since the anchor pre-load began failing closed: an unreadable
+# glossary returns a retryable 503, and swallowing that trades a silent duplicate for
+# a silent omission.
+
+
+@pytest.mark.asyncio
+@patch("app.runner._extract_and_persist", new_callable=AsyncMock)
+async def test_process_job_chat_retryable_error_does_NOT_consume_the_turn(mock_extract_persist):
+    """Under the retry limit: the turn must NOT be marked processed and the cursor
+    must NOT advance past it — it is re-driven on the next poll instead."""
+    mock_extract_persist.return_value = _error_result(retryable=True)
+    pending_id = uuid4()
+    job = _job(scope="chat")
+    pool = _mock_pool()
+    pool.fetch = AsyncMock(return_value=[
+        {"pending_id": pending_id, "aggregate_id": uuid4()},
+    ])
+    chat = _mock_chat_client(text="Kai told Master Lin he would leave the sect.")
+
+    await process_job(pool, _mock_knowledge_client(), _mock_llm_client(),
+                      _mock_book_client(), _mock_glossary_client(), chat,
+                      _mock_provider_client(), job)
+
+    sql_calls = [c for c in pool.execute.call_args_list if isinstance(c.args[0], str)]
+
+    # The bug: the turn was consumed. Nothing may mark this pending row processed.
+    assert not [c for c in sql_calls if "extraction_pending" in c.args[0]
+                and "processed" in c.args[0].lower()], \
+        "a retryable failure marked the chat turn processed — the turn is lost"
+
+    # And the retry counter must be persisted so the attempt is BOUNDED, not endless.
+    retry_writes = [c for c in sql_calls
+                    if f"retry_chat_{pending_id}" in str(c.args)]
+    assert retry_writes, "no retry counter persisted — the retry would be unbounded"
+
+
+@pytest.mark.asyncio
+@patch("app.runner._extract_and_persist", new_callable=AsyncMock)
+async def test_process_job_chat_retry_exhaustion_skips_the_turn_LOUDLY(mock_extract_persist):
+    """At the limit: the turn is skipped EXPLICITLY — a retry_exhausted error log,
+    and counted as skipped rather than processed. A flapping dependency must not be
+    able to look like success. Mirrors the chapters/glossary branches."""
+    mock_extract_persist.return_value = _error_result(retryable=True)
+    pending_id = uuid4()
+    # Third attempt: the cursor already carries 2.
+    job = _job(
+        scope="chat",
+        current_cursor={f"retry_chat_{pending_id}": 2, "scope": "chat"},
+    )
+    pool = _mock_pool()
+    pool.fetch = AsyncMock(return_value=[
+        {"pending_id": pending_id, "aggregate_id": uuid4()},
+    ])
+    chat = _mock_chat_client(text="Kai told Master Lin he would leave the sect.")
+
+    await process_job(pool, _mock_knowledge_client(), _mock_llm_client(),
+                      _mock_book_client(), _mock_glossary_client(), chat,
+                      _mock_provider_client(), job)
+
+    retry_exhausted_logs = [
+        c for c in pool.execute.call_args_list
+        if isinstance(c.args[0], str)
+        and "INSERT INTO job_logs" in c.args[0]
+        and c.args[3] == "error"
+        and "retry_exhausted" in str(c.args[5])
+    ]
+    assert len(retry_exhausted_logs) == 1, \
+        f"expected 1 retry_exhausted log, got {len(retry_exhausted_logs)}"
 
 
 @pytest.mark.asyncio
@@ -1727,6 +1813,8 @@ async def test_get_running_jobs_pulls_embedding_dimension(monkeypatch):
         "max_spend_usd": Decimal("10"), "items_total": 5,
         "items_processed": 0, "current_cursor": None,
         "cost_spent_usd": Decimal("0"),
+        # Cumulative provider tokens — NOT NULL DEFAULT 0, so a real row always has them.
+        "tokens_in": 0, "tokens_out": 0,
         "campaign_id": None,
         "billing_user_id": None,
         "billing_embedding_model": None,
@@ -1764,6 +1852,8 @@ async def test_get_running_jobs_handles_null_embedding_dimension():
         "max_spend_usd": None, "items_total": None,
         "items_processed": 0, "current_cursor": None,
         "cost_spent_usd": Decimal("0"),
+        # Cumulative provider tokens — NOT NULL DEFAULT 0, so a real row always has them.
+        "tokens_in": 0, "tokens_out": 0,
         "campaign_id": None,
         "billing_user_id": None,
         "billing_embedding_model": None,
@@ -1800,6 +1890,8 @@ async def test_get_running_jobs_threads_billing_identity():
         "max_spend_usd": None, "items_total": None,
         "items_processed": 0, "current_cursor": None,
         "cost_spent_usd": Decimal("0"),
+        # Cumulative provider tokens — NOT NULL DEFAULT 0, so a real row always has them.
+        "tokens_in": 0, "tokens_out": 0,
         "campaign_id": None,
         "billing_user_id": collab,
         "billing_embedding_model": "collab-emb",
@@ -1838,6 +1930,8 @@ async def test_get_running_jobs_threads_pinned_entity_ids():
         "max_spend_usd": None, "items_total": None,
         "items_processed": 0, "current_cursor": None,
         "cost_spent_usd": Decimal("0"),
+        # Cumulative provider tokens — NOT NULL DEFAULT 0, so a real row always has them.
+        "tokens_in": 0, "tokens_out": 0,
         "campaign_id": None,
         "billing_user_id": None,
         "billing_embedding_model": None,

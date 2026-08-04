@@ -36,7 +36,7 @@ from loreweave_jobs import BaseTerminalConsumer, JobStatus, emit_job_event_safe
 from loreweave_llm.attribution import set_public_key_attribution
 
 from app import decoupled_extract as dx
-from app.llm_client import LLMClient, set_billing_user_id, set_campaign_id
+from app.llm_client import LLMClient, begin_usage_capture, set_billing_user_id, set_campaign_id
 from app.sample_emit import persist_run_sample_best_effort
 
 logger = logging.getLogger(__name__)
@@ -379,6 +379,9 @@ async def _resume(pool, knowledge_client, llm_client: LLMClient, owner_user_id, 
     # submit (a separate process from the start) so the extraction re-spend keeps
     # tagging job_meta with the agent's key (+ cap). Rides resume_state, like billing.
     set_public_key_attribution(rs.get("mcp_key_id"), rs.get("spend_cap_usd"))
+    # Each resume folds exactly one terminal provider job, so capture starts fresh here.
+    # `_resume` is itself the task that reads the accumulator back, one line later.
+    begin_usage_capture()
     try:
         job = await llm_client.get_job(job_id, user_id=owner_user_id or rs.get("billing_user_id") or rs["user_id"])
         usage_in, usage_out = llm_client.take_usage()

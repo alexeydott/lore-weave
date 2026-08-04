@@ -1,5 +1,4 @@
 {
-  "title": "Wiki",
   "search": "搜尋 Wiki...",
   "searchEntities": "依名稱搜尋實體...",
   "noArticles": "尚無 Wiki 文章",
@@ -150,12 +149,12 @@
       "writeback": "儲存"
     },
     "badge": {
-      "generated": "AI",
       "generatedHint": "AI 生成，已通過驗證。",
       "needs_review": "待審",
       "needs_reviewHint": "AI 生成 — 已標記待審。",
       "blocked": "已封鎖",
-      "blockedHint": "AI 生成 — 經驗證封鎖發佈。"
+      "blockedHint": "AI 生成 — 經驗證封鎖發佈。",
+      "generated": "AI 生成"
     },
     "flags": {
       "reviewTitle": "已標記待審",
@@ -203,6 +202,11 @@
     "rescanPartial": "掃描完成（略過 recipe — knowledge 未提供版本） — {{count}} 筆新增",
     "rescanPartial_other": "掃描完成（略過 recipe — knowledge 未提供版本） — {{count}} 筆新增",
     "rescanFailed": "重新掃描失敗",
+    "rescanUnchecked": "掃描不完整 — {{count}} 篇文章未被比對",
+    "rescanUnchecked_other": "掃描不完整 — {{count}} 篇文章未被比對",
+    "coverageGap": "上次掃描有 {{count}} 篇文章無法比對（knowledge 無法連線），因此此列表可能不完整。",
+    "coverageGap_other": "上次掃描有 {{count}} 篇文章無法比對（knowledge 無法連線），因此此列表可能不完整。",
+    "coverageUnknown": "本次掃描未回報比對範圍，因此此列表可能不完整。",
     "ledgerNote": "知識變更會自動記錄於此（延遲式台帳，非即時）。旗標會翻轉但不會自動重新生成 — 只有按下「重新生成」才會消耗 token。",
     "reason": {
       "entity_changed": "詞彙表項目已變更",
@@ -233,5 +237,6 @@
     "pendingChip_other": "{{count}} 則建議",
     "pendingTitle": "待審建議（{{count}}）",
     "pendingTitle_other": "待審建議（{{count}}）"
-  }
+  },
+  "title": "維基"
 }

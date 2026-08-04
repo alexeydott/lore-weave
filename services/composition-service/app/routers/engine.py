@@ -30,14 +30,14 @@ from app.db.repositories.canon_rules import CanonRulesRepo
 from app.db.repositories.generation_corrections import (
     GenerationCorrectionsRepo, count_changed_blocks,
 )
-from app.clients.model_name import resolve_model_name
+from app.clients.model_name import resolve_model_info, resolve_model_name
 from app.db.repositories.generation_jobs import GenerationJobsRepo
 from app.db.repositories.grounding_pins import GroundingPinsRepo
 from app.db.repositories.style_voice import StyleProfileRepo, VoiceProfileRepo
 from app.db.repositories.narrative_thread import NarrativeThreadRepo
 from app.db.repositories.motif_application import MotifApplicationRepo
 from app.db.repositories.motif_repo import MotifRepo
-from app.db.repositories.motif_retrieve import MotifRetriever
+from app.db.repositories.motif_retrieve import MotifRetriever, node_query_text
 from app.db.pool import get_pool
 from app.db.repositories.outline import OutlineRepo
 from app.db.repositories.references import ReferencesRepo, reference_embed_model
@@ -60,33 +60,79 @@ from app.engine.adaptive_k import adaptive_k
 from app.engine.chapter_gen import build_chapter_pack_node, union_cast
 from app.engine.prose_doc import text_to_tiptap_doc
 from app.engine.stitch import prepend_scene_headings, stitch_chapter
+from app.engine.canon_check import canon_envelope, unguarded_envelope
 from app.engine.canon_reflect import run_canon_reflect
+from app.engine.critic_policy import (
+    CriticResolution, CriticStatus, resolve_critic_verified,
+)
 from app.engine.narrative_thread import detect_and_update_threads
 from app.engine.compress import compress
 from app.engine.cowrite import (
-    SELECTION_MAX_CHARS, build_messages, build_selection_messages,
-    estimate_prompt_tokens, stream_draft,
+    DEFAULT_SCENE_TARGET_WORDS, SCENE_OUTPUT_CEILING, SELECTION_MAX_CHARS, build_messages,
+    build_selection_messages, estimate_prompt_tokens, realised_words, scene_output_budget,
+    stream_draft,
 )
 from app.engine.critic import judge_prose
 from app.engine.critic_override import (
     critique_overrides,
     evaluate_override_gate as co_evaluate_override_gate,
 )
-from app.engine.select import diverge, select_draft
+from app.engine.select import diverge, select_scene
 from app.reasoning import ReasoningSignals, score_effort
 from loreweave_context import scale_by_window
-from loreweave_llm import infer_reasoning_control, resolve_reasoning
+from loreweave_llm import ReasoningControl, infer_reasoning_control, resolve_reasoning
 from app.middleware.jwt_auth import get_bearer_token, get_current_user
 from app.packer import budget as B
 from app.grant_client import GrantClient, GrantLevel
 from app.grant_deps import InsufficientGrant, authorize_book
 from app.packer.pack import OwnershipError, PackRequest, build_derivative_context, pack
 from app.packer.profile import from_settings
+from app.llm_budget import narrowed_by_request
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/composition")
 
+#: Why the LLM critique did not run, in words the AUTHOR can act on.
+#:
+#: One sentence used to cover every case: *"critique skipped: no distinct critic model
+#: configured"*. It was returned both when no critic had ever been set and when the author had
+#: set one that happens to be the model already writing the prose — a misconfiguration with a
+#: concrete fix, described as an absence. Neither message told them the blocking tier was off
+#: or that a setting exists to turn it on.
+#:
+#: Keyed on the enum rather than built with an `if`, so a new `CriticStatus` member cannot be
+#: added without deciding what to tell the author about it — the lookup raises rather than
+#: falling through to a plausible default. Same reason the frontend-tool contract closes its
+#: enums: a string-dispatch default hides a missing case.
+_CRITIC_SKIP_WARNING: dict[CriticStatus, str] = {
+    CriticStatus.NOT_CONFIGURED:
+        "critique skipped: no critic model is set for this book, so nothing independently "
+        "grades the prose. Set one in Composition → Settings → Critic model.",
+    CriticStatus.SAME_AS_DRAFTER:
+        "critique skipped: the critic is the SAME MODEL that wrote this passage, so it would "
+        "be grading its own work. This includes picking a different entry that points at the "
+        "same underlying model — on a typical setup several credentials resolve to one model. "
+        "Choose a genuinely different model in Composition → Settings.",
+    CriticStatus.INCOMPLETE:
+        "critique skipped: the critic model setting is incomplete (a model was recorded "
+        "without its provider). Re-select the critic model in Composition → Settings.",
+}
+
 _MAX_OUTPUT_DEFAULT = 1024
+
+async def _resolved_critic(sdict, drafter_source, drafter_ref, llm) -> CriticResolution:
+    """Resolve the critic against WHICH MODEL each ref is, not which row.
+
+    One helper for seven call sites, for the same reason `resolve_critic` itself exists: this
+    rule had EIGHT hand-rolled copies, and the fix for that is not to hand-roll the awaited
+    version eight times. `llm.resolve_model_identity` is best-effort — a failure leaves the
+    resolution CONFIGURED with `identity_verified=False`, never switches the tier off.
+    """
+    return await resolve_critic_verified(
+        sdict, drafter_source, drafter_ref, llm.resolve_model_identity,
+    )
+
+
 
 
 def _sse(data: dict[str, Any]) -> str:
@@ -103,7 +149,12 @@ class GenerateBody(BaseModel):
     operation: str = "draft_scene"
     mode: Literal["cowrite", "auto"] = "cowrite"
     guide: str = ""
-    max_output_tokens: int = Field(default=_MAX_OUTPUT_DEFAULT, ge=1, le=8192)
+    # D-SCENE-OUTPUT-BUDGET-FLAT — None means "size it for me", and it is the default
+    # because a caller almost never knows the right ceiling: it depends on the scene's
+    # `target_words` AND the book's language (900 Vietnamese words is ~2300 tokens, 900
+    # English words ~1300). The old flat `_MAX_OUTPUT_DEFAULT` default silently truncated
+    # every long scene — see `scene_output_budget`. An explicit value still wins.
+    max_output_tokens: int | None = Field(default=None, ge=1, le=SCENE_OUTPUT_CEILING)
     # Author reasoning preference. "auto" → the capability-aware resolver decides
     # (adaptive model → pass through; effort model → rule-based scorer; non-
     # reasoning → no-op). off/low/medium/high are explicit overrides. The
@@ -132,7 +183,7 @@ class SelectionEditBody(BaseModel):
     model_source: Literal["user_model", "platform_model"]
     model_ref: UUID
     guide: str = ""
-    max_output_tokens: int = Field(default=_MAX_OUTPUT_DEFAULT, ge=1, le=8192)
+    max_output_tokens: int = Field(default=_MAX_OUTPUT_DEFAULT, ge=1, le=SCENE_OUTPUT_CEILING)
     reasoning: Literal["off", "auto", "low", "medium", "high"] = "auto"
     model_kind: str | None = None
     model_name: str | None = None
@@ -147,7 +198,7 @@ class GenerateChapterBody(BaseModel):
     guide: str = ""
     # None → settings.chapter_gen_max_tokens (a whole chapter is one long pass,
     # larger than the per-scene default). An explicit value still caps at 8192.
-    max_output_tokens: int | None = Field(default=None, ge=1, le=8192)
+    max_output_tokens: int | None = Field(default=None, ge=1, le=SCENE_OUTPUT_CEILING)
     reasoning: Literal["off", "auto", "low", "medium", "high"] = "auto"
     model_kind: str | None = None
     model_name: str | None = None
@@ -162,7 +213,7 @@ class StitchBody(BaseModel):
     # per_scene+stitch step). Mirrors GenerateChapterBody.
     model_source: Literal["user_model", "platform_model"]
     model_ref: UUID
-    max_output_tokens: int | None = Field(default=None, ge=1, le=8192)
+    max_output_tokens: int | None = Field(default=None, ge=1, le=SCENE_OUTPUT_CEILING)
     reasoning: Literal["off", "auto", "low", "medium", "high"] = "auto"
     model_kind: str | None = None
     model_name: str | None = None
@@ -250,6 +301,59 @@ async def _load_work_node(works, outline, grant, user_id, project_id, node_id,
     if node is None or str(node.project_id) != str(project_id):
         raise HTTPException(status_code=404, detail="scene not found")
     return work, node
+
+
+#: A draft that produced TOKENS but no TEXT is the "empty ghost" — the whole output budget went to
+#: hidden reasoning, and `parts` (which collects only `token` deltas, never `reasoning` ones) came
+#: back empty. `cowrite` already names the failure in a comment; nothing checked for it.
+#:
+#: Found by writing a scene through the GUI as a real author: the job recorded
+#: `{"text": "", "truncated": true, "finish_reason": "length", "output_tokens": 800}` with
+#: `status: completed`, the panel returned to "Ready to draft", and the author was billed 800 output
+#: tokens for nothing — with no error anywhere. A completed job that produced no prose is not a
+#: success; it is the silent-success law's exact violation, on the surface an author uses most.
+def _empty_draft_error(text: str, output_tokens: int, finish_reason: str | None) -> str | None:
+    """The message for a draft that produced no prose, or None when there is prose."""
+    if (text or "").strip():
+        return None
+    if output_tokens > 0:
+        return (
+            f"the model produced {output_tokens} output tokens but no prose "
+            f"(finish_reason={finish_reason!r}). This usually means the whole budget went to hidden "
+            f"reasoning — pick a non-reasoning drafter, or set reasoning effort to none for this "
+            f"model. Nothing was written."
+        )
+    return "the model returned no prose at all. Nothing was written."
+
+
+async def _reasoning_control_for(body: Any) -> ReasoningControl:
+    """How this request's model wants reasoning controlled — asking the REGISTRY, not the client.
+
+    `model_kind` / `model_name` arrive as optional hints the FE spreads conditionally
+    (`...(args.modelKind ? {model_kind: args.modelKind} : {})`), so a generate fired before the
+    model metadata resolves omits them entirely. That was harmless while the classifier only
+    chose an effort LEVEL. It stopped being harmless once the classifier also decides whether
+    hidden thinking is disabled: no hint → "not a local model" → nothing sent → the drafter's
+    own chat template decides → the empty-draft failure, re-entered through the front door.
+
+    The registry already answers this (`/internal/models/{source}/{ref}/info` returns kind +
+    name + capability_flags). It is best-effort, so the client hint stays as the fallback — a
+    degraded classification is still better than none.
+
+    `capability_flags.reasoning_control` is the SANCTIONED per-model override, and
+    `infer_reasoning_control` checks it before its own model-name heuristic — which is the
+    supported answer for a model the heuristic gets wrong, in either direction. It only reaches
+    here because the internal route now returns the flags; until then the override was
+    documented but unreachable from any server (D-REASONING-CAPFLAGS-UNREACHABLE).
+    """
+    kind, name = getattr(body, "model_kind", None), getattr(body, "model_name", None)
+    flags: dict[str, Any] | None = None
+    info = await resolve_model_info(body.model_source, str(body.model_ref))
+    if info:
+        kind = info.get("provider_kind") or kind
+        name = info.get("provider_model_name") or name
+        flags = info.get("capability_flags") or None
+    return infer_reasoning_control(kind, name, flags)
 
 
 async def _maybe_detect_narrative_threads(
@@ -382,7 +486,12 @@ async def generate(
     # mid-size window must not cap a genuinely bigger model at the same number
     # (resolved once per request; best-effort, unresolvable ⇒ the flat defaults).
     _context_length = await llm.resolve_context_length(body.model_source, str(body.model_ref))
-    _pack_budget = scale_by_window(settings.pack_token_budget, _context_length)
+    # S11 — how much grounding FITS, not merely how much we would like. `scale_by_window`
+    # only ever GROWS a flat default, so an 8K model was asked for a 6000-token block
+    # (73% of its whole window) and a 4K one for 146%. Measured no-op at >=16K and on an
+    # unresolved window; see `pack_budget_for`.
+    _pack_alloc = B.pack_budget_for(_context_length, settings.pack_token_budget)
+    _pack_budget = _pack_alloc.grounding
     _compress_chars = scale_by_window(settings.compress_max_input_chars, _context_length)
 
     async def _compress_fn(older: list[str], timeline_texts: list[str], plan: str) -> str:
@@ -435,7 +544,6 @@ async def generate(
     # Length target for the scene draft: the scene's own target_words if the planner set one, else
     # the default (a max_output_tokens cap alone is a ceiling, not a target → the model runs short,
     # measured 83 words). Scene path only; the chapter path assembles per-scene.
-    from app.engine.cowrite import DEFAULT_SCENE_TARGET_WORDS
     _scene_target = getattr(node, "target_words", None) or DEFAULT_SCENE_TARGET_WORDS
     messages = build_messages(pc.prompt, pc.profile, body.operation, body.guide,
                               target_words=_scene_target)
@@ -462,12 +570,25 @@ async def generate(
         tension=node.tension,
         guide=body.guide,
     )
-    control = infer_reasoning_control(body.model_kind, body.model_name)
+    control = await _reasoning_control_for(body)
     reasoning = resolve_reasoning(
         user_pref=body.reasoning, model_control=control,
         auto_effort=score_effort(signals),
         auto_source=str(work.settings.get("reasoning_engine", "rule_based")),
     )
+    # D-SCENE-OUTPUT-BUDGET-FLAT — sized HERE, after the reasoning directive is known,
+    # because thinking tokens are spent BEFORE the prose and come out of the same
+    # allowance. Budgeting earlier would silently halve the room for the passage the
+    # moment thinking is on — the "empty ghost" this repo has already shipped once.
+    #
+    # The ceiling is a runaway guard, not a budget. What should govern length is the
+    # LENGTH directive in the prompt, which the model can weigh against the scene it is
+    # writing; `max_tokens` cannot shorten prose, it can only STOP it mid-sentence with
+    # the tokens already paid for. So this is deliberately generous, and an explicit
+    # caller value still wins.
+    _max_out = narrowed_by_request(
+        scene_output_budget(_scene_target, pc.profile.source_language, reasoning=reasoning),
+        body.max_output_tokens)
 
     # M4 — the worker decouples ONLY the AUTO compute (diverge→converge→reflect);
     # the cowrite STREAM path stays inline (a worker can't stream to the client).
@@ -482,20 +603,38 @@ async def generate(
         # re-run pack()) + the scene signals the auto compute needs. worker_op is
         # the canonical dispatch key (operation is the free-form prose op).
         sdict = work.settings or {}
-        c_src, c_ref = sdict.get("critic_model_source"), sdict.get("critic_model_ref")
-        distinct = bool(c_ref and c_src and str(c_ref) != str(body.model_ref))
+        critic_res = await _resolved_critic(sdict, body.model_source, body.model_ref, llm)
+        c_src, c_ref = critic_res.source, critic_res.ref
+        distinct = critic_res.distinct
         job_input.update({
             "worker_op": "generate",
             "packed_prompt": pc.prompt, "scene_sort_order": pc.scene_sort_order,
             "present_entity_ids": [str(e) for e in (node.present_entity_ids or [])],
             "beat_role": node.beat_role, "tension": node.tension,
             "outline_node_id": str(node.id), "guide": body.guide,
+            # D-CROSS-SCENE-CONTRADICTION — the worker has no bearer and cannot re-read the
+            # node, so the continuity judge can only find this scene's predecessor if the
+            # endpoint serialises which chapter it is in and where. Absent ⇒ the check
+            # silently never runs, the failure shape D-LENGTH-DIRECTIVE-NEVER-SENT already
+            # cost a day.
+            "chapter_id": str(node.chapter_id) if node.chapter_id else None,
+            "story_order": node.story_order,
             # Length target for the worker's diverge draft (else it free-runs SHORT — 83 words).
             "target_words": node.target_words or DEFAULT_SCENE_TARGET_WORDS,
-            "max_out": body.max_output_tokens,
+            # D-SCENE-BEATS slice 2 — the passages this scene is drafted in. Empty (every
+            # scene authored before the feature) ⇒ the worker makes exactly one call, as before.
+            "draft_beats": node.draft_beats or [],
+            # ...and the language it will be written in, so the worker can count the RESULT
+            # the same way. Without it `realised_words` falls back to whitespace, which
+            # under-counts a spaceless script by ~an order of magnitude and would report every
+            # CJK scene as short — a finding manufactured by the metric.
+            "source_language": _src_lang,
+            "max_out": _max_out,
             "reasoning_passthrough": reasoning.passthrough,
             "grounding_available": pc.grounding_available,
             "reinjected_promise_count": pc.reinjected_promise_count,
+            # S8 — everything else the pack measured and then threw away.
+            "pack": pc.diagnostics(),
             "assembly_mode": assembly_mode,
             "reflect_max_iters": max(0, min(3, int(sdict.get("reflect_max_iters", 1) or 1))),
             "critic_source": str(c_src) if distinct else None,
@@ -548,15 +687,22 @@ async def generate(
                                  "k": r.get("k"), "candidates": r.get("candidates", []),
                                  "assembly_mode": assembly_mode})
         sdict = work.settings or {}
-        c_src, c_ref = sdict.get("critic_model_source"), sdict.get("critic_model_ref")
-        distinct = bool(c_ref and c_src and str(c_ref) != str(body.model_ref))
+        critic_res = await _resolved_critic(sdict, body.model_source, body.model_ref, llm)
+        c_src, c_ref = critic_res.source, critic_res.ref
+        distinct = critic_res.distinct
         try:
-            sel = await select_draft(
+            sel = await select_scene(
                 llm, llm, user_id=str(user_id),
                 drafter_source=body.model_source, drafter_ref=str(body.model_ref),
                 judge_source=str(c_src) if distinct else body.model_source,
                 judge_ref=str(c_ref) if distinct else str(body.model_ref),
                 packed_prompt=pc.prompt, profile=pc.profile, operation=body.operation,
+                # D-LENGTH-DIRECTIVE-NEVER-SENT — `_scene_target` was computed 130 lines up,
+                # used to build `messages` for the prompt ESTIMATE and to size `_max_out`, and
+                # then never reached the draft call: `select_draft` had no such parameter.
+                target_words=_scene_target,
+                # D-SCENE-BEATS slice 2 — empty ⇒ one call, byte-identical to before.
+                draft_beats=node.draft_beats or [],
                 # A3 — adaptive K from the scene's structural weight (beat_role +
                 # tension the planner emitted). Hand-authored nodes (no beat_role/
                 # tension) fall back to compose_diverge_k. NOTE: there is no
@@ -570,8 +716,8 @@ async def generate(
                              k_ceiling=settings.compose_diverge_k,
                              high_threshold=settings.plan_high_tension_threshold),
                 prompt_est=prompt_estimate,
-                max_tokens=body.max_output_tokens, temperature=settings.compose_diverge_temperature,
-                reasoning_effort=None if reasoning.passthrough else reasoning.effort,
+                max_tokens=_max_out, temperature=settings.compose_diverge_temperature,
+                reasoning=reasoning,
             )
         except Exception as exc:  # diverge produced nothing / transport — fail the job, 502
             logger.warning("auto select failed: %s", exc)
@@ -591,27 +737,43 @@ async def generate(
         revise_finish: str | None = None
         try:
             cast_glossary_ids = [str(e) for e in (node.present_entity_ids or [])]
+            # The PLAN layer of the liveness cascade — who this chapter's outline still needs
+            # AFTER this scene. Degrade-safe: a repo failure thins the cascade to KG-only
+            # rather than failing a generate the user already paid for.
+            plan_status: dict[str, str] = {}
+            plan_cast: list[dict[str, Any]] = []
+            try:
+                if node.chapter_id and node.story_order is not None:
+                    plan_status = await outline.plan_liveness_after(
+                        project_id, node.chapter_id, int(node.story_order))
+                    # Names for the plan-liveness join. Fetched only when the plan HAS an
+                    # opinion, so a book with no later scenes pays nothing. `[]` here while
+                    # `plan_status` is populated makes the check report UNVERIFIED_INPUT — a
+                    # glossary outage must not read as "no conflicts".
+                    if plan_status:
+                        plan_cast = await glossary.entities_by_ids(
+                            work.book_id, list(plan_status), language=_src_lang)
+            except Exception:  # noqa: BLE001
+                logger.warning("plan liveness lookup failed (KG-only cascade)", exc_info=True)
             final_text, reflect, revise_out_tokens = await run_canon_reflect(
                 knowledge=knowledge, llm=llm,
                 user_id=user_id, project_id=project_id,
                 cast_glossary_ids=cast_glossary_ids,
+                plan_status=plan_status, plan_cast=plan_cast,
                 scene_sort_order=pc.scene_sort_order,
                 draft=w.text, packed_prompt=pc.prompt, profile=pc.profile,
                 drafter_source=body.model_source, drafter_ref=str(body.model_ref),
                 judge_source=str(c_src) if distinct else None,
+                identity_verified=critic_res.identity_verified,
                 judge_ref=str(c_ref) if distinct else None,
-                prompt_estimate=prompt_estimate, max_output_tokens=body.max_output_tokens,
+                prompt_estimate=prompt_estimate, max_output_tokens=_max_out,
                 # /review-impl #2 — clamp the per-work setting to a sane ceiling so
                 # a typo'd/abusive reflect_max_iters can't fan out N revise LLM
                 # calls per generate (the §10.1 backtrack budget bound).
                 max_iters=max(0, min(3, int(sdict.get("reflect_max_iters", 1) or 1))),
-                reasoning_effort=None if reasoning.passthrough else reasoning.effort,
+                reasoning=reasoning,
             )
-            canon = {
-                "violations": [v.model_dump() for v in reflect.violations],
-                "resolved": reflect.resolved, "iterations": reflect.iterations,
-                "status": reflect.status,
-            }
+            canon = canon_envelope(reflect)
             revise_finish = reflect.revise_finish_reason
         except Exception:  # canon reflect must NEVER fail the generate (F1).
             logger.warning("A2-S3b canon reflect failed (advisory) — keeping winner", exc_info=True)
@@ -621,6 +783,20 @@ async def generate(
             work, llm=llm, repo=narrative_threads, user_id=user_id, project_id=project_id,
             scene_text=final_text, opened_at_node=node.id,
             model_source=body.model_source, model_ref=body.model_ref, source_language=_src_lang)
+        # D-GENERATED-FACT-HAS-NO-HOME — the write-back, on THIS path too.
+        #
+        # `COMPOSITION_WORKER_ENABLED` defaults to false in code and true in the shipped
+        # compose, so which of these two branches is "the real one" depends on deployment.
+        # Wiring a continuity feature into only the branch that happens to be live is how a
+        # capability becomes invisible the moment a flag flips — and the fix costs six lines.
+        from app.services.exit_state_writeback import record_scene_exit_state
+        exit_state_record = await record_scene_exit_state(
+            None, llm, user_id=str(user_id), outline_node_id=node.id,
+            final_text=final_text,
+            model_source=str(c_src) if distinct else body.model_source,
+            model_ref=str(c_ref) if distinct else str(body.model_ref),
+            source_language=_src_lang,
+        )
         total_out = w.metering.output_tokens + revise_out_tokens
         # D-COMP-TRUNCATION-SURFACING: authoritative truncation flag from the
         # drafter's stop reason (the winner draft is the cap-prone generation). A
@@ -635,11 +811,32 @@ async def generate(
                     "rerank_reason": sel.rerank_reason, "rerank_measured": sel.rerank_measured,
                     "candidates": [c.text for c in sel.candidates],
                     "truncated": truncated, "finish_reason": w.metering.finish_reason,
+                    # D-SCENE-BEATS slice 2 — the same five keys the worker path stores. The
+                    # scene envelope is assembled in FOUR places in this repo and a field
+                    # added to one of them has already been read back as None by a live
+                    # probe; until that consolidation (S1/S2) lands, every path carries it.
+                    "scene_assembly": sel.scene_assembly, "beats_drafted": sel.beats_drafted,
+                    "beat_words": sel.beat_words, "beats_failed": sel.beats_failed,
+                    "repeated_chars": sel.repeated_chars,
+                    "beats_over_ceiling": sel.beats_over_ceiling,
+                    "exit_state_record": exit_state_record,
                     "canon": canon},
         )
+        # D-SCENE-OUTPUT-BUDGET-FLAT / eval S10 — the LENGTH directive asked for
+        # `target_words`; report what actually came back so the shortfall is READABLE off a
+        # result instead of only being visible by counting a draft by hand. `word_count_method`
+        # rides along because a whitespace count against a CJK target would manufacture a
+        # ~85%-short reading for every Chinese scene (see cowrite.realised_words).
+        _actual_words, _wc_method = realised_words(final_text, _src_lang)
         return JSONResponse({
             "job_id": str(job.id), "mode": "auto", "status": "completed", "text": final_text,
             "truncated": truncated, "finish_reason": w.metering.finish_reason,
+            "target_words": _scene_target, "actual_words": _actual_words,
+            "word_count_method": _wc_method,
+            "scene_assembly": sel.scene_assembly, "beats_drafted": sel.beats_drafted,
+            "beat_words": sel.beat_words, "beats_failed": sel.beats_failed,
+            "repeated_chars": sel.repeated_chars,
+            "beats_over_ceiling": sel.beats_over_ceiling,
             "winner_index": sel.winner_index, "k": len(sel.candidates),
             # The K candidate texts so the FE can show ALL options as cards (the
             # controlled-auto human gate, slice 3). They're already computed +
@@ -647,6 +844,9 @@ async def generate(
             "candidates": [c.text for c in sel.candidates],
             "rerank_reason": sel.rerank_reason, "rerank_measured": sel.rerank_measured,
             "grounding_available": pc.grounding_available,
+            # D-GENERATED-FACT-HAS-NO-HOME — did this scene's cast get recorded, and if not,
+            # which reason. Silence here would be indistinguishable from a working write-back.
+            "exit_state_record": exit_state_record,
             # A2-S3b — the canon gate: `resolved=false` + violations means a
             # confirmed contradiction survived revision (D4 hard-gate signal for
             # the publish/commit path + the author).
@@ -657,6 +857,8 @@ async def generate(
             # prompt (advisory; 0 when narrative_thread is off). Deterministic S3
             # fired-signal for the live-smoke.
             "reinjected_promise_count": pc.reinjected_promise_count,
+            # S8 — everything else the pack measured and then threw away.
+            "pack": pc.diagnostics(),
         })
 
     async def event_gen():
@@ -673,10 +875,11 @@ async def generate(
         async for ev in stream_draft(
             llm.sdk, user_id=str(user_id), model_source=body.model_source,
             model_ref=str(body.model_ref), messages=messages,
-            prompt_token_estimate=prompt_estimate, max_output_tokens=body.max_output_tokens,
-            hard_cap_output=body.max_output_tokens * 2,
-            # passthrough (adaptive model) → omit, let the model self-decide.
-            reasoning_effort=None if reasoning.passthrough else reasoning.effort,
+            prompt_token_estimate=prompt_estimate, max_output_tokens=_max_out,
+            hard_cap_output=_max_out * 2,
+            # The whole directive, not a collapsed effort — passthrough/suppress/omit are
+            # decided once by the resolver and rendered once by `wire_fields`.
+            reasoning=reasoning,
         ):
             if ev["type"] == "usage":
                 final = ev
@@ -702,14 +905,32 @@ async def generate(
             result = {"text": final["text"], "input_tokens": m.input_tokens,
                       "output_tokens": m.output_tokens, "measured": m.measured,
                       "capped": final.get("capped", False),
-                      "truncated": truncated, "finish_reason": m.finish_reason}
+                      "truncated": truncated, "finish_reason": m.finish_reason,
+                      # S1/DoD-1 — this path runs NO canon guard, and says so. Persisted on
+                      # the job as well as streamed, because `chapter_scene_gate` reads
+                      # `guard_status` back out of `generation_job.result`: a job with no
+                      # canon block at all is indistinguishable there from a checked one.
+                      "canon": unguarded_envelope(
+                          "the co-write stream does not run the canon guard: it is an interactive surface where the author is present and a judge pass between keystrokes would change the product. Approve the scene to have it checked.")}
             if stream_error:
                 result["error"] = stream_error
+            empty = _empty_draft_error(final["text"], m.output_tokens, m.finish_reason)
+            if empty:
+                result["error"] = empty
+                await jobs.update_status(job.id, "failed", result=result)
+                yield _sse({"type": "error", "job_id": str(job.id), "status": "failed",
+                            "output_tokens": m.output_tokens, "measured": m.measured,
+                            "finish_reason": m.finish_reason, "error": empty})
+                return
             await jobs.update_status(job.id, "completed", result=result)
             yield _sse({"type": "done", "job_id": str(job.id), "status": "completed",
                         "output_tokens": m.output_tokens, "measured": m.measured,
                         "capped": final.get("capped", False),
                         "truncated": truncated, "finish_reason": m.finish_reason,
+                        # The same declaration the job carries. A frame that omitted it would
+                        # leave the FE reading a completed draft with no guard field — which
+                        # is the state this change exists to remove.
+                        "canon": result["canon"],
                         **({"error": stream_error} if stream_error else {})})
         else:
             err = final.get("error") if final is not None else None
@@ -767,7 +988,12 @@ async def selection_edit(
     # Model-context-aware budget scaling — resolved once per request regardless of
     # whether scene_context grounding runs, since prompt_ceiling below always needs it.
     _context_length = await llm.resolve_context_length(body.model_source, str(body.model_ref))
-    _pack_budget = scale_by_window(settings.pack_token_budget, _context_length)
+    # S11 — how much grounding FITS, not merely how much we would like. `scale_by_window`
+    # only ever GROWS a flat default, so an 8K model was asked for a 6000-token block
+    # (73% of its whole window) and a 4K one for 146%. Measured no-op at >=16K and on an
+    # unresolved window; see `pack_budget_for`.
+    _pack_alloc = B.pack_budget_for(_context_length, settings.pack_token_budget)
+    _pack_budget = _pack_alloc.grounding
     _compress_chars = scale_by_window(settings.compress_max_input_chars, _context_length)
 
     grounding = ""
@@ -828,7 +1054,7 @@ async def selection_edit(
     signals = ReasoningSignals(
         operation=body.operation, n_canon_rules=0, n_present_entities=0,
         has_reveal_gate=False, tension=None, guide=body.guide)
-    control = infer_reasoning_control(body.model_kind, body.model_name)
+    control = await _reasoning_control_for(body)
     reasoning = resolve_reasoning(
         user_pref=body.reasoning, model_control=control, auto_effort=score_effort(signals),
         auto_source=str(work.settings.get("reasoning_engine", "rule_based")))
@@ -888,7 +1114,7 @@ async def selection_edit(
             model_ref=str(body.model_ref), messages=messages,
             prompt_token_estimate=prompt_estimate, max_output_tokens=body.max_output_tokens,
             hard_cap_output=body.max_output_tokens * 2,
-            reasoning_effort=None if reasoning.passthrough else reasoning.effort,
+            reasoning=reasoning,
         ):
             if ev["type"] == "usage":
                 final = ev
@@ -905,13 +1131,25 @@ async def selection_edit(
             result = {"text": final["text"], "input_tokens": m.input_tokens,
                       "output_tokens": m.output_tokens, "measured": m.measured,
                       "truncated": truncated, "finish_reason": m.finish_reason,
-                      "selection_edit": True}
+                      "selection_edit": True,
+                      # S1/DoD-1 — see the co-write stream: declared, not silent.
+                      "canon": unguarded_envelope(
+                          "the selection-edit stream does not run the canon guard: it rewrites a span the author picked, in-place and interactively. Approve the scene to have the whole passage checked.")}
             if stream_error:
                 result["error"] = stream_error
+            empty = _empty_draft_error(final["text"], m.output_tokens, m.finish_reason)
+            if empty:
+                result["error"] = empty
+                await jobs.update_status(job.id, "failed", result=result)
+                yield _sse({"type": "error", "job_id": str(job.id), "status": "failed",
+                            "output_tokens": m.output_tokens, "measured": m.measured,
+                            "finish_reason": m.finish_reason, "error": empty})
+                return
             await jobs.update_status(job.id, "completed", result=result)
             yield _sse({"type": "done", "job_id": str(job.id), "status": "completed",
                         "output_tokens": m.output_tokens, "measured": m.measured,
                         "truncated": truncated, "finish_reason": m.finish_reason,
+                        "canon": result["canon"],
                         **({"error": stream_error} if stream_error else {})})
         else:
             err = final.get("error") if final is not None else None
@@ -984,7 +1222,12 @@ async def generate_chapter(
     # Model-context-aware budget scaling — a flat pack/compress budget tuned for a
     # mid-size window must not cap a genuinely bigger model at the same number.
     _context_length = await llm.resolve_context_length(body.model_source, str(body.model_ref))
-    _pack_budget = scale_by_window(settings.pack_token_budget, _context_length)
+    # S11 — how much grounding FITS, not merely how much we would like. `scale_by_window`
+    # only ever GROWS a flat default, so an 8K model was asked for a 6000-token block
+    # (73% of its whole window) and a 4K one for 146%. Measured no-op at >=16K and on an
+    # unresolved window; see `pack_budget_for`.
+    _pack_alloc = B.pack_budget_for(_context_length, settings.pack_token_budget)
+    _pack_budget = _pack_alloc.grounding
     _compress_chars = scale_by_window(settings.compress_max_input_chars, _context_length)
 
     async def _compress_fn(older: list[str], timeline_texts: list[str], plan: str) -> str:
@@ -1027,7 +1270,17 @@ async def generate_chapter(
     except BookClientError:
         raise HTTPException(status_code=502, detail={"code": "BOOK_SERVICE_UNAVAILABLE"})
 
-    messages = build_messages(pc.prompt, pc.profile, body.operation, body.guide)
+    # Chapter LENGTH target — a whole-chapter pass with no target free-runs short
+    # and uneven (pacing dips; a max_output_tokens cap is a CEILING, not a target —
+    # the same reason the scene path passes target_words). Sum the scenes' planned
+    # targets (each scene's own target_words if the planner set one, else the
+    # per-scene default) so the drafter writes a full chapter proportional to its
+    # scene count, honoring any per-scene targets the planner sets in future.
+    _chapter_target = sum(
+        (getattr(sc, "target_words", None) or DEFAULT_SCENE_TARGET_WORDS) for sc in scenes
+    )
+    messages = build_messages(pc.prompt, pc.profile, body.operation, body.guide,
+                              target_words=_chapter_target)
     prompt_estimate = estimate_prompt_tokens(messages, B.default_counter())
     prompt_ceiling = _pack_budget * 2
     if prompt_estimate > prompt_ceiling:
@@ -1040,7 +1293,7 @@ async def generate_chapter(
         n_present_entities=len(pack_node["present_entity_ids"]),
         has_reveal_gate=any(r.scope == "reveal_gate" for r in active_rules),
         tension=None, guide=body.guide)
-    control = infer_reasoning_control(body.model_kind, body.model_name)
+    control = await _reasoning_control_for(body)
     reasoning = resolve_reasoning(
         user_pref=body.reasoning, model_control=control, auto_effort=score_effort(signals),
         auto_source=str(work.settings.get("reasoning_engine", "rule_based")))
@@ -1048,8 +1301,10 @@ async def generate_chapter(
     # Size the output budget from the plan (scene count) so a multi-scene chapter
     # gets room instead of a flat cap that silently truncates long-form; clamp to
     # the ceiling. An explicit body override still wins.
-    max_out = body.max_output_tokens or min(
-        len(scenes) * settings.chapter_gen_per_scene_tokens, settings.chapter_gen_max_tokens)
+    max_out = narrowed_by_request(
+        min(len(scenes) * settings.chapter_gen_per_scene_tokens,
+            settings.chapter_gen_max_tokens),
+        body.max_output_tokens)
 
     if settings.composition_worker_enabled:
         # M4 (Option A) — resolve the bearer context (pack, chapter_sort, critic)
@@ -1058,8 +1313,9 @@ async def generate_chapter(
         # persistence to the book draft is the separate bearer accept-step
         # (POST /jobs/{id}/persist). Same guard + idempotency as the inline path.
         sdict = work.settings or {}
-        c_src, c_ref = sdict.get("critic_model_source"), sdict.get("critic_model_ref")
-        distinct = bool(c_ref and c_src and str(c_ref) != str(body.model_ref))
+        critic_res = await _resolved_critic(sdict, body.model_source, body.model_ref, llm)
+        c_src, c_ref = critic_res.source, critic_res.ref
+        distinct = critic_res.distinct
         job_input = {
             "model_source": body.model_source, "model_ref": str(body.model_ref),
             "operation": body.operation, "worker_op": "chapter_generate",
@@ -1071,6 +1327,8 @@ async def generate_chapter(
             "reasoning_passthrough": reasoning.passthrough,
             "grounding_available": pc.grounding_available,
             "reinjected_promise_count": pc.reinjected_promise_count,
+            # S8 — everything else the pack measured and then threw away.
+            "pack": pc.diagnostics(),
             "reflect_max_iters": max(0, min(3, int(sdict.get("reflect_max_iters", 1) or 1))),
             "critic_source": str(c_src) if distinct else None,
             "critic_ref": str(c_ref) if distinct else None,
@@ -1128,15 +1386,16 @@ async def generate_chapter(
                              "canon": r.get("canon"), "assembly_mode": "chapter"})
 
     sdict = work.settings or {}
-    c_src, c_ref = sdict.get("critic_model_source"), sdict.get("critic_model_ref")
-    distinct = bool(c_ref and c_src and str(c_ref) != str(body.model_ref))
+    critic_res = await _resolved_critic(sdict, body.model_source, body.model_ref, llm)
+    c_src, c_ref = critic_res.source, critic_res.ref
+    distinct = critic_res.distinct
     try:
         cands = await diverge(
             llm, user_id=str(user_id), model_source=body.model_source,
             model_ref=str(body.model_ref), packed_prompt=pc.prompt, profile=pc.profile,
             operation=body.operation, guide=body.guide, k=1, prompt_est=prompt_estimate,
             max_tokens=max_out, temperature=settings.compose_diverge_temperature,
-            reasoning_effort=None if reasoning.passthrough else reasoning.effort)
+            reasoning=reasoning)
     except Exception as exc:  # no candidate / transport — fail the job, 502
         logger.warning("chapter draft failed: %s", exc)
         await jobs.update_status(job.id, "failed")
@@ -1154,19 +1413,22 @@ async def generate_chapter(
     revise_finish: str | None = None
     try:
         final_text, reflect, revise_out_tokens = await run_canon_reflect(
+            # CHAPTER-level: no single scene position, so no plan rung. Declared, not
+            # silently absent — the check reports NO_POSITION rather than passing for
+            # a reason nobody can see on the envelope.
+            plan_supported=False,
             knowledge=knowledge, llm=llm, user_id=user_id, project_id=project_id,
             cast_glossary_ids=[str(e) for e in pack_node["present_entity_ids"]],
             scene_sort_order=pc.scene_sort_order, draft=winner.text,
             packed_prompt=pc.prompt, profile=pc.profile,
             drafter_source=body.model_source, drafter_ref=str(body.model_ref),
             judge_source=str(c_src) if distinct else None,
+            identity_verified=critic_res.identity_verified,
             judge_ref=str(c_ref) if distinct else None,
             prompt_estimate=prompt_estimate, max_output_tokens=max_out,
             max_iters=max(0, min(3, int(sdict.get("reflect_max_iters", 1) or 1))),
-            reasoning_effort=None if reasoning.passthrough else reasoning.effort)
-        canon_v = {"violations": [v.model_dump() for v in reflect.violations],
-                   "resolved": reflect.resolved, "iterations": reflect.iterations,
-                   "status": reflect.status}
+            reasoning=reasoning)
+        canon_v = canon_envelope(reflect)
         revise_finish = reflect.revise_finish_reason
     except Exception:  # canon reflect must NEVER fail the generate (F1).
         logger.warning("chapter canon reflect failed (advisory) — keeping draft", exc_info=True)
@@ -1219,7 +1481,8 @@ async def generate_chapter(
         "assembly_mode": "chapter", "persisted": persisted, "draft_version": draft_version,
         "persist_error": persist_error, "max_output_tokens": max_out,
         "open_promise_count": open_promise_count,  # FD-1 S4a advisory debt flag
-        "reinjected_promise_count": pc.reinjected_promise_count})  # FD-1 S4b S3 fired-signal
+        "reinjected_promise_count": pc.reinjected_promise_count,
+        "pack": pc.diagnostics()})  # FD-1 S4b + S8 pack diagnostics
 
 
 @router.post("/works/{project_id}/chapters/{chapter_id}/stitch")
@@ -1273,14 +1536,16 @@ async def stitch_chapter_endpoint(
         n_present_entities=len(union_cast(scenes)),
         has_reveal_gate=any(r.scope == "reveal_gate" for r in active_rules),
         tension=None, guide="")
-    control = infer_reasoning_control(body.model_kind, body.model_name)
+    control = await _reasoning_control_for(body)
     reasoning = resolve_reasoning(
         user_pref=body.reasoning, model_control=control, auto_effort=score_effort(signals),
         auto_source=str(work.settings.get("reasoning_engine", "rule_based")))
     # Size from the number of scene drafts being merged (the stitched chapter is
     # ~their combined length), clamped to the ceiling — long chapters need room.
-    max_out = body.max_output_tokens or min(
-        len(drafts) * settings.chapter_gen_per_scene_tokens, settings.stitch_max_tokens)
+    max_out = narrowed_by_request(
+        min(len(drafts) * settings.chapter_gen_per_scene_tokens,
+            settings.stitch_max_tokens),
+        body.max_output_tokens)
 
     if settings.composition_worker_enabled:
         # M4 (Option A) — resolve the bearer-only bits (chapter_sort, critic config)
@@ -1290,8 +1555,9 @@ async def stitch_chapter_endpoint(
         # in-flight guard + idempotency as the inline path.
         chapter_sort = (await book.get_chapter_sort_orders([chapter_id])).get(str(chapter_id))
         sdict = work.settings or {}
-        c_src, c_ref = sdict.get("critic_model_source"), sdict.get("critic_model_ref")
-        distinct = bool(c_ref and c_src and str(c_ref) != str(body.model_ref))
+        critic_res = await _resolved_critic(sdict, body.model_source, body.model_ref, llm)
+        c_src, c_ref = critic_res.source, critic_res.ref
+        distinct = critic_res.distinct
         job_input = {
             "model_source": body.model_source, "model_ref": str(body.model_ref),
             "operation": "stitch_chapter", "worker_op": "stitch_chapter",
@@ -1299,8 +1565,13 @@ async def stitch_chapter_endpoint(
             "chapter_id": str(chapter_id), "chapter_intent": chapter_intent,
             "cast_glossary_ids": [str(e) for e in union_cast(scenes)],
             "chapter_sort": chapter_sort, "max_out": max_out,
+            # Store the directive's three parts RAW, exactly as the other job_input builders
+            # do. This site used to pre-collapse the effort while its siblings stored it raw
+            # and let the worker collapse — two serialization conventions for one directive,
+            # in one file. `directive_from_parts` is now the only reader.
             "reasoning": reasoning.source,
-            "reasoning_effort": None if reasoning.passthrough else reasoning.effort,
+            "reasoning_effort": reasoning.effort,
+            "reasoning_passthrough": reasoning.passthrough,
             "reflect_max_iters": max(0, min(3, int(sdict.get("reflect_max_iters", 1) or 1))),
             "critic_source": str(c_src) if distinct else None,
             "critic_ref": str(c_ref) if distinct else None,
@@ -1363,7 +1634,7 @@ async def stitch_chapter_endpoint(
         llm, user_id=str(user_id), model_source=body.model_source, model_ref=str(body.model_ref),
         scene_drafts=drafts, chapter_intent=chapter_intent, profile=profile,
         max_tokens=max_out, max_input_chars=_stitch_chars,
-        reasoning_effort=None if reasoning.passthrough else reasoning.effort)
+        reasoning=reasoning)
     degraded = not stitched
     final_text = stitched or "\n\n".join(drafts)
     # D-COMP-TRUNCATION-SURFACING: "length" ⇒ the stitch pass hit the cap. Only
@@ -1374,13 +1645,18 @@ async def stitch_chapter_endpoint(
     # rewrite can re-introduce a gone character). Degrade-safe, never blocks (F1).
     chapter_sort = (await book.get_chapter_sort_orders([chapter_id])).get(str(chapter_id))
     sdict = work.settings or {}
-    c_src, c_ref = sdict.get("critic_model_source"), sdict.get("critic_model_ref")
-    distinct = bool(c_ref and c_src and str(c_ref) != str(body.model_ref))
+    critic_res = await _resolved_critic(sdict, body.model_source, body.model_ref, llm)
+    c_src, c_ref = critic_res.source, critic_res.ref
+    distinct = critic_res.distinct
     canon_v: dict[str, Any] = {"violations": [], "resolved": True, "iterations": 0,
                                "status": "degraded"}
     revise_finish: str | None = None
     try:
         final_text, reflect, _ = await run_canon_reflect(
+            # CHAPTER-level: no single scene position, so no plan rung. Declared, not
+            # silently absent — the check reports NO_POSITION rather than passing for
+            # a reason nobody can see on the envelope.
+            plan_supported=False,
             knowledge=knowledge, llm=llm, user_id=user_id, project_id=project_id,
             cast_glossary_ids=[str(e) for e in union_cast(scenes)],
             # A stitch has no single packed prompt — pass the chapter intent as the
@@ -1390,13 +1666,12 @@ async def stitch_chapter_endpoint(
             profile=profile,
             drafter_source=body.model_source, drafter_ref=str(body.model_ref),
             judge_source=str(c_src) if distinct else None,
+            identity_verified=critic_res.identity_verified,
             judge_ref=str(c_ref) if distinct else None,
             prompt_estimate=0, max_output_tokens=max_out,
             max_iters=max(0, min(3, int(sdict.get("reflect_max_iters", 1) or 1))),
-            reasoning_effort=None if reasoning.passthrough else reasoning.effort)
-        canon_v = {"violations": [v.model_dump() for v in reflect.violations],
-                   "resolved": reflect.resolved, "iterations": reflect.iterations,
-                   "status": reflect.status}
+            reasoning=reasoning)
+        canon_v = canon_envelope(reflect)
         revise_finish = reflect.revise_finish_reason
     except Exception:
         logger.warning("stitch canon reflect failed (advisory) — keeping stitched draft", exc_info=True)
@@ -1469,8 +1744,12 @@ async def suggest_motifs(
         user_id, book_id=work.book_id, project_id=project_id,
         genre_tags=list(getattr(work, "genre_tags", []) or []),
         language=getattr(work, "language", None) or "en",
-        beat_role=None, tension=getattr(node, "tension_target", None), limit=limit,
+        # The node's OWN text + beat_role seed the query (see `node_query_text`); passing
+        # None here forced every candidate onto the degrade path with cosine=0.0.
+        beat_role=getattr(node, "beat_role", None),
+        tension=getattr(node, "tension_target", None), limit=limit,
         user_model=reference_embed_model(getattr(work, "settings", None)),
+        query=node_query_text(node),
     )
     return {"candidates": [
         {"motif": c.motif.model_dump(mode="json"), "score": c.score, "match_reason": c.match_reason}
@@ -1737,20 +2016,28 @@ async def critique(
         if derivative_findings else None
     )
 
-    critic_src = settings_dict.get("critic_model_source")
-    critic_ref = settings_dict.get("critic_model_ref")
     drafter_ref = (job.input or {}).get("model_ref")
-    # Anti-self-reinforcement: the critic MUST be a distinct model. No critic
-    # configured, or same as the drafter → skip the LLM critique (advisory) + warn,
-    # but STILL surface + persist the deterministic derivative findings + the GATE.
-    if not critic_ref or not critic_src or str(critic_ref) == str(drafter_ref):
+    # Anti-self-reinforcement: the critic MUST be a distinct model. Resolved through the ONE
+    # policy (`engine/critic_policy`) rather than restated here — this was the seventh copy of
+    # the rule, and the only one written inverted, which is how it drifted furthest.
+    drafter_source = (job.input or {}).get("model_source")
+    critic_res = await _resolved_critic(settings_dict, drafter_source, drafter_ref, llm)
+    if not critic_res.distinct:
+        # Skip the LLM critique (advisory) but STILL surface + persist the deterministic
+        # derivative findings + the GATE.
         critic = ({"derivative_findings": derivative_findings, **gate}
                   if derivative_findings else None)
         if critic is not None:
             await jobs.update_status(job_id, job.status, critic=critic,
                                      target_revision_id=body.target_revision_id)
+        # `critic_status` is the field that makes this actionable, and it is why the policy
+        # returns a status rather than a boolean. The old single sentence — "no distinct
+        # critic model configured" — was returned for BOTH "you never set one" and "the one
+        # you set is the model already writing the prose". Those need different actions, and
+        # an author reading the first message about the second problem has no way to find it.
         return {"critic": critic,
-                "warning": "critique skipped: no distinct critic model configured"}
+                "critic_status": critic_res.status.value,
+                "warning": _CRITIC_SKIP_WARNING[critic_res.status]}
 
     # CC2: re-resolve the ACTIVE canon at critique time — a deleted/archived rule
     # is never enforced.
@@ -1758,7 +2045,8 @@ async def critique(
     active_rules = [{"rule_id": str(r.id), "text": r.text} for r in rules]
 
     critic = await judge_prose(
-        llm, user_id=str(user_id), model_source=str(critic_src), model_ref=str(critic_ref),
+        llm, user_id=str(user_id),
+        model_source=str(critic_res.source), model_ref=str(critic_res.ref),
         passage=passage, active_rules=active_rules, present_facts=[],
         profile=from_settings(settings_dict),
     )

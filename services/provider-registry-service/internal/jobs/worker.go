@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
@@ -495,7 +496,55 @@ func (w *Worker) Process(
 
 	finishReason, _ := result["finish_reason"].(string)
 
+	// A clean transport result without generated content is retryable provider
+	// failure, never a completed job: downstream consumers must not have to
+	// guess whether an apparently successful job produced an answer.
+	if emptyCompletion(result, outputTokens) {
+		logger.Error("provider returned an empty completion — finalizing failed, not completed",
+			"job_id", jobID.String(), "operation", operation)
+		w.finalizeAndNotify(ctx, jobID, ownerUserID, operation, "failed", result,
+			"LLM_UPSTREAM_ERROR",
+			"the provider returned an empty completion — no content and no tokens", finishReason)
+		return
+	}
+
 	w.finalizeAndNotify(ctx, jobID, ownerUserID, operation, "completed", result, "", "", finishReason)
+}
+
+// emptyCompletion reports whether a terminal chat result carries no output at all.
+// Non-chat results and tool-call payloads do not match this condition.
+func emptyCompletion(result map[string]any, outTok int) bool {
+	if outTok > 0 {
+		return false
+	}
+	if finishReason, _ := result["finish_reason"].(string); finishReason != "" {
+		return false
+	}
+	messages, ok := result["messages"].([]any)
+	if !ok || len(messages) == 0 {
+		return false
+	}
+	for _, message := range messages {
+		fields, ok := message.(map[string]any)
+		if !ok {
+			return false
+		}
+		for key, value := range fields {
+			if key == "role" {
+				continue
+			}
+			if text, isString := value.(string); isString {
+				if strings.TrimSpace(text) != "" {
+					return false
+				}
+				continue
+			}
+			if value != nil {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // maybeChunk returns the chunked text pieces for this job's input, or

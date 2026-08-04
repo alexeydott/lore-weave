@@ -165,6 +165,11 @@ var chain = []Step{
 	{"0058_entity_kind_votes", UpEntityKindVotes},
 	{"0059_seed_genre_kind_links", SeedGenreKindLinks},
 	{"0060_seed_genre_kind_attributes", SeedGenreKindAttributes},
+	// The upstream index uses a different name for its migration because this
+	// fork had already allocated 0059 and 0060 to genre seeding. It is safe to
+	// apply after either history: the migration itself is CREATE INDEX IF NOT
+	// EXISTS, so an existing index is a no-op.
+	{"0061_attr_lookup_index", UpAttrLookupIndex},
 }
 
 // EnsureLedger creates the schema_migrations bookkeeping table. Idempotent; must run

@@ -23,9 +23,11 @@ from ..config import (
     DEFAULT_USER_PROMPT_TPL,
 )
 from ..deps import get_current_user, get_db
+from ..llm_budget import budget_for
 from ..llm_client import LLMClient, get_llm_client
 from ..models import TranslateTextRequest, TranslateTextResponse
 from ..workers.session_translator import _parse_sdk_response
+from app.workers.injection_report import scan_untrusted_source
 
 router = APIRouter(prefix="/v1/translation", tags=["translate"])
 
@@ -172,6 +174,9 @@ async def translate_text_core(
         def __missing__(self, key: str) -> str:
             return "{" + key + "}"
 
+    # DoD-4c. The sync route folds the REQUEST's text straight into the prompt. Scanned
+    # once, here, where it enters — never mutated: this text is what gets translated.
+    scan_untrusted_source(body.text, where="sync_translate_text")
     fmt = _SafeMap(
         source_language=source_language,
         target_language=target_language,
@@ -202,6 +207,9 @@ async def translate_text_core(
                     {"role": "system", "content": system_msg},
                     {"role": "user", "content": user_msg},
                 ],
+                # Declared, not omitted — MIRROR resolves to 0, which the SDK strips
+                # (models.py), so the wire is byte-identical to before. See app/llm_budget.py.
+                "max_tokens": budget_for("translate_chunk"),
             },
             chunking=None,
             job_meta={"endpoint": "translate-text"},

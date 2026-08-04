@@ -1,0 +1,48 @@
+name: sync upstream
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: configure Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: merge upstream main
+        run: |
+          git remote add upstream https://github.com/letuhao/lore-weave.git
+          git fetch upstream main
+          git merge --no-edit upstream/main
+
+      - name: keep agent configuration local
+        run: |
+          git rm -r --cached --ignore-unmatch .agents .ai-factory .claude .codex .cursor
+          git add .gitignore
+
+      - name: commit and push when upstream changed
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "chore: sync upstream main"
+          git push origin main

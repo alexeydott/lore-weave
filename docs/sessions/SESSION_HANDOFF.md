@@ -1,5 +1,15 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## UPSTREAM FORK SYNCHRONIZATION (2026-08-04)
+
+Merged `upstream/main` through `282724c50`, retaining fork-specific EPUB V2 and localization work
+while incorporating upstream product changes, documentation, plans, specifications, and checklists.
+The scheduled and dispatchable `.github/workflows/sync-upstream.yml` performs subsequent merges into
+this fork's `main`. It deliberately removes `.agents/`, `.ai-factory/`, `.claude/`, `.codex/`, and
+`.cursor/` from the repository index: agent configuration stays local and is outside the shared
+synchronization boundary. If a future upstream change conflicts, the workflow leaves `main` untouched
+and requires a normal reviewed merge resolution.
+
 ## EPUB IMPORT V2 — STRUCTURE-PRESERVING FOUNDATION IMPLEMENTED (2026-08-03)
 
 Spec: `docs/specs/2026-08-03-epub-import-v2.md`. The new pipeline is feature-flagged and keeps
