@@ -74,14 +74,14 @@ export function SettingsTab({ bookId, book, onReload, onOpenWorld }: Props) {
   // comes from GET .../ontology, same source useBookOntology/Manage use).
   const { data: genres = [] } = useQuery({
     queryKey: ['glossary-ontology', bookId],
-    queryFn: () => tieringApi.getOntology(bookId, accessToken!).then((o) => o.genres),
+    queryFn: () => tieringApi.getOntology(bookId, accessToken!).then((o) => (Array.isArray(o?.genres) ? o.genres : [])),
     enabled: !!accessToken,
   });
 
   // Fetch kinds for genre impact preview
   const { data: kinds = [] } = useQuery({
     queryKey: ['glossary-kinds'],
-    queryFn: () => glossaryApi.getKinds(accessToken!),
+    queryFn: () => glossaryApi.getKinds(accessToken!).then((items) => (Array.isArray(items) ? items : [])),
     enabled: !!accessToken,
     staleTime: 10 * 60 * 1000,
   });
@@ -100,7 +100,7 @@ export function SettingsTab({ bookId, book, onReload, onOpenWorld }: Props) {
     for (const g of genreTags) {
       const attrs: string[] = [];
       for (const k of kinds) {
-        for (const a of k.default_attributes) {
+        for (const a of (k.default_attributes ?? [])) {
           if ((a.genre_tags ?? []).includes(g)) attrs.push(a.name);
         }
       }

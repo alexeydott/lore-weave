@@ -22,6 +22,7 @@ import type {
 
 const BASE = '/v1/glossary';
 
+
 /** One keyset page of the widened entity-names endpoint (F-H9/PH26). */
 type EntityNamesPage = {
   items: EntityNameEntry[];
@@ -36,7 +37,7 @@ type EntityNamesPage = {
 function normalizeEntityListResponse(response: GlossaryEntityListResponse): GlossaryEntityListResponse {
   return {
     ...response,
-    items: (response?.items ?? []).map((item) => ({
+    items: (Array.isArray(response?.items) ? response.items : []).map((item) => ({
       ...item,
       tags: Array.isArray(item.tags) ? item.tags : [],
       kind_labels: Array.isArray(item.kind_labels) ? item.kind_labels : [],
@@ -75,8 +76,15 @@ function normalizeEvidenceListResponse(response: EvidenceListResponse): Evidence
 
 export const glossaryApi = {
   getKinds(token: string): Promise<EntityKind[]> {
-    return apiJson<EntityKind[]>(`${BASE}/kinds`, { token });
+    return apiJson<unknown>(BASE + '/kinds', { token }).then((response) => {
+      if (Array.isArray(response)) return response as EntityKind[];
+      if (response && typeof response === 'object' && Array.isArray((response as { items?: unknown }).items)) {
+        return (response as { items: EntityKind[] }).items;
+      }
+      return [];
+    });
   },
+
 
   listTranslationLanguages(bookId: string, token: string): Promise<{ languages: string[] }> {
     return apiJson<{ languages: string[] }>(
@@ -127,7 +135,8 @@ export const glossaryApi = {
     token: string,
   ): Promise<GlossaryEntityListResponse> {
     const params = new URLSearchParams();
-    if (filters.kindCodes.length > 0) params.set('kind_codes', filters.kindCodes.join(','));
+    const kindCodes = Array.isArray(filters.kindCodes) ? filters.kindCodes : [];
+    if (kindCodes.length > 0) params.set('kind_codes', kindCodes.join(','));
     if (filters.status !== 'all') params.set('status', filters.status);
     if (filters.searchQuery) params.set('search', filters.searchQuery);
     if (filters.searchMode === 'raw') params.set('search_mode', 'raw');

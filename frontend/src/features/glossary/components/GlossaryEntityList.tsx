@@ -378,7 +378,8 @@ export function GlossaryEntityList({ bookId, bookGenreTags = [], bookOriginalLan
     }
   };
 
-  const activeFilterCount = (filters.kindCodes.length > 0 ? 1 : 0) + (filters.status !== 'all' ? 1 : 0);
+  const kindCodes = Array.isArray(filters.kindCodes) ? filters.kindCodes : [];
+  const activeFilterCount = (kindCodes.length > 0 ? 1 : 0) + (filters.status !== 'all' ? 1 : 0);
 
   if (!displayLangLoaded || (loading && entities.length === 0)) {
     return (
@@ -545,12 +546,12 @@ export function GlossaryEntityList({ bookId, bookGenreTags = [], bookOriginalLan
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{t('glossary.kind_label')}</span>
               <div className="flex flex-wrap gap-1.5">
                 {visibleKinds.map((k) => {
-                  const active = filters.kindCodes.includes(k.code);
+                  const active = kindCodes.includes(k.code);
                   return (
                     <button
                       key={k.book_kind_id}
                       onClick={() => updateFilters({
-                        kindCodes: active ? filters.kindCodes.filter((c) => c !== k.code) : [...filters.kindCodes, k.code],
+                        kindCodes: active ? kindCodes.filter((c) => c !== k.code) : [...kindCodes, k.code],
                       })}
                       className={cn(
                         'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors',
