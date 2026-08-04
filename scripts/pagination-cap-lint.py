@@ -195,6 +195,11 @@ BASELINE: frozenset[str] = frozenset({
     # The regex sees `LIMIT $N` with a variable and cannot see a clamp 3-40 lines earlier.
     # Baselined WITH the verification rather than left red, so a genuinely unclamped route
     # still fails. Clearing these properly means teaching the lint to find the clamp.
+    #   · epub_asset_retention — `limit` is the server-owned 100-item batch passed by
+    #     RunEPUBAssetRetentionSweeper; no request path supplies it. This is the same
+    #     background-sweeper exception as the two entries below, verified against the
+    #     call site rather than weakening the handler scan for every API file.
+    "services/book-service/internal/api/epub_asset_retention.go::LIMIT $2",
     "services/book-service/internal/api/dek_shred_sweeper.go::ORDER BY last_attempt_at ASC NULLS FIRST, requested_at ASC LIMIT $1`, batchSize)",
     "services/book-service/internal/api/mcp_worlds.go::LIMIT $2 OFFSET $3`, ownerID, limit, offset)",
     "services/book-service/internal/api/reparse_sweeper.go::LIMIT $1`, batchSize)",

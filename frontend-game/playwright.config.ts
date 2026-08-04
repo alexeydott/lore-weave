@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // Cross-browser smoke for AC-FG-16 (spec §18). Tests run against the
-// dev server on :5174. Backend services (tilemap-service, game-server)
+// dev server on :5176. Backend services (tilemap-service, game-server)
 // are optional — only tested when env LOREWEAVE_E2E_FULL=1.
 //
 // Run:
@@ -17,7 +17,7 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'list',
 
   use: {
-    baseURL: 'http://localhost:5174',
+    baseURL: 'http://localhost:5176',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -25,7 +25,7 @@ export default defineConfig({
 
   webServer: {
     command: 'pnpm dev',
-    url: 'http://localhost:5174',
+    url: 'http://localhost:5176',
     reuseExistingServer: true,
     timeout: 60_000,
   },
