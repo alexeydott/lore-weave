@@ -302,7 +302,7 @@ FROM import_job_items WHERE job_id=$1
 SELECT source_key, COALESCE(title,''), status, error_code, error_message, warnings_json
 FROM import_job_items
 WHERE job_id=$1 AND selected
-  AND (status='failed' OR jsonb_array_length(warnings_json) > 0)
+  AND (status='failed' OR (jsonb_typeof(warnings_json) = 'array' AND jsonb_array_length(warnings_json) > 0))
 ORDER BY ordinal
 `, jobID)
 	if err != nil {
