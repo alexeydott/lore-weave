@@ -59,6 +59,9 @@ export function installFetchTracker(): void {
   fetchTrackerInstalled = true;
   const nativeFetch = window.fetch.bind(window);
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    const requestHeaders = input instanceof Request ? input.headers : new Headers(init?.headers);
+    // apiJson tracks its own bounded operation; do not count its underlying fetch twice.
+    if (requestHeaders.get('X-LW-Operation-Tracked') === '1') return nativeFetch(input, init);
     const requestMethod = input instanceof Request ? input.method : init?.method;
     const method = (requestMethod ?? 'GET').toUpperCase();
     const endOperation = beginOperation(method === 'GET' || method === 'HEAD' ? 'read' : 'write');

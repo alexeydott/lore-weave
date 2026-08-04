@@ -59,6 +59,7 @@ async def reconcile_jobs(
     since: datetime = Query(..., description="ISO-8601 — rows updated at/after this"),
     limit: int = Query(1000, ge=1, le=5000, description="page cap — the sweeper's _PAGE_LIMIT"),
     jobs_repo: ExtractionJobsRepo = Depends(get_extraction_jobs_repo),
+    benchmark_repo: BenchmarkRunsRepo = Depends(get_benchmark_runs_repo),
 ) -> dict:
     """Reconcile SOURCE (Unified Job Control Plane H1 backstop): extraction jobs updated
     since `since` (oldest-first, capped at `limit`), in canonical `JobEvent` payload shape,
@@ -86,6 +87,23 @@ async def reconcile_jobs(
         status = _canonical_job_status(j.status)
         if status not in _CANONICAL_STATUSES:  # e.g. 'summarizing' — not a JobStatus
             continue
+        params: dict[str, object] = {
+            # Keep the projection's model identity aligned with the authoritative
+            # extraction row. This is especially important after a provider model
+            # is deleted/re-added and receives a new user_model UUID.
+            "embedding_model": j.embedding_model,
+            "model_ref": j.embedding_model,
+        }
+        if j.status == "failed":
+            benchmark = await benchmark_repo.get_latest_for_model(j.user_id, j.embedding_model)
+            if benchmark is None:
+                params["retry_blocked_reason"] = (
+                    "benchmark_missing: run a passing embedding benchmark for this model before retrying"
+                )
+            elif not benchmark.passed:
+                params["retry_blocked_reason"] = (
+                    "benchmark_failed: the latest embedding benchmark did not pass"
+                )
         merged.append((j.updated_at, {
             "service": "knowledge", "job_id": str(j.job_id), "owner_user_id": str(j.user_id),
             "kind": "extraction", "status": status,
@@ -102,6 +120,7 @@ async def reconcile_jobs(
             "tokens_out": j.tokens_out,
             "error": ({"code": "extraction_failed", "message": (j.error_message or "")[:500]}
                       if j.status == "failed" else None),
+            "params": params,
             "occurred_at": j.updated_at.isoformat() if j.updated_at else None,
         }))
     # wiki-gen UNION — list_since already maps `complete`→`completed` (all wiki statuses

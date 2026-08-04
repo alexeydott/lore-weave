@@ -11,7 +11,7 @@ import { JobChildrenTable } from './JobChildrenTable';
 import { JOB_GRID } from './jobGrid';
 import { useJobLive } from '../context/JobsStreamProvider';
 import { effectiveJob, formatRelative, formatDuration } from '../lib';
-import { isTerminal, jobKey, type Job } from '../types';
+import { isTerminal, jobKey, retryBlockedReason, type Job } from '../types';
 import type { TokenModelPricing } from '../modelPricing';
 
 /** One desktop grid row. Reads its own live overlay (subscribes to just this key),
@@ -133,7 +133,7 @@ export function JobRow({
 
         {/* col 7 — actions */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <JobControls service={job.service} jobId={job.job_id} controlCaps={job.control_caps} compact />
+          <JobControls service={job.service} jobId={job.job_id} controlCaps={job.control_caps} retryBlockedReason={retryBlockedReason(job.params)} compact />
           {useCallbackNav ? (
             <button
               type="button"

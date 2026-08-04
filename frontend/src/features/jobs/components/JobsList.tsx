@@ -63,6 +63,10 @@ export function JobsList({ onOpenDetail }: { onOpenDetail?: (service: string, jo
           <JobTableHeader />
           {d.active.isLoading ? (
             <p className="px-4 py-6 text-sm text-muted-foreground">{t('list.loading', { defaultValue: 'Loading…' })}</p>
+          ) : d.active.error ? (
+            <p className="px-4 py-6 text-sm text-destructive">
+              {t('list.errorWithReason', { defaultValue: 'Не удалось загрузить задания: {{error}}', error: (d.active.error as Error).message })}
+            </p>
           ) : activeItems.length === 0 ? (
             <p className="px-4 py-6 text-sm text-muted-foreground">{t('list.noActive', { defaultValue: 'No active jobs.' })}</p>
           ) : (

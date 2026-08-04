@@ -93,6 +93,28 @@ function forceLogout(): void {
  *  of markup and a proxy's debug page can be kilobytes. */
 const MAX_PLAIN_TEXT_MESSAGE = 200;
 
+// A request that never settles leaves React Query in `isLoading` forever and makes
+// the whole shell look broken even when the gateway already accepted the request.
+// Keep this bounded so callers can render an actionable error and offer retry.
+const API_REQUEST_TIMEOUT_MS = 20_000;
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      fetch(input, init),
+      new Promise<Response>((_, reject) => {
+        timer = setTimeout(
+          () => reject(Object.assign(new Error('Request timed out'), { code: 'REQUEST_TIMEOUT' })),
+          API_REQUEST_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 /** Is a non-JSON error body a real message we should show, or infra noise we must not?
  *  Exported for tests — this predicate is the whole difference between "database unavailable"
  *  reaching the author and an HTML document being rendered at them. */
@@ -112,12 +134,14 @@ export async function apiJson<T>(
   try {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    // Prevent installFetchTracker from counting this bounded apiJson request twice.
+    'X-LW-Operation-Tracked': '1',
     ...(init.headers as Record<string, string>),
   };
   if (init.token) {
     headers.Authorization = `Bearer ${init.token}`;
   }
-  const res = await fetch(`${base()}${path}`, { ...init, headers });
+  const res = await fetchWithTimeout(`${base()}${path}`, { ...init, headers });
   if (res.status === 204) {
     return undefined as T;
   }
