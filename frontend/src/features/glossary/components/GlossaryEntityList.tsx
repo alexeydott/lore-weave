@@ -59,7 +59,10 @@ function KindBadge({ kind, faded }: { kind: GlossaryEntitySummary['kind']; faded
  *  and what did not win is kept rather than erased. The faded badges are those; the outlined
  *  one is a kind currently leading the vote WITHOUT enough of a lead to take over, which is a
  *  genuine "we are not sure" and reads as one. */
-function KindFacets({ entity }: { entity: GlossaryEntitySummary }) {
+function KindFacets({ entity, resolveKind }: {
+  entity: GlossaryEntitySummary;
+  resolveKind: (kind: GlossaryEntitySummary['kind']) => GlossaryEntitySummary['kind'];
+}) {
   const labels = entity.kind_labels ?? [];
   const conflict = entity.kind_conflict;
   // A conflict is usually also a label; show it once, as the conflict.
@@ -68,7 +71,7 @@ function KindFacets({ entity }: { entity: GlossaryEntitySummary }) {
   return (
     <>
       {extra.map((l) => (
-        <KindBadge key={l.kind_id} kind={l} faded />
+        <KindBadge key={l.kind_id} kind={resolveKind(l)} faded />
       ))}
       {conflict && (
         <span
@@ -76,8 +79,8 @@ function KindFacets({ entity }: { entity: GlossaryEntitySummary }) {
           style={{ borderColor: conflict.color + '80', color: conflict.color }}
           title={`Extraction currently leans "${conflict.name}" for this entity, but not by enough to change its kind. Both readings are kept.`}
         >
-          <span>{conflict.icon}</span>
-          {conflict.name}?
+          <span>{resolveKind(conflict).icon}</span>
+          {resolveKind(conflict).name}?
         </span>
       )}
     </>
@@ -253,6 +256,17 @@ export function GlossaryEntityList({ bookId, bookGenreTags = [], bookOriginalLan
     () => kinds.filter((k) => !k.is_hidden).sort((a, b) => a.sort_order - b.sort_order),
     [kinds],
   );
+  // Entity summaries can come from an older glossary read whose kind name is a
+  // raw English/system label. Resolve the display label by the same code used by
+  // the filter, so the filter and every entity row cannot disagree.
+  const kindByCode = useMemo(
+    () => new Map(visibleKinds.map((kind) => [kind.code, kind] as const)),
+    [visibleKinds],
+  );
+  const resolveKind = (kind: GlossaryEntitySummary['kind']): GlossaryEntitySummary['kind'] => {
+    const localized = kindByCode.get(kind.code);
+    return localized ? { ...kind, ...localized } : kind;
+  };
 
   // G6f: creation moved into CreateEntityModal (post-G4 a kind is a book_kind_id, so the
   // tiered form picks a BOOK kind and writes its genre override + attribute values). The
@@ -680,8 +694,8 @@ export function GlossaryEntityList({ bookId, bookGenreTags = [], bookOriginalLan
                   >
                     {e.display_name || t('glossary.untitled')}
                   </span>
-                  <KindBadge kind={e.kind} />
-                  <KindFacets entity={e} />
+                  <KindBadge kind={resolveKind(e.kind)} />
+                  <KindFacets entity={e} resolveKind={resolveKind} />
                   <span className={cn('rounded-full px-1.5 py-0.5 text-[9px] font-medium', STATUS_COLORS[e.status])}>
                     {t(`glossary.status.${e.status}`)}
                   </span>

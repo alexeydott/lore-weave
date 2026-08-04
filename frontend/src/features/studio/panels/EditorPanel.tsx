@@ -319,6 +319,19 @@ export function EditorPanel(props: IDockviewPanelProps) {
   // starts closed on mobile; the toggle button still opens it on demand.
   const railChoice = railChoiceState;
   const railOpen = railChoice ?? (hasScenes && !isMobile);
+  const guideSceneSuggestions = () => {
+    const selection = editorRef.current?.getSelection();
+    if (!selection || selection.empty) {
+      editorEl?.focus();
+      toast.info(t('editor.sceneSuggestionsSelect', {
+        defaultValue: 'Select a passage first, then use Suggest scenes above the selection.',
+      }));
+      return;
+    }
+    toast.info(t('editor.sceneSuggestionsReady', {
+      defaultValue: 'Use Suggest scenes in the AI toolbar above the selected passage.',
+    }));
+  };
 
   return (
     <div data-testid="studio-editor-panel" className="flex h-full min-h-0 flex-col">
@@ -402,6 +415,17 @@ export function EditorPanel(props: IDockviewPanelProps) {
         >
           {t('sceneRail.toggle', { defaultValue: 'Scenes' })} {hasScenes ? state.scenes.length : ''}
         </button>
+        {composeProjectId && (
+          <button
+            type="button"
+            data-testid="studio-editor-suggest-scenes"
+            onClick={guideSceneSuggestions}
+            title={t('editor.sceneSuggestionsHint', { defaultValue: 'Select manuscript text to generate scene proposals with AI' })}
+            className="rounded px-1.5 py-0.5 hover:bg-secondary hover:text-foreground"
+          >
+            ✦ {t('editor.suggestScenes', { defaultValue: 'Suggest scenes' })}
+          </button>
+        )}
         {/* #12 S4/J1 — the "option" editor duality: open THIS unit in the generic json-editor.
             Per-resource dock id (J1 multi-instance): each chapter gets its OWN tab; re-opening
             the same chapter focuses it. Same shared document — edits mirror live. */}

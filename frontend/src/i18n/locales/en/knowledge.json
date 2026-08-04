@@ -517,6 +517,7 @@
       "discoveredHint": "New entities start as discovered. Canonical status is earned by anchoring to the glossary."
     },
     "kind": {
+      "unknown": "Unknown kind",
       "person": "Person",
       "artifact": "Artifact",
       "character": "Character",
