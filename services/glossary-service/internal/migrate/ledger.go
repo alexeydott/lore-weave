@@ -164,6 +164,7 @@ var chain = []Step{
 	// Curated default genre-to-kind links, including repair for existing book ontologies.
 	{"0058_entity_kind_votes", UpEntityKindVotes},
 	{"0059_seed_genre_kind_links", SeedGenreKindLinks},
+	{"0060_seed_genre_kind_attributes", SeedGenreKindAttributes},
 }
 
 // EnsureLedger creates the schema_migrations bookkeeping table. Idempotent; must run
