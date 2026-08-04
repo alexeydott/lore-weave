@@ -5,12 +5,15 @@ import { registerServiceWorker } from './pwa/registerSW';
 import './i18n';
 import './index.css';
 import { installFetchTracker } from './lib/operationTracker';
+import { installGlobalErrorLogging } from './lib/clientErrorReporter';
+import { AppErrorBoundary } from './components/shared/AppErrorBoundary';
 
 installFetchTracker();
+installGlobalErrorLogging();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AppErrorBoundary><App /></AppErrorBoundary>
   </StrictMode>,
 );
 

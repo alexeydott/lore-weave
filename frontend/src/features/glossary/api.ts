@@ -22,6 +22,28 @@ import type {
 
 const BASE = '/v1/glossary';
 
+export type BookIntegrityCheck = {
+  code: string;
+  status: 'ok' | 'warning' | 'error' | 'unavailable';
+  severity: 'warning' | 'error';
+  count: number;
+  message: string;
+};
+
+export type BookIntegrityResponse = {
+  book_id: string;
+  status: 'ok' | 'warning' | 'error';
+  checked_at: string;
+  checks: BookIntegrityCheck[];
+};
+
+export type BookIntegrityRepairResponse = {
+  book_id: string;
+  fixed_codes: string[];
+  fixed_count: number;
+  checked_at: string;
+};
+
 
 /** One keyset page of the widened entity-names endpoint (F-H9/PH26). */
 type EntityNamesPage = {
@@ -85,6 +107,13 @@ export const glossaryApi = {
     });
   },
 
+  checkBookIntegrity(bookId: string, token: string): Promise<BookIntegrityResponse> {
+    return apiJson<BookIntegrityResponse>(BASE + '/books/' + bookId + '/integrity', { token });
+  },
+
+  repairBookIntegrity(bookId: string, token: string): Promise<BookIntegrityRepairResponse> {
+    return apiJson<BookIntegrityRepairResponse>(BASE + '/books/' + bookId + '/integrity/repair', { method: 'POST', token });
+  },
 
   listTranslationLanguages(bookId: string, token: string): Promise<{ languages: string[] }> {
     return apiJson<{ languages: string[] }>(

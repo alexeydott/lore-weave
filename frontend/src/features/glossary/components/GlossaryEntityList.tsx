@@ -21,6 +21,7 @@ import { EntityEditorModal } from '@/components/entity-editor';
 import { ExtractionWizard } from '@/features/extraction/ExtractionWizard';
 import { GlossaryTranslateWizard } from '@/features/glossary-translate/GlossaryTranslateWizard';
 import { BatchTranslateDialog } from './BatchTranslateDialog';
+import { BookIntegrityDialog } from './BookIntegrityDialog';
 
 /** The other 4 glossary capabilities, not yet each their own dock panel (13_glossary_panels.md
  * Phase B — tracked, not a silent gap). The caller (GlossaryTab page / GlossaryPanel dock panel)
@@ -107,6 +108,7 @@ export function GlossaryEntityList({ bookId, bookGenreTags = [], bookOriginalLan
   const [extractionOpen, setExtractionOpen] = useState(false);
   const [translateOpen, setTranslateOpen] = useState(false);
   const [batchTranslateOpen, setBatchTranslateOpen] = useState(false);
+  const [integrityOpen, setIntegrityOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -439,6 +441,14 @@ export function GlossaryEntityList({ bookId, bookGenreTags = [], bookOriginalLan
             </select>
           </div>
           <button
+            onClick={() => setIntegrityOpen(true)}
+            data-testid="glossary-integrity-trigger"
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {t('glossary.integrity.button')}
+          </button>
+          <button
             onClick={() => setExtractionOpen(true)}
             data-testid="glossary-extract-trigger"
             className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
@@ -514,6 +524,8 @@ export function GlossaryEntityList({ bookId, bookGenreTags = [], bookOriginalLan
           </button>
         </div>
       </div>
+
+      {integrityOpen && <BookIntegrityDialog bookId={bookId} onClose={() => setIntegrityOpen(false)} />}
 
       <EntityListBrowser
         searchValue={filters.searchQuery}

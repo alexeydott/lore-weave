@@ -36,6 +36,9 @@ export function StepProfile({
   onClose,
 }: StepProfileProps) {
   const { t } = useTranslation('extraction');
+  const { t: tStandards } = useTranslation('standards');
+  const kindLabel = (kind: ExtractionProfileKind) => tStandards(`system.kinds.${kind.code}.name`, { defaultValue: kind.name });
+  const attrLabel = (code: string, fallback: string) => tStandards(`system.attributes.${code}.name`, { defaultValue: fallback });
   const { accessToken } = useAuth();
   const [kinds, setKinds] = useState<ExtractionProfileKind[]>([]);
   const [loading, setLoading] = useState(true);
@@ -271,7 +274,7 @@ export function StepProfile({
                     className="h-3.5 w-3.5 rounded border-border accent-primary"
                   />
                   <span className="text-base">{kind.icon}</span>
-                  <span className="text-sm font-medium">{kind.name}</span>
+                  <span className="text-sm font-medium">{kindLabel(kind)}</span>
                   {isEnabled && (
                     <span className="text-[10px] text-muted-foreground">
                       {t('profile.attrsSelected', { count: activeAttrs })}
@@ -336,7 +339,7 @@ export function StepProfile({
                         )}
                       >
                         <div className="flex items-center gap-2">
-                          <span>{attr.name}</span>
+                          <span>{attrLabel(attr.code, attr.name)}</span>
                           {attr.is_required && (
                             <span className="text-[9px] px-1 py-px rounded bg-primary/10 text-primary font-medium">
                               {t('profile.required')}
