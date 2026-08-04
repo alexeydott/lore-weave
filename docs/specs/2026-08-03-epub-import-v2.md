@@ -91,6 +91,12 @@ compression ratio, content documents, navigation nodes, assets, and chapter HTML
 `EPUB_IMPORT_ASSET_RETENTION_HOURS` controls the Book-owned orphaned-asset GC window (default
 168 hours); failed object deletions remain retryable and retained source EPUBs are never removed.
 
+The 2026-08-04 authenticated local shadow corpus run completed 20 inspections with a net
+legacy-to-V2 chapter delta of -18. It found five
+`logical_navigation_count_differs_from_document_projection` results and two
+`navigation_fallback_used` results. These are diagnostic comparison outcomes, not a semantic
+equivalence claim or approval to promote the deployment mode. V2 navigation remains authoritative.
+
 The importer rejects encrypted/DRM EPUBs, unsafe archive paths, archive collisions, and
 executable or externally fetched HTML content with typed diagnostics. No default EPUB action
 can trigger a paid model or other provider request.

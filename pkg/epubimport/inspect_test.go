@@ -62,6 +62,27 @@ func TestInspectPrefersEPUB3NavigationAndPreservesNestedLeaves(t *testing.T) {
 	}
 }
 
+func TestExtractChapterHandlesXHTMLSelfClosingTitle(t *testing.T) {
+	data := buildTestEPUB(t, map[string]string{
+		"mimetype":               epubMIME,
+		"META-INF/container.xml": `<container><rootfiles><rootfile full-path="OPS/book.opf"/></rootfiles></container>`,
+		"OPS/book.opf": `<package version="2.0"><manifest><item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine toc="ncx"><itemref idref="chapter"/></spine></package>`,
+		"OPS/toc.ncx":  `<ncx><navMap><navPoint><navLabel><text>Chapter</text></navLabel><content src="chapter.xhtml#chapter"/></navPoint></navMap></ncx>`,
+		"OPS/chapter.xhtml": `<html xmlns="http://www.w3.org/1999/xhtml"><head><title/></head><body><span id="chapter"><div><p>chapter text</p></div></span></body></html>`,
+	})
+	inspection, err := Inspect(data, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fragment, _, err := ExtractChapter(data, *inspection.Structure[0], Limits{})
+	if err != nil {
+		t.Fatalf("ExtractChapter() error = %v", err)
+	}
+	if !strings.Contains(fragment, "chapter text") {
+		t.Fatalf("fragment = %q, want chapter text", fragment)
+	}
+}
+
 func TestInspectUsesNCXThenSpineFallback(t *testing.T) {
 	baseFiles := map[string]string{
 		"mimetype":               epubMIME,

@@ -133,8 +133,9 @@ services:
       # config.go:loadDomainConfirmURLs — domain key → owning service base URL.
       BOOK_SERVICE_URL: http://book-service:8082
       COMPOSITION_SERVICE_URL: http://composition-service:8093
-      TRANSLATION_SERVICE_URL: http://translation-service:8087
+      # New EPUB books receive an idempotent copy of Glossary's system ontology.
       GLOSSARY_SERVICE_URL: http://glossary-service:8088
+      TRANSLATION_SERVICE_URL: http://translation-service:8087
       KNOWLEDGE_SERVICE_URL: http://knowledge-service:8092
       PROVIDER_REGISTRY_SERVICE_URL: http://provider-registry-service:8085
       # Phase 6c — OpenTelemetry trace export (see provider-registry-service).

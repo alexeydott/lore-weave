@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -508,14 +510,63 @@ func (s *Server) resumeEpubImportJob(w http.ResponseWriter, r *http.Request) {
 	if _, _, _, allowed := s.authBook(w, r, job.BookID, GrantEdit); !allowed {
 		return
 	}
+	s.resumeEpubImportJobPersisted(w, r, jobID, job)
+}
+
+// resumeEpubImportJobInternal is the unified Jobs control-plane seam. The
+// internal token authenticates jobs-service; the owner field is then matched to
+// the durable import row so a stale or forged projection cannot resume another
+// user's import.
+func (s *Server) resumeEpubImportJobInternal(w http.ResponseWriter, r *http.Request) {
+	jobID, ok := parseEPUBImportJobID(w, r)
+	if !ok {
+		return
+	}
+	var input struct {
+		OwnerUserID string `json:"owner_user_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "IMPORT_BAD_REQUEST", "invalid resume request")
+		return
+	}
+	ownerID, err := uuid.Parse(strings.TrimSpace(input.OwnerUserID))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "IMPORT_BAD_REQUEST", "owner_user_id is required")
+		return
+	}
+	var jobOwner uuid.UUID
+	err = s.pool.QueryRow(r.Context(), `SELECT user_id FROM import_jobs WHERE id=$1 AND pipeline_version=$2`, jobID, epubImportPipelineVersion).Scan(&jobOwner)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "IMPORT_NOT_FOUND", "import job not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to load import job")
+		}
+		return
+	}
+	if jobOwner != ownerID {
+		writeError(w, http.StatusNotFound, "IMPORT_NOT_FOUND", "import job not found")
+		return
+	}
+	job, found := s.loadEPUBImportJob(r.Context(), jobID)
+	if !found {
+		writeError(w, http.StatusNotFound, "IMPORT_NOT_FOUND", "import job not found")
+		return
+	}
+	if s.resumeEpubImportJobPersisted(w, r, jobID, job) {
+		slog.InfoContext(r.Context(), "[FIX] epub import resumed through unified jobs control", "job_id", jobID, "book_id", job.BookID)
+	}
+}
+
+func (s *Server) resumeEpubImportJobPersisted(w http.ResponseWriter, r *http.Request, jobID uuid.UUID, job epubImportJobResponse) bool {
 	if !job.Resumable {
 		writeError(w, http.StatusConflict, "IMPORT_NOT_RESUMABLE", "import job is not resumable")
-		return
+		return false
 	}
 	tx, err := s.pool.Begin(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to resume import")
-		return
+		return false
 	}
 	defer tx.Rollback(r.Context())
 	var userID uuid.UUID
@@ -523,30 +574,32 @@ func (s *Server) resumeEpubImportJob(w http.ResponseWriter, r *http.Request) {
 	err = tx.QueryRow(r.Context(), `SELECT j.user_id,s.object_key,COALESCE(s.metadata_json->>'language','und') FROM import_jobs j JOIN import_sources s ON s.id=j.source_id WHERE j.id=$1 FOR UPDATE`, jobID).Scan(&userID, &objectKey, &language)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to resume import")
-		return
+		return false
 	}
-	if _, err := tx.Exec(r.Context(), `UPDATE import_job_items SET status='pending',error_code=NULL,error_message=NULL,started_at=NULL,completed_at=NULL,updated_at=now() WHERE job_id=$1 AND selected AND status='failed'`, jobID); err != nil {
+	if _, err := tx.Exec(r.Context(), `UPDATE import_job_items SET status='pending',error_code=NULL,error_message=NULL,started_at=NULL,completed_at=NULL,updated_at=now() WHERE job_id=$1 AND selected AND status IN ('failed','processing')`, jobID); err != nil {
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to resume import")
-		return
+		return false
 	}
 	if _, err := tx.Exec(r.Context(), `UPDATE import_jobs SET status='queued',cancel_requested_at=NULL,progress_failed=0,updated_at=now(),completed_at=NULL WHERE id=$1`, jobID); err != nil {
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to resume import")
-		return
+		return false
 	}
 	payload := map[string]any{"job_id": jobID, "book_id": job.BookID, "user_id": userID, "file_format": "epub", "file_storage_key": objectKey, "original_language": importedLanguage(language), "source_id": job.SourceID, "pipeline_version": epubImportPipelineVersion}
 	if err := insertOutboxEvent(r.Context(), tx, "import.requested", jobID, payload); err != nil {
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to queue import")
-		return
+		return false
 	}
 	if err := emitJobEvent(r.Context(), tx, jobID, userID, "book_import", "queued", map[string]any{"progress": map[string]any{"done": job.ProgressCompleted, "total": job.ProgressTotal}}); err != nil {
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to queue import")
-		return
+		return false
 	}
 	if err := tx.Commit(r.Context()); err != nil {
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to resume import")
-		return
+		return false
 	}
+	slog.InfoContext(r.Context(), "epub import resumed", "job_id", jobID, "book_id", job.BookID)
 	writeJSON(w, http.StatusAccepted, map[string]any{"job_id": jobID, "status": "queued"})
+	return true
 }
 
 func parseEPUBImportJobID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {

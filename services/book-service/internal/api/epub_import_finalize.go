@@ -37,6 +37,16 @@ type materializedEPUBImportChapter struct {
 	links          []epubStagingLink
 }
 
+type stagedEPUBImportItem struct {
+	itemID         uuid.UUID
+	sourceKey      string
+	title          string
+	sourceHref     *string
+	sourceFragment *string
+	sourceHash     *string
+	stagingPayload []byte
+}
+
 func (s *Server) finalizeEPUBImport(w http.ResponseWriter, r *http.Request) {
 	started := time.Now()
 	defer func() { EPUBImportDurationSeconds.Observe(time.Since(started).Seconds()) }()
@@ -104,20 +114,26 @@ ORDER BY ordinal
 		return 0, err
 	}
 	defer rows.Close()
-	created := 0
-	materialized := make([]materializedEPUBImportChapter, 0)
+	stagedItems := make([]stagedEPUBImportItem, 0)
 	for rows.Next() {
-		var itemID uuid.UUID
-		var sourceKey, title string
-		var sourceHref, sourceFragment, sourceHash *string
-		var raw []byte
-		if err := rows.Scan(&itemID, &sourceKey, &title, &sourceHref, &sourceFragment, &sourceHash, &raw); err != nil {
+		var item stagedEPUBImportItem
+		if err := rows.Scan(&item.itemID, &item.sourceKey, &item.title, &item.sourceHref, &item.sourceFragment, &item.sourceHash, &item.stagingPayload); err != nil {
 			return 0, err
 		}
+		stagedItems = append(stagedItems, item)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	rows.Close()
+
+	created := 0
+	materialized := make([]materializedEPUBImportChapter, 0, len(stagedItems))
+	for _, item := range stagedItems {
 		var existing uuid.UUID
-		err := tx.QueryRow(ctx, `SELECT chapter_id FROM chapter_import_provenance WHERE book_id=$1 AND source_sha256=$2 AND source_key=$3`, bookID, sourceSHA, sourceKey).Scan(&existing)
+		err := tx.QueryRow(ctx, `SELECT chapter_id FROM chapter_import_provenance WHERE book_id=$1 AND source_sha256=$2 AND source_key=$3`, bookID, sourceSHA, item.sourceKey).Scan(&existing)
 		if err == nil {
-			if _, err := tx.Exec(ctx, `UPDATE import_job_items SET chapter_id=$2,status='active',updated_at=now() WHERE id=$1`, itemID, existing); err != nil {
+			if _, err := tx.Exec(ctx, `UPDATE import_job_items SET chapter_id=$2,status='active',updated_at=now() WHERE id=$1`, item.itemID, existing); err != nil {
 				return 0, err
 			}
 			continue
@@ -126,15 +142,15 @@ ORDER BY ordinal
 			return 0, err
 		}
 		var staging epubStagingPayload
-		if err := json.Unmarshal(raw, &staging); err != nil || !json.Valid(staging.TiptapJSON) {
+		if err := json.Unmarshal(item.stagingPayload, &staging); err != nil || !json.Valid(staging.TiptapJSON) {
 			return 0, fmt.Errorf("invalid staging payload")
 		}
 		if staging.Title != "" {
-			title = staging.Title
+			item.title = staging.Title
 		}
 		chapterID := uuid.New()
 		storageKey := fmt.Sprintf("chapters/%s/import-%s-%d", bookID, jobID, nextSort)
-		if _, err := tx.Exec(ctx, `INSERT INTO chapters(id,book_id,title,original_filename,original_language,content_type,byte_size,sort_order,storage_key,lifecycle_state,draft_updated_at,updated_at) VALUES($1,$2,$3,$4,$5,'application/json',$6,$7,$8,'active',now(),now())`, chapterID, bookID, nullableString(title), "epub-import.epub", importedLanguage(language), len(staging.TiptapJSON), nextSort, storageKey); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO chapters(id,book_id,title,original_filename,original_language,content_type,byte_size,sort_order,storage_key,lifecycle_state,draft_updated_at,updated_at) VALUES($1,$2,$3,$4,$5,'application/json',$6,$7,$8,'active',now(),now())`, chapterID, bookID, nullableString(item.title), "epub-import.epub", importedLanguage(language), len(staging.TiptapJSON), nextSort, storageKey); err != nil {
 			return 0, err
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO chapter_drafts(chapter_id,body,draft_format,draft_updated_at,draft_version) VALUES($1,$2,'json',now(),1)`, chapterID, staging.TiptapJSON); err != nil {
@@ -157,25 +173,21 @@ INSERT INTO chapter_import_provenance(
   chapter_id,book_id,import_job_id,import_item_id,source_id,source_sha256,source_key,
   source_href,source_fragment,source_hash,finalized_at
 ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())
-`, chapterID, bookID, jobID, itemID, sourceID, sourceSHA, sourceKey, sourceHref, sourceFragment, sourceHash); err != nil {
+`, chapterID, bookID, jobID, item.itemID, sourceID, sourceSHA, item.sourceKey, item.sourceHref, item.sourceFragment, item.sourceHash); err != nil {
 			return 0, err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE import_job_items SET chapter_id=$2,status='active',updated_at=now() WHERE id=$1`, itemID, chapterID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE import_job_items SET chapter_id=$2,status='active',updated_at=now() WHERE id=$1`, item.itemID, chapterID); err != nil {
 			return 0, err
 		}
 		materialized = append(materialized, materializedEPUBImportChapter{
-			itemID: itemID, chapterID: chapterID, revisionID: revisionID,
-			sourceKey:  sourceKey,
-			sourceHref: dereferenceString(sourceHref), sourceFragment: dereferenceString(sourceFragment),
+			itemID: item.itemID, chapterID: chapterID, revisionID: revisionID,
+			sourceKey:  item.sourceKey,
+			sourceHref: dereferenceString(item.sourceHref), sourceFragment: dereferenceString(item.sourceFragment),
 			tiptapJSON: staging.TiptapJSON, links: staging.Links,
 		})
 		created++
 		nextSort++
 	}
-	if err := rows.Err(); err != nil {
-		return 0, err
-	}
-	rows.Close()
 	if err := rewriteMaterializedEPUBLinks(ctx, tx, bookID, jobID, materialized); err != nil {
 		return 0, err
 	}
@@ -202,7 +214,12 @@ INSERT INTO chapter_import_provenance(
 		coverWarning = warning
 	}
 	var warningCount int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM import_job_items WHERE job_id=$1 AND selected AND jsonb_array_length(warnings_json)>0`, jobID).Scan(&warningCount); err != nil {
+	if err := tx.QueryRow(ctx, `
+SELECT count(*)
+FROM import_job_items
+WHERE job_id=$1 AND selected
+  AND jsonb_array_length(CASE WHEN jsonb_typeof(warnings_json) = 'array' THEN warnings_json ELSE '[]'::jsonb END) > 0
+`, jobID).Scan(&warningCount); err != nil {
 		return 0, err
 	}
 	finalStatus := "completed"

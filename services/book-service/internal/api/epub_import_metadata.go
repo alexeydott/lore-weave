@@ -147,42 +147,62 @@ func (s *Server) rollbackEPUBImportMetadata(ctx context.Context, tx pgx.Tx, jobI
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	type metadataEffect struct {
+		field      string
+		beforeJSON []byte
+		afterJSON  []byte
+	}
+	effects := make([]metadataEffect, 0)
 	for rows.Next() {
-		var field string
-		var beforeJSON, afterJSON []byte
+		var effect metadataEffect
 		var appliedAt interface{}
-		if err := rows.Scan(&field, &beforeJSON, &afterJSON, &appliedAt); err != nil {
+		if err := rows.Scan(&effect.field, &effect.beforeJSON, &effect.afterJSON, &appliedAt); err != nil {
 			return err
 		}
-		var current any
-		column := field
-		if field == "language" {
+		effects = append(effects, effect)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	rows.Close()
+	for _, effect := range effects {
+		column := effect.field
+		if effect.field == "language" {
 			column = "original_language"
 		}
-		if field == "subjects" {
-			if err := tx.QueryRow(ctx, `SELECT genre_tags FROM books WHERE id=$1`, bookID).Scan(&current); err != nil {
+		matchesAppliedValue := false
+		if effect.field == "subjects" {
+			var genres []string
+			if err := tx.QueryRow(ctx, `SELECT genre_tags FROM books WHERE id=$1`, bookID).Scan(&genres); err != nil {
 				return err
 			}
-		} else if err := tx.QueryRow(ctx, `SELECT `+column+` FROM books WHERE id=$1`, bookID).Scan(&current); err != nil {
-			return err
+			var expected []string
+			if err := json.Unmarshal(effect.afterJSON, &expected); err != nil {
+				return err
+			}
+			matchesAppliedValue = equalStringSlices(genres, expected)
+		} else {
+			var value string
+			if err := tx.QueryRow(ctx, `SELECT `+column+` FROM books WHERE id=$1`, bookID).Scan(&value); err != nil {
+				return err
+			}
+			var expected string
+			if err := json.Unmarshal(effect.afterJSON, &expected); err != nil {
+				return err
+			}
+			matchesAppliedValue = value == expected
 		}
-		var after any
-		if err := json.Unmarshal(afterJSON, &after); err != nil {
-			return err
-		}
-		currentJSON, _ := json.Marshal(current)
-		if string(currentJSON) != string(afterJSON) {
-			*conflicts = append(*conflicts, map[string]any{"code": "rollback_conflict_user_modified_metadata", "field": field})
+		if !matchesAppliedValue {
+			*conflicts = append(*conflicts, map[string]any{"code": "rollback_conflict_user_modified_metadata", "field": effect.field})
 			continue
 		}
 		var before any
-		if err := json.Unmarshal(beforeJSON, &before); err != nil {
+		if err := json.Unmarshal(effect.beforeJSON, &before); err != nil {
 			return err
 		}
-		if field == "subjects" {
+		if effect.field == "subjects" {
 			var values []string
-			_ = json.Unmarshal(beforeJSON, &values)
+			_ = json.Unmarshal(effect.beforeJSON, &values)
 			_, err = tx.Exec(ctx, `UPDATE books SET genre_tags=$2,updated_at=now() WHERE id=$1`, bookID, values)
 		} else {
 			_, err = tx.Exec(ctx, `UPDATE books SET `+column+`=$2,updated_at=now() WHERE id=$1`, bookID, before)
@@ -190,9 +210,9 @@ func (s *Server) rollbackEPUBImportMetadata(ctx context.Context, tx pgx.Tx, jobI
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE import_job_effects SET rolled_back_at=now() WHERE job_id=$1 AND effect_type='book_metadata' AND effect_key=$2`, jobID, field); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE import_job_effects SET rolled_back_at=now() WHERE job_id=$1 AND effect_type='book_metadata' AND effect_key=$2`, jobID, effect.field); err != nil {
 			return err
 		}
 	}
-	return rows.Err()
+	return nil
 }

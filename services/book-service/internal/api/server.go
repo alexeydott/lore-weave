@@ -241,6 +241,8 @@ func (s *Server) Router() http.Handler {
 		r.Post("/books/{book_id}/chapters/canon-markers", s.postInternalChapterCanonMarkers)
 		r.Patch("/imports/{import_id}", s.updateImportJobStatus)
 		r.Post("/epub-import-jobs/{job_id}/claim-next", s.claimNextEPUBImportItem)
+
+		r.Post("/epub-import-jobs/{job_id}/resume", s.resumeEpubImportJobInternal)
 		r.Post("/epub-import-jobs/{job_id}/items/{item_id}/stage", s.stageEPUBImportItem)
 		r.Post("/epub-import-jobs/{job_id}/items/{item_id}/fail", s.failEPUBImportItem)
 		r.Post("/epub-import-jobs/{job_id}/assets", s.upsertEPUBImportAsset)

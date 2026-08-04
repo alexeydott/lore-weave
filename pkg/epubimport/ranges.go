@@ -3,6 +3,7 @@ package epubimport
 import (
 	"archive/zip"
 	"bytes"
+	"io"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -55,7 +56,7 @@ func extractDOMRange(raw []byte, contentRange ContentRange, remaining int64) (st
 	if remaining <= 0 {
 		return "", nil, archiveLimit("logical chapter HTML exceeds configured limit")
 	}
-	doc, err := html.Parse(bytes.NewReader(raw))
+	doc, err := html.Parse(bytes.NewReader(normalizeXHTMLSelfClosingTags(raw)))
 	if err != nil {
 		return "", nil, &Error{Code: CodeInvalidNavigation, Message: "content document is invalid HTML"}
 	}
@@ -109,6 +110,37 @@ func extractDOMRange(raw []byte, contentRange ContentRange, remaining int64) (st
 		}
 	}
 	return output.String(), diagnostics, nil
+}
+
+// normalizeXHTMLSelfClosingTags adapts XHTML's XML-style empty non-void
+// elements for x/net/html. Without this, a common <title/> makes the HTML
+// parser treat the rest of the document as title text and hides the body.
+func normalizeXHTMLSelfClosingTags(raw []byte) []byte {
+	tokenizer := html.NewTokenizer(bytes.NewReader(raw))
+	var output bytes.Buffer
+	for {
+		tokenType := tokenizer.Next()
+		if tokenType == html.ErrorToken {
+			if tokenizer.Err() != io.EOF {
+				return raw
+			}
+			return output.Bytes()
+		}
+		if tokenType != html.SelfClosingTagToken {
+			output.Write(tokenizer.Raw())
+			continue
+		}
+		token := tokenizer.Token()
+		if isVoidElement(token.Data) {
+			output.Write(tokenizer.Raw())
+			continue
+		}
+		opening := strings.TrimSuffix(strings.TrimSpace(string(tokenizer.Raw())), "/>")
+		output.WriteString(opening)
+		output.WriteString("></")
+		output.WriteString(token.Data)
+		output.WriteByte('>')
+	}
 }
 
 type nodePosition struct {

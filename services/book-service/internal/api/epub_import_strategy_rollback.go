@@ -13,21 +13,31 @@ func (s *Server) rollbackEPUBImportStrategy(ctx context.Context, tx pgx.Tx, jobI
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	type replaceAllEffect struct {
+		key        string
+		beforeJSON []byte
+	}
+	effects := make([]replaceAllEffect, 0)
 	for rows.Next() {
-		var key string
-		var beforeJSON []byte
+		var effect replaceAllEffect
 		var appliedAt interface{}
-		if err := rows.Scan(&key, &beforeJSON, &appliedAt); err != nil {
+		if err := rows.Scan(&effect.key, &effect.beforeJSON, &appliedAt); err != nil {
 			return err
 		}
-		chapterID, err := uuid.Parse(key)
+		effects = append(effects, effect)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	rows.Close()
+	for _, effect := range effects {
+		chapterID, err := uuid.Parse(effect.key)
 		if err != nil {
 			return err
 		}
 		var updatedAt interface{}
 		if err := tx.QueryRow(ctx, `SELECT updated_at FROM chapters WHERE id=$1 AND book_id=$2`, chapterID, bookID).Scan(&updatedAt); err == pgx.ErrNoRows {
-			if _, err := tx.Exec(ctx, `UPDATE import_job_effects SET rolled_back_at=now() WHERE job_id=$1 AND effect_type='replace_all_chapter' AND effect_key=$2`, jobID, key); err != nil {
+			if _, err := tx.Exec(ctx, `UPDATE import_job_effects SET rolled_back_at=now() WHERE job_id=$1 AND effect_type='replace_all_chapter' AND effect_key=$2`, jobID, effect.key); err != nil {
 				return err
 			}
 			continue
@@ -37,7 +47,7 @@ func (s *Server) rollbackEPUBImportStrategy(ctx context.Context, tx pgx.Tx, jobI
 		// The row is only restored if no user action happened after replace_all.
 		// pgx's time values are compared in SQL to avoid lossy interface casts.
 		var changed bool
-		if err := tx.QueryRow(ctx, `SELECT updated_at > (SELECT applied_at FROM import_job_effects WHERE job_id=$1 AND effect_type='replace_all_chapter' AND effect_key=$2) FROM chapters WHERE id=$3`, jobID, key, chapterID).Scan(&changed); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT updated_at > (SELECT applied_at FROM import_job_effects WHERE job_id=$1 AND effect_type='replace_all_chapter' AND effect_key=$2) FROM chapters WHERE id=$3`, jobID, effect.key, chapterID).Scan(&changed); err != nil {
 			return err
 		}
 		if changed {
@@ -48,15 +58,15 @@ func (s *Server) rollbackEPUBImportStrategy(ctx context.Context, tx pgx.Tx, jobI
 			LifecycleState string `json:"lifecycle_state"`
 			TrashedAt      string `json:"trashed_at"`
 		}
-		if err := json.Unmarshal(beforeJSON, &before); err != nil {
+		if err := json.Unmarshal(effect.beforeJSON, &before); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `UPDATE chapters SET lifecycle_state=$2,trashed_at=NULL,updated_at=now() WHERE id=$1`, chapterID, before.LifecycleState); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE import_job_effects SET rolled_back_at=now() WHERE job_id=$1 AND effect_type='replace_all_chapter' AND effect_key=$2`, jobID, key); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE import_job_effects SET rolled_back_at=now() WHERE job_id=$1 AND effect_type='replace_all_chapter' AND effect_key=$2`, jobID, effect.key); err != nil {
 			return err
 		}
 	}
-	return rows.Err()
+	return nil
 }

@@ -189,6 +189,8 @@ INSERT INTO import_jobs (
 		"original_language": importedLanguage(source.Inspection.Metadata.Language),
 		"source_id":         source.ID,
 		"pipeline_version":  epubImportPipelineVersion,
+		"target_mode":       in.Target.Mode,
+		"lore_genres":       source.Inspection.Metadata.Subjects,
 	}
 	if err := insertOutboxEvent(r.Context(), tx, "import.requested", jobID, payload); err != nil {
 		writeError(w, http.StatusInternalServerError, "IMPORT_ERROR", "failed to queue import")
@@ -248,12 +250,18 @@ func createEPUBImportBook(ctx context.Context, tx pgx.Tx, ownerID uuid.UUID, met
 	if title == "" {
 		title = "Imported EPUB"
 	}
+	// books.genre_tags is NOT NULL. EPUB metadata is allowed to omit dc:subject,
+	// so preserve that absence as an empty tag list instead of a SQL NULL.
+	genreTags := metadata.Subjects
+	if genreTags == nil {
+		genreTags = []string{}
+	}
 	var bookID uuid.UUID
 	err := tx.QueryRow(ctx, `
 INSERT INTO books(owner_user_id, title, description, original_language, genre_tags, kind)
 VALUES($1, $2, $3, $4, $5, 'novel')
 RETURNING id
-`, ownerID, title, strings.TrimSpace(metadata.Description), importedLanguage(metadata.Language), metadata.Subjects).Scan(&bookID)
+	`, ownerID, title, strings.TrimSpace(metadata.Description), importedLanguage(metadata.Language), genreTags).Scan(&bookID)
 	return bookID, err
 }
 

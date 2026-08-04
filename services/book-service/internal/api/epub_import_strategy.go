@@ -32,21 +32,32 @@ FOR UPDATE`, bookID, jobID)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	type replaceAllCandidate struct {
+		chapterID uuid.UUID
+		state     string
+		trashedAt string
+	}
+	candidates := make([]replaceAllCandidate, 0)
 	for rows.Next() {
-		var chapterID uuid.UUID
-		var state, trashedAt string
+		var candidate replaceAllCandidate
 		var updatedAt interface{}
-		if err := rows.Scan(&chapterID, &state, &trashedAt, &updatedAt); err != nil {
+		if err := rows.Scan(&candidate.chapterID, &candidate.state, &candidate.trashedAt, &updatedAt); err != nil {
 			return err
 		}
-		before, _ := json.Marshal(map[string]string{"lifecycle_state": state, "trashed_at": trashedAt})
-		if _, err := tx.Exec(ctx, `INSERT INTO import_job_effects(job_id,effect_type,effect_key,before_json,after_json) VALUES($1,'replace_all_chapter',$2,$3,'{"lifecycle_state":"trashed"}'::jsonb) ON CONFLICT (job_id,effect_type,effect_key) DO NOTHING`, jobID, chapterID.String(), before); err != nil {
+		candidates = append(candidates, candidate)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	rows.Close()
+	for _, candidate := range candidates {
+		before, _ := json.Marshal(map[string]string{"lifecycle_state": candidate.state, "trashed_at": candidate.trashedAt})
+		if _, err := tx.Exec(ctx, `INSERT INTO import_job_effects(job_id,effect_type,effect_key,before_json,after_json) VALUES($1,'replace_all_chapter',$2,$3,'{"lifecycle_state":"trashed"}'::jsonb) ON CONFLICT (job_id,effect_type,effect_key) DO NOTHING`, jobID, candidate.chapterID.String(), before); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE chapters SET lifecycle_state='trashed',trashed_at=now(),updated_at=now() WHERE id=$1`, chapterID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE chapters SET lifecycle_state='trashed',trashed_at=now(),updated_at=now() WHERE id=$1`, candidate.chapterID); err != nil {
 			return err
 		}
 	}
-	return rows.Err()
+	return nil
 }

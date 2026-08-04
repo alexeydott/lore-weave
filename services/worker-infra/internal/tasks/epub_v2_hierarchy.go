@@ -55,6 +55,12 @@ func (t *ImportProcessor) materializeEPUBV2Hierarchy(ctx context.Context, payloa
 	if len(hierarchy.Nodes) == 0 {
 		return nil
 	}
+	// epubimport's navigation ordinal is zero-based, while the persisted
+	// cross-service hierarchy contract is one-based. Normalize at the worker
+	// boundary so Composition never has to know parser-local numbering.
+	for index := range hierarchy.Nodes {
+		hierarchy.Nodes[index].Ordinal++
+	}
 	var response epubV2CompositionHierarchyResponse
 	if err := t.compositionEPUBHierarchyJSON(ctx, payload.JobID, hierarchy, &response); err != nil {
 		slog.Warn("epub import composition hierarchy materialization failed", "job_id", payload.JobID, "book_id", hierarchy.BookID, "error", err)

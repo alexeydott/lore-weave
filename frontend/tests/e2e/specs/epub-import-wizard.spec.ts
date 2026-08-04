@@ -77,26 +77,27 @@ test.describe('EPUB import wizard browser smoke', () => {
 
     await page.goto(`/books/${BOOK_ID}`, { waitUntil: 'commit' });
     await page.waitForLoadState('domcontentloaded').catch(() => {});
-    await expect(page.getByRole('button', { name: 'Import EPUB' })).toBeVisible({ timeout: 20_000 });
-    await page.getByRole('button', { name: 'Import EPUB' }).click();
-    await expect(page.getByRole('dialog')).toContainText('Import EPUB');
+    await expect(page.getByTestId('epub-import-open')).toBeVisible({ timeout: 20_000 });
+    await page.getByTestId('epub-import-open').click();
+    await expect(page.getByTestId('epub-import-dialog')).toBeVisible();
 
-    await page.locator('input[type="file"]').setInputFiles({
+    await page.getByTestId('epub-import-file-input').setInputFiles({
       name: 'nested-shadow.epub', mimeType: 'application/epub+zip', buffer: Buffer.from('PK\u0003\u0004shadow-fixture'),
     });
     await expect(page.getByText('Nested Shadow Book')).toBeVisible();
-    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByTestId('epub-import-next').click();
     await expect(page.getByText('2 chapters selected')).toBeVisible();
     await expect(page.getByText('Chapter One')).toBeVisible();
     await expect(page.getByText('Chapter Two')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Continue' }).click();
-    await page.getByRole('radio', { name: 'Replace all' }).click();
-    await expect(page.getByText('Replace all is destructive')).toBeVisible();
-    await page.getByRole('button', { name: 'Start import' }).click();
+    await page.getByTestId('epub-import-next').click();
+    await page.getByTestId('epub-import-strategy-replace_all').check();
+    await expect(page.getByTestId('epub-import-next')).toBeDisabled();
+    await page.getByTestId('epub-import-replace-confirmation').check();
+    await page.getByTestId('epub-import-next').click();
 
     await expect(page.getByText('completed_with_warnings')).toBeVisible();
-    await expect(page.getByText('2 chapters created · 1 warnings')).toBeVisible();
-    await expect(page.getByText('composition_materialization_retry')).toBeVisible();
+    await expect(page.getByTestId('epub-import-report-summary')).toHaveText('2 chapters created · 1 warnings');
+    await expect(page.getByTestId('epub-import-report-warnings')).toContainText('composition_materialization_retry');
   });
 });

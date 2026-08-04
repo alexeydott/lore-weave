@@ -217,13 +217,15 @@ type importRequestedPayload struct {
 	FileStorageKey   string `json:"file_storage_key"`
 	OriginalLanguage string `json:"original_language"`
 
-	PagesPerChunk          int    `json:"pages_per_chunk"`
-	CaptionImages          bool   `json:"caption_images"`
-	VisionModelSource      string `json:"vision_model_source"`
-	VisionModelRef         string `json:"vision_model_ref"`
-	CreateBookFromMetadata bool   `json:"create_book_from_metadata"`
-	SourceID               string `json:"source_id"`
-	PipelineVersion        string `json:"pipeline_version"`
+	PagesPerChunk          int      `json:"pages_per_chunk"`
+	CaptionImages          bool     `json:"caption_images"`
+	VisionModelSource      string   `json:"vision_model_source"`
+	VisionModelRef         string   `json:"vision_model_ref"`
+	CreateBookFromMetadata bool     `json:"create_book_from_metadata"`
+	SourceID               string   `json:"source_id"`
+	PipelineVersion        string   `json:"pipeline_version"`
+	TargetMode             string   `json:"target_mode"`
+	LoreGenres             []string `json:"lore_genres"`
 }
 
 func (t *ImportProcessor) processImport(ctx context.Context, payload importRequestedPayload) (int, error) {

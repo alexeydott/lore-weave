@@ -19,7 +19,7 @@ func TestEPUBV2HierarchyCompositionOutagePersistsRetryableWarning(t *testing.T) 
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"book_id": "11111111-1111-1111-1111-111111111111",
 				"user_id": "22222222-2222-2222-2222-222222222222",
-				"nodes":   []any{map[string]any{"source_key": "chapter-1", "role": "chapter", "title": "One", "ordinal": 1, "depth": 0}},
+				"nodes":   []any{map[string]any{"source_key": "chapter-1", "role": "chapter", "title": "One", "ordinal": 0, "depth": 0}},
 			})
 		case r.Method == http.MethodPost && r.URL.Path == "/internal/epub-import-jobs/job-1/warnings":
 			warningCalls.Add(1)
@@ -48,13 +48,14 @@ func TestEPUBV2HierarchyCompositionOutagePersistsRetryableWarning(t *testing.T) 
 
 func TestEPUBV2HierarchyRetryForwardsCompositionMappings(t *testing.T) {
 	var mappingCalls atomic.Int32
+	var compositionOrdinal atomic.Int32
 	book := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet:
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"book_id": "11111111-1111-1111-1111-111111111111",
 				"user_id": "22222222-2222-2222-2222-222222222222",
-				"nodes":   []any{map[string]any{"source_key": "chapter-1", "role": "chapter", "title": "One", "ordinal": 1, "depth": 0}},
+				"nodes":   []any{map[string]any{"source_key": "chapter-1", "role": "chapter", "title": "One", "ordinal": 0, "depth": 0}},
 			})
 		case r.Method == http.MethodPost && r.URL.Path == "/internal/epub-import-jobs/job-2/hierarchy-mappings":
 			mappingCalls.Add(1)
@@ -65,6 +66,18 @@ func TestEPUBV2HierarchyRetryForwardsCompositionMappings(t *testing.T) {
 	}))
 	defer book.Close()
 	composition := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct {
+			Nodes []struct {
+				Ordinal int `json:"ordinal"`
+			} `json:"nodes"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatalf("decode Composition request: %v", err)
+		}
+		if len(request.Nodes) != 1 {
+			t.Fatalf("Composition nodes = %d, want 1", len(request.Nodes))
+		}
+		compositionOrdinal.Store(int32(request.Nodes[0].Ordinal))
 		_ = json.NewEncoder(w).Encode(map[string]any{"mappings": []any{map[string]any{"source_key": "chapter-1", "hierarchy_node_id": "33333333-3333-3333-3333-333333333333"}}})
 	}))
 	defer composition.Close()
@@ -74,5 +87,8 @@ func TestEPUBV2HierarchyRetryForwardsCompositionMappings(t *testing.T) {
 	}
 	if mappingCalls.Load() != 1 {
 		t.Fatalf("mapping calls = %d, want 1", mappingCalls.Load())
+	}
+	if compositionOrdinal.Load() != 1 {
+		t.Fatalf("Composition ordinal = %d, want normalized 1", compositionOrdinal.Load())
 	}
 }

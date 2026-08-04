@@ -59,6 +59,35 @@ successful retry mapping. Book Service runs a configurable EPUB asset retention 
 objects and leaves failed MinIO deletes for retry. The DB suites require a throwaway
 `BOOK_TEST_DATABASE_URL`; without it they skip safely.
 
+**EPUB recovery E2E checkpoint (2026-08-04):** against the isolated
+`loreweave_book_test` PostgreSQL database, an HTTP+DB scenario proves that cancelling an
+already claimed item reaches `cancelled`, `resume` releases that in-flight item back to
+`pending`, and a transient parser failure can be resumed and finalized. Repeating the
+Book internal finalize command creates one chapter/provenance record. The worker contract
+also replays the same V2 event: the replay makes no additional parser or staging call and
+only repeats the idempotent finalize command. The DB run exposed and fixed cursors left
+open across follow-up statements in finalize and strategy/metadata rollback paths. Task 10
+is complete: a live BFF-authenticated import with an automatically registered disposable
+user reached finalization, then two confirmed public rollback requests each returned the
+same durable one-chapter rollback result. The persisted report showed `rolled_back`, zero
+active imported chapters, and one rolled-back chapter. This live run also exposed a
+`warnings_json = null` finalization failure; finalization now treats non-array warning JSON
+as no warnings, and the DB E2E regression covers that representation.
+
+**EPUB Composition materialization E2E checkpoint (2026-08-04):** a disposable
+BFF-authenticated user created a canonical Composition Work and imported a nested EPUB
+with one Part and two selected chapters. The live flow proved the three-node lossless
+Composition hierarchy, Book's application of the returned part mapping to both chapters,
+two Composition scene outline nodes, and two Book `source_scene_id` backlinks. The test
+exposed a zero-based parser ordinal at the worker-to-Composition boundary; it is now
+normalized to the one-based Composition contract and covered by a worker regression test.
+A local Composition outage was exercised after Book job creation: the worker logged both
+scene and hierarchy connection failures, Book finalization retained its chapters, and the
+retryable `composition_materialization_pending` warning was recorded. Composition was then
+restored and is healthy. Task 11 is complete.
+
+**EPUB wizard checkpoint (2026-08-04):** Task 12 is complete. The EPUB wizard uses the same durable-job principle as the existing FB2/TXT flow while retaining EPUB-specific inspection, nested selection, hierarchy roles, title overrides, metadata policies, source-cover candidate preview, import options, explicit replace-all acknowledgement, and server-authoritative recovery/report actions. New UI text is available in English and Russian; the browser test uses locale-independent test IDs. A stored job ID restores server progress or the persisted report after reload. No EPUB import invokes a model: extraction and other AI actions are separate confirmed workflows. New-book EPUB finalization also triggers an idempotent internal Glossary bootstrap of current system genres, kinds, and attributes; source subjects can join only when they match system genre codes. Targeted wizard tests, frontend build, Chrome Playwright smoke, and worker Lore-redelivery regression passed.
+
 **Rollout checkpoint (2026-08-03):** `EPUB_IMPORT_V2_MODE=shadow` now persists a source-scoped,
 durable legacy document-order versus V2 navigation comparison without creating jobs or chapters.
 The comparison is available through `GET /v1/epub-imports/{source_id}/shadow-comparison` and is
@@ -76,6 +105,40 @@ generated in this check, so metric counters remain zero; authenticated corpus ev
 required before production promotion. Safe rollout order is `shadow` → small `opt_in` cohort →
 reviewed `default` → `legacy_disabled`, with rollback to `shadow` at each gate.
 
+**Authenticated corpus shadow evidence (2026-08-04):** every EPUB in the mounted
+Vasilyev-Andrey corpus (20 files) was submitted to the local Book Service in `shadow` mode using
+an authenticated disposable account. All inspections and source-scoped comparisons completed;
+legacy projected 588 chapters and V2 projected 570 (net delta -18). Thirteen files had no
+recorded differences, five had `logical_navigation_count_differs_from_document_projection`, and
+two same-count files had `navigation_fallback_used`. The
+disposable account still had zero books, proving the run created neither imports nor chapters.
+Book Service has been restored to `EPUB_IMPORT_V2_MODE=opt_in` and its health check returned
+`ok`. The seven local differences are classified in the EPUB runbook as five
+NCX-authoritative logical-chapter differences and two count-preserving spine
+fallbacks. Production-cohort differences still need the same source-scoped
+classification before an `opt_in` cohort can be promoted to `default`; this
+local corpus run is not production approval.
+
+**EPUB reliability and observability checkpoint (2026-08-04):** Task 13 is
+complete. The parser package passed its full suite, including malformed,
+compression-bomb, traversal, DRM, MIME, missing-asset, and operational
+self-closing-XHTML cases. Worker tests passed for transient MinIO recovery,
+Redis redelivery without duplicate parsing/staging, Composition outage, and the
+no-provider boundary. Book DB tests passed for cancel/resume/parser recovery,
+idempotent finalization, and retrying an orphaned MinIO object deletion. The
+live Book Service metrics endpoint exposed the documented bounded-label EPUB
+counters and histograms. Parser-only `Inspect` benchmarks after the XHTML fix
+measured 123 ms / 85.46 MiB/s for 50 chapters / 10 MiB and 1.25 s / 83.76 MiB/s
+for 500 chapters / 100 MiB; see `docs/runbooks/epub-import-v2.md`.
+
+**EPUB authenticated retry checkpoint (2026-08-04):** the previously failed
+local job `2099d4aa-4ba8-496b-a420-13716c581b03` was resumed from an
+authenticated browser session via the normal public endpoint. It completed
+with 8/8 selected items active, 13 unselected items still skipped, 8 created
+chapters, 8 provenance records, and no persisted report errors. The generic
+Jobs page now renders Resume for failed or cancelled Book imports and forwards
+it through an internal Book Service command that revalidates the durable owner.
+
 **Worker recovery checkpoint (2026-08-03):** Redis Stream consumers now use a hostname-qualified
 consumer ID and scan the group PENDING list with `XAUTOCLAIM` only after a 15-minute idle period.
 This lets a restarted worker reclaim stranded import jobs without racing a healthy worker. Book
@@ -91,9 +154,15 @@ passes for the frontend; BFF dependencies were installed with `npm ci`, then `np
 `test_internal_job_control`. The Book OpenAPI Spectral run is also blocked by pre-existing duplicate FB2 response keys in the
 base contract; do not conflate those failures with EPUB V2.
 
-**Next EPUB work:** strategy/asset-cleanup E2E coverage, full reliability/outage fixtures, wizard
-locale/browser coverage, observability, and rollout evidence. Do not reintroduce
-the legacy combined-HTML chapter path.
+**EPUB V2 local closure (2026-08-04):** Task 14 is complete for this
+early-stage refactor. Shared parser, Book API throwaway-DB, worker, and Jobs
+Resume suites passed; the wizard component regression, frontend build,
+all-locale EPUB key parity, and Chrome smoke against fresh Vite also passed.
+English and Russian are translated; other locales explicitly use the English
+EPUB fallback. The global localization parity command remains red for
+pre-existing non-EPUB namespace gaps.
+Keep `EPUB_IMPORT_V2_MODE=opt_in`; production promotion is a separate future
+operations decision. Do not reintroduce the legacy combined-HTML chapter path.
 
 ## 📚 FB2 BOOK IMPORT — SOURCE IMPLEMENTED, LIVE UI CHECK PENDING (2026-08-02)
 

@@ -3,9 +3,16 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 func seedEPUBP0Job(t *testing.T, ctx context.Context, s *Server, owner, bookID uuid.UUID, options string) (uuid.UUID, uuid.UUID) {
@@ -187,5 +194,72 @@ func TestEPUBImportAssetReferencesConvergeForRetentionGC_DB(t *testing.T) {
 	}
 	if refs != 1 || status != "active" {
 		t.Fatalf("referenced asset refs/status = %d/%s, want 1/active", refs, status)
+	}
+}
+
+func TestEPUBAssetRetentionRetriesMinIODeletion_DB(t *testing.T) {
+	s, pool := dbTestServer(t)
+	ctx := context.Background()
+	owner := uuid.New()
+	bookID, _ := seedChapter(t, ctx, pool, owner)
+	_, sourceID := seedEPUBP0Job(t, ctx, s, owner, bookID, `{"strategy":"append"}`)
+	assetID := uuid.New()
+	const objectKey = "imports/assets/source/orphan.png"
+	if _, err := pool.Exec(ctx, `
+INSERT INTO import_assets(id,source_id,source_path,source_media_type,sha256,size_bytes,object_key,public_url,status,reference_count,created_at)
+VALUES($1,$2,'Images/orphan.png','image/png',$3,3,$4,'/media/books/imports/assets/source/orphan.png','orphaned',0,now()-interval '8 days')
+`, assetID, sourceID, uuid.NewString(), objectKey); err != nil {
+		t.Fatal(err)
+	}
+
+	deleteAttempts := 0
+	var allowDelete atomic.Bool
+	objectStore := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/book-assets/" && r.URL.Query().Has("location") {
+			w.Header().Set("Content-Type", "application/xml")
+			_, _ = w.Write([]byte(`<LocationConstraint>us-east-1</LocationConstraint>`))
+			return
+		}
+		if r.Method != http.MethodDelete || r.URL.Path != "/book-assets/"+objectKey {
+			t.Fatalf("unexpected object-store request: %s %s", r.Method, r.URL.Path)
+		}
+		deleteAttempts++
+		if !allowDelete.Load() {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer objectStore.Close()
+	client, err := minio.New(strings.TrimPrefix(objectStore.URL, "http://"), &minio.Options{
+		Creds:  credentials.NewStaticV4("key", "secret", ""),
+		Secure: false,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.minio = client
+	s.cfg.BooksStorageBucket = "book-assets"
+
+	if _, err := s.reapOrphanedEPUBAssets(ctx, time.Now(), 10); err != nil {
+		t.Fatalf("first retention sweep error = %v", err)
+	}
+	var status string
+	if err := pool.QueryRow(ctx, `SELECT status FROM import_assets WHERE id=$1`, assetID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "orphaned" {
+		t.Fatalf("asset status after failed delete = %q, want orphaned", status)
+	}
+	allowDelete.Store(true)
+
+	if _, err := s.reapOrphanedEPUBAssets(ctx, time.Now(), 10); err != nil {
+		t.Fatalf("retry retention sweep error = %v", err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT status FROM import_assets WHERE id=$1`, assetID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "deleted" || deleteAttempts < 2 {
+		t.Fatalf("asset status/delete attempts = %q/%d, want deleted/at least 2", status, deleteAttempts)
 	}
 }

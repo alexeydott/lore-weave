@@ -63,6 +63,9 @@ func (t *ImportProcessor) processEPUBV2(ctx context.Context, payload importReque
 			if err := t.finalizeEPUBImport(ctx, payload.JobID); err != nil {
 				return err
 			}
+			if err := t.seedEPUBImportLore(ctx, payload); err != nil {
+				return err
+			}
 			if err := t.materializeEPUBV2Scenes(ctx, payload); err != nil {
 				return err
 			}
@@ -125,6 +128,36 @@ func (t *ImportProcessor) processEPUBV2(ctx context.Context, payload importReque
 			return err
 		}
 	}
+}
+
+// seedEPUBImportLore delegates to Glossary, the sole owner of the ontology.
+// A failed call deliberately leaves the stream delivery pending: finalization is idempotent,
+// so redelivery retries this prerequisite without duplicating chapters or ontology rows.
+func (t *ImportProcessor) seedEPUBImportLore(ctx context.Context, payload importRequestedPayload) error {
+	if payload.TargetMode != "new_book" || t.Cfg.GlossaryServiceURL == "" {
+		return nil
+	}
+	request := map[string]any{"system_defaults": true, "genres": payload.LoreGenres}
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("marshal EPUB Lore scaffold request: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(t.Cfg.GlossaryServiceURL, "/")+"/internal/books/"+payload.BookID+"/ontology/adopt-kinds?user_id="+payload.UserID, bytes.NewReader(encoded))
+	if err != nil {
+		return fmt.Errorf("create EPUB Lore scaffold request: %w", err)
+	}
+	req.Header.Set("X-Internal-Token", t.Cfg.InternalToken)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := (&http.Client{Timeout: 15 * time.Second, Transport: observability.HTTPTransport(nil)}).Do(req)
+	if err != nil {
+		return fmt.Errorf("seed EPUB Lore ontology: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("seed EPUB Lore ontology: glossary status %d", resp.StatusCode)
+	}
+	slog.InfoContext(ctx, "epub import system Lore ontology scaffolded", "job_id", payload.JobID, "book_id", payload.BookID, "source_genres", len(payload.LoreGenres))
+	return nil
 }
 
 func (t *ImportProcessor) materializeEPUBV2Scenes(ctx context.Context, payload importRequestedPayload) error {
