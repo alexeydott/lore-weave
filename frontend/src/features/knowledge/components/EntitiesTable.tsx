@@ -201,7 +201,7 @@ export function EntitiesTable({
                     </span>
                   </span>
                   <span className="shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
-                    {e.kind}
+                    {entityKindLabel(t, e.kind)}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
