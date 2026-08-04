@@ -1000,6 +1000,11 @@
     "collapse": "Collapse",
     "resize": "Resize side bar"
   },
+  "panelsPicker": {
+    "title": "Workspace panels",
+    "search": "Find a panel…",
+    "hint": "Choose which panels stay visible. Your choice is saved with this workspace."
+  },
   "layout": {
     "title": "Panel layout",
     "hint": "Arranges your {{count}} open panels.",
