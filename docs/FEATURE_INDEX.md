@@ -44,7 +44,7 @@ features/<name>/
 
 | Feature | Route | Purpose | Backing service |
 |---|---|---|---|
-| **studio** (330) | `/books/:bookId/studio`, `/studio/popout` | Writing Studio v2 — the dockable panel workspace (Dockview). Hosts most authoring panels. | knowledge-service + many |
+| **studio** (330) | `/books/:bookId/studio`, `/studio/popout` | Writing Studio v2 — the dockable panel workspace (Dockview). Hosts most authoring panels. The editor selection toolbar can ask an AI model for scene proposals and explicitly create selected outline nodes. | knowledge-service + many |
 | **composition** (358) | `/composition/popout`, studio panels | LOOM co-writer — canon-grounded prose generation, arcs, motifs, conformance. | composition-service |
 | **books** (28) | `/books`, `/books/:bookId`, `/books/:bookId/chapters/:id/*` | Books, chapters, drafts, revision compare (1-vs-1 LCS diff). | book-service, catalog-service, sharing-service |
 | **plan-forge** (29) | studio panel | PlanForge (Studio M5) — the novel-system planner (`rules` / `llm` run modes). | composition-service |

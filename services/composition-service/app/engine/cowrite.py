@@ -626,6 +626,10 @@ _SELECTION_INSTRUCTIONS = {
               "preserving its meaning and continuity. It should grow longer.",
     "describe": "Enrich the SELECTED PASSAGE below with vivid sensory and scene "
                 "description, keeping its events and meaning intact.",
+    "scene_plan": "Identify the narrative scenes in the selected passage. Return ONLY a JSON "
+                  "object in this exact shape: {\"scenes\":[{\"title\":\"...\",\"synopsis\":\"...\"}]}. "
+                  "Use between one and twelve scenes. Each title and synopsis must be concise, "
+                  "must describe events actually present in the passage, and must not invent facts.",
 }
 
 # Generous backstop cap (chars). The FE disables the tools above this; the request
@@ -649,11 +653,16 @@ def build_selection_messages(
     )
     voice = f" Match this voice: {profile.voice}." if profile.voice else ""
     style = style_directive(profile)  # T3.5
+    output_contract = (
+        "Output ONLY valid JSON — no markdown, preamble, or commentary."
+        if operation == "scene_plan"
+        else "Output ONLY the revised passage — no preamble, no quotation marks, no commentary."
+    )
     system = (
         "You are a co-writer editing a specific passage of a novel. Use any provided "
         "canon, characters, and lore as grounding; never contradict the canon and "
-        "never introduce facts beyond what is given. Output ONLY the revised passage "
-        "— no preamble, no quotation marks, no commentary." + lang + voice + style
+        "never introduce facts beyond what is given. "
+        + output_contract + lang + voice + style
     )
     parts: list[str] = []
     if grounding:

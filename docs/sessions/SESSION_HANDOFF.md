@@ -1,5 +1,16 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## AI SCENE PROPOSALS IN THE EDITOR (2026-08-05)
+
+The Studio selection toolbar now includes **Suggest scenes** for an active chapter. It sends
+the selected manuscript passage through the existing Composition model route, requires a bounded
+JSON proposal list, and never edits the manuscript. The author reviews individual title/synopsis
+proposals and explicitly creates the selected normal outline nodes. The operation reuses the
+registered user model and existing provider-registry mediation; it does not add agent settings or
+provider credentials to the repository. Focused SelectionToolbar tests and the frontend type/build
+gate passed. The host Python environment lacks `pytest`, so the Composition unit suite still needs
+to be run in the service test image or a provisioned project environment.
+
 ## UPSTREAM FORK SYNCHRONIZATION (2026-08-04)
 
 Merged `upstream/main` through `282724c50`, retaining fork-specific EPUB V2 and localization work

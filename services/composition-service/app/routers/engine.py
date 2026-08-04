@@ -175,7 +175,7 @@ class SelectionEditBody(BaseModel):
     # request validation (before any job/stream), mirroring GenerateBody.mode; the
     # engine's build_selection_messages ALSO raises on an unregistered op (defense
     # in depth — the LOOM-39 missing-enum lesson).
-    operation: Literal["rewrite", "expand", "describe"]
+    operation: Literal["rewrite", "expand", "describe", "scene_plan"]
     selection: Annotated[str, StringConstraints(min_length=1, max_length=SELECTION_MAX_CHARS)]
     # PO: couple grounding to the compose panel's active scene. Optional — a free
     # selection may sit in a chapter with no scene node → voice-only grounding.
