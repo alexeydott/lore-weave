@@ -17,7 +17,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 from app.clients.book_client import BookClient, BookClientError
 from app.clients.glossary_client import GlossaryClient
@@ -176,7 +176,7 @@ class SelectionEditBody(BaseModel):
     # engine's build_selection_messages ALSO raises on an unregistered op (defense
     # in depth — the LOOM-39 missing-enum lesson).
     operation: Literal["rewrite", "expand", "describe", "scene_plan"]
-    selection: Annotated[str, StringConstraints(min_length=1, max_length=SELECTION_MAX_CHARS)]
+    selection: Annotated[str, StringConstraints(min_length=1, max_length=24_000)]
     # PO: couple grounding to the compose panel's active scene. Optional — a free
     # selection may sit in a chapter with no scene node → voice-only grounding.
     scene_context: UUID | None = None
@@ -187,6 +187,17 @@ class SelectionEditBody(BaseModel):
     reasoning: Literal["off", "auto", "low", "medium", "high"] = "auto"
     model_kind: str | None = None
     model_name: str | None = None
+
+    @model_validator(mode="after")
+    def bound_selection_by_operation(self) -> "SelectionEditBody":
+        # Scene planning needs enough contiguous manuscript context to find transitions.
+        # Rewrite/expand/describe stay at the established small-selection ceiling so an
+        # accidental whole-chapter rewrite cannot consume an oversized prompt.
+        if self.operation != "scene_plan" and len(self.selection) > SELECTION_MAX_CHARS:
+            raise ValueError(
+                f"{self.operation} selections are limited to {SELECTION_MAX_CHARS} characters"
+            )
+        return self
 
 
 class GenerateChapterBody(BaseModel):

@@ -165,9 +165,17 @@ describe('SelectionToolbar (T3.2)', () => {
   });
 
   it('disables the tools on an over-long selection', async () => {
-    renderTB(fakeEditor('x'.repeat(9000)));
+    renderTB(fakeEditor('x'.repeat(25000)), 'chapter-1');
     expect(await screen.findByTestId('selection-too-long')).toBeInTheDocument();
     expect(screen.queryByTestId('selection-rewrite')).not.toBeInTheDocument();
+  });
+
+  it('keeps scene suggestions available for a chapter-sized selection while edit operations stay disabled', async () => {
+    renderTB(fakeEditor('x'.repeat(9000)), 'chapter-1');
+    await modelReady();
+    expect(screen.getByTestId('selection-rewrite')).toBeDisabled();
+    expect(screen.getByTestId('selection-scene-plan')).not.toBeDisabled();
+    expect(screen.getByTestId('scene-plan-long-selection')).toBeInTheDocument();
   });
 
   it('asks the AI for a scene-plan without tracking or replacing the manuscript selection', async () => {

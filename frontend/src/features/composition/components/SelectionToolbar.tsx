@@ -17,6 +17,7 @@ import type { SelectionOperation } from '../types';
 import { MarkErrorBlockAction } from './MarkErrorBlockAction';
 
 export const SELECTION_MAX_CHARS = 8000;
+export const SCENE_PLAN_MAX_CHARS = 24000;
 const OPS: SelectionOperation[] = ['rewrite', 'expand', 'describe'];
 
 type SceneProposal = { title: string; synopsis: string };
@@ -83,12 +84,15 @@ export function SelectionToolbar({
     const { from, to } = editor.state.selection;
     return editor.state.doc.textBetween(from, to, ' ');
   };
-  const tooLong = selText().length > SELECTION_MAX_CHARS;
+  const selectionLength = selText().length;
+  const tooLong = selectionLength > SCENE_PLAN_MAX_CHARS;
+  const editTooLong = selectionLength > SELECTION_MAX_CHARS;
 
   const run = (op: SelectionOperation) => {
     const { from, to } = editor.state.selection;
     const text = editor.state.doc.textBetween(from, to, ' ');
-    if (!text.trim() || text.length > SELECTION_MAX_CHARS || !effectiveModel) return;
+    const limit = op === 'scene_plan' ? SCENE_PLAN_MAX_CHARS : SELECTION_MAX_CHARS;
+    if (!text.trim() || text.length > limit || !effectiveModel) return;
     savedRange.current?.release();
     if (op !== 'scene_plan') savedRange.current = trackRange(editor, from, to);
     else savedRange.current = null;
@@ -240,7 +244,7 @@ export function SelectionToolbar({
                   type="button"
                   data-testid={`selection-${op}`}
                   className="rounded border px-2 py-0.5 hover:border-primary hover:text-primary disabled:opacity-40"
-                  disabled={!effectiveModel}
+                  disabled={!effectiveModel || editTooLong}
                   onClick={() => run(op)}
                 >
                   ✦ {t(`sel.${op}`, { defaultValue: op })}
@@ -250,11 +254,16 @@ export function SelectionToolbar({
                 type="button"
                 data-testid="selection-scene-plan"
                 className="rounded border px-2 py-0.5 hover:border-primary hover:text-primary disabled:opacity-40"
-                disabled={!effectiveModel || !chapterId}
+                disabled={!effectiveModel || !chapterId || tooLong}
                 onClick={() => run('scene_plan')}
               >
                 ✦ {t('sel.scenePlan', { defaultValue: 'Suggest scenes' })}
               </button>
+              {editTooLong && !tooLong && (
+                <span data-testid="scene-plan-long-selection" className="text-amber-600">
+                  {t('sel.scenePlanOnly', { defaultValue: 'This selection is available for scene suggestions only.' })}
+                </span>
+              )}
               {/* Phase D — record that this passage is WRONG, with a note the co-writer acts
                   on later. Not an AI op: it needs no model, so it stays enabled when none is
                   picked (the ops above are disabled without one). */}
