@@ -212,7 +212,7 @@ export function GlossaryEntityList({ bookId, bookGenreTags = [], bookOriginalLan
     enabled: !!accessToken,
     staleTime: 60 * 1000,
   });
-  const mergeCandCount = mergeCandData?.candidates.length ?? 0;
+  const mergeCandCount = mergeCandData?.candidates?.length ?? 0;
 
   const entities = entityData?.items ?? [];
   const total = entityData?.total ?? 0;
@@ -700,7 +700,7 @@ export function GlossaryEntityList({ bookId, bookGenreTags = [], bookOriginalLan
                   {e.chapter_link_count > 0 && <span>{t('glossary.chapter_count', { count: e.chapter_link_count })}</span>}
                   {e.translation_count > 0 && <span>{t('glossary.translation_count', { count: e.translation_count })}</span>}
                   {e.evidence_count > 0 && <span>{t('glossary.evidence_count', { count: e.evidence_count })}</span>}
-                  {e.tags.length > 0 && <span>{e.tags.join(', ')}</span>}
+                  {e.tags?.length > 0 && <span>{e.tags.join(', ')}</span>}
                 </div>
                 {/* Raw-search: show which field matched + a highlighted snippet. */}
                 {searchMode === 'raw' && e.match && (

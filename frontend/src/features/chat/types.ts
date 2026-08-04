@@ -11,6 +11,8 @@ export interface GenerationParams {
   // Granular reasoning effort (takes precedence over `thinking`). 'off' disables hidden
   // thinking — the fix for an over-thinking model that loops without finishing.
   reasoning_effort?: ReasoningEffort | null;
+  /** Opt-in only: use the provider's stateful Responses API chain. */
+  use_stateful_responses?: boolean | null;
 }
 
 export interface ChatSession {

@@ -29,6 +29,50 @@ type EntityNamesPage = {
   next_cursor: string | null;
 };
 
+// API responses from older glossary-service deployments (and rows created before
+// the tiered glossary migration) may omit array fields or encode them as null.
+// Keep that wire drift at the client boundary so every glossary surface can rely
+// on the typed contract and never render `undefined.length`.
+function normalizeEntityListResponse(response: GlossaryEntityListResponse): GlossaryEntityListResponse {
+  return {
+    ...response,
+    items: (response?.items ?? []).map((item) => ({
+      ...item,
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      kind_labels: Array.isArray(item.kind_labels) ? item.kind_labels : [],
+    })),
+  };
+}
+
+// Legacy entity rows can omit collection fields. Normalize them once at the API
+// boundary so the editor and evidence tabs never render `undefined.length`.
+function normalizeEntityResponse(entity: GlossaryEntity): GlossaryEntity {
+  return {
+    ...entity,
+    tags: Array.isArray(entity?.tags) ? entity.tags : [],
+    attribute_values: (Array.isArray(entity?.attribute_values) ? entity.attribute_values : []).map((value) => ({
+      ...value,
+      translations: Array.isArray(value.translations) ? value.translations : [],
+      evidences: Array.isArray(value.evidences) ? value.evidences : [],
+      attribute_def: {
+        ...value.attribute_def,
+        options: Array.isArray(value.attribute_def?.options) ? value.attribute_def.options : [],
+        genre_tags: Array.isArray(value.attribute_def?.genre_tags) ? value.attribute_def.genre_tags : [],
+      },
+    })),
+  };
+}
+
+function normalizeEvidenceListResponse(response: EvidenceListResponse): EvidenceListResponse {
+  return {
+    ...response,
+    items: Array.isArray(response?.items) ? response.items : [],
+    available_attributes: Array.isArray(response?.available_attributes) ? response.available_attributes : [],
+    available_chapters: Array.isArray(response?.available_chapters) ? response.available_chapters : [],
+    available_languages: Array.isArray(response?.available_languages) ? response.available_languages : [],
+  };
+}
+
 export const glossaryApi = {
   getKinds(token: string): Promise<EntityKind[]> {
     return apiJson<EntityKind[]>(`${BASE}/kinds`, { token });
@@ -95,7 +139,7 @@ export const glossaryApi = {
     return apiJson<GlossaryEntityListResponse>(
       `${BASE}/books/${bookId}/entities${qs ? '?' + qs : ''}`,
       { token },
-    );
+    ).then(normalizeEntityListResponse);
   },
 
   // genreIds (optional) is the per-entity genre override applied atomically at create:
@@ -110,7 +154,7 @@ export const glossaryApi = {
   },
 
   getEntity(bookId: string, entityId: string, token: string): Promise<GlossaryEntity> {
-    return apiJson<GlossaryEntity>(`${BASE}/books/${bookId}/entities/${entityId}`, { token });
+    return apiJson<GlossaryEntity>(`${BASE}/books/${bookId}/entities/${entityId}`, { token }).then(normalizeEntityResponse);
   },
 
   // Generalized class-C confirm (spec §13). The assistant proposed a high-impact
@@ -534,7 +578,7 @@ export const glossaryApi = {
     return apiJson<EvidenceListResponse>(
       `${BASE}/books/${bookId}/entities/${entityId}/evidences${q ? '?' + q : ''}`,
       { token },
-    );
+    ).then(normalizeEvidenceListResponse);
   },
 
   createEvidence(

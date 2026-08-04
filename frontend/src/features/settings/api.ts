@@ -122,9 +122,15 @@ export type CapabilityType = 'chat' | 'embedding' | 'tts' | 'stt' | 'image_gen' 
 
 export function getInventoryMeta(m: InventoryModel) {
   const f = m.capability_flags ?? {};
+  // Some OpenAI-compatible providers return no capability metadata. Infer the
+  // unambiguous embedding family from the model id so the Add Model dialog does
+  // not silently register it as chat-only (which then hides it from every
+  // embedding picker). Explicit inventory metadata still wins.
+  const name = m.provider_model_name.toLowerCase();
+  const inferredEmbedding = /embedding|embed|bge[-_]?m3|(?:^|[-_])e5(?:[-_]|$)|(?:^|[-_])gte(?:[-_]|$)|jina[-_]embeddings/.test(name);
   return {
     displayName: (f._display_name as string) ?? m.provider_model_name,
-    capability: (f._capability as CapabilityType) ?? 'chat',
+    capability: (f._capability as CapabilityType) ?? (inferredEmbedding ? 'embedding' : 'chat'),
     isRecommended: (f._is_recommended as boolean) ?? false,
   };
 }

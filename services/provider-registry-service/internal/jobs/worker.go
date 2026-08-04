@@ -484,7 +484,15 @@ func (w *Worker) Process(
 		_ = w.repo.UpdateProgress(ctx, jobID, intPtr(1), 1, 0)
 	}
 
-	result, _, _ := agg.Finalize()
+	result, inputTokens, outputTokens := agg.Finalize()
+	// Persist measured usage on the job row. Every prior progress update
+	// hard-coded tokens_used=0, hiding real LLM usage for completed jobs.
+	progressTotal := 1
+	if len(chunkPieces) > 1 {
+		progressTotal = len(chunkPieces)
+	}
+	_ = w.repo.UpdateProgress(ctx, jobID, &progressTotal, progressTotal, inputTokens+outputTokens)
+
 	finishReason, _ := result["finish_reason"].(string)
 
 	w.finalizeAndNotify(ctx, jobID, ownerUserID, operation, "completed", result, "", "", finishReason)

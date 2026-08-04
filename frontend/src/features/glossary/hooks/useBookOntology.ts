@@ -116,7 +116,7 @@ export function useBookOntology(bookId: string) {
   const ontology: BookOntology =
     data ?? { book_id: bookId, genres: [], kinds: [], kind_genres: [], attributes: [] };
   // A book with zero adopted kinds hasn't been scaffolded yet (pre-adopt pick-list).
-  const isAdopted = (data?.kinds.length ?? 0) > 0;
+  const isAdopted = (data?.kinds?.length ?? 0) > 0;
 
   return {
     ontology,

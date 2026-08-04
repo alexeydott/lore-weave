@@ -106,6 +106,26 @@ export function BehaviorSection({ ed }: { ed: SessionSettingsEditor }) {
         </div>
       </div>
 
+      {/* Stateful Responses is intentionally an explicit opt-in. Many
+          OpenAI-compatible providers expose the same model API but do not
+          implement the Responses tool-output protocol. */}
+      <label className="flex items-start gap-2 rounded border border-border p-3 text-xs">
+        <input
+          type="checkbox"
+          data-testid="session-stateful-responses"
+          checked={session.generation_params?.use_stateful_responses === true}
+          onChange={(e) => setGen({ use_stateful_responses: e.target.checked })}
+          className="mt-0.5 h-4 w-4"
+        />
+        <span>
+          <span className="font-medium text-foreground">Use stateful Responses API</span>
+          <span className="mt-0.5 block text-muted-foreground">
+            Optional server-side context reuse. Leave off for DeepSeek, OpenRouter, and other
+            OpenAI-compatible providers unless they explicitly support Responses tool calls.
+          </span>
+        </span>
+      </label>
+
       <OverridableSlider
         label="Temperature" testId="session-temperature"
         field={ed.field('behavior', 'temperature')}

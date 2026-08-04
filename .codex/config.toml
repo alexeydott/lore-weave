@@ -15,6 +15,24 @@ args = [".codex/scripts/postgres-mcp.sh"]
 command = "npx"
 args = ["-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"]
 
+[mcp_servers.chromeDevtools.tools.navigate_page]
+approval_mode = "approve"
+
+[mcp_servers.chromeDevtools.tools.take_snapshot]
+approval_mode = "approve"
+
+[mcp_servers.chromeDevtools.tools.click]
+approval_mode = "approve"
+
+[mcp_servers.chromeDevtools.tools.upload_file]
+approval_mode = "approve"
+
+[mcp_servers.chromeDevtools.tools.evaluate_script]
+approval_mode = "approve"
+
 [mcp_servers.playwright]
 command = "npx"
 args = ["-y", "@playwright/mcp@latest"]
+
+[mcp_servers.playwright.tools.browser_tabs]
+approval_mode = "approve"

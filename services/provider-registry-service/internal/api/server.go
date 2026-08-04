@@ -1788,6 +1788,12 @@ SELECT user_model_id FROM user_models WHERE owner_user_id=$1
 			boolArg := fmt.Sprintf(`{"%s": true}`, capabilityFilter)
 			if capabilityFilter == "chat" {
 				query += fmt.Sprintf(` AND (capability_flags @> $%d::jsonb OR capability_flags->>'_capability' = $%d OR capability_flags = '{}'::jsonb)`, argPos, argPos+1)
+			} else if capabilityFilter == "embedding" {
+				// Older inventory syncs (and manually added local models) may
+				// leave capability_flags empty even when the provider model is
+				// plainly an embedder. Keep those models selectable without
+				// weakening the non-embedding filters for arbitrary `{}` rows.
+				query += fmt.Sprintf(` AND (capability_flags @> $%d::jsonb OR capability_flags->>'_capability' = $%d OR lower(provider_model_name) LIKE ANY (ARRAY['%%embedding%%','%%embed%%','%%bge-m3%%','%%bge_%%','%%e5-%%','%%e5_%%','%%gte-%%','%%gte_%%','%%jina-embeddings%%']))`, argPos, argPos+1)
 			} else {
 				query += fmt.Sprintf(` AND (capability_flags @> $%d::jsonb OR capability_flags->>'_capability' = $%d)`, argPos, argPos+1)
 			}
