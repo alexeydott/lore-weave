@@ -40,6 +40,7 @@ runbooks/           # Operational response procedures
 | File | Purpose |
 |---|---|
 | `README.md` | Product overview and local startup guidance |
+| `CONTRIBUTING.md` | Contribution, verification, and safe-context guidance |
 | `CLAUDE.md` | Always-loaded repository development rules and invariants |
 | `contracts/language-rule.yaml` | Authoritative service-to-language ownership map |
 | `docs/standards/README.md` | Index of cross-cutting standards and enforcement mechanisms |
@@ -56,6 +57,7 @@ runbooks/           # Operational response procedures
 | Document | Path | Description |
 |---|---|---|
 | README | `README.md` | Product capabilities and quick start |
+| Contributing | `CONTRIBUTING.md` | Contribution and safe-context rules |
 | Architecture | `docs/ARCHITECTURE.md` | Service architecture and ownership |
 | Data Architecture | `docs/DATA_ARCHITECTURE.md` | Data stores, SSOT boundaries, and flows |
 | Standards Index | `docs/standards/README.md` | Authoritative cross-cutting rule index |
@@ -77,7 +79,7 @@ runbooks/           # Operational response procedures
 - Read `docs/sessions/SESSION_HANDOFF.md`, then the relevant planning and standards documents before substantive work.
 - Treat `docs/standards/README.md` as the index for cross-cutting rules; update the index when adding or retiring a standard.
 - Keep persisted artifacts, code comments, identifiers, logs, tests, commit messages, and PR text in English.
-- Keep `.ai-factory/` local and Git-ignored; never commit sensitive AI working context.
+- Keep machine-local agent state and `.ai-factory/` Git-ignored; safe, portable guidance belongs in tracked project documentation only when it contains no credentials, local endpoints, account data, database IDs, model IDs, or other developer-specific parameters.
 - Always push this project to the primary branch `main`; do not push feature or secondary branches.
 - Always use `git@github.com:alexeydott/lore-weave.git` as the SSH `origin`; do not replace it with an HTTPS remote.
 - Never add a `Co-authored-by` trailer to commit messages.

@@ -33,10 +33,21 @@ jobs:
           git fetch upstream main
           git merge --no-edit upstream/main
 
-      - name: keep agent configuration local
+      - name: keep local state out of the fork
         run: |
           git rm -r --cached --ignore-unmatch .agents .ai-factory .claude .codex .cursor .github/skills .ai-factory.json
+          git rm -r --cached --ignore-unmatch docs/dev/LOCAL_TEST_ENV.md .env .envrc
+          git ls-files -z -- ':(glob)**/.env' ':(glob)**/.env.local' ':(glob)**/.env.*.local' | xargs -0 -r git rm --cached --ignore-unmatch --
           git add .gitignore
+
+      - name: verify fork-local paths are untracked
+        run: |
+          blocked="$(git ls-files -- .agents .ai-factory .claude .codex .cursor .github/skills .ai-factory.json docs/dev/LOCAL_TEST_ENV.md .env .envrc ':(glob)**/.env' ':(glob)**/.env.local' ':(glob)**/.env.*.local')"
+          if [ -n "$blocked" ]; then
+            echo "Fork-local state must not be tracked:" >&2
+            echo "$blocked" >&2
+            exit 1
+          fi
 
       - name: commit and push when upstream changed
         run: |

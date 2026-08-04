@@ -1,5 +1,17 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## FORK CONTRIBUTION AND CONTEXT HYGIENE (2026-08-05)
+
+`CONTRIBUTING.md` now adapts the upstream contribution guide to this fork. Portable, reviewable
+agent guidance may be tracked in normal project documentation, but machine-local agent state,
+generated context, credentials, local endpoints, account details, database/model IDs, private
+keys, filled-in environment files, and `docs/dev/LOCAL_TEST_ENV.md` remain ignored. The upstream
+sync workflow removes those local paths after merging and verifies that none remains tracked before
+it commits. The ignore policy preserves tracked templates and the explicit test-only JWT key
+fixture. The repository-level gitleaks job remains the credential-content gate; `gitleaks` is not
+installed in this local shell, so the local check was limited to ignore-policy and workflow syntax
+validation.
+
 ## AI SCENE PROPOSALS IN THE EDITOR (2026-08-05)
 
 The Studio selection toolbar now includes **Suggest scenes** for an active chapter. It sends

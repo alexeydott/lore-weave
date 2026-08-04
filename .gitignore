@@ -141,6 +141,10 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+.env.*
+!.env.example
+!.env.sample
+!.env.template
 .venv
 env/
 venv/
@@ -230,6 +234,19 @@ frontend-game/node_modules/
 services/auth-service/tmp/
 
 .claude/settings.local.json
+
+# Developer-local credentials and test state. Portable templates stay tracked;
+# their filled-in counterparts never do. Private-key fixture exceptions must be
+# explicit and contain test-only material.
+docs/dev/LOCAL_TEST_ENV.md
+*.pem
+!services/auth-service/internal/authjwt/testdata/admin_test_key.pem
+*.key
+*.p12
+*.pfx
+*.jks
+credentials.local.json
+secrets.local.json
 
 # Local-only operator state (creds, env for the Phase 0b harness, etc.).
 # Never committed — see docs/specs/2026-05-15-tilemap-phase-0b-gateway-tooluse.md D7.

@@ -89,6 +89,23 @@ to `docs/dev/LOCAL_TEST_ENV.md` (git-ignored) and fill it in. Those values are p
 credentials, local DB UUIDs, and `user_model_id`s from another developer's checkout will not work on
 yours, which is exactly why they are not tracked.
 
+### Fork synchronization and safe agent context
+
+This fork synchronizes `upstream/main` into its `main` branch automatically. Shared guidance is
+welcome when it is portable and reviewable: `AGENTS.md`, `CLAUDE.md`, contribution guidance,
+standards, plans, and documentation are tracked deliberately. Keep those files factual and free of
+machine-specific values.
+
+Do **not** commit agent working state, generated context, credentials, local endpoint addresses,
+personal test-account details, database UUIDs, model IDs, private keys, or filled-in environment
+files. The local agent/configuration directories, `docs/dev/LOCAL_TEST_ENV.md`, `.env*` files (other
+than templates), and private-key formats are ignored. If a shared agent document needs an example,
+use an obvious placeholder and describe the required environment variable instead of a real value.
+
+The synchronization workflow removes fork-local agent/configuration paths and local environment
+state after every upstream merge. It does not remove safe tracked guidance such as this file,
+`AGENTS.md`, `CLAUDE.md`, or repository documentation.
+
 ---
 
 ## 4. The rules that get PRs rejected
@@ -238,10 +255,11 @@ wanted, open an issue and ask before building — that costs you five minutes an
 
 ## 9. AI-assisted contributions
 
-They are welcome, and the repo is set up for them. Point your assistant at
-**[`AGENTS.md`](AGENTS.md)** — it is tool-neutral, and `CLAUDE.md` is a pointer to it. Shared agent
-tooling under `.claude/commands/` and `.claude/skills/` is committed on purpose; per-developer
-session state is git-ignored.
+They are welcome. Point your assistant at **[`AGENTS.md`](AGENTS.md)** first; it is tool-neutral,
+and `CLAUDE.md` provides the repository-wide development rules. Portable guidance may be committed
+when it is safe for every checkout. Per-developer agent configuration, generated context, session
+state, credentials, and machine-specific parameters remain git-ignored; see
+[Fork synchronization and safe agent context](#fork-synchronization-and-safe-agent-context).
 
 Two expectations, because this is where AI-assisted PRs usually fail review:
 
