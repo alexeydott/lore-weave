@@ -427,6 +427,16 @@ class ExtractionJobsRepo:
 
     # ─── reads ───────────────────────────────────────────────────────
 
+    async def seed_retry_progress(self, user_id: UUID, job_id: UUID, *, cursor: dict[str, Any] | None, items_processed: int) -> ExtractionJob | None:
+        query = f"""
+        UPDATE extraction_jobs SET current_cursor=$3::jsonb, items_processed=$4, updated_at=now()
+        WHERE user_id=$1 AND job_id=$2 AND status='running'
+        RETURNING {_SELECT_COLS}
+        """
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, user_id, job_id, json.dumps(cursor) if cursor is not None else None, max(0, items_processed))
+        return _row_to_job(row) if row else None
+
     async def get(self, user_id: UUID, job_id: UUID) -> ExtractionJob | None:
         query = f"""
         SELECT {_SELECT_COLS}

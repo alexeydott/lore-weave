@@ -660,8 +660,27 @@ async def _sweep_once(pool, knowledge_client, llm_client: LLMClient, *,
                     "resume-sweep: re-drove stranded chunk ej=%s via job=%s (stage=%s)",
                     row["job_id"], jid, rs.get("stage"),
                 )
-            except Exception:  # noqa: BLE001
-                logger.exception("resume-sweep: re-drive failed ej=%s job=%s", row["job_id"], jid)
+            except Exception as exc:  # noqa: BLE001
+                # A terminal provider failure is not recoverable by replaying the
+                # same provider job. Leaving resume_state in place made the
+                # sweeper retry forever and starved the dispatch queue. Fail-stop
+                # the extraction row; the retry endpoint can create a fresh job.
+                message = (
+                    f"provider job {jid} finished with a terminal error while "
+                    f"resuming stage {rs.get('stage')}: {exc}"
+                )[:2000]
+                await pool.execute(
+                    """UPDATE extraction_jobs
+                       SET status='failed', error_message=$2,
+                           resume_state=NULL, provider_job_ids=NULL,
+                           pipeline_stage='failed', completed_at=now(), updated_at=now()
+                       WHERE job_id=$1 AND status IN ('running','paused')""",
+                    row["job_id"], message,
+                )
+                logger.error(
+                    "resume-sweep: terminal provider failure; stopped ej=%s job=%s: %s",
+                    row["job_id"], jid, exc,
+                )
             break  # _resume advanced/persisted the row; re-evaluate on the next tick
     return redriven
 

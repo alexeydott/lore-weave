@@ -40,16 +40,16 @@ import (
 )
 
 type Server struct {
-	pool         *pgxpool.Pool
-	cfg          *config.Config
-	secret       []byte
-	secretKey    []byte
+	pool      *pgxpool.Pool
+	cfg       *config.Config
+	secret    []byte
+	secretKey []byte
 	// adminPub verifies RS256 admin JWTs for the System-tier platform-model write
 	// endpoints (D-JWT-ROLE-GATE, contracts/adminjwt). nil when
 	// ADMIN_JWT_PUBLIC_KEY_PEM is unset → those endpoints fail closed.
 	// adminKID = KeyFingerprint(adminPub).
-	adminPub *rsa.PublicKey
-	adminKID string
+	adminPub     *rsa.PublicKey
+	adminKID     string
 	client       *http.Client // short-timeout: sync/billing calls (15s)
 	invokeClient *http.Client // no timeout: AI generation can take minutes
 
@@ -2603,6 +2603,9 @@ WHERE um.user_model_id=$1 AND um.owner_user_id=$2 AND um.is_active=true AND pc.s
 	json.Unmarshal(capabilityFlagsJSON, &caps)
 
 	capability := detectPrimaryCapability(caps)
+	if capability == "chat" && looksLikeEmbeddingModel(providerModelName) {
+		capability = "embedding"
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
@@ -2766,6 +2769,16 @@ func canEmbed(caps map[string]any) bool {
 
 // detectPrimaryCapability determines which verification strategy to use based on capability_flags.
 // Priority: stt > tts > image_gen > video_gen > embedding > rerank > web_search > chat.
+func looksLikeEmbeddingModel(name string) bool {
+	n := strings.ToLower(strings.TrimSpace(name))
+	for _, token := range []string{"embedding", "embed", "bge-", "bge_", "e5-", "e5_", "gte-", "gte_", "jina-embeddings"} {
+		if strings.Contains(n, token) {
+			return true
+		}
+	}
+	return false
+}
+
 func detectPrimaryCapability(caps map[string]any) string {
 	for _, cap := range []string{"stt", "tts", "image_gen", "video_gen", "embedding", "rerank", "web_search"} {
 		if v, ok := caps[cap]; ok {
