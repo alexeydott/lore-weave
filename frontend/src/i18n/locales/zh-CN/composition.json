@@ -74,7 +74,14 @@
     "accept": "接受",
     "discard": "舍弃",
     "stop": "停止",
-    "stale": "选区已更改 — 请重试。"
+    "stale": "选区已更改 — 请重试。",
+    "scenePlan": "Suggest scenes",
+    "scenePlanOnly": "This selection is available for scene suggestions only.",
+    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
+    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
+    "scenePlanCreateFailed": "Could not create scene proposals.",
+    "createScenes": "Create selected scenes",
+    "applying": "Creating…"
   },
   "inline": {
     "mode": "写作模式",

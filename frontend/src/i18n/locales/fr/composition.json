@@ -74,7 +74,14 @@
     "accept": "Accepter",
     "discard": "Rejeter",
     "stop": "Arrêter",
-    "stale": "La sélection a changé — réessayez."
+    "stale": "La sélection a changé — réessayez.",
+    "scenePlan": "Suggest scenes",
+    "scenePlanOnly": "This selection is available for scene suggestions only.",
+    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
+    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
+    "scenePlanCreateFailed": "Could not create scene proposals.",
+    "createScenes": "Create selected scenes",
+    "applying": "Creating…"
   },
   "inline": {
     "mode": "Mode d'écriture",

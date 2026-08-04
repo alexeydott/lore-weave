@@ -74,7 +74,14 @@
     "accept": "গ্রহণ করুন",
     "discard": "বাতিল করুন",
     "stop": "বন্ধ করুন",
-    "stale": "নির্বাচনটি পরিবর্তিত হয়েছে — আবার চেষ্টা করুন।"
+    "stale": "নির্বাচনটি পরিবর্তিত হয়েছে — আবার চেষ্টা করুন।",
+    "scenePlan": "Suggest scenes",
+    "scenePlanOnly": "This selection is available for scene suggestions only.",
+    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
+    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
+    "scenePlanCreateFailed": "Could not create scene proposals.",
+    "createScenes": "Create selected scenes",
+    "applying": "Creating…"
   },
   "inline": {
     "mode": "রাইটিং মোড",

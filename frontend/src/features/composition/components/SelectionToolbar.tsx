@@ -138,7 +138,11 @@ export function SelectionToolbar({
     setApplyingProposals(true);
     try {
       const chapter = await compositionApi.listChapterScenes(projectId, chapterId, token);
-      if (!chapter.chapter_node_id) throw new Error('This chapter has no outline yet. Create or extract its plan first.');
+      if (!chapter.chapter_node_id) {
+        throw new Error(t('sel.scenePlanNeedsOutline', {
+          defaultValue: 'This chapter has no outline yet. Create or extract its plan first.',
+        }));
+      }
       await Promise.all(selected.map((scene) => compositionApi.createNode(
         projectId,
         { kind: 'scene', parent_id: chapter.chapter_node_id!, chapter_id: chapterId, title: scene.title, synopsis: scene.synopsis, status: 'outline' },
@@ -146,7 +150,9 @@ export function SelectionToolbar({
       )));
       reset();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not create scene proposals.');
+      toast.error(error instanceof Error ? error.message : t('sel.scenePlanCreateFailed', {
+        defaultValue: 'Could not create scene proposals.',
+      }));
     } finally {
       setApplyingProposals(false);
     }

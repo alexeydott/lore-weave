@@ -74,7 +74,14 @@
     "accept": "स्वीकार करें",
     "discard": "हटाएँ",
     "stop": "रोकें",
-    "stale": "चयन बदल गया है — फिर से प्रयास करें।"
+    "stale": "चयन बदल गया है — फिर से प्रयास करें।",
+    "scenePlan": "Suggest scenes",
+    "scenePlanOnly": "This selection is available for scene suggestions only.",
+    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
+    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
+    "scenePlanCreateFailed": "Could not create scene proposals.",
+    "createScenes": "Create selected scenes",
+    "applying": "Creating…"
   },
   "inline": {
     "mode": "लेखन मोड",

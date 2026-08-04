@@ -74,7 +74,14 @@
     "accept": "採用",
     "discard": "破棄",
     "stop": "停止",
-    "stale": "選択範囲が変わりました — もう一度お試しください。"
+    "stale": "選択範囲が変わりました — もう一度お試しください。",
+    "scenePlan": "Suggest scenes",
+    "scenePlanOnly": "This selection is available for scene suggestions only.",
+    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
+    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
+    "scenePlanCreateFailed": "Could not create scene proposals.",
+    "createScenes": "Create selected scenes",
+    "applying": "Creating…"
   },
   "inline": {
     "mode": "執筆モード",
