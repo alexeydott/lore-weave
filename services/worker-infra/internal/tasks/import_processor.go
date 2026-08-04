@@ -161,6 +161,20 @@ func (t *ImportProcessor) Run(ctx context.Context) error {
 				t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
 				continue
 			}
+			// Serialize redeliveries for one job and skip already completed jobs.
+			jobLock, locked, lockErr := t.acquireImportJobLock(ctx, payload.JobID)
+			if lockErr != nil {
+				continue
+			}
+			if !locked {
+				t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
+				continue
+			}
+			if t.importJobCompleted(ctx, payload.JobID) {
+				t.releaseImportJobLock(ctx, jobLock, payload.JobID)
+				t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
+				continue
+			}
 			t.updateJobStatus(ctx, payload.JobID, "processing", 0, nil)
 			t.publishWSEvent(ctx, payload.UserID, payload.JobID, "processing", 0, nil)
 
@@ -186,6 +200,7 @@ func (t *ImportProcessor) Run(ctx context.Context) error {
 				t.publishWSEvent(ctx, payload.UserID, payload.JobID, "completed", chaptersCreated, nil)
 			}
 
+			t.releaseImportJobLock(ctx, jobLock, payload.JobID)
 			t.Redis.XAck(ctx, importStream, importGroup, msg.ID)
 		}
 	}
@@ -813,6 +828,47 @@ func (t *ImportProcessor) publishWSEvent(ctx context.Context, userID, jobID, sta
 		span.RecordError(err)
 		slog.Warn("import-processor: AMQP publish failed", "error", err)
 	}
+}
+
+// acquireImportJobLock serializes delivery redeliveries for one import job while retaining
+// the same pooled connection. PostgreSQL advisory locks are session-scoped, so releasing
+// through a different pool connection would leak the lock.
+func (t *ImportProcessor) acquireImportJobLock(ctx context.Context, jobID string) (*pgxpool.Conn, bool, error) {
+	if t.BookDB == nil {
+		return nil, true, nil
+	}
+	conn, err := t.BookDB.Acquire(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	var acquired bool
+	if err := conn.QueryRow(ctx, `SELECT pg_try_advisory_lock(hashtext($1))`, jobID).Scan(&acquired); err != nil {
+		conn.Release()
+		return nil, false, err
+	}
+	if !acquired {
+		conn.Release()
+		return nil, false, nil
+	}
+	return conn, true, nil
+}
+func (t *ImportProcessor) releaseImportJobLock(ctx context.Context, conn *pgxpool.Conn, jobID string) {
+	if conn == nil {
+		return
+	}
+	_, _ = conn.Exec(ctx, `SELECT pg_advisory_unlock(hashtext($1))`, jobID)
+	conn.Release()
+}
+
+func (t *ImportProcessor) importJobCompleted(ctx context.Context, jobID string) bool {
+	if t.BookDB == nil {
+		return false
+	}
+	var status string
+	if err := t.BookDB.QueryRow(ctx, `SELECT status FROM import_jobs WHERE id=$1`, jobID).Scan(&status); err != nil {
+		return false
+	}
+	return status == "completed" || status == "completed_with_warnings"
 }
 
 // updateJobStatus calls book-service internal API to update import job status.

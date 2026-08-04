@@ -81,7 +81,15 @@ export function ImportDialog({ open, onOpenChange, bookId, onImported }: ImportD
     const txt = filterTxtFiles(all);
     const docs = all.filter((f) => /\.(docx|epub|fb2)$/i.test(f.name) && f.size <= MAX_SIZE);
     setError('');
-    if (docs.length) setDocFiles((prev) => [...prev, ...docs]);
+    if (docs.length) setDocFiles((prev) => {
+      const seen = new Set(prev.map((f) => `${f.name}:${f.size}:${f.lastModified}`));
+      return [...prev, ...docs.filter((f) => {
+        const key = `${f.name}:${f.size}:${f.lastModified}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })];
+    });
     if (txt.length) {
       setImportState('reading');
       setReadProgress({ done: 0, total: txt.length });

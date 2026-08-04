@@ -570,7 +570,7 @@ export function ManuscriptNavigator({ bookId, token, selectedId, onSelect, onNew
                       onCommit={(v) => commitRename(node.id, v)}
                       onCancel={() => setEditingActId(null)}
                     />
-                  ) : isChapter && source === 'chapters' && editingChapterId === node.id ? (
+                  ) : isChapter && node.chapterId && editingChapterId === node.id ? (
                     <ActNameInput
                       testid={`manuscript-chapter-rename-input-${node.id}`}
                       initial={node.title}
@@ -654,7 +654,7 @@ export function ManuscriptNavigator({ bookId, token, selectedId, onSelect, onNew
                   {/* Chapter affordances mirror the existing part actions.  They are shown only for
                       book-service chapter rows (the outline lens has its own plan-node editor), so
                       renaming never creates two competing titles for one planned node. */}
-                  {isChapter && source === 'chapters' && node.chapterId && (
+                  {isChapter && node.chapterId && (
                     <span className="ml-auto flex flex-shrink-0 items-center gap-0.5 opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 [@media(pointer:coarse)]:opacity-100">
                       <button
                         type="button"

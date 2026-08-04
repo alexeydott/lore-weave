@@ -154,6 +154,8 @@ include = [
   # A1 /review-impl caught exactly this (tests use PYTHONPATH=sdks/python, which hides it).
   # Pure-stdlib (no deps); consumers: chat-service, knowledge-service (roleplay/game later).
   "loreweave_agent_control*",
+  # S1 guard verdict/report types consumed by composition canon checks.
+  "loreweave_guard*",
 ]
 exclude = ["tests*"]
 
