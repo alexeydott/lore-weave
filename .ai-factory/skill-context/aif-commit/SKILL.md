@@ -28,6 +28,7 @@ required verification and review gates are complete, push `main` to the configur
   persisted artifact here. So is the PR body.
 - The `SESSION_HANDOFF.md` update lands in the **same commit** as the code it describes.
   Work not recorded there does not exist for the next session.
+- Never add a `Co-authored-by` trailer to commit messages.
 
 ## Before the commit exists
 
