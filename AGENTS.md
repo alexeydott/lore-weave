@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-LoreWeave is a polyglot microservices platform for multilingual novel workflows and shared-world simulation. Detailed local agent context lives in the Git-ignored `.ai-factory/DESCRIPTION.md`.
+LoreWeave is a polyglot microservices platform for multilingual novel workflows and shared-world simulation. Detailed local agent context lives in `.ai-factory/DESCRIPTION.md`; only the `.ai-factory/` baseline from `upstream/main` is shared.
 
 ## Technology Stack
 
@@ -32,7 +32,11 @@ migrations/        # Repository-level migration assets
 scripts/            # Validation, generation, and operational tooling
 docs/               # Architecture, standards, plans, specifications, and handoffs
 runbooks/           # Operational response procedures
-.ai-factory/        # Local AI working context; Git-ignored because it may be sensitive
+.agents/skills/     # Shared agent skills
+.ai-factory/        # Upstream-shared baseline plus ignored local AI working context
+.claude/            # Shared Claude agent configuration
+.codex/             # Shared Codex agent configuration
+.cursor/skills/     # Shared Cursor agent skills
 ```
 
 ## Key Entry Points
@@ -79,7 +83,7 @@ runbooks/           # Operational response procedures
 - Read `docs/sessions/SESSION_HANDOFF.md`, then the relevant planning and standards documents before substantive work.
 - Treat `docs/standards/README.md` as the index for cross-cutting rules; update the index when adding or retiring a standard.
 - Keep persisted artifacts, code comments, identifiers, logs, tests, commit messages, and PR text in English.
-- Keep machine-local agent state and `.ai-factory/` Git-ignored; safe, portable guidance belongs in tracked project documentation only when it contains no credentials, local endpoints, account data, database IDs, model IDs, or other developer-specific parameters.
+- Track portable agent guidance and configuration in `.agents/skills/`, the `.ai-factory/` files that exist in `upstream/main`, `.claude/`, `.codex/`, and `.cursor/skills/`. Keep other `.ai-factory/` content, machine-local state, credentials, local endpoints, account data, database IDs, model IDs, and other developer-specific parameters ignored; follow `CONTRIBUTING.md` for the explicitly ignored exceptions.
 - Always push this project to the primary branch `main`; do not push feature or secondary branches.
 - Always use `git@github.com:alexeydott/lore-weave.git` as the SSH `origin`; do not replace it with an HTTPS remote.
 - Never add a `Co-authored-by` trailer to commit messages.

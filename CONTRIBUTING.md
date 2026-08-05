@@ -91,20 +91,23 @@ yours, which is exactly why they are not tracked.
 
 ### Fork synchronization and safe agent context
 
-This fork synchronizes `upstream/main` into its `main` branch automatically. Shared guidance is
-welcome when it is portable and reviewable: `AGENTS.md`, `CLAUDE.md`, contribution guidance,
-standards, plans, and documentation are tracked deliberately. Keep those files factual and free of
-machine-specific values.
+This fork synchronizes `upstream/main` into its `main` branch automatically. Portable, reviewable
+agent guidance and configuration are tracked deliberately: `.agents/skills/`, the
+`upstream/main` `.ai-factory/` baseline, `.claude/`, `.codex/`, `.cursor/skills/`, `AGENTS.md`,
+`CLAUDE.md`, contribution guidance, standards, plans, and documentation. Keep those files factual
+and free of machine-specific values.
 
 Do **not** commit agent working state, generated context, credentials, local endpoint addresses,
 personal test-account details, database UUIDs, model IDs, private keys, or filled-in environment
-files. The local agent/configuration directories, `docs/dev/LOCAL_TEST_ENV.md`, `.env*` files (other
-than templates), and private-key formats are ignored. If a shared agent document needs an example,
-use an obvious placeholder and describe the required environment variable instead of a real value.
+files. `docs/dev/LOCAL_TEST_ENV.md`, `.env*` files (other than templates), private-key formats,
+`.claude/settings.local.json`, `.claude/scheduled_tasks.lock`, non-skill `.agents/` content,
+non-skill `.cursor/` content, and `.ai-factory/` files absent from `upstream/main` are ignored. If
+a shared agent document needs an example, use an obvious placeholder and describe the required
+environment variable instead of a real value.
 
-The synchronization workflow removes fork-local agent/configuration paths and local environment
-state after every upstream merge. It does not remove safe tracked guidance such as this file,
-`AGENTS.md`, `CLAUDE.md`, or repository documentation.
+The synchronization workflow preserves the tracked agent paths after every upstream merge. It
+removes only explicitly ignored local state and environment files; it does not remove safe tracked
+guidance such as this file, `AGENTS.md`, `CLAUDE.md`, or repository documentation.
 
 ---
 

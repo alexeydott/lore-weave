@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash scripts/workflow-gate.sh:*)",
+      "Bash(bash ./scripts/workflow-gate.sh:*)",
+      "Bash(python scripts/workflow-gate.py:*)"
+    ]
+  }
+}
