@@ -204,12 +204,12 @@ git:
   # Default: auto-detected from git metadata, fallback main
   base_branch: main
 
-  # Automatically create feature branches for plans
+  # Keep work on the fork's primary branch.
   # Applies only when git.enabled = true
   # If false, /aif-plan full still creates a full plan but stays on the
   # current branch (or uses a slug-named full plan in no-git mode)
   # Default: true when git is enabled
-  create_branches: true
+  create_branches: false
 
   # Branch name prefix for new features
   # Applies only when create_branches = true

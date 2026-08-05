@@ -86,7 +86,6 @@ runbooks/           # Operational response procedures
 - Track portable agent guidance and configuration in `.agents/skills/`, the `.ai-factory/` files that exist in `upstream/main`, `.claude/`, `.codex/`, and `.cursor/skills/`. Keep other `.ai-factory/` content, machine-local state, credentials, local endpoints, account data, database IDs, model IDs, and other developer-specific parameters ignored; follow `CONTRIBUTING.md` for the explicitly ignored exceptions.
 - Always push this project to the primary branch `main`; do not push feature or secondary branches.
 - Always use `git@github.com:alexeydott/lore-weave.git` as the SSH `origin`; do not replace it with an HTTPS remote.
-- Never add a `Co-authored-by` trailer to commit messages.
 - Decompose shell operations into separately reviewable commands.
   - Incorrect: `git checkout main && git pull`
   - Correct: first `git checkout main`, then `git pull origin main`.

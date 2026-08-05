@@ -37,6 +37,15 @@ These have each already cost this project a real incident; the full statements a
 - **Destructive DB ops in tests** — scope every cleanup, read the DSN only from a dedicated
   `*_TEST_*` var, and guard before you destroy.
 
+## Fork agent-context hygiene
+
+- Track portable agent guidance in `.agents/skills/`, `.claude/`, `.codex/`, and
+  `.cursor/skills/`. In `.ai-factory/`, track only the files present in `upstream/main`; keep all
+  other working artifacts ignored.
+- Never persist credentials, tokens, passwords, private keys, local endpoints, personal test
+  account details, database UUIDs, model IDs, or filled-in environment files. Use placeholders and
+  document the required environment variable instead.
+
 ## Orientation at the start of a task
 
 Read `docs/sessions/SESSION_HANDOFF.md` (the **▶ NEXT SESSION** block) before proposing work,
