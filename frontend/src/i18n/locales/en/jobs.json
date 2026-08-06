@@ -83,6 +83,7 @@
   "controls": {
     "pause": "Pause",
     "resume": "Resume",
+    "resumeFromCheckpoint": "Resume from checkpoint",
     "cancel": "Cancel",
     "cancelConfirm": "Stop now? In-progress work is discarded; completed parts are kept.",
     "cancelYes": "Yes",
