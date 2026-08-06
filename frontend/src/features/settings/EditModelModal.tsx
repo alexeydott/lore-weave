@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Trash2, X, Loader2, Zap, CheckCircle, DollarSign } from 'lucide-react';
+import { Save, Trash2, X, Loader2, Zap, CheckCircle, DollarSign, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
@@ -36,6 +36,7 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deletionImpact, setDeletionImpact] = useState<ModelDeletionImpact | null>(null);
+  const [refreshingCapabilities, setRefreshingCapabilities] = useState(false);
 
   // D-PRICING-REFRESH — pricing was frozen at creation with no edit path at
   // all; local (BYOK self-hosted) kinds are always explicit-zero server-side
@@ -122,6 +123,37 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
       setSaving(false);
     }
   }
+
+  async function handleRefreshCapabilities() {
+    if (!accessToken) return;
+    setRefreshingCapabilities(true);
+    try {
+      const updated = await providerApi.refreshUserModelCapabilities(accessToken, model.user_model_id);
+      const nextFlags: Record<string, boolean> = {};
+      for (const key of KNOWN_FLAGS) nextFlags[key] = updated.capability_flags?.[key] === true;
+      const canonical = updated.capability_flags?._capability;
+      if (typeof canonical === 'string' && KNOWN_FLAGS.includes(canonical as (typeof KNOWN_FLAGS)[number])) nextFlags[canonical] = true;
+      setFlags(nextFlags);
+      setContextLength(updated.context_length ? String(updated.context_length) : '');
+      if (updated.pricing?.input_per_mtok != null) setInputPerMTok(String(updated.pricing.input_per_mtok));
+      if (updated.pricing?.output_per_mtok != null) setOutputPerMTok(String(updated.pricing.output_per_mtok));
+      toast.success(t('model_modal.edit.capabilities_refreshed', { defaultValue: 'Возможности модели обновлены' }));
+    } catch (e) {
+      toast.error((e as Error).message || t('model_modal.edit.capabilities_refresh_failed', { defaultValue: 'Не удалось обновить возможности модели' }));
+    } finally { setRefreshingCapabilities(false); }
+  }
+
+
+
+
+
+
+
+
+
+
+
+
 
   async function handleCheckPricing() {
     if (!accessToken) return;
@@ -265,6 +297,9 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
                   </div>
                 </div>
                 <p className="mt-1 text-[11px] text-muted-foreground">{t('model_modal.edit.pricing_hint')}</p>
+                {inputPerMTok.trim() === '' && outputPerMTok.trim() === '' && (
+                  <p className="mt-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5 text-[11px] text-amber-200">Стоимость модели не задана — approximate-стоимость задач будет недоступна.</p>
+                )}
                 <div className="mt-2 flex items-center gap-2">
                   <button
                     onClick={handleCheckPricing}
@@ -324,7 +359,13 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
           </div>
 
           {/* Capability flags */}
-          <CapabilityFlags flags={flags} onChange={setFlags} />
+          <div className="flex items-start justify-between gap-3">
+            <CapabilityFlags flags={flags} onChange={setFlags} />
+            <button onClick={handleRefreshCapabilities} disabled={refreshingCapabilities} className="flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-[10px] font-medium transition-colors hover:bg-secondary disabled:opacity-50">
+              {refreshingCapabilities ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <RefreshCw className="h-2.5 w-2.5" />}
+              {t('model_modal.edit.refresh_capabilities', { defaultValue: 'Обновить' })}
+            </button>
+          </div>
 
           {/* Tags */}
           <TagEditor tags={tags} onChange={setTags} />

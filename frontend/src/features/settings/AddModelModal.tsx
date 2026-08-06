@@ -90,6 +90,7 @@ export function AddModelModal({ provider, onClose, onAdded }: Props) {
     for (const key of KNOWN_FLAGS) {
       if (m.capability_flags?.[key]) f[key] = true;
     }
+    if (meta.capability && KNOWN_FLAGS.includes(meta.capability as (typeof KNOWN_FLAGS)[number])) f[meta.capability] = true;
     setFlags(f);
   }
 
@@ -116,6 +117,7 @@ export function AddModelModal({ provider, onClose, onAdded }: Props) {
         alias: alias || undefined,
         context_length: contextLength ? Number(contextLength) : undefined,
         capability_flags: capFlags,
+        ...(selected?.pricing ? { pricing: selected.pricing } : {}),
         tags: tags.map((t) => ({ tag_name: t })),
         notes: notes || undefined,
       });
@@ -265,6 +267,11 @@ export function AddModelModal({ provider, onClose, onAdded }: Props) {
 
           {/* Capability flags */}
           <CapabilityFlags flags={flags} onChange={setFlags} />
+          {selected && (selected.pricing?.input_per_mtok != null || selected.pricing?.output_per_mtok != null) ? (
+            <p className="text-[11px] text-muted-foreground">Стоимость: вход ${selected.pricing?.input_per_mtok ?? 0}/1M · выход ${selected.pricing?.output_per_mtok ?? 0}/1M</p>
+          ) : selected ? (
+            <p className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-200">Стоимость у провайдера не задана — добавьте её вручную после регистрации модели.</p>
+          ) : null}
 
           {/* Tags */}
           <TagEditor tags={tags} onChange={setTags} />

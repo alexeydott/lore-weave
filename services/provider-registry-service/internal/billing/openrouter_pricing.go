@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -29,9 +30,10 @@ import (
 // absent from this map (every local BYOK kind, or an unrecognized cloud kind)
 // has no OpenRouter equivalent to check.
 var openRouterNamespace = map[string]string{
-	"openai":    "openai",
-	"anthropic": "anthropic",
-	"gemini":    "google",
+	"openai":     "openai",
+	"anthropic":  "anthropic",
+	"gemini":     "google",
+	"openrouter": "",
 }
 
 // OpenRouterModelsURL is a var (not const) so tests can point it at an
@@ -161,7 +163,10 @@ func FetchOpenRouterPricing(ctx context.Context, httpClient *http.Client, provid
 		return OpenRouterSuggestion{Found: false}
 	}
 
-	wantID := ns + "/" + modelName
+	wantID := modelName
+	if ns != "" && !strings.Contains(modelName, "/") {
+		wantID = ns + "/" + modelName
+	}
 	for _, m := range models {
 		if m.ID != wantID {
 			continue

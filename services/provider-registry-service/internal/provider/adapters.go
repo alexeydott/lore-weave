@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -546,6 +547,7 @@ type ModelInventory struct {
 	ProviderModelName string         `json:"provider_model_name"`
 	ContextLength     *int           `json:"context_length,omitempty"`
 	CapabilityFlags   map[string]any `json:"capability_flags"`
+	Pricing           map[string]any `json:"pricing,omitempty"`
 }
 
 type Usage struct {
@@ -729,8 +731,8 @@ const openaiBaseURL = "https://api.openai.com"
 // normalizeOpenAICompatibleBase accepts both common forms of an
 // OpenAI-compatible base URL:
 //
-//   https://provider.example
-//   https://provider.example/v1
+//	https://provider.example
+//	https://provider.example/v1
 //
 // Adapters append canonical /v1/... paths themselves. Stripping one trailing
 // /v1 prevents requests such as /v1/v1/models and /v1/v1/chat/completions.
@@ -937,6 +939,21 @@ func parseOpenAIModels(data []any, knownContextLength map[string]int) []ModelInv
 		if cl, ok := knownContextLength[id]; ok {
 			ctxLen := cl
 			entry.ContextLength = &ctxLen
+		}
+		if raw, ok := m["pricing"].(map[string]any); ok {
+			entry.Pricing = map[string]any{}
+			for src, dst := range map[string]string{"prompt": "input_per_mtok", "completion": "output_per_mtok"} {
+				var n float64
+				switch v := raw[src].(type) {
+				case string:
+					n, _ = strconv.ParseFloat(v, 64)
+				case float64:
+					n = v
+				}
+				if n >= 0 {
+					entry.Pricing[dst] = n * 1000000
+				}
+			}
 		}
 		models = append(models, entry)
 	}

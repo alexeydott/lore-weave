@@ -1532,7 +1532,7 @@ func (s *Server) listProviderInventory(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	rows, err := s.pool.Query(r.Context(), `
-SELECT provider_model_name, context_length, capability_flags, synced_at
+SELECT provider_model_name, context_length, capability_flags, pricing, synced_at
 FROM provider_inventory_models
 WHERE provider_credential_id=$1
 ORDER BY provider_model_name ASC
@@ -1548,17 +1548,21 @@ ORDER BY provider_model_name ASC
 		var modelName string
 		var contextLength *int
 		var flagsBytes []byte
+		var pricingBytes []byte
 		var rowSyncedAt time.Time
-		if err := rows.Scan(&modelName, &contextLength, &flagsBytes, &rowSyncedAt); err != nil {
+		if err := rows.Scan(&modelName, &contextLength, &flagsBytes, &pricingBytes, &rowSyncedAt); err != nil {
 			writeError(w, http.StatusInternalServerError, "M03_INVENTORY_QUERY_FAILED", "failed to parse inventory row")
 			return
 		}
 		flags := map[string]any{}
+		pricing := map[string]any{}
 		_ = json.Unmarshal(flagsBytes, &flags)
+		_ = json.Unmarshal(pricingBytes, &pricing)
 		items = append(items, map[string]any{
 			"provider_model_name": modelName,
 			"context_length":      contextLength,
 			"capability_flags":    flags,
+			"pricing":             pricing,
 		})
 		syncedAt = &rowSyncedAt
 	}
@@ -1588,14 +1592,73 @@ func (s *Server) syncInventory(ctx context.Context, cred *credentialRow) error {
 	}
 	for _, m := range models {
 		flags, _ := json.Marshal(m.CapabilityFlags)
+		pricing, _ := json.Marshal(m.Pricing)
 		if _, err := tx.Exec(ctx, `
-INSERT INTO provider_inventory_models(provider_credential_id, provider_model_name, context_length, capability_flags, synced_at)
-VALUES ($1,$2,$3,$4,now())
-`, cred.ProviderCredentialID, m.ProviderModelName, m.ContextLength, flags); err != nil {
+INSERT INTO provider_inventory_models(provider_credential_id, provider_model_name, context_length, capability_flags, pricing, synced_at)
+VALUES ($1,$2,$3,$4,$5,now())
+`, cred.ProviderCredentialID, m.ProviderModelName, m.ContextLength, flags, pricing); err != nil {
 			return err
 		}
 	}
+	// Inventory is the provider-of-record: refresh capability flags, context, and
+	// pricing for every existing user model registered against this credential.
+	if _, err := tx.Exec(ctx, `UPDATE user_models um SET capability_flags=pi.capability_flags, context_length=COALESCE(pi.context_length,um.context_length), pricing=pi.pricing, updated_at=now() FROM provider_inventory_models pi WHERE um.provider_credential_id=$1 AND pi.provider_credential_id=um.provider_credential_id AND pi.provider_model_name=um.provider_model_name`, cred.ProviderCredentialID); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
+}
+
+func (s *Server) refreshUserModelCapabilities(w http.ResponseWriter, r *http.Request) {
+	userID, ok := s.auth(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "M03_UNAUTHORIZED", "unauthorized")
+		return
+	}
+	modelID, ok := parseUUIDParam(w, r, "user_model_id")
+	if !ok {
+		return
+	}
+	var providerID uuid.UUID
+	var modelName, providerKind, endpoint, cipher string
+	err := s.pool.QueryRow(r.Context(), `SELECT um.provider_credential_id, um.provider_model_name, pc.provider_kind, COALESCE(pc.endpoint_base_url,''), COALESCE(pc.secret_ciphertext,'') FROM user_models um JOIN provider_credentials pc ON pc.provider_credential_id=um.provider_credential_id WHERE um.user_model_id=$1 AND um.owner_user_id=$2 AND pc.status='active'`, modelID, userID).Scan(&providerID, &modelName, &providerKind, &endpoint, &cipher)
+	if err == pgx.ErrNoRows {
+		writeError(w, http.StatusNotFound, "M03_USER_MODEL_NOT_FOUND", "user model not found or provider inactive")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "M03_USER_MODEL_QUERY_FAILED", "failed to resolve user model")
+		return
+	}
+	if cipher == "" {
+		writeError(w, http.StatusBadRequest, "M03_MISSING_CREDENTIAL", "provider credential has no secret")
+		return
+	}
+	secret, err := s.decryptSecret(cipher)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "M03_SECRET_DECRYPT_FAILED", "failed to decrypt secret")
+		return
+	}
+	cred := &credentialRow{ProviderCredentialID: providerID, ProviderKind: providerKind, EndpointBaseURL: endpoint, Secret: secret}
+	if err = s.syncInventory(r.Context(), cred); err != nil {
+		writeError(w, http.StatusBadGateway, "M03_PROVIDER_SYNC_FAILED", "failed to sync provider inventory")
+		return
+	}
+	var flags, pricing []byte
+	var ctxLen *int
+	err = s.pool.QueryRow(r.Context(), `SELECT capability_flags, pricing, context_length FROM provider_inventory_models WHERE provider_credential_id=$1 AND provider_model_name=$2`, providerID, modelName).Scan(&flags, &pricing, &ctxLen)
+	if err == pgx.ErrNoRows {
+		writeError(w, http.StatusNotFound, "M03_INVENTORY_MODEL_NOT_FOUND", "model was not returned by provider")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "M03_INVENTORY_QUERY_FAILED", "failed to read refreshed model metadata")
+		return
+	}
+	if _, err = s.pool.Exec(r.Context(), `UPDATE user_models SET capability_flags=$3, context_length=COALESCE($4,context_length), pricing=$5, updated_at=now() WHERE user_model_id=$1 AND owner_user_id=$2`, modelID, userID, flags, ctxLen, pricing); err != nil {
+		writeError(w, http.StatusInternalServerError, "M03_USER_MODEL_UPDATE_FAILED", "failed to update model metadata")
+		return
+	}
+	s.writeUserModel(w, r, userID, modelID)
 }
 
 // parsePricingInput validates a caller-supplied `pricing` payload, shared by

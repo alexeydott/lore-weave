@@ -79,6 +79,7 @@ export type InventoryModel = {
   provider_model_name: string;
   context_length?: number | null;
   capability_flags?: Record<string, unknown>;
+  pricing?: ModelPricing;
 };
 
 export type ModelDeletionImpact = {
@@ -177,6 +178,7 @@ export const providerApi = {
     alias?: string;
     context_length?: number;
     capability_flags?: Record<string, unknown>;
+    pricing?: ModelPricing;
     tags?: Array<{ tag_name: string; note?: string }>;
     notes?: string;
   }) {
@@ -254,6 +256,22 @@ export const providerApi = {
       `/v1/model-registry/user-models/${modelId}/verify`, { method: 'POST', token },
     );
   },
+
+  refreshUserModelCapabilities(token: string, modelId: string) {
+    return apiJson<UserModel>(`/v1/model-registry/user-models/${modelId}/refresh-capabilities`, { method: 'POST', token });
+  },
+
+
+
+
+
+
+
+
+
+
+
+
 };
 
 // ── Public MCP API keys (P1) ────────────────────────────────────────────────
