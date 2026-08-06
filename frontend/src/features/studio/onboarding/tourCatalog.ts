@@ -9,6 +9,7 @@
 
 export type StudioTourId =
   | 'core' | 'writer' | 'worldbuilder' | 'translator' | 'enricher' | 'manager'
+  | 'worldResearch' | 'factChecking' | 'glossaryWorkflow'
   // #19 Wave 3 — editor "deep dive" tours (docs/specs/2026-07-06-editor-feature-inventory.md).
   | 'editorBasics' | 'editorAiTools' | 'editorDataSafety' | 'editorSceneRail' | 'editorGlossary'
   | 'editorMediaImage' | 'editorMediaVideo' | 'editorMediaAudio'
@@ -45,4 +46,27 @@ export const COMPOSE_TOUR_CATALOG: StudioTourCatalogEntry[] = [
   { id: 'composerAiEditReview', labelKey: 'tourPicker.composerAiEditReview.label', descKey: 'tourPicker.composerAiEditReview.desc' },
   { id: 'composerVoice', labelKey: 'tourPicker.composerVoice.label', descKey: 'tourPicker.composerVoice.desc' },
   { id: 'composerPopout', labelKey: 'tourPicker.composerPopout.label', descKey: 'tourPicker.composerPopout.desc' },
+];
+
+/** Research workflows: these tours connect the glossary, evidence and knowledge-graph
+ * panels into repeatable investigation practices rather than teaching isolated controls. */
+export const PANEL_TOUR_IDS: Partial<Record<string, StudioTourId[]>> = {
+  editor: ['editorBasics', 'editorAiTools', 'editorDataSafety', 'editorSceneRail', 'editorGlossary', 'editorMediaImage', 'editorMediaVideo', 'editorMediaAudio'],
+  compose: ['composerBasics', 'composerSessions', 'composerAgentTools', 'composerContextBudget', 'composerAiEditReview', 'composerVoice', 'composerPopout'],
+  glossary: ['glossaryWorkflow'],
+  'world-setup': ['worldResearch'],
+  'kg-entities': ['worldResearch'],
+  'kg-timeline': ['worldResearch'],
+  'kg-graph': ['worldResearch'],
+  'kg-evidence': ['factChecking'],
+  'kg-triage': ['factChecking'],
+  'kg-gap': ['factChecking'],
+  'glossary-unknown': ['factChecking'],
+  'kg-proposals': ['factChecking'],
+};
+
+export const RESEARCH_TOUR_CATALOG: StudioTourCatalogEntry[] = [
+  { id: 'worldResearch', labelKey: 'tourPicker.worldResearch.label', descKey: 'tourPicker.worldResearch.desc' },
+  { id: 'factChecking', labelKey: 'tourPicker.factChecking.label', descKey: 'tourPicker.factChecking.desc' },
+  { id: 'glossaryWorkflow', labelKey: 'tourPicker.glossaryWorkflow.label', descKey: 'tourPicker.glossaryWorkflow.desc' },
 ];

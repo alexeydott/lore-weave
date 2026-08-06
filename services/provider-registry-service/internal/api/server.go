@@ -440,6 +440,7 @@ func (s *Server) Router() http.Handler {
 		r.Patch("/user-models/{user_model_id}/favorite", s.patchUserModelFavorite)
 		r.Put("/user-models/{user_model_id}/tags", s.putUserModelTags)
 		r.Post("/user-models/{user_model_id}/verify", s.verifyUserModel)
+		r.Post("/user-models/{user_model_id}/refresh-capabilities", s.refreshUserModelCapabilities)
 		r.Get("/user-models/{user_model_id}/pricing/suggest", s.suggestUserModelPricing) // D-PRICING-REFRESH
 
 		// Per-user default model per capability (rerank/embedding). Restores the
