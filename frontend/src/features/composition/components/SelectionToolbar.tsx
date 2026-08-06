@@ -112,6 +112,18 @@ export function SelectionToolbar({
     });
   };
 
+  useEffect(() => {
+    const onContextAi = (event: Event) => {
+      const detail = (event as CustomEvent<{ operation?: SelectionOperation; from?: number; to?: number }>).detail;
+      if (!detail?.operation || !['rewrite', 'expand', 'describe'].includes(detail.operation)) return;
+      if (typeof detail.from !== 'number' || typeof detail.to !== 'number') return;
+      editor.chain().focus().setTextSelection({ from: detail.from, to: detail.to }).run();
+      run(detail.operation);
+    };
+    window.addEventListener('lw-editor-context-ai', onContextAi);
+    return () => window.removeEventListener('lw-editor-context-ai', onContextAi);
+  }, [editor, run]);
+
   const reset = () => { setActive(false); setActiveOperation(null); setSelectedProposals(new Set()); stream.clearGhost(); savedRange.current?.release(); savedRange.current = null; };
   const discard = () => { stream.stop(); reset(); };
   const accept = () => {
@@ -162,7 +174,9 @@ export function SelectionToolbar({
   // non-empty selection within the cap.
   const shouldShow = ({ editor: ed }: { editor: Editor }) => {
     if (active) return true;
-    return !ed.state.selection.empty;
+    if (ed.state.selection.empty) return false;
+    const selected = ed.state.doc.textBetween(ed.state.selection.from, ed.state.selection.to, ' ');
+    return selected.length <= SCENE_PLAN_MAX_CHARS;
   };
 
   return (

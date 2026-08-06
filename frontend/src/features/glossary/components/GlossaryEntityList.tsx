@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Plus, Filter, Trash2, Layers, Sparkles, Languages, HelpCircle, Lightbulb, GitMerge, CheckCircle2, CircleSlash, XCircle, PencilLine, MapPin } from 'lucide-react';
@@ -103,7 +103,24 @@ export function GlossaryEntityList({ bookId, bookGenreTags = [], bookOriginalLan
   const { t } = useTranslation('books');
   const { accessToken } = useAuth();
   const queryClient = useQueryClient();
-  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const paged = useServerPagedList(10);
+  const [filters, setFilters] = useState<FilterState>(() => {
+    try {
+      const saved = localStorage.getItem('loreweave.glossary.search');
+      if (saved) localStorage.removeItem('loreweave.glossary.search');
+      return saved ? { ...defaultFilters, searchQuery: saved } : defaultFilters;
+    } catch { return defaultFilters; }
+  });
+  useEffect(() => {
+    const onSearch = (event: Event) => {
+      const query = (event as CustomEvent<{ text?: string }>).detail?.text?.trim();
+      if (!query) return;
+      setFilters((current) => ({ ...current, searchQuery: query }));
+      paged.reset();
+    };
+    window.addEventListener('lw-glossary-search', onSearch);
+    return () => window.removeEventListener('lw-glossary-search', onSearch);
+  }, [paged]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<GlossaryEntitySummary | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -119,7 +136,6 @@ export function GlossaryEntityList({ bookId, bookGenreTags = [], bookOriginalLan
   // entities (main characters etc.) surface first instead of sinking by recency.
   const [sort, setSort] = useState<EntitySort>('links');
   const [searchMode, setSearchMode] = useState<'simple' | 'raw'>('simple');
-  const paged = useServerPagedList(10);
   // Debounce the search box so we hit the BE once the user pauses, not per keystroke.
   const debouncedSearch = useDebouncedValue(filters.searchQuery, 300);
 

@@ -49,6 +49,31 @@ import type { StudioToolRegistration } from '../host/types';
 export function EditorPanel(props: IDockviewPanelProps) {
   const { t } = useTranslation('studio');
   const host = useStudioHost();
+  useEffect(() => {
+    const onContextAction = (event: Event) => {
+      const detail = (event as CustomEvent<{ action?: string; context?: { text?: string } }>).detail;
+      const text = detail?.context?.text?.trim();
+      if (!detail?.action || !text) return;
+      if (detail.action === 'findGlossary' || detail.action === 'dictionary') {
+        try { localStorage.setItem('loreweave.glossary.search', text); } catch { /* private mode */ }
+        window.dispatchEvent(new CustomEvent('lw-glossary-search', { detail: { text } }));
+        host.openPanel('glossary', { focus: true });
+      } else if (detail.action === 'askAi') {
+        const prompt = `Проанализируй этот фрагмент рукописи и ответь на вопрос пользователя:
+
+«${text}»
+
+Что важно учесть?`;
+        try { localStorage.setItem('loreweave.chat.prefill', prompt); } catch { /* private mode */ }
+        window.dispatchEvent(new CustomEvent('lw-chat-prefill', { detail: { text: prompt } }));
+        host.openPanel('compose', { focus: true });
+      } else if (detail.action === 'findMentions') {
+        host.openPanel('search', { focus: true, params: { query: text, mode: 'text' } });
+      }
+    };
+    window.addEventListener('lw-editor-context-action', onContextAction);
+    return () => window.removeEventListener('lw-editor-context-action', onContextAction);
+  }, [host]);
   const { bookId } = host;
   const unit = useManuscriptUnit();
   // M3 (F2) — the empty state must not dead-end a newcomer: offer the same "start writing" door the

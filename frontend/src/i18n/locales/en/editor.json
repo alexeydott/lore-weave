@@ -392,5 +392,22 @@
     "no_restore": "No earlier version to restore to",
     "confirm_title": "Restore to before this AI edit?",
     "confirm_desc": "The current draft is snapshotted first, so this is reversible from the revision history."
+  },
+  "contextMenu": {
+    "replace": "Replace with",
+    "copy": "Copy",
+    "cut": "Cut",
+    "paste": "Paste",
+    "selectAll": "Select all",
+    "undo": "Undo",
+    "redo": "Redo",
+    "rewrite": "Rewrite with AI",
+    "expand": "Expand with AI",
+    "describe": "Describe with AI",
+    "dictionary": "Check in glossary",
+    "bookmark": "Add bookmark",
+    "findGlossary": "Find in glossary",
+    "askAi": "Ask AI about this",
+    "findMentions": "Find mentions"
   }
 }
