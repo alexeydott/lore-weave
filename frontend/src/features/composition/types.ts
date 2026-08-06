@@ -159,6 +159,8 @@ export type PlannerScenePreview = {
   synopsis: string;
   tension: number;
   present_entity_ids: string[];
+  /** Presentation-only names resolved by the planner; ids remain commit keys. */
+  present_entity_names?: Record<string, string>;
   present_entity_names_unresolved: string[];
   suggested_k: number;
 };

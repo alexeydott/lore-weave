@@ -489,6 +489,8 @@
     "tension": "Tension",
     "cast": "Cast",
     "beat_role": "Beat role",
+    "beat_label": "Beat",
+    "inactive_cast": "Entity is inactive",
     "add_cast": "add cast",
     "remove_cast": "Remove {{name}}",
     "resolve": "Add {{name}} to cast",
@@ -509,7 +511,22 @@
     "err_no_chapters": "This book has no chapters yet — create chapters before planning.",
     "err_too_many_chapters": "Too many chapters to plan at once.",
     "err_bad_entity": "Some scene cast members are not in this book's glossary.",
-    "err_bad_chapter": "A chapter in the plan is not part of this book."
+    "err_bad_chapter": "A chapter in the plan is not part of this book.",
+    "add_template": "Add template",
+    "create_template_title": "New structure template",
+    "template_name": "Name",
+    "template_name_placeholder": "For example, Hero journey",
+    "template_kind": "Kind",
+    "template_beats": "Beats (one per line)",
+    "template_beats_placeholder": "Setup\nTurning point\nClimax",
+    "template_create": "Create template",
+    "template_creating": "Creating…",
+    "template_create_error": "Could not create template",
+    "close": "Close",
+    "chapter_scope": "Scope",
+    "all_chapters": "All chapters",
+    "recreate_current": "Recreate current chapter",
+    "recreate_all": "Recreate all chapters"
   },
   "threads": "Threads",
   "threadsTitle": "Plot threads",
@@ -1147,5 +1164,229 @@
   "canonUncheckedUnparseable": "the reviewing model did not return a usable answer",
   "canonUncheckedFailed": "the check itself errored",
   "canonUncheckedOther": "this check could not run",
-  "canonUncheckedWhich": "{{count}} of its checks did not complete"
+  "canonUncheckedWhich": "{{count}} of its checks did not complete",
+  "structureTemplates": {
+    "templates": {
+      "save_the_cat": "Save the Cat",
+      "hero_journey": "Hero's Journey",
+      "story_circle": "Story Circle",
+      "kishotenketsu": "Kishōtenketsu",
+      "web_novel": "Web Novel Arc",
+      "generic": "Three-Act (Generic)"
+    },
+    "beats": {
+      "save_the_cat": {
+        "opening_image": {
+          "label": "Opening Image",
+          "purpose": ""
+        },
+        "theme_stated": {
+          "label": "Theme Stated",
+          "purpose": ""
+        },
+        "setup": {
+          "label": "Setup",
+          "purpose": ""
+        },
+        "catalyst": {
+          "label": "Catalyst",
+          "purpose": ""
+        },
+        "debate": {
+          "label": "Debate",
+          "purpose": ""
+        },
+        "break_into_two": {
+          "label": "Break Into Two",
+          "purpose": ""
+        },
+        "b_story": {
+          "label": "B Story",
+          "purpose": ""
+        },
+        "fun_and_games": {
+          "label": "Fun And Games",
+          "purpose": ""
+        },
+        "midpoint": {
+          "label": "Midpoint",
+          "purpose": ""
+        },
+        "bad_guys_close_in": {
+          "label": "Bad Guys Close In",
+          "purpose": ""
+        },
+        "all_is_lost": {
+          "label": "All Is Lost",
+          "purpose": ""
+        },
+        "dark_night": {
+          "label": "Dark Night",
+          "purpose": ""
+        },
+        "break_into_three": {
+          "label": "Break Into Three",
+          "purpose": ""
+        },
+        "finale": {
+          "label": "Finale",
+          "purpose": ""
+        },
+        "final_image": {
+          "label": "Final Image",
+          "purpose": ""
+        }
+      },
+      "hero_journey": {
+        "ordinary_world": {
+          "label": "Ordinary World",
+          "purpose": ""
+        },
+        "call_to_adventure": {
+          "label": "Call To Adventure",
+          "purpose": ""
+        },
+        "refusal_of_the_call": {
+          "label": "Refusal Of The Call",
+          "purpose": ""
+        },
+        "meeting_the_mentor": {
+          "label": "Meeting The Mentor",
+          "purpose": ""
+        },
+        "crossing_the_threshold": {
+          "label": "Crossing The Threshold",
+          "purpose": ""
+        },
+        "tests_allies_enemies": {
+          "label": "Tests Allies Enemies",
+          "purpose": ""
+        },
+        "approach": {
+          "label": "Approach",
+          "purpose": ""
+        },
+        "ordeal": {
+          "label": "Ordeal",
+          "purpose": ""
+        },
+        "reward": {
+          "label": "Reward",
+          "purpose": ""
+        },
+        "the_road_back": {
+          "label": "The Road Back",
+          "purpose": ""
+        },
+        "resurrection": {
+          "label": "Resurrection",
+          "purpose": ""
+        },
+        "return_with_elixir": {
+          "label": "Return With Elixir",
+          "purpose": ""
+        }
+      },
+      "story_circle": {
+        "you": {
+          "label": "You",
+          "purpose": ""
+        },
+        "need": {
+          "label": "Need",
+          "purpose": ""
+        },
+        "go": {
+          "label": "Go",
+          "purpose": ""
+        },
+        "search": {
+          "label": "Search",
+          "purpose": ""
+        },
+        "find": {
+          "label": "Find",
+          "purpose": ""
+        },
+        "take": {
+          "label": "Take",
+          "purpose": ""
+        },
+        "return": {
+          "label": "Return",
+          "purpose": ""
+        },
+        "change": {
+          "label": "Change",
+          "purpose": ""
+        }
+      },
+      "kishotenketsu": {
+        "ki": {
+          "label": "Ki",
+          "purpose": ""
+        },
+        "sho": {
+          "label": "Sho",
+          "purpose": ""
+        },
+        "ten": {
+          "label": "Ten",
+          "purpose": ""
+        },
+        "ketsu": {
+          "label": "Ketsu",
+          "purpose": ""
+        }
+      },
+      "web_novel": {
+        "hook": {
+          "label": "Hook",
+          "purpose": ""
+        },
+        "establishment": {
+          "label": "Establishment",
+          "purpose": ""
+        },
+        "rising_conflict": {
+          "label": "Rising Conflict",
+          "purpose": ""
+        },
+        "setback": {
+          "label": "Setback",
+          "purpose": ""
+        },
+        "climax": {
+          "label": "Climax",
+          "purpose": ""
+        },
+        "resolution": {
+          "label": "Resolution",
+          "purpose": ""
+        }
+      },
+      "generic": {
+        "setup": {
+          "label": "Setup",
+          "purpose": ""
+        },
+        "confrontation": {
+          "label": "Confrontation",
+          "purpose": ""
+        },
+        "resolution": {
+          "label": "Resolution",
+          "purpose": ""
+        }
+      }
+    },
+    "kinds": {
+      "save_the_cat": "Save the Cat structure",
+      "hero_journey": "Hero's Journey structure",
+      "story_circle": "Story Circle structure",
+      "kishotenketsu": "Kishōtenketsu structure",
+      "web_novel": "Web Novel Arc structure",
+      "generic": "Three-Act (Generic) structure"
+    }
+  }
 }

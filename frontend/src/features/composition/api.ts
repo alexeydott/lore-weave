@@ -14,6 +14,7 @@ export type DecomposeBody = {
   premise: string;
   model_source: 'user_model' | 'platform_model';
   model_ref: string;
+  chapter_ids?: string[];
 };
 
 // Params for a chapter-level assembly (B2 chapter single-pass / B3 stitch).

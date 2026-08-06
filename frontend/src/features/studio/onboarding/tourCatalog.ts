@@ -12,7 +12,7 @@ export type StudioTourId =
   | 'worldResearch' | 'factChecking' | 'glossaryWorkflow'
   // #19 Wave 3 — editor "deep dive" tours (docs/specs/2026-07-06-editor-feature-inventory.md).
   | 'editorBasics' | 'editorAiTools' | 'editorDataSafety' | 'editorSceneRail' | 'editorGlossary'
-  | 'editorMediaImage' | 'editorMediaVideo' | 'editorMediaAudio'
+  | 'editorMediaImage' | 'editorMediaVideo' | 'editorMediaAudio' | 'structureTemplates'
   // #19 Wave 4 — composer "deep dive" tours (docs/specs/2026-07-06-composer-feature-inventory.md).
   | 'composerBasics' | 'composerSessions' | 'composerAgentTools' | 'composerContextBudget'
   | 'composerAiEditReview' | 'composerVoice' | 'composerPopout';
@@ -35,6 +35,7 @@ export const EDITOR_TOUR_CATALOG: StudioTourCatalogEntry[] = [
   { id: 'editorMediaImage', labelKey: 'tourPicker.editorMediaImage.label', descKey: 'tourPicker.editorMediaImage.desc' },
   { id: 'editorMediaVideo', labelKey: 'tourPicker.editorMediaVideo.label', descKey: 'tourPicker.editorMediaVideo.desc' },
   { id: 'editorMediaAudio', labelKey: 'tourPicker.editorMediaAudio.label', descKey: 'tourPicker.editorMediaAudio.desc' },
+  { id: 'structureTemplates', labelKey: 'tourPicker.structureTemplates.label', descKey: 'tourPicker.structureTemplates.desc' },
 ];
 
 /** #19 Wave 4 — Composer's own tour-picker entries (same "topic, not one long walkthrough" split). */
@@ -52,6 +53,7 @@ export const COMPOSE_TOUR_CATALOG: StudioTourCatalogEntry[] = [
  * panels into repeatable investigation practices rather than teaching isolated controls. */
 export const PANEL_TOUR_IDS: Partial<Record<string, StudioTourId[]>> = {
   editor: ['editorBasics', 'editorAiTools', 'editorDataSafety', 'editorSceneRail', 'editorGlossary', 'editorMediaImage', 'editorMediaVideo', 'editorMediaAudio'],
+  'structure-templates': ['structureTemplates'],
   compose: ['composerBasics', 'composerSessions', 'composerAgentTools', 'composerContextBudget', 'composerAiEditReview', 'composerVoice', 'composerPopout'],
   glossary: ['glossaryWorkflow'],
   'world-setup': ['worldResearch'],

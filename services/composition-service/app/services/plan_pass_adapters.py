@@ -483,6 +483,7 @@ def _decompose_to_artifact(result: Any) -> dict[str, Any]:
                         "synopsis": s.synopsis,
                         "tension": s.tension,
                         "present_entity_ids": [str(e) for e in (s.present_entity_ids or [])],
+                        "present_entity_names": dict(s.present_entity_names or {}),
                         "present_entity_names_unresolved": list(
                             s.present_entity_names_unresolved or [],
                         ),
@@ -528,6 +529,7 @@ def _artifact_to_decompose(art: dict[str, Any]) -> Any:
                     synopsis=str(s.get("synopsis") or ""),
                     tension=s.get("tension"),
                     present_entity_ids=[UUID(e) for e in (s.get("present_entity_ids") or [])],
+                    present_entity_names={str(k): str(v) for k, v in (s.get("present_entity_names") or {}).items()},
                     present_entity_names_unresolved=list(
                         s.get("present_entity_names_unresolved") or [],
                     ),

@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    color-scheme: dark;
     --background: 25 8% 8%;
     --foreground: 40 30% 95%;
 
@@ -48,6 +49,7 @@
 
   /* ── Light theme ──────────────────────────────────────────────────── */
   [data-theme="light"] {
+    color-scheme: light;
     --background: 40 20% 97%;
     --foreground: 25 15% 15%;
 
@@ -88,6 +90,7 @@
 
   /* ── Sepia theme ──────────────────────────────────────────────────── */
   [data-theme="sepia"] {
+    color-scheme: light;
     --background: 35 30% 92%;
     --foreground: 30 25% 20%;
 
@@ -174,6 +177,21 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+  /* Native select popups otherwise ignore the application palette and render as
+     white OS controls even while the rest of the workspace is dark. */
+  select,
+  select option {
+    color-scheme: dark;
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+  }
+  [data-theme="light"] select,
+  [data-theme="light"] select option,
+  [data-theme="sepia"] select,
+  [data-theme="sepia"] select option {
+    color-scheme: light;
+  }
+
 
 /* ── Button enhancements ─────────────────────────────────────────────────── */
 .btn-glow {

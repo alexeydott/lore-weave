@@ -67,6 +67,9 @@ class ScenePlan:
     present_entity_ids: list[str]
     present_entity_names_unresolved: list[str]
     suggested_k: int
+    # Resolved display names keyed by id. This is presentation-only metadata;
+    # commit payloads continue to persist the stable ids.
+    present_entity_names: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -346,11 +349,16 @@ def parse_scenes(
             tension = max(0, min(100, t))  # 0..100 scale (outline_node.tension)
         present = row.get("present")
         ids, unresolved = _resolve_cast(present if isinstance(present, list) else [], cast_index)
+        names_by_id = {eid: name for name in (present if isinstance(present, list) else [])
+                       if isinstance(name, str)
+                       for eid in [cast_index.get(name.strip().casefold())]
+                       if eid is not None}
         out.append(ScenePlan(
             title=title.strip() if isinstance(title, str) and title.strip() else intent.strip()[:60],
             synopsis=intent.strip(),
             tension=tension,
             present_entity_ids=ids,
+            present_entity_names=names_by_id,
             present_entity_names_unresolved=unresolved,
             suggested_k=adaptive_k(beat_role, tension, k_ceiling=k_ceiling,
                                    high_threshold=high_threshold),

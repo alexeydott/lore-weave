@@ -3,7 +3,7 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
-import { ArrowLeft, LayoutDashboard, Search, Settings, PanelsTopLeft } from 'lucide-react';
+import { ArrowLeft, CircleHelp, LayoutDashboard, Search, Settings, PanelsTopLeft } from 'lucide-react';
 import { StudioLayoutButton } from './StudioLayoutButton';
 import { PanelPicker } from '../layout/PanelPicker';
 
@@ -12,6 +12,8 @@ interface Props {
   bookTitle: string;
   /** Opens Quick Open (#06a). The affordance shows locations only — tools live in ⌘⇧P. */
   onOpenQuickOpen?: () => void;
+  /** Opens the catalog-driven User Guide panel. */
+  onOpenGuide?: () => void;
 }
 
 function PanelPickerButton() {
@@ -20,7 +22,7 @@ function PanelPickerButton() {
   return <div className="relative"><button type="button" onClick={() => setOpen((v) => !v)} data-testid="studio-panel-button" aria-haspopup="menu" aria-expanded={open} title={t('panelsPicker.title', { defaultValue: 'Workspace panels' })} className={`flex h-7 w-7 items-center justify-center rounded-md ${open ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}><PanelsTopLeft className="h-4 w-4" /></button>{open && <><div className="fixed inset-0 z-40" data-testid="studio-panel-backdrop" onClick={() => setOpen(false)} /><div className="absolute right-0 top-full z-50 mt-1"><PanelPicker /></div></>}</div>;
 }
 
-export function StudioTopBar({ bookId, bookTitle, onOpenQuickOpen }: Props) {
+export function StudioTopBar({ bookId, bookTitle, onOpenQuickOpen, onOpenGuide }: Props) {
   const { t } = useTranslation('studio');
   return (
     <div className="flex h-11 flex-shrink-0 items-center gap-2 border-b bg-card px-3">
@@ -61,6 +63,17 @@ export function StudioTopBar({ bookId, bookTitle, onOpenQuickOpen }: Props) {
           (ultrawide-friendly, well past the ~2×2 users reach by hand). */}
       <PanelPickerButton />
       <StudioLayoutButton />
+
+      <button
+        type="button"
+        onClick={onOpenGuide}
+        data-testid="studio-help-button"
+        title={t('userGuide.open', { defaultValue: 'Open user guide' })}
+        aria-label={t('userGuide.open', { defaultValue: 'Open user guide' })}
+        className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+      >
+        <CircleHelp className="h-4 w-4" />
+      </button>
 
       <Link
         to={`/books/${bookId}/settings`}

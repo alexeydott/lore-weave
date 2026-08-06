@@ -343,7 +343,9 @@ export function EditorPanel(props: IDockviewPanelProps) {
   // prose (a real chapter's words wrapped one-per-line in live testing), so the auto-default
   // starts closed on mobile; the toggle button still opens it on demand.
   const railChoice = railChoiceState;
-  const railOpen = railChoice ?? (hasScenes && !isMobile);
+  // Keep the editor compact by default. Scene metadata is opt-in via the toggle;
+  // an explicit user choice still wins and survives the current chapter render.
+  const railOpen = railChoice ?? false;
   const guideSceneSuggestions = () => {
     const selection = editorRef.current?.getSelection();
     if (!selection || selection.empty) {
