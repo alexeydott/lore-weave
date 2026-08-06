@@ -2,6 +2,7 @@
   "translateIntent": {
     "hint": "Pick a book to translate — open it, then use the Translation tab to start a translation."
   },
+  "help": {"open": "Open help", "tour": "Guided tour", "title": "Working with books", "description": "A quick guide to the books workspace.", "intro": "Manage your books here, then open one to research, edit, and build its world.", "items": ["Create a book or import a manuscript to get started.", "Open a book to edit chapters, glossary, and ontology.", "Use search and filters to find a book quickly."], "startTour": "Start tour", "back": "Back", "next": "Next", "done": "Done", "steps": [{"title": "Find a book", "description": "Search and filters help you open the right book quickly.", "body": "Use the search field and language filter to narrow the list."}, {"title": "Create or import", "description": "Start with a new book or an existing manuscript.", "body": "Select New Book, enter its details, or choose a file to import."}, {"title": "Open the workspace", "description": "All book tools are collected in its workspace.", "body": "Inside a book you can work with chapters, glossary, ontology, translation, and more."}]},
   "workspace": "My Books",
   "new_book": "New Book",
   "search_placeholder": "Search books...",
