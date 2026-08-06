@@ -16,6 +16,16 @@ type Props = {
   onUpdated: () => void;
 };
 
+// Prices are stored as JSON numbers and must not depend on the browser's
+// locale. Accept the comma decimal separator users commonly type in Russian
+// locales, then normalize it to the dot form before sending it to the API.
+function parsePriceInput(raw: string): number | undefined {
+  const normalized = raw.trim().replace(',', '.');
+  if (normalized === '') return undefined;
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : Number.NaN;
+}
+
 export function EditModelModal({ model, onClose, onUpdated }: Props) {
   const { t } = useTranslation('settings');
   const { accessToken } = useAuth();
@@ -70,8 +80,8 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
     if (!accessToken) return;
     // D-PRICING-REFRESH — mirror the backend's Validate() client-side so a
     // negative rate never round-trips through a 400 the user has to decode.
-    const inNum = inputPerMTok.trim() === '' ? undefined : Number(inputPerMTok);
-    const outNum = outputPerMTok.trim() === '' ? undefined : Number(outputPerMTok);
+    const inNum = parsePriceInput(inputPerMTok);
+    const outNum = parsePriceInput(outputPerMTok);
     if ((inNum != null && (Number.isNaN(inNum) || inNum < 0)) || (outNum != null && (Number.isNaN(outNum) || outNum < 0))) {
       toast.error(t('model_modal.edit.pricing_negative_error'));
       return;
@@ -282,16 +292,16 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
                   <div>
                     <label className="mb-1 block text-[10px] text-muted-foreground">{t('model_modal.edit.pricing_input')}</label>
                     <input
-                      type="number" min={0} step="any" value={inputPerMTok}
-                      onChange={(e) => setInputPerMTok(e.target.value)}
+                      type="text" inputMode="decimal" lang="en-US" value={inputPerMTok}
+                      onChange={(e) => setInputPerMTok(e.target.value.replace(',', '.'))}
                       className="h-9 w-full rounded-md border bg-background px-3 font-mono text-[13px] focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring/30"
                     />
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] text-muted-foreground">{t('model_modal.edit.pricing_output')}</label>
                     <input
-                      type="number" min={0} step="any" value={outputPerMTok}
-                      onChange={(e) => setOutputPerMTok(e.target.value)}
+                      type="text" inputMode="decimal" lang="en-US" value={outputPerMTok}
+                      onChange={(e) => setOutputPerMTok(e.target.value.replace(',', '.'))}
                       className="h-9 w-full rounded-md border bg-background px-3 font-mono text-[13px] focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring/30"
                     />
                   </div>

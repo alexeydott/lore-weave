@@ -1592,6 +1592,12 @@ func (s *Server) syncInventory(ctx context.Context, cred *credentialRow) error {
 		return err
 	}
 	for _, m := range models {
+		if m.CapabilityFlags == nil {
+			m.CapabilityFlags = map[string]any{}
+		}
+		if m.Pricing == nil {
+			m.Pricing = map[string]any{}
+		}
 		flags, _ := json.Marshal(m.CapabilityFlags)
 		pricing, _ := json.Marshal(m.Pricing)
 		if _, err := tx.Exec(ctx, `
@@ -1601,9 +1607,9 @@ VALUES ($1,$2,$3,$4,$5,now())
 			return err
 		}
 	}
-	// Inventory is the provider-of-record: refresh capability flags, context, and
-	// pricing for every existing user model registered against this credential.
-	if _, err := tx.Exec(ctx, `UPDATE user_models um SET capability_flags=pi.capability_flags, context_length=COALESCE(pi.context_length,um.context_length), pricing=pi.pricing, updated_at=now() FROM provider_inventory_models pi WHERE um.provider_credential_id=$1 AND pi.provider_credential_id=um.provider_credential_id AND pi.provider_model_name=um.provider_model_name`, cred.ProviderCredentialID); err != nil {
+	// Inventory fills metadata only while the user model has no override. This
+	// prevents a provider refresh from erasing user-selected flags or pricing.
+	if _, err := tx.Exec(ctx, `UPDATE user_models um SET capability_flags=CASE WHEN um.capability_flags IS NULL OR um.capability_flags='{}'::jsonb OR um.capability_flags='null'::jsonb THEN pi.capability_flags ELSE um.capability_flags END, context_length=COALESCE(pi.context_length,um.context_length), pricing=CASE WHEN (um.pricing IS NULL OR um.pricing='{}'::jsonb OR um.pricing='null'::jsonb) AND pi.pricing IS NOT NULL AND pi.pricing <> 'null'::jsonb AND pi.pricing <> '{}'::jsonb THEN pi.pricing WHEN um.pricing IS NULL OR um.pricing='null'::jsonb THEN '{}'::jsonb ELSE um.pricing END, updated_at=now() FROM provider_inventory_models pi WHERE um.provider_credential_id=$1 AND pi.provider_credential_id=um.provider_credential_id AND pi.provider_model_name=um.provider_model_name`, cred.ProviderCredentialID); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -1655,7 +1661,7 @@ func (s *Server) refreshUserModelCapabilities(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusInternalServerError, "M03_INVENTORY_QUERY_FAILED", "failed to read refreshed model metadata")
 		return
 	}
-	if _, err = s.pool.Exec(r.Context(), `UPDATE user_models SET capability_flags=$3, context_length=COALESCE($4,context_length), pricing=$5, updated_at=now() WHERE user_model_id=$1 AND owner_user_id=$2`, modelID, userID, flags, ctxLen, pricing); err != nil {
+	if _, err = s.pool.Exec(r.Context(), `UPDATE user_models SET capability_flags=$3, context_length=COALESCE($4,context_length), pricing=CASE WHEN (pricing IS NULL OR pricing='{}'::jsonb OR pricing='null'::jsonb) AND $5::jsonb IS NOT NULL AND $5::jsonb <> 'null'::jsonb AND $5::jsonb <> '{}'::jsonb THEN $5 ELSE COALESCE(NULLIF(pricing,'null'::jsonb),'{}'::jsonb) END, updated_at=now() WHERE user_model_id=$1 AND owner_user_id=$2`, modelID, userID, flags, ctxLen, pricing); err != nil {
 		writeError(w, http.StatusInternalServerError, "M03_USER_MODEL_UPDATE_FAILED", "failed to update model metadata")
 		return
 	}
