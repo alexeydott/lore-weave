@@ -181,11 +181,14 @@ async def control_extraction_job(
     # D-WIKI-M7B-RUNNING-CANCEL). The repo methods are owner-blind, so re-verify owner here (M4).
     if payload.kind == "wiki_gen":
         return await _control_wiki_gen_job(job_id, action, payload.owner_user_id)
-    # D-JOBS-P4-RETRY-KNOWLEDGE — re-submit a failed extraction job as a fresh one.
-    if action == "retry":
+    # D-JOBS-P4-RETRY-KNOWLEDGE — re-submit a failed extraction job. `resume`
+    # carries the persisted cursor/items_processed checkpoint; `retry` starts
+    # from the beginning so it can be used after changing parameters.
+    if action in ("retry", "resume"):
         return await _retry_extraction_job_core(
             job_id, payload.owner_user_id,
             jobs_repo, projects_repo, benchmark_repo, extraction_wake,
+            resume_checkpoint=(action == "resume"),
         )
     if action not in _ACTIONS:
         raise HTTPException(
@@ -261,6 +264,8 @@ async def _retry_extraction_job_core(
     projects_repo: ProjectsRepo,
     benchmark_repo: BenchmarkRunsRepo,
     extraction_wake: ExtractionWakeFn,
+    *,
+    resume_checkpoint: bool = False,
 ) -> JobControlResponse:
     """D-JOBS-P4-RETRY-KNOWLEDGE — re-submit a FAILED extraction job as a FRESH job (new
     job_id), reusing the failed row's scope/models/range/targets. Mirrors translation's
@@ -309,4 +314,16 @@ async def _retry_extraction_job_core(
         projects_repo, jobs_repo, benchmark_repo,
         extraction_wake=extraction_wake,
     )
+    if resume_checkpoint:
+        seeded = await jobs_repo.seed_retry_progress(
+            owner_user_id,
+            new_job.job_id,
+            cursor=job.current_cursor,
+            items_processed=job.items_processed,
+        )
+        if seeded is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"code": "JOBS_RESUME_SEED_FAILED", "message": "failed to seed extraction checkpoint"},
+            )
     return JobControlResponse(job_id=new_job.job_id, status=new_job.status)

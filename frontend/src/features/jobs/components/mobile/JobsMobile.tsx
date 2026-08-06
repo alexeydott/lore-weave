@@ -62,7 +62,7 @@ function JobCard({
       <JobProgress progress={job.progress} detailStatus={job.detail_status} />
       <div className="flex items-center justify-between">
         <JobCostTokens job={job} pricing={pricing} />
-        <JobControls service={job.service} jobId={job.job_id} controlCaps={job.control_caps} compact />
+        <JobControls service={job.service} jobId={job.job_id} controlCaps={job.control_caps} resumeFromCheckpoint={job.kind === 'extraction' && job.status === 'failed'} compact />
       </div>
     </div>
   );

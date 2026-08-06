@@ -66,7 +66,7 @@ export function JobMonitor({
             <JobStatusBadge status={job.status} />
           </div>
         </div>
-        <JobControls service={job.service} jobId={job.job_id} controlCaps={job.control_caps} retryBlockedReason={retryBlockedReason(job.params)} />
+        <JobControls service={job.service} jobId={job.job_id} controlCaps={job.control_caps} retryBlockedReason={retryBlockedReason(job.params)} resumeFromCheckpoint={job.kind === 'extraction' && job.status === 'failed'} />
       </div>
 
       {job.status === 'paused' && (

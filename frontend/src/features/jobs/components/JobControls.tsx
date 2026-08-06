@@ -13,6 +13,8 @@ interface Props {
   controlCaps: ControlCap[];
   /** Server-side retry admission result, when the producer knows retry is blocked. */
   retryBlockedReason?: string | null;
+  /** Failed extraction jobs expose a checkpoint-backed resume action. */
+  resumeFromCheckpoint?: boolean;
   /** Compact = icon-only buttons (mobile cards / dense rows). */
   compact?: boolean;
 }
@@ -29,7 +31,7 @@ const SUCCESS: Record<JobControlAction, [string, string]> = {
  *  MonitorControls): render cancel/pause/resume strictly from control_caps —
  *  never inferred from kind. A stale-state 409 or 502 surfaces as a toast and the
  *  list re-syncs (useJobControl invalidates ['jobs']). */
-export function JobControls({ service, jobId, controlCaps, compact, retryBlockedReason: serverRetryBlockedReason }: Props) {
+export function JobControls({ service, jobId, controlCaps, compact, retryBlockedReason: serverRetryBlockedReason, resumeFromCheckpoint = false }: Props) {
   const { t } = useTranslation('jobs');
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [retryBlockedReason, setRetryBlockedReason] = useState<string | null>(serverRetryBlockedReason ?? null);
@@ -132,10 +134,10 @@ export function JobControls({ service, jobId, controlCaps, compact, retryBlocked
           className={btn}
           onClick={() => run('resume')}
           disabled={ctl.isPending}
-          aria-label={t('controls.resume', { defaultValue: 'Resume' })}
+          aria-label={t(resumeFromCheckpoint ? 'controls.resumeFromCheckpoint' : 'controls.resume', { defaultValue: resumeFromCheckpoint ? 'Resume from checkpoint' : 'Resume' })}
         >
           <Play className="h-4 w-4" />
-          {!compact && t('controls.resume', { defaultValue: 'Resume' })}
+          {!compact && t(resumeFromCheckpoint ? 'controls.resumeFromCheckpoint' : 'controls.resume', { defaultValue: resumeFromCheckpoint ? 'Resume from checkpoint' : 'Resume' })}
         </button>
       )}
       {has('cancel') &&

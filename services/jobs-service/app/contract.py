@@ -112,6 +112,11 @@ def derive_control_caps(
         # (D-JOBS-P4-RETRY): either the kind is unconditionally retryable, or this
         # specific job carries the per-job `retryable` flag (composition). Retry
         # creates a NEW job; the failed row stays as history.
+        if kind == "extraction":
+            # Extraction has a persisted cursor/items_processed checkpoint. Offer
+            # both an explicit checkpoint resume and a full retry (the latter is
+            # useful after changing models or other parameters).
+            return [ControlCap.RESUME, ControlCap.RETRY]
         return [ControlCap.RETRY] if (kind in _RETRYABLE_KINDS or retryable is True) else []
     if s in TERMINAL or s == JobStatus.CANCELLING:
         return []

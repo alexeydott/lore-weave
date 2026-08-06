@@ -133,7 +133,7 @@ export function JobRow({
 
         {/* col 7 — actions */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <JobControls service={job.service} jobId={job.job_id} controlCaps={job.control_caps} retryBlockedReason={retryBlockedReason(job.params)} compact />
+          <JobControls service={job.service} jobId={job.job_id} controlCaps={job.control_caps} retryBlockedReason={retryBlockedReason(job.params)} resumeFromCheckpoint={job.kind === 'extraction' && job.status === 'failed'} compact />
           {useCallbackNav ? (
             <button
               type="button"

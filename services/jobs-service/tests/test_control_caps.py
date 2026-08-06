@@ -20,7 +20,8 @@ def test_failed_retryable_kinds_offer_retry():
     # translation (B1) + extraction (RETRY-KNOWLEDGE) + video_gen (RETRY-VIDEOGEN) +
     # enrichment_job (RETRY-LORE — re-drives the failed job, skipping done gaps) honor it.
     for kind in ("translation", "extraction", "video_gen", "enrichment_job"):
-        assert _vals(derive_control_caps(JobStatus.FAILED, kind)) == ["retry"]
+        expected = ["resume", "retry"] if kind == "extraction" else ["retry"]
+        assert _vals(derive_control_caps(JobStatus.FAILED, kind)) == expected
 
 
 def test_failed_non_retryable_kind_offers_nothing():
