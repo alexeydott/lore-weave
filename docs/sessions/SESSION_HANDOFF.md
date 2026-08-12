@@ -1,16 +1,321 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
-## FORK CONTRIBUTION AND CONTEXT HYGIENE (2026-08-05)
+**HEAD:** `34810c12a` + DB-guard sweep · **Branch:** `main` · 2026-08-09
 
-`CONTRIBUTING.md` now adapts the upstream contribution guide to this fork. Portable, reviewable
-agent guidance may be tracked in normal project documentation, but machine-local agent state,
-generated context, credentials, local endpoints, account details, database/model IDs, private
-keys, filled-in environment files, and `docs/dev/LOCAL_TEST_ENV.md` remain ignored. The upstream
-sync workflow removes those local paths after merging and verifies that none remains tracked before
-it commits. The ignore policy preserves tracked templates and the explicit test-only JWT key
-fixture. The repository-level gitleaks job remains the credential-content gate; `gitleaks` is not
-installed in this local shell, so the local check was limited to ignore-policy and workflow syntax
-validation.
+## 📦 2026-08-08 — PR #184 merged: contributed features in, contributed process out
+
+An outside contribution of 70 commits (534 files, +20k/−45k) carried feature work and the
+contributing fork's own working process in one branch. The features are in; the process is not.
+The merge was a fast-forward, so all 70 commits retain their original author.
+
+**In:** EPUB Import V2, FB2 import, glossary/knowledge fixes, studio/editor work, 175 frontend
+files, three CI fixes (pip-audit cwd for editable requirements, the composition eval-gate SDK
+install, migration 0016 in the dp_kernel_test setup). Four process improvements were kept too,
+each verified first: the credential-hygiene ignore block (by extension, not by path — a path list
+is default-uncovered); the top-level layout, which had listed 5 of 24 trees; the
+decompose-chained-shell-commands rule; and an explicit prohibition on reading another service's
+database, which had only been stated as ownership.
+
+**Out:** the AGENTS↔CLAUDE inversion, whose relocated copy was a stale snapshot — it reverted the
+AMAW retirement, the ContextHub removal, `/loom`, the re-measured xdist figures, and returned the
+test account's password and local auth UUID to a tracked file. The retirement commits are
+ancestors of the contribution, so those were reverts rather than omissions. Also out: a nightly
+`sync-upstream.yml` that in this repo would add itself as `upstream`, delete `.github/skills/`,
+and push to `main`; plus rules pointing `origin` at the fork and forbidding feature branches.
+Governance settled at +95/−15 across 8 files.
+
+Defects found while reconciling, all now fixed: `agent-skills-parity` was exiting 0 with "nothing
+to check" because `.ai-factory.json` had been deleted; `plan-artifacts.contract.json` had drifted
+from its producers; `SESSION_HANDOFF.md` had been truncated 10,390 → 545 lines with nothing
+archived; 20 frontend tests were red; the FB2 `SHA256SUMS` manifest could not verify (3 of 4
+hashes predated LF normalisation); and 30 Russian strings sat in frontend source, including the
+crash page and an LLM prompt.
+
+### ✅ CLOSED — the gate that could not see its own subject
+
+`i18n-completeness-gate` compares bundle against bundle. A string existing only as a
+`t(..., { defaultValue })` was therefore invisible to it, and equally invisible to
+`i18n_translate.py`, which reads the `en` bundle: such a string stayed in its source language
+in all 19 other locales while the gate reported full parity. **689 keys had accumulated** —
+609 found by hand, then 80 more that only a mechanism could find. 89% predate the outside
+contribution. All are backfilled and translated.
+
+Closed with a mechanism rather than a note: **`scripts/i18n-key-resolution-gate.py`** asserts
+every literal `t()` key resolves in `en`. Wired pre-commit (on components — adding the call is
+what creates the debt) and in `foundation-ci`. It resolves 6,497 keys across 658 components and
+reports the 418 runtime-built calls it cannot check, so the remaining blind spot is stated
+rather than implied.
+
+Four call shapes had to be modelled, each found by a false positive on an early run, and each
+is why a lint like this normally gets switched off instead of fixed: per-identifier namespace
+bindings (one file may hold `const { t } = useTranslation('chat')` beside
+`const { t: tKnowledge } = useTranslation('knowledge')`), the per-call `{ ns: 'x' }` override,
+i18next's positional-default form `t(key, 'text')`, and plural siblings (`key_one`/`key_other`
+resolve `t(key, { count })` with no bare `key` present). Arrays count as leaves —
+`returnObjects` reads a whole list.
+
+Of the 80 the gate found, 70 carried their English at the call site and were lifted verbatim;
+**10 carried nothing and rendered their own key to the user** (six in `StepProfile`, three in
+pdf-import, one in `GapReportTab`). Those ten are authored copy, worth a reviewer's eye.
+
+### ✅ CLOSED (2026-08-09) — the unguarded migration harnesses, and the gate that could not see them
+
+Every harness that executes a `.sql` file now verifies the target database first, and the
+verification lives in the helpers rather than at the call sites.
+
+**What was wrong.** `mustApplyEventSchema` called `testsafe.EnsureThrowawayDB` before its first
+destructive statement; the `mustApply` beside it did not, and four harnesses used `mustApply` —
+`outbox_atomicity`, `reality_lifecycle`, `archive_worker_live_smoke`,
+`retention_worker_live_smoke`. They apply `0002_events_table.up.sql`, which opens with
+`DROP TABLE IF EXISTS events`, and `0001_initial.down.sql`, which drops four tables. In
+`admin-cli` the same shape appeared as `applyDDL`, plus one test that had reimplemented
+`applyDDL` inline — read, deadlock-retry, execute — identical except for the check it lacked.
+
+Nobody decided to skip the guard. Calling a helper that quietly omits a safety check looks
+exactly like calling one that performs it, so **a check you have to remember is
+default-uncovered**, the same polarity as a hand-written migration list. The guard now sits
+inside `mustApply`, `mustApplyEventSchema` and `applyDDL`; the only way past it is to not use
+the helpers. It is unconditional rather than predicated on the SQL looking destructive: blast
+radius is a property of the file passed in, and a predicate would go quietly wrong the day a
+`DROP` is added to a migration already in someone's list.
+
+**Proven, against a decoy rather than a real database.** An empty DB named
+`loreweave_guardproof` — production-shaped name, nothing in it, so a failed guard damages only
+the decoy. Guard present: refused at the first `mustApply`, 0 tables touched. Guard removed:
+the same run created `events, snapshots, projection_meta, events_p_2026_08, events_outbox`,
+having executed `DROP TABLE IF EXISTS events` on the way. Against `lw_smoke_guardproof` the test
+passes, so the guard is not simply blocking everything. Both decoys dropped afterwards.
+
+**The gate had a matching blind spot.** `db-safety-gate.py` iterated
+`SEARCH_DIRS = (services, scripts, infra, sdks, contracts, crates)`. `tests/` was not in it, so
+the gate whose entire subject is destructive SQL in test code could not see the most destructive
+test code in the repo, and had reported PASS throughout. Verified: a bare `TRUNCATE events`
+injected into `tests/integration/` is invisible to the pre-change gate (exit 0) and red under the
+new one. Scanning is now the whole repo minus `EXCLUDE_DIRS` — a denylist, where a new tree is
+covered on the day it appears and every exclusion is a reviewable line. Third time this repo has
+shipped the allowlist version of this bug, after `hot-path-gate` and the migration lists.
+
+Widening surfaced nine findings, all previously unseen. Two were real and were fixed by renaming
+rather than exempting: `reality_lifecycle_test.go` dropped and recreated a database called
+`loreweave_meta_lifecycle` (now `lw_meta_lifecycle_test`), and the conformance metaprobe used
+`meta_lifecycle_check` (now `meta_lifecycle_probe_test`) — names that read as disposable to a
+human and as production to `testsafe`, which is the wrong way round for the audience that never
+gets tired. The remaining seven are exempted with the specific reason each is safe.
+
+**One consequence worth knowing.** Go's per-module layout means `testsafe` cannot cross module
+boundaries without a `replace`, so it is vendored — now **five** byte-identical copies. Five
+copies of a safety check is five chances for a fix to reach one and not the others, silently.
+`db-safety-gate` now hashes every `testsafe/testsafe.go` and fails on divergence. Proven by
+widening one copy's `throwawayMarker` to accept `loreweave` — i.e. reintroducing the original
+incident in a single service — and watching it name that copy. Consolidating into one shared
+module would retire the check; until then it is what keeps the copies honest.
+
+**Moving the guard into `mustApply` would have turned `foundation-ci` red**, and finding out why
+took a deliberate check rather than a CI run. `metaworker_live_smoke` hands
+`LW_INTEGRATION_META_DB` to `mustApply`, and that job's database is called
+`metaworker_meta` — disposable, created by the job itself, but carrying no marker, so the new
+guard would have refused it. `worldservice_meta` (embedding-worker) is the same shape. Both are
+renamed with a `_smoke` suffix.
+
+The gate could not see either. Its config check requires `TEST` in the variable name *and* a
+`loreweave_`-prefixed database; `LW_INTEGRATION_META_DB: …/metaworker_meta` satisfies neither.
+`db-safety-gate` now also requires that **any** Postgres DSN assigned in a
+`.github/workflows/` job name a marked database, whatever the variable is called — workflows
+only, since a compose file or service `.env` legitimately names a real database and a CI job
+never does. Proven by pointing a CI job at `loreweave_book`, the original incident verbatim: red
+under the new check, **exit 0 under the old one**.
+
+**Also fixed while verifying:** `outbox_atomicity` was not re-runnable. It applied
+`0001_initial` (plain `outbox`, FK → `events(event_id)`) *and* `0002_events_table` (DROPs
+`events`, recreates it partitioned, where `event_id` alone has no unique constraint). First run
+on a virgin DB passes; every run after dies in 0001 with SQLSTATE 42830. The comment above the
+two lines claimed the set was idempotent. CI never noticed because it hands each run a fresh
+database. The test only ever asserts against `events_outbox`, so `0001` was setup for a table
+nobody reads — removed. Three consecutive runs against one persistent DB now pass.
+
+**The proofs are permanent now, and finding a home for them found one more list.**
+`scripts/test_db_safety_gate.py` (14 tests) pins every case above — the `tests/` tree being
+walked, the CI-DSN check, copy divergence, and the pair to all of them: the gate staying quiet
+on the real repo, without which "goes red" is satisfied by a gate that reddens on everything.
+`gate-teeth-gate`'s ratchet moved 45 → 44.
+
+Wiring it revealed that `foundation-ci`'s pytest step was **fourteen hand-written filenames**,
+and it had already drifted: `test_i18n_key_resolution_gate.py`, written the day before, was
+never added, so the proof that the i18n gate can go red ran nowhere. That is the exact condition
+the step exists to prevent, reproduced inside the step itself. It globs `scripts/test_*.py` now,
+with a floor check so an empty expansion fails loudly rather than passing having run nothing.
+18 files, 277 tests, 59s.
+
+All gates green under `gate-wiring-gate.py --run-all`.
+
+### ✅ CLOSED (2026-08-09) — `domain-db-smoke` had been red since 2026-08-05, and nothing said so
+
+**"All workflows green" was measured over the workflows that RAN.** `domain-db-smoke` is
+path-filtered to `services/book-service|glossary-service|admin-cli|meta-worker`. The commits
+checked on 2026-08-08 touched frontend, scripts, docs and `tests/` — so it did not run, and its
+absence read as green. It ran again on 2026-08-09 only because the DB-guard sweep touched
+`services/admin-cli`. A path-filtered workflow that does not run is **unknown**, not passing;
+`gh run list` shows the last run, not the last *relevant* run.
+
+Three failures, all from the 2026-08-05 genre work, all breaking tests written in June and never
+updated since. Two distinct causes:
+
+**1. A read path silently undid a write.** `loadBookOntology` — GET `/ontology` — calls
+`ensureDefaultBookOntology`, which re-inserts every default genre into `book_active_genres`.
+`ON CONFLICT DO NOTHING` protects a row that exists; it cannot protect a row the user
+deliberately *removed*, because "this genre is off" is expressed as the ABSENCE of a row and is
+indistinguishable from "never set up". So `PUT /ontology/active-genres` returned 200 and the next
+page load brought the deactivated genre back — a setting no number of retries could make stick.
+Now guarded by `NOT EXISTS`, which is what the function's own doc says it is for.
+
+**2. Universal attributes were copied onto every genre.** `SeedGenreKindAttributes` fanned each
+universal attribute definition across every genre linked to a kind, so a `character` in a
+six-genre book had **seven `name` attributes**, all `sort_order = 1`. Universal attributes
+already reach an entity through the universal genre, so the copy added nothing visible and
+multiplied every identity field. Removed; the genre→book propagation beside it is kept, since
+that does something the universal genre cannot.
+
+It surfaced as two unrelated-looking bugs. `POST /entities` writes `display_name` to the
+universal `name` row while `recalculate_entity_snapshot` picked one of the seven **arbitrarily** —
+the name was stored correctly and `cached_name` came back empty, which is what every downstream
+reader joins on, so the entity was unfindable while looking perfectly well-formed in the table it
+was written to. And `sync/apply` reconciles one attribute row, so `take_theirs` on `aliases` left
+six identical siblings still reporting `update_available`.
+
+That `ORDER BY` was **non-deterministic on its own merits** — `sort_order` with no unique final
+key — and is now a total order (non-empty value first, then name/term, then universal, then
+sort_order, then `attr_id`). The aliases select beside it had no `ORDER BY` at all. Fixed
+independently of the seed: a query that is right in testing and a coin toss in production is
+worse than one that is plainly wrong.
+
+Verified: `glossary-service/internal/api` and `book-service/internal/api` both green, glossary
+run twice against one persistent DB. **Pre-existing and NOT fixed** —
+`internal/migrate/TestSystemAttrDescriptions_SeedsDescriptionsAndRefreshesHash` fails identically
+with these changes stashed (`empty descriptions = 3, want 93`); that package is in no workflow.
+
+### ✅ CLOSED (2026-08-09) — `python-integration-tests` was red too, and found the same way
+
+Checking the *other* path-filtered workflows after `domain-db-smoke` turned up a second one:
+9 of 13 workflows ran on the current commit; three of the four missing are
+`workflow_dispatch`/deploy-only, and the fourth — `python-integration-tests`, push-triggered
+and path-filtered to its six Python services — was **failing**.
+
+`knowledge-service` only. `test_kg_graph_schemas` asserted the literal pair
+`{"general": "insert", "xianxia-harem": "insert"}`, and the 2026-08-05 work added five graph
+schema templates (fantasy, romance, drama, historical, mystery). Nothing was wrong: the seeder
+did exactly the right thing with all seven. Unlike the glossary failures, **the test was the
+defect** — an enumeration restating the catalogue instead of asserting a property of the seeder.
+
+It was also default-uncovered in the direction that matters: it failed when the catalogue GREW,
+which is noise, and would have said nothing at all if a template were silently dropped from
+`_TEMPLATES`. Both assertions now derive from `_TEMPLATES` (with a floor check, so an empty
+catalogue cannot make them vacuously true): adding a template needs no edit, and a template that
+stops being seeded goes red. Verified 627 passed against live Postgres + Neo4j.
+
+That workflow's own header says it exists so these suites "can never rot unnoticed again". It is
+path-filtered, so it rotted unnoticed anyway — the guard was real, the trigger was the gap.
+
+**The rule this produced is now in [`AGENTS.md`](../../AGENTS.md) § Phase 6 VERIFY:** "CI is
+green" means every workflow's LATEST run, not the runs on your commit. `gh run list` returns only
+what ran, so a red path-filtered workflow silently drops off the list. Compare the workflows that
+EXIST against the ones that RAN, and read the last conclusion of every push-triggered one that is
+missing before using the word green.
+
+### ⚠️ NEXT-1 — `infra/patroni/patroni.yml` declares a `pg_hba` that Postgres never receives
+
+Surfaced while trying to give the `reality_lifecycle` rename a runtime proof. The two tests in
+`tests/integration/reality_lifecycle_test.go` **cannot pass against the meta-HA stack as
+configured**, and never could — they are not merely skipped in CI, they are unrunnable anywhere.
+
+`patroni.yml` declares under `bootstrap.dcs.postgresql.pg_hba`:
+
+```
+- host  all all 0.0.0.0/0   md5
+```
+
+What Spilo actually renders into `$PGDATA/pg_hba.conf` is its own default set, ending:
+
+```
+hostnossl all  all  all  reject
+hostssl   all  all  all  md5
+```
+
+`rlConnect` hardcodes `sslmode=disable`, so every connection from outside the container hits
+`hostnossl … reject`:
+`pg_hba.conf rejects connection for host "172.20.0.1", user "postgres", database "postgres", no encryption (28000)`.
+
+Two separate problems, and the second is the one that matters beyond this test:
+
+1. **The declared config is inert.** `bootstrap.dcs` applies only at first cluster bootstrap, and
+   the mounted `/etc/patroni/patroni.yml` is not where Spilo reads from — it wants
+   `SPILO_CONFIGURATION`. A config file that looks authoritative, is version-controlled, is
+   reviewed, and reaches nothing.
+2. **`rlReachable` tests the wrong thing.** It opens a TCP connection and calls that reachable,
+   so the harness reports "meta primary not reachable; skipping" when the port is down and
+   *fails* when it is up. There is no configuration in which those tests pass, and the skip has
+   been reading as "environment absent" rather than "this never worked".
+
+**The work:** decide whether the stack should accept non-SSL local connections (set
+`SPILO_CONFIGURATION`, or drop `sslmode=disable` from `rlConnect`), then make `rlReachable`
+assert an actual authenticated query so a broken stack fails loudly instead of skipping. Left
+untouched here: it is infra configuration for a stack no CI job runs, and the guard sweep this
+session belongs to should not carry a Patroni change with it.
+
+### ✅ CLOSED (mitigated, not root-caused) — two gates reported FALSE findings under CI load
+
+`all-gates` failed three consecutive runs on the same commit, naming a DIFFERENT subject each
+time, and each subject was demonstrably fine:
+
+| attempt | gate | claim |
+|---|---|---|
+| 1 | observability-inventory | `lw_embedding_queue_depth` undeclared |
+| 1 | emit-0013 | `scripts/perf/scale-rig.sh` missing 0013 |
+| 2 | emit-0013 | `scripts/ledger-verify-smoke.sh` missing 0013 |
+| 3 | observability-inventory | `lw_meta_outbox_retried_total` undeclared |
+
+Both metrics are declared in `contracts/observability/inventory.yaml`; both scripts contain
+`0013_events_content_sha256`. Locally each gate passes deterministically (3/3) on the exact
+committed content.
+
+The mechanism is visible in `observability-inventory-lint.sh:23` — the declared-set is built by
+`grep … | sed … | sort -u || true`. **`|| true` swallows a failed or truncated read**, so a
+transient error under CI load yields a PARTIAL declared-set, and every metric that fell out of it
+is reported as undeclared. `emit-0013` has the same shape via `$(cat "$f")`. The `|| true` is
+there to tolerate "no matches", but it cannot tell that apart from "the read broke" — so the gate
+converts an infrastructure hiccup into a confident, specific, wrong finding.
+
+That is worse than a flaky failure: it names a file and a line, so the natural response is to
+"fix" code that was never broken. Distinguish empty-result from read-failure (check the exit
+status, or assert the declared-set is non-empty before comparing — an empty inventory should
+FAIL loudly, not silently pass everything through as undeclared).
+
+Not fixed here deliberately: it is unrelated to the merge that surfaced it, and changing a gate's
+failure semantics is a decision worth making deliberately rather than at the end of a long run.
+
+### ✅ CLOSED — Scene Rail: the #12 M-C tri-state (open only as a product choice)
+
+The contribution set the Scene Rail default to `railChoice ?? false` inside a commit about
+decomposition planning, unmentioned in its message. That left the `#12 M-C` comment above still
+declaring `null = auto (open when scenes exist)`, made `null` and `false` behave identically, and
+reduced `hasScenes` to a count label. Reverted to `railChoice ?? (hasScenes && !isMobile)`, and
+the tri-state now has one test per arm — including the no-scenes case, which previously had none.
+
+Compact-by-default remains a defensible product choice. Making it properly means retiring the
+tri-state, rewriting the `#12 M-C` contract, and amending `#16 Phase 4` together — not flipping a
+single operand.
+
+### Also cleared (pre-existing, unrelated to the contribution)
+
+`services/retention-worker` had `go.mod` drift from a dependabot bump (`go mod tidy`, two indirect
+deps). `sdks/python` was missing `pymupdf` and `Pillow` from its `[test]` extra, which had been
+killing the entire 1030-test SDK suite at collection since 2026-07-06; that suite now runs
+(1021 passed, 9 skipped).
+
+
+> The entries below arrived with the merged contribution. Its two fork-local entries
+> (upstream-sync workflow, fork ignore boundary) were dropped in reconciliation because the
+> workflow they describe was not taken. Older history moved to
+> [`SESSION_ARCHIVE.md`](SESSION_ARCHIVE.md) under the 2026-08-08 block — trimmed, not deleted.
 
 ## AI SCENE PROPOSALS IN THE EDITOR (2026-08-05)
 
@@ -22,17 +327,6 @@ registered user model and existing provider-registry mediation; it does not add 
 provider credentials to the repository. Focused SelectionToolbar tests and the frontend type/build
 gate passed. The host Python environment lacks `pytest`, so the Composition unit suite still needs
 to be run in the service test image or a provisioned project environment.
-
-## UPSTREAM FORK SYNCHRONIZATION (2026-08-04)
-
-Merged `upstream/main` through `282724c50`, retaining fork-specific EPUB V2 and localization work
-while incorporating upstream product changes, documentation, plans, specifications, and checklists.
-The scheduled and dispatchable `.github/workflows/sync-upstream.yml` performs subsequent merges into
-this fork's `main`. It deliberately removes `.agents/`, `.ai-factory/`, `.claude/`, `.codex/`,
-`.cursor/`, `.github/skills/`, and `.ai-factory.json` from the repository index: agent configuration
-stays local and is outside the shared
-synchronization boundary. If a future upstream change conflicts, the workflow leaves `main` untouched
-and requires a normal reviewed merge resolution.
 
 ## EPUB IMPORT V2 — STRUCTURE-PRESERVING FOUNDATION IMPLEMENTED (2026-08-03)
 
@@ -543,3 +837,200 @@ ANOTHER nameless row. Evidence and translations were lost too — both hang off 
 ---
 
 > **▶ Archived 2026-06-30** — older / other-track handoffs moved to [`SESSION_ARCHIVE.md`](SESSION_ARCHIVE.md) to keep this file to the **active branch** only. The 2026-06-29 merge pulled in main's `Critical UX` + `Public MCP` tracks and all prior session history (glossary / composition / roleplay / extraction / KG / campaign / Sessions 66–71); all of it (incl. each track's open-defer register) lives in the archive and on its own branch + `main`. Search `SESSION_ARCHIVE.md` for a `D-…` id if you need a prior-track defer.
+
+## 📕 2026-08-03 — the dogfood run: a novel was planned and drafted through the real frontend
+
+The session's subject was not a feature. It was **using the product as an author would**, on the
+Mị Đế book, and fixing whatever stopped that. Four commits, all live-verified on the deployed <!-- doc-language-gate: ok -- book title (proper noun); the corpus this was verified against. -->
+stack, not on mocks.
+
+**What now works end-to-end that did not this morning** — propose (llm) → compile → validate →
+bootstrap → Pass Rail 6/7 with two human checkpoints → 35 linked scenes → three level-4 chapters
+drafted, on a local model, **$0.15 total**. The prose is in the book; a reading of all three is
+in the evidence doc below.
+
+**The four things that were in the way, in the order they blocked:**
+
+| # | what | commit |
+|---|---|---|
+| 1 | a glossary-build run stuck since **27 July** made World Setup unusable, and two of the states the active-run index counts had **no exit at all** | `b05cfcf7e` |
+| 2 | asked to plan an arc, the co-writer wrote 6948 characters and called **zero tools** — four independent mechanisms decide whether a tool reaches the wire and the request fell through all four | `363e22f43` |
+| 3 | the same run then could not turn its 11 compiled chapters into book chapters: bootstrap was gated on `status === 'compiled'`, and Validate (which Agent Mode *requires*) walks out of that window | `9154d67fe` |
+| 4 | drafting failed with `NO_CHAPTER_PLAN` until the Pass Rail produced scene plans — **not a bug**, but nothing in the drafting UI says so. See NEXT-1 | — |
+
+## 📗 2026-08-03 — the agent-runtime audit, and the spec that has to retire twelve predecessors
+
+Design-only cycle, no runtime code touched. Six parallel read-only auditors over disjoint layers
+(tool surfacing · skills · rails/guards/state · MCP servers + federation · workflows + registry ·
+documented intent), plus one main-session read of `stream_service.py` so the 7,818-line spine was read
+once rather than six times. Output: [`docs/specs/2026-08-03-agent-runtime-unification/`](../specs/2026-08-03-agent-runtime-unification/)
+— `AUDIT.md`, `SPEC.md`, and the six layer reports with `file:line` on every claim.
+
+**The finding, in one line:** for tool availability the architecture never existed — **thirteen
+successive mechanisms since 2026-06-10, exactly one ever retired** — and beneath that, *no artifact
+anywhere assigns a tool to a skill*. Measured: 16 producers, 18 filters (**13 silent**), 8 answers to
+"is this tool available", 3 workflow selectors, and **4 mutually inconsistent tool counts**. Coverage:
+98/202 tools named by any skill (~49%), 30/223 in any workflow (13%).
+
+**Three findings verified beyond the reports, in the main session:**
+
+| | |
+|---|---|
+| `repeat` is **dropped in transit** | Go declares `Repeat string`, the seeds write `true`, `_ = json.Unmarshal` discards the type error. Measured end-to-end **after `363e22f43` shipped**: DB row `[true × 8]`, wire `repeat` 0× of 45 steps, with `gate` 45× / `done_when` 8× as controls. So `363e22f43`'s item-3 fix and its seed-SQL lint are **both inert**; its other three fixes hold. 13 rail steps are wrongly disarmed today |
+| the hot-seed and the prompt disagree | `surface_hot_domains` resolves skills **without** `lazy_bodies` (defaults False ⇒ full set); the injection path passes `lazy_skill_bodies=True` ⇒ `[]`. Tools ride the wire with no skill body teaching them |
+| `visibility:"legacy"` is a runtime filter, not an artifact state | read directly at **7 filter sites** with no policy layer; it has a per-session escape hatch (`pinned_legacy_tools`), no clock, and no retire — hence 114 legacy tools served forever |
+
+**PO decisions sealed:** D1 both lanes (chat + out-of-agent FSM) with a declared boundary · D2 the six
+cheap fixes are Phase 0 · D3 "lifecycle" is two orthogonal axes plus the missing policy layer between
+them (this one corrected a live defect in the spec's own R4).
+
+**Web research folded in** (MCP 2026-07-28 deprecation policy · SEP-1300 *rejected*, so `_meta.group`
+is a legitimate private extension · `allowed-tools` **is** an Agent Skills standard field but means
+*permission*, not *reachability* · the retry-storm and context-contamination results behind the
+infinite-loop symptom). 12 requirements, 8 phases; **R12 evals-in-CI goes first**, because every later
+phase deletes something and nothing can be deleted without a regression net.
+
+## 📘 2026-08-03 — an outside contributor's PR merged, and the agent workflow reconciled onto one standard
+
+Five PRs onto `main` (#168, #170, #171, #172 via #173). The repo now has a single, versioned agent
+workflow that a contributor on any of five agents follows identically.
+
+**PR #165 (@alexeydott, the project's first outside contribution) is merged — with five defects it
+shipped with, fixed.** CI had never run on that branch and `main` was a commit ahead, so nothing had
+been measured against the code it would land on:
+
+| defect | what it actually was |
+|---|---|
+| token accounting lost most of what it counted | the accumulator was a tuple in a `ContextVar`; `extract_pass2` fans the trio through `asyncio.gather`, and a Task **copies** the context — every child's tokens were discarded. Only the entity pass survived |
+| `_record_usage` raised `AttributeError` | on any job without `.result`, aborting the LLM call it was merely observing |
+| `"Глава %d"` | a hardcoded Russian fallback chapter title, written into every user's DB on EPUB import |
+| `parts` dropped from non-PDF imports | on a claim that parts moved to composition — but `hierarchy.go` still builds `book_parts` from that table, and PDF import kept writing it |
+| the PR's own new test | imported `estimateJobTotalCost`; the module exports `estimateTotalJobCost`. It had never passed |
+
+Plus **70 test failures** from fixtures the PR never updated, and two pre-existing `rules-of-hooks`
+lint errors on `main`. Issues #163 (base-URL normalisation) and #152 (`/verify` route) closed.
+
+**The workflow now has one home and one shape.** `CLAUDE.md` → `AGENTS.md` (15-line pointer left
+behind), new `CONTRIBUTING.md`, test account moved to a git-ignored personal file, ContextHub removed
+(a server no agent ever called, costing a subprocess per Bash call and a 75s commit timeout while
+gating nothing).
+
+The PR also carried **AI Factory** ([lee-to/ai-factory](https://github.com/lee-to/ai-factory), MIT,
+2.17.0). Kept — a shared versioned process is what makes a wrong turn reviewable — but reconciled
+rather than stacked: project rules bind through `.ai-factory/skill-context/`, its `aif-gate-result`
+JSON contract is **adopted** as the output shape for our own gates (`scripts/gate_result.py`), and the
+pack is installed for **five** agent targets (claude, cursor, codex, codex-app, copilot) through the
+generator, never by hand. One conflict caught immediately: `aif-implement`'s *"do not add tests by
+default"* is wrong here and is overridden.
+
+**Three new gates, each proven red before being trusted** (`docs/standards/non-vacuity.md`):
+
+- `agent-skills-parity.py` — the 5 skill trees byte-identical modulo documented substitutions, 750 files
+- `slash-command-doc-gate.py` — a runner on disk is named in AGENTS.md, and vice versa
+- `test-skip-census.py` — which suites are gated off and by which variable (1184 files, 15 variables)
+
+**Two things found while verifying, both fixed:** `agentic-workflow/install.sh` copied the deleted
+`mcp-query.py` back into its target, so running it would have re-broken `gate-wiring-gate` — a ⚠️
+STALE banner had been added instead, which warns a reader and does nothing to the script. And
+`/review-impl` — the only runner still in daily use — gained a `+check` findings validator adapted
+from `aif-review`, with the adaptation that matters: a generic validator reads a correct standards
+finding as speculation and drops it, so the rule text is inlined next to it and a HIGH finding on a
+LOCKED standard may be reworded but never dropped.
+
+`/loom` retired (43 lines, against `aif-plan` 818 + `aif-implement` 987). `/warp`, `/raid`, `/amaw`
+are planned, not done — NEXT-5.
+
+**Verified on merged `main`, not on either side of it:** frontend 6381 · worker-ai 511 ·
+knowledge-service 4115 · composition-service 3652 · three Go suites · 8 gates · language-rule PASS.
+
+### …and then the runners were retired, which found two more things
+
+`/review-impl` is the **only** slash command left. `/loom`, `/raid`, `/warp` and `/amaw` are gone —
+the owner had already stopped using all four, and AI Factory's coordinators, worktree-isolated
+workers and read-only sidecars cover what they did, maintained upstream.
+
+**The retirement plan was wrong twice, and measurement corrected it both times.** It first called
+`/warp` cheap to remove (live registered verb, three scripts, a green test, a spec). Then at
+execution the bigger correction: **`scripts/raid/` and `scripts/warp/` are not runner plumbing** —
+they are live-smoke and slice-validation scripts that production tests cite by path
+(`verify-cycle-5.sh`, `verify-cycle-13.sh`), that `capacity-thresholds.yaml` points at, and that
+`gate-wiring-gate.py` carries an exemption for; 4–7 outside references each. Deleting them would
+have turned dozens of `docs/**` references into lies. **So: runners retired, machinery kept.** What
+actually went was three command files and AMAW's whole surface inside `workflow-gate.py` (state
+keys, two verbs, the gated AUDIT_LOG writer, four helpers, one orphaned import — 49 of 769 lines).
+`AUDIT_LOG.jsonl` stays: the writer is gone, the record is not.
+
+**One behaviour did not survive, and is recorded rather than buried:** AMAW's Scope Guard was a
+*blocking* gate at POST-REVIEW; the sidecars replacing it are advisors. POST-REVIEW is still a human
+checkpoint and that is now the only thing that blocks there.
+
+**`slash-command-doc-gate` — written that morning — caught the afternoon's change twice.** Once on
+four orphaned commands (its purpose), and once because the retirement note's wording changed from
+`**Retired:**` to `**Retired 2026-08-03:**` and the exemption regex stopped matching. Narrowed:
+only commands named *on a line starting with a bold Retired marker* are exempt, so a live-but-
+undocumented runner cannot hide beside a retirement note. A ghost command one line below still reds.
+
+**Then the hook chain was enabled for the first time and immediately failed on a real bug.**
+`scripts/fe-door-scan.py` had `ROOT = pathlib.Path("d:/Works/source/lore-weave/frontend/src")` — a
+path that **exists on this machine but is a different checkout**, so the scan had been reporting on
+a sibling repo. Derived from `__file__` now: 743 components / 624 test files under *this* tree. The
+`no-absolute-host-paths` gate was written for exactly this and was right; nothing was listening,
+because `core.hooksPath` was unset. See NEXT-5.
+
+**43 merged remote branches deleted** (each verified an ancestor of `main` first, not trusted from
+`--merged`). 26 remain, all genuinely unmerged.
+
+### ▶ NEXT
+
+1. **`NO_CHAPTER_PLAN` is a dead end with no signpost.** Agent Mode's preflight shows 4/4 green
+   and the run then fails on the first unit, because "the chapters have scene plans" is not one
+   of the things preflight checks. The Pass Rail that produces them is in a different panel. A
+   fifth preflight row naming the missing pass would close it — small, and it is the last hard
+   stop in the authoring path.
+2. **`D-BOOTSTRAP-PREVIEW-LIES` is fix-now, not deferred** — one function, and the correct
+   pattern is the other half of the same function. See the register row.
+3. **The agent-runtime unification spec is at its CLARIFY checkpoint with 12 open DESIGN questions**
+   ([`SPEC.md`](../specs/2026-08-03-agent-runtime-unification/SPEC.md) §10). The load-bearing ones:
+   does a `both`-lane tool count toward the FSM coverage ratchet · who is `owner` for a platform tool ·
+   what sunset window is honest for a tool only our own agent calls · **which four of the six
+   orchestrator breakers R10 deletes** (name them, or "net-negative" is unfalsifiable).
+   [`2026-08-03-tool-reachability-ssot.md`](../specs/2026-08-03-tool-reachability-ssot.md) is
+   **absorbed, not superseded** — its diagnosis is independent corroboration and three of its four
+   fixes hold; its banner must record that item 3 is inert, or the next reader will believe `repeat`
+   works.
+4. The **glossary↔KG refactor now has an acceptance case**, which it did not before:
+   [`…-glossary-kg-entity-refactor/2026-08-03-dogfood-entity-consistency-evidence.md`](../specs/2026-08-03-glossary-kg-entity-refactor/2026-08-03-dogfood-entity-consistency-evidence.md)
+   §1. A character the `cast` pass minted at 05:47 took the antagonist's defining act at 05:54,
+   and `canon_consistency` scored **5/5** on all three chapters. A design that cannot prevent
+   that has not addressed the refactor.
+
+5. **The hook chain had never been enabled in this checkout.** `core.hooksPath` was unset, so every
+   `scripts/*-gate.py` in `.githooks/pre-commit` was inert — and several commits this session used
+   `--no-verify` believing they were bypassing a gate that was not there. Same outcome, different
+   cause. Set it: `git config core.hooksPath .githooks`. **Do this on any checkout of this repo**;
+   `CONTRIBUTING.md` says so and it is easy to skip.
+
+   Enabling it exposed a second gap, now closed: the **12-phase gate lived only in
+   `.claude/settings.json`**, so it fired when Claude Code issued `git commit` and for nobody else —
+   one caller in five, on a repo that became five-agent the same day. Moved into
+   `.githooks/pre-commit` (last in the chain, so a blocked commit reports code findings *and* the
+   missing phase). **It does not block a contributor who never started a run:** `workflow-gate.py
+   pre-commit` fails open with "No workflow state found" when there is no `.workflow-state.json`.
+   Measured both ways through the real chain — no state → exit 0; size classified with VERIFY
+   unrecorded → exit 1. The duplicate PreToolUse copy is gone; the bundle keeps its own, because
+   `install.sh` writes no git hook into a target repo.
+
+### Not fixed, and not tracked anywhere else
+
+- **Book search is broken for Vietnamese diacritics** on a Vietnamese-first product: `eval` → 19
+  results, `Đế` → 0, `Mị Đế` → 0. Found by trying to open the book by name. <!-- doc-language-gate: ok -- book title (proper noun); the corpus this was verified against. -->
+- **The baked frontend serves a stale `index.html`** after a rebuild — the browser requests the
+  old bundle hash and nginx answers with the SPA fallback, so the page is blank with a MIME-type
+  console error and no other symptom. Cache-bust or clear the SW to recover.
+
+---
+
+> **MERGE 2026-08-02** — `origin/main` (67 commits: the game-logic promotion + a Dependabot
+> sweep) merged in. 14 files conflicted; the reconciliation notes live in
+> §MERGE RECONCILIATION below. Main's own session sections are preserved verbatim under
+> §FROM `origin/main` further down — they are a different track's history, not this run's.
