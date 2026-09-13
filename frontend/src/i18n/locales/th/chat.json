@@ -428,7 +428,10 @@
     }
   },
   "inspector": {
+<<<<<<< HEAD
     "title": "รันไทม์ของเอเจนต์",
+=======
+>>>>>>> 7032ce6b3 (fix(i18n): run --retry-echoed -- one of the seven was a real gap, six were not (#257))
     "pinned": "เครื่องมือที่ปักหมุด",
     "hot": "เมล็ดพันธุ์ยอดนิยม",
     "activated": "เปิดใช้งานแล้ว",
@@ -444,7 +447,8 @@
       "discovering": "กำลังค้นหา…",
       "activated": "เปิดใช้งานแล้ว",
       "tool_running": "กำลังใช้เครื่องมือ"
-    }
+    },
+    "title": "Agent runtime"
   },
   "presets": {
     "custom": "กำหนดเอง",
