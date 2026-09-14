@@ -32,7 +32,10 @@ from loreweave_llm.budget import OutputKind, call_budget
 logger = logging.getLogger(__name__)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 0893c05b2 (fix(composition): the co-writer asked for context instead of writing (#273))
 #: `draft_scene` for a scene with NO filled <beat> — see the F12 note in `build_messages`.
 _DRAFT_SCENE_WITHOUT_BRIEF = (
     "Draft ONLY this scene. It has no written brief yet — no <beat> fields have been filled in, "
@@ -44,6 +47,7 @@ _DRAFT_SCENE_WITHOUT_BRIEF = (
     "context: do NOT write them."
 )
 
+<<<<<<< HEAD
 #: `continue` for a scene with NO prose yet (no <recent> block) — see the F13 note in `build_messages`.
 _CONTINUE_WITHOUT_PROSE = (
     "There is no prose in this scene yet — nothing has been written, and that is expected. Do not "
@@ -54,6 +58,8 @@ _CONTINUE_WITHOUT_PROSE = (
 )
 
 >>>>>>> afe24542e (fix(composition): continue asked for the prose it was meant to continue (F13))
+=======
+>>>>>>> 0893c05b2 (fix(composition): the co-writer asked for context instead of writing (#273))
 _OPERATION_INSTRUCTIONS = {
     "continue": "Continue the scene from where the recent prose ends, in the same voice.",
     # SCENE-BOUNDARY (2026-07-30, Mị Đế): the plan block shows the whole chapter, so
@@ -518,9 +524,26 @@ def build_messages(
     voice = f" Match this voice: {profile.voice}." if profile.voice else ""
     style = style_directive(profile)  # T3.5 — density/pace + present-character voices
     system = (
-        "You are a co-writer continuing a novel. Use the provided canon, present "
-        "characters, threads, beat, recent prose, and lore as grounding; never "
-        "contradict the canon and never introduce facts beyond what is given. "
+        # F12 / #273 — this sentence used to read "Use the provided canon, present characters,
+        # threads, beat, recent prose, and lore as grounding; never contradict the canon and
+        # never introduce facts beyond what is given." On a NEW book the context is only a beat,
+        # and a strict model read those two clauses together as "you have nothing you are allowed
+        # to write from": every one of the 14 most recent drafts on the test stack came back as
+        # "Please provide the context, canon, present characters, threads, beat, recent prose,
+        # and lore" — a request, accepted into the manuscript as prose. Controlled A/B on the
+        # stored request (gemma-4-26b, cache evicted per call): old 6/6 requests, 0 prose;
+        # this wording 0/6 requests, 6/6 prose of 304-424 words. On a GROUNDED context (named
+        # cast + two canon rules) neither wording invented a character name or broke canon, 6/6
+        # each — so the loosening does not buy drift where there is something to be faithful to.
+        "You are a co-writer continuing a novel. Use whatever canon, present "
+        "characters, threads, beat, recent prose, and lore the context provides as "
+        "grounding; never contradict the canon. "
+        "The context may be sparse — on a new book it can be only a beat. That is "
+        "expected, not an error: NEVER ask for more context, never reply with a request, "
+        "a question or a note to the author, and never describe what you would need. "
+        "Always write the prose itself, from whatever IS given. "
+        "Where the context is thin, add only unnamed, ordinary detail; do not invent "
+        "established facts. "
         "Everything in the context has ALREADY happened earlier in the novel and "
         "the reader has read it: CONTINUE the story forward from that point — do "
         "NOT re-introduce characters, re-describe the established setting, or "
@@ -564,7 +587,10 @@ def build_messages(
     )
     instruction = _OPERATION_INSTRUCTIONS.get(operation, "Write the next passage of the scene.")
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 0893c05b2 (fix(composition): the co-writer asked for context instead of writing (#273))
     # F12 / #273 — `draft_scene` names seven <beat> fields and tells the model to use "every" one.
     # A scene the author has only just created has none filled, so the packer (correctly) emits no
     # <beat> block at all — and the model, pointed at a block that is not there, asked for it:
@@ -576,6 +602,7 @@ def build_messages(
     # on a book whose author had named no one, which the system prompt's name rule forbids.
     if operation == "draft_scene" and "<beat>" not in packed_prompt:
         instruction = _DRAFT_SCENE_WITHOUT_BRIEF
+<<<<<<< HEAD
     # F13 — the same failure on `continue` ("Continue the scene from where the recent prose ends").
     # An empty scene has no <recent> block, so the model asked for it: "Please provide the recent
     # prose or the context of the scene". A/B on the request `build_messages` itself produces for an
@@ -584,6 +611,8 @@ def build_messages(
     if operation == "continue" and "<recent>" not in packed_prompt:
         instruction = _CONTINUE_WITHOUT_PROSE
 >>>>>>> afe24542e (fix(composition): continue asked for the prose it was meant to continue (F13))
+=======
+>>>>>>> 0893c05b2 (fix(composition): the co-writer asked for context instead of writing (#273))
     # FD-1 S3 — only fires when open promises were re-injected (the <open_promises>
     # block is present ⇒ narrative_thread is enabled + has open threads). Without a
     # steer the block is inert context; with it, the model advances/pays promises.

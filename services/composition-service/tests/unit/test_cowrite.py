@@ -303,7 +303,10 @@ def test_char_estimate_over_estimates_and_clamps():
     assert cowrite.char_estimate("") == 0
     assert cowrite.char_estimate("abc") >= 1
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 0893c05b2 (fix(composition): the co-writer asked for context instead of writing (#273))
 
 
 # ── F12 / #273 — a draft on a book with nothing in it must still be a draft ───────────────────────
@@ -333,6 +336,7 @@ def test_the_system_prompt_forbids_asking_for_context():
     assert "never introduce facts beyond what is given" not in system  # the clause that read as "write nothing"
     assert "never contradict the canon" in system
     assert "Do NOT invent a new proper name" in system                  # the name rule is untouched
+<<<<<<< HEAD
 
 
 def test_continue_on_a_scene_with_no_prose_is_not_told_to_continue_the_recent_prose():
@@ -347,3 +351,5 @@ def test_continue_with_prose_still_continues_it():
     assert cowrite._OPERATION_INSTRUCTIONS["continue"] in user
     assert cowrite._CONTINUE_WITHOUT_PROSE not in user
 >>>>>>> afe24542e (fix(composition): continue asked for the prose it was meant to continue (F13))
+=======
+>>>>>>> 0893c05b2 (fix(composition): the co-writer asked for context instead of writing (#273))
