@@ -99,7 +99,9 @@ const MAX_PLAIN_TEXT_MESSAGE = 200;
 // Keep this bounded so callers can render an actionable error and offer retry.
 const API_REQUEST_TIMEOUT_MS = 20_000;
 
-async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs = API_REQUEST_TIMEOUT_MS): Promise<Response> {
+async function fetchWithTimeout(
+  input: RequestInfo | URL, init: RequestInit, timeoutMs: number = API_REQUEST_TIMEOUT_MS,
+): Promise<Response> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
@@ -125,22 +127,11 @@ export function isPlainTextMessage(text: string): boolean {
   return !t.startsWith('<');    // any markup/document, not a sentence
 }
 
-/** Is a plain-text error body just the framework's default status line, not an
- *  application message? Go's `http.NotFound` — the router default for an unrouted
- *  path, e.g. a /v1 call that reaches a service which does not serve it — writes
- *  the literal body `404 page not found`; proxies emit the same `<code> <text>`
- *  shape. It names no failing dependency and no failed action, so surfacing it
- *  verbatim tells the author the PAGE does not exist: live, the BooksPage banner
- *  and the AssistantPage full-screen error both rendered exactly that. Real Go
- *  `http.Error` sites write sentences ("database unavailable", "db down", "mcp not
- *  configured") — none starts with its own status code — so this never swallows
- *  one. Exported for tests. */
-export function isStatusCodeBoilerplate(text: string, status: number): boolean {
-  return new RegExp(`^${status}(\\s|$)`).test(text.trim());
-}
-
 export async function apiJson<T>(
   path: string,
+  // `timeoutMs` overrides the 20s ceiling for the rare route that runs a model INLINE. The ceiling
+  // exists so an ordinary request can never hang the shell; a synchronous LLM call is not an
+  // ordinary request, and forcing it under 20s turns a slow success into a visible failure.
   init: RequestInit & { token?: string | null; timeoutMs?: number } = {},
   retried = false,
 ): Promise<T> {
@@ -161,7 +152,8 @@ export async function apiJson<T>(
   if (init.token) {
     headers.Authorization = `Bearer ${init.token}`;
   }
-  const res = await fetchWithTimeout(`${base()}${path}`, { ...init, headers }, init.timeoutMs);
+  const { timeoutMs, ...fetchInit } = init;
+  const res = await fetchWithTimeout(`${base()}${path}`, { ...fetchInit, headers }, timeoutMs);
   if (res.status === 204) {
     return undefined as T;
   }
@@ -171,20 +163,16 @@ export async function apiJson<T>(
     try {
       body = JSON.parse(text);
     } catch {
-      // A non-JSON body is one of THREE things, and they must not be treated alike:
+      // A non-JSON body is one of TWO things, and they must not be treated alike:
       //   1. a real plain-text message — Go's `http.Error(w, "database unavailable", 503)`
-      //      (20 such sites across the Go services). Keep surfacing these.
+      //      (24 such sites across the Go services). Keep surfacing these.
       //   2. an INFRA error page — nginx's 502/504 HTML, a proxy timeout. These carry no
       //      user-facing message at all.
-      //   3. framework boilerplate — Go's `http.NotFound` default body `404 page not found`
-      //      (the router default for an unrouted path). It restates the status code and
-      //      tells the author the PAGE does not exist; never surface it — fall back to the
-      //      status text like (2). See `isStatusCodeBoilerplate`.
       // `message` flows to the Error below → readBackendError → the global MutationCache
       // toast, so (2) rendered a whole HTML document at the author (S2 hit this live on a
       // 502 through the FE nginx). Suppress markup and anything far too long to be a
       // sentence; keep the raw text under `rawBody` either way for debugging.
-      body = isPlainTextMessage(text) && !isStatusCodeBoilerplate(text, res.status)
+      body = isPlainTextMessage(text)
         ? { code: 'PARSE_ERROR', message: text.trim(), rawBody: text }
         : { code: 'PARSE_ERROR', rawBody: text };
     }

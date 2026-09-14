@@ -1688,6 +1688,7 @@ frontend unit, model idle: 157 files, 1115 passed
 **AC impact:** AC-2 — explicitly NOT satisfied for #274; the reason and the forbidden reproduction step are recorded rather than papered over.
 
 
+<<<<<<< HEAD
 ### Cycle 35 — the co-writer asked for context instead of writing, and every test passed (F12, #273)
 
 **Investigated:** every `generation_job` result on this stack today; the `prose_draft` requests in `llm_jobs`; the streamed `draft_scene` request, captured through the logging proxy (throwaway stack, provider endpoint restored); `cowrite.build_messages` (system sentence and `draft_scene` instruction); `packer/assemble.py` (when `<beat>` is emitted); `composition-generate.spec.ts`.
@@ -1727,6 +1728,8 @@ RESTORED + rebuilt, every co-write spec:  14 passed (3.6m)
 **AC impact:** AC-2 — bitten both ways through rebuilt images, and the bite's error is the defect by name. AC-3 — the one test edit makes the claim stricter; it is what made the defect visible at all.
 
 
+=======
+>>>>>>> 72eb7753a (fix(frontend): let the inline critique outlive the 20s request ceiling (#274))
 ```goal-prompt
 goal: every one of the 18 remaining failures is green or carries a recorded reason it cannot be, every product fix is proven by RE-BREAKING it, and both skips are answered or owned
 po_decisions: [F2, H1, H2, AC-7]
