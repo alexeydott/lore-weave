@@ -70,6 +70,9 @@ export type ProviderCredential = {
 	// Per-credential concurrency cap. null/absent uses the system default cap (8);
 	// a positive value overrides it for this provider credential.
   max_concurrency?: number | null;
+  // #286 — "serve one model at a time": the user's statement that this server (a local GPU)
+  // holds ONE model, so requests for different models must take turns. Opt-in, default false.
+  serve_one_model_at_a_time?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -160,13 +163,13 @@ export const providerApi = {
     return apiJson<{ items: ProviderCredential[] }>('/v1/model-registry/providers', { token });
   },
 
-  createProvider(token: string, payload: { provider_kind: string; display_name: string; secret?: string; endpoint_base_url?: string; api_standard?: APIStandard; max_concurrency?: number | null }) {
+  createProvider(token: string, payload: { provider_kind: string; display_name: string; secret?: string; endpoint_base_url?: string; api_standard?: APIStandard; max_concurrency?: number | null; serve_one_model_at_a_time?: boolean }) {
     return apiJson<ProviderCredential>('/v1/model-registry/providers', {
       method: 'POST', token, body: JSON.stringify(payload),
     });
   },
 
-  patchProvider(token: string, id: string, payload: { display_name?: string; secret?: string; endpoint_base_url?: string; active?: boolean; api_standard?: APIStandard; max_concurrency?: number | null }) {
+  patchProvider(token: string, id: string, payload: { display_name?: string; secret?: string; endpoint_base_url?: string; active?: boolean; api_standard?: APIStandard; max_concurrency?: number | null; serve_one_model_at_a_time?: boolean }) {
     return apiJson<ProviderCredential>(`/v1/model-registry/providers/${id}`, {
       method: 'PATCH', token, body: JSON.stringify(payload),
     });
