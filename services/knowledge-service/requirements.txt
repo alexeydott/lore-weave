@@ -38,7 +38,7 @@ jieba>=0.42.1
 # even when the answer is a 1-hop relation. We instead Aho-Corasick match the message
 # against the project's KNOWN entity-name dictionary (language-agnostic: zh/ja/ko/vi).
 # Prebuilt manylinux wheels (no build toolchain needed); C-ext = sub-ms at scale.
-pyahocorasick>=2.0
+pyahocorasick>=2.3.1
 # D-T2-01 — tiktoken for accurate token counting (CJK especially).
 # The len/4 heuristic undercounts CJK by ~3-7x, which over-promises
 # context budget. tiktoken.cl100k_base matches GPT-4/Claude-3.x
@@ -53,7 +53,7 @@ beautifulsoup4>=4.15.0,<5
 # Realistic added image footprint ~500MB-1GB including transitive
 # pydantic v2 + sentence-transformers + pyarrow (per plan LOW-12).
 # Used only in tests/quality/* and only opt-in via --run-quality.
-deepeval==4.1.1
+deepeval==4.2.0
 seqeval==1.2.2
 datasets==2.21.0
 krippendorff==0.8.2

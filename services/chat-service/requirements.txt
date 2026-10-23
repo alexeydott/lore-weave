@@ -1,16 +1,16 @@
-fastapi>=0.139.2
-uvicorn[standard]>=0.51.0
+fastapi>=0.141.1
+uvicorn[standard]>=0.52.4
 python-multipart>=0.0.9
 asyncpg>=0.31.0
-pydantic>=2.13.4
-pydantic-settings>=2.14.2
+pydantic>=2.13.5
+pydantic-settings>=2.15.0
 httpx>=0.27
 PyJWT>=2.13.0
 python-dotenv>=1.2.2
 # litellm dropped in Phase 1c-ii — chat-service now routes all LLM calls
 # through provider-registry's /internal/llm/stream via the local
 # loreweave_llm SDK (installed via Dockerfile COPY of sdks/python).
-boto3>=1.43.51
+boto3>=1.43.87
 redis>=5.0
 aiofiles>=25.1.0
 # ARCH-2 C2 — MCP client (mcp.client.streamable_http) for the USE_MCP_TOOLS
@@ -35,3 +35,17 @@ jsonschema>=4.18
 # D-TOOLCALL-GEMMA-TOKEN-LEAK — generic JSON-repair fallback for malformed
 # tool-call arguments some local models emit (see _parse_tool_args).
 json-repair>=0.30
+# CP-2.1 (2026-08-07) — P4 Assembly is a BUY decision, recorded at
+# docs/specs/2026-08-03-agent-runtime-unification/BUILD-VS-BUY.md §2 and §4.4
+# ("P4 stops being ours to design"). `app/agentruntime/assembly.py` is the ONLY
+# importer, enforced by scripts/agentruntime-membrane-gate.py's ALLOWED_EXTERNAL_SCOPE.
+#
+# The `-slim` distribution deliberately: it is the toolsets + agent core without any
+# provider client. chat-service routes every LLM call through provider-registry's
+# /internal/llm/stream via the loreweave_llm SDK, so a bundled provider SDK would be
+# a second route to a model that nothing is allowed to take.
+#
+# What it buys, in one line: `.defer_loading()` — a declaration hidden from the wire
+# but still discoverable and revealable, which is the difference between "withheld"
+# and "never existed" that CP-2.4 is scored on.
+pydantic-ai-slim>=2.26,<3

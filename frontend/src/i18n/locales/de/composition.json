@@ -97,7 +97,10 @@
     "discard": "Esc zum Verwerfen",
     "need_model": "Lege ein Standardmodell in den Co-Writer-Einstellungen fest",
     "need_scene": "Wähle zuerst eine Szene im Co-Writer-Panel aus",
-    "stale": "Der Cursor hat sich bewegt — bitte erneut versuchen."
+    "stale": "Der Cursor hat sich bewegt — bitte erneut versuchen.",
+    "need_editor": "Der Editor wird noch geladen.",
+    "streaming": "Schreibt… bitte warten, bis die aktuelle Fortsetzung abgeschlossen ist.",
+    "pending_ghost": "Akzeptieren oder verwerfen Sie den aktuellen Vorschlag, bevor Sie einen neuen starten."
   },
   "beats": "Beats",
   "beatsheet": {
@@ -402,7 +405,12 @@
     "criticModel": "Kritiker-Modell (unabhängiger Richter)",
     "criticModelHint": "Ein ANDERES Modell bewertet jeden Entwurf anhand Ihres Kanons und kann ein Kapitel blockieren, das diesem widerspricht. Ohne ein solches Modell wird der Text nicht unabhängig auf seinen Stil geprüft – ein Modell kann seine eigene Arbeit nicht bewerten.",
     "criticSameAsDrafter": "Dies ist dasselbe Modell, das den Text schreibt; es würde also seine eigene Arbeit bewerten – der Server wird dies ablehnen und die Kritik überspringen. Wählen Sie ein anderes Modell.",
-    "noCritic": "Keine Kritik – Entwürfe werden nicht separat bewertet"
+    "noCritic": "Keine Kritik – Entwürfe werden nicht separat bewertet",
+    "criticEnabled": "Jeden Entwurf am Kanon messen",
+    "criticEnabledHint": "Standardmäßig aktiviert. Der Kritiker kann einen Durchlauf bei einem schwerwiegenden Urteil unterbrechen. Ein kleines Kritiker-Modell meldet unter Umständen Widersprüche, die nicht existieren; schalten Sie dies aus, wenn die Anmerkungen nur Rauschen sind – die Entwürfe bleiben in jedem Fall unbeeinflusst.",
+    "criticVerifier": "Verifier-Modell (prüft den Kritiker)",
+    "criticVerifierHint": "Bevor ein Verstoß gegen den Kanon an Sie weitergeleitet wird, wird er gegen die zitierte Regel erneut geprüft und verworfen, falls der Text der Regel nicht tatsächlich widerspricht. Lassen Sie das Feld leer, um die Prüfung durch den Kritiker selbst durchzuführen; ein stärkeres Modell reduziert hier die Anzahl der Fehlalarme.",
+    "noCriticVerifier": "Das Kritiker-Modell zur Überprüfung seiner eigenen Ergebnisse verwenden"
   },
   "loadingStats": "Qualitätsstatistiken werden geladen…",
   "statsUnavailable": "Qualitätsstatistiken nicht verfügbar.",
@@ -516,8 +524,6 @@
     "tension": "Spannung",
     "cast": "Besetzung",
     "beat_role": "Beat-Rolle",
-    "beat_label": "Beat",
-    "inactive_cast": "Entität ist inaktiv",
     "add_cast": "Besetzung hinzufügen",
     "remove_cast": "{{name}} entfernen",
     "resolve": "{{name}} zur Besetzung hinzufügen",
@@ -539,6 +545,8 @@
     "err_too_many_chapters": "Zu viele Kapitel, um sie gleichzeitig zu planen.",
     "err_bad_entity": "Einige Besetzungmitglieder der Szene stehen nicht im Glossar dieses Buches.",
     "err_bad_chapter": "Ein Kapitel im Plan ist nicht Teil dieses Buches.",
+    "beat_label": "Beat",
+    "inactive_cast": "Entität ist inaktiv",
     "add_template": "Vorlage hinzufügen",
     "create_template_title": "Neue Strukturvorlage",
     "template_name": "Name",
@@ -739,7 +747,8 @@
       "title": "Deine Motiv-Bibliothek ist bereit",
       "body": "Motive sind wiederverwendbare Handlungsstrukturen. Der Planner wählt pro Kapitel eines aus, damit selbst ein kleines Modell eine solide Szene schreibt. 12 Start-Motive sind bereits vorhanden – tu-tiên und báo-thù.",
       "browseSystem": "Die 12 Start-Motive durchsuchen",
-      "hint": "Keine Token nötig – das manuelle Erstellen eines Motivs ist kostenlos."
+      "hint": "Keine Token nötig – das manuelle Erstellen eines Motivs ist kostenlos.",
+      "notThemes": "Dies sind STRUKTURELLE Handlungsformen für den Planer, kein Tracker für wiederkehrende Bilder oder Themen in deiner eigenen Geschichte — nichts hier verfolgt ein Symbol über deine Kapitel hinweg."
     },
     "facet": {
       "tier": "Stufe",
@@ -1753,5 +1762,9 @@
   "resolvingWork": "Einrichtung wird abgeschlossen… der Wissensdienst war kurzzeitig nicht verfügbar.",
   "retry": "Wiederholen",
   "threadFocusMissing": "Das Versprechen, aus dem Sie kommen, ist in dieser Ansicht nicht enthalten – es wurde möglicherweise bereits eingelöst. Stellen Sie den Filter auf „Alle“ um.",
-  "canonConflictCurrent": "Aktuell (v{{v}}): {{text}}"
+  "canonConflictCurrent": "Aktuell (v{{v}}): {{text}}",
+  "coverageExtractionFailed": "Die Versprechen konnten nicht aus Ihrem Entwurf gelesen werden (der Modellaufruf ist fehlgeschlagen oder wurde abgebrochen). Versuchen Sie es erneut oder wählen Sie ein anderes Modell.",
+  "coverageScoreFailed": "Die Versprechen wurden gelesen, aber die Bewertung im Abgleich mit dem Buch ist fehlgeschlagen. Versuchen Sie es erneut.",
+  "lengthAskedDelivered": "Anforderung: ~{{target}} Wörter, geliefert: {{actual}} ({{pct}}%).",
+  "lengthOverCeiling": "Dies erfordert mehr Wörter, als ein einzelner Aufruf zuverlässig liefern kann – teilen Sie die Szene in Passagen auf, um die volle Länge zu erreichen."
 }

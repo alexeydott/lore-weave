@@ -925,7 +925,8 @@
       "cap": "Isso excede um limite (corpo ≤ 8000 caracteres, nome ≤ 200, ≤ 20 regras) ou um modo inválido.",
       "other": "Não foi possível salvar a regra. Tente novamente.",
       "forbidden": "Você não tem permissão para editar o direcionamento deste livro."
-    }
+    },
+    "overBudget": "O total de suas regras é de aproximadamente {{total}} tokens, excedendo o limite de ~{{cap}} enviado ao modelo. {{dropped}} serão excluídas de cada turno: {{names}}. Encurte ou desative uma regra para que as mais importantes sejam processadas."
   },
   "palette": {
     "openPanel": "Studio: Abrir {{name}}",
@@ -1927,5 +1928,6 @@
     "load_more": "Carregar mais",
     "loading_more": "Carregando…",
     "restore": "Restaurar"
-  }
+  },
+  "campaigns": "Campanhas (extração e tradução em lote)"
 }

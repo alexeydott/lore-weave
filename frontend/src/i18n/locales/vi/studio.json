@@ -925,7 +925,8 @@
       "cap": "Vượt quá giới hạn (nội dung ≤ 8000 ký tự, tên ≤ 200, ≤ 20 quy tắc) hoặc chế độ không hợp lệ.",
       "other": "Không lưu được quy tắc. Vui lòng thử lại.",
       "forbidden": "Bạn không có quyền chỉnh sửa steering cho sách này."
-    }
+    },
+    "overBudget": "Tổng số quy tắc của bạn khoảng ~{{total}} token, vượt quá mức ~{{cap}} mà mô hình có thể tiếp nhận. {{dropped}} sẽ bị loại bỏ trong mỗi lượt: {{names}}. Hãy rút ngắn hoặc vô hiệu hóa một quy tắc để các quy tắc quan trọng có thể được truyền đi."
   },
   "palette": {
     "openPanel": "Studio: Mở {{name}}",
@@ -1927,5 +1928,6 @@
     "load_more": "Tải thêm",
     "loading_more": "Đang tải…",
     "restore": "Khôi phục"
-  }
+  },
+  "campaigns": "Chiến dịch (trích xuất & dịch thuật hàng loạt)"
 }

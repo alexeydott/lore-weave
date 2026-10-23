@@ -97,7 +97,10 @@
     "discard": "Esc untuk Buang",
     "need_model": "Atur model default di Pengaturan co-writer",
     "need_scene": "Pilih adegan di panel co-writer terlebih dahulu",
-    "stale": "Kursor berpindah — coba lagi."
+    "stale": "Kursor berpindah — coba lagi.",
+    "need_editor": "Editor sedang memuat.",
+    "streaming": "Sedang menulis… biarkan kelanjutan saat ini selesai.",
+    "pending_ghost": "Terima atau buang saran saat ini sebelum memulai yang lain."
   },
   "beats": "Beat",
   "beatsheet": {
@@ -402,7 +405,12 @@
     "criticModel": "Model kritikus (juri independen)",
     "criticModelHint": "Model yang BERBEDA akan menilai setiap draf berdasarkan kanon Anda, dan dapat memblokir bab yang bertentangan dengannya. Tanpa model ini, tidak ada yang memeriksa prosa secara independen — sebuah model tidak dapat menilai karyanya sendiri.",
     "criticSameAsDrafter": "Ini adalah model yang sama dengan penulis prosa, sehingga ia akan menilai karyanya sendiri — server akan menolaknya dan melewati kritik. Pilih model yang berbeda.",
-    "noCritic": "Tanpa kritikus — draf tidak dinilai secara mandiri"
+    "noCritic": "Tanpa kritikus — draf tidak dinilai secara mandiri",
+    "criticEnabled": "Nilai setiap draf berdasarkan kanon",
+    "criticEnabledHint": "Aktif secara default. Kritikus dapat menghentikan proses jika memberikan vonis yang berat. Model kritikus kecil mungkin melaporkan kontradiksi yang sebenarnya tidak ada, jadi matikan fitur ini jika catatan yang diberikan hanya berupa gangguan — draf tidak akan terpengaruh dalam kondisi apa pun.",
+    "criticVerifier": "Model verifikator (memeriksa kritikus)",
+    "criticVerifierHint": "Sebelum pelanggaran kanon sampai kepada Anda, teks akan diperiksa ulang terhadap aturan yang dikutip, dan dibatalkan jika prosa tersebut sebenarnya tidak bertentangan. Biarkan kosong untuk memeriksa ulang dengan kritikus itu sendiri; model yang lebih kuat di sini akan mengurangi lebih banyak alarm palsu.",
+    "noCriticVerifier": "Gunakan model kritikus untuk memeriksa ulang temuannya sendiri"
   },
   "loadingStats": "Memuat statistik kualitas...",
   "statsUnavailable": "Statistik kualitas tidak tersedia.",
@@ -516,8 +524,6 @@
     "tension": "Ketegangan",
     "cast": "Pemeran",
     "beat_role": "Peran beat",
-    "beat_label": "Beat",
-    "inactive_cast": "Entitas tidak aktif",
     "add_cast": "tambah pemeran",
     "remove_cast": "Hapus {{name}}",
     "resolve": "Tambah {{name}} ke pemeran",
@@ -539,6 +545,8 @@
     "err_too_many_chapters": "Terlalu banyak bab untuk direncanakan sekaligus.",
     "err_bad_entity": "Beberapa anggota pemeran adegan tidak ada dalam glosarium buku ini.",
     "err_bad_chapter": "Sebuah bab dalam rencana bukan bagian dari buku ini.",
+    "beat_label": "Beat",
+    "inactive_cast": "Entitas tidak aktif",
     "add_template": "Tambah templat",
     "create_template_title": "Templat struktur baru",
     "template_name": "Nama",
@@ -739,7 +747,8 @@
       "title": "Perpustakaan motif Anda sudah siap",
       "body": "Motif adalah bentuk plot yang dapat digunakan kembali. Planner akan memilih satu per bab sehingga model kecil sekalipun dapat menulis adegan yang solid. 12 motif awal sudah tersedia — tu-tiên dan báo-thù.",
       "browseSystem": "Jelajahi 12 motif awal",
-      "hint": "Tidak butuh token — membangun motif secara manual itu gratis."
+      "hint": "Tidak butuh token — membangun motif secara manual itu gratis.",
+      "notThemes": "Ini adalah bentuk plot STRUKTURAL untuk perencana, bukan pelacak citra atau tema berulang dalam cerita Anda sendiri — tidak ada di sini yang mengikuti sebuah simbol lintas bab Anda."
     },
     "facet": {
       "tier": "Tingkat",
@@ -1753,5 +1762,9 @@
   "resolvingWork": "Menyelesaikan pengaturan... layanan pengetahuan sempat tidak tersedia.",
   "retry": "Coba lagi",
   "threadFocusMissing": "Janji yang Anda ikuti tidak ada dalam tampilan ini — mungkin sudah dibayar. Ubah filter ke «semua».",
-  "canonConflictCurrent": "Saat ini (v{{v}}): {{text}}"
+  "canonConflictCurrent": "Saat ini (v{{v}}): {{text}}",
+  "coverageExtractionFailed": "Tidak dapat membaca janji dalam kerangka Anda (pemanggilan model gagal atau terputus). Coba lagi, atau pilih model lain.",
+  "coverageScoreFailed": "Janji telah dibaca, tetapi gagal saat mencocokkannya dengan buku. Coba lagi.",
+  "lengthAskedDelivered": "Meminta ~{{target}} kata, menghasilkan {{actual}} ({{pct}}%).",
+  "lengthOverCeiling": "Permintaan ini melebihi jumlah kata yang dapat dihasilkan dalam satu panggilan secara andal — bagi adegan menjadi beberapa bagian untuk mendapatkan panjang penuh."
 }

@@ -925,7 +925,8 @@
       "cap": "Cela dépasse une limite (corps ≤ 8000 car., nom ≤ 200, ≤ 20 règles) ou un mode invalide.",
       "other": "Impossible d'enregistrer la règle. Veuillez réessayer.",
       "forbidden": "Vous n'avez pas la permission de modifier le pilotage de ce livre."
-    }
+    },
+    "overBudget": "Vos règles totalisent environ {{total}} tokens, dépassant la limite de ~{{cap}} transmise au modèle. {{dropped}} seront exclues de chaque étape : {{names}}. Raccourcissez ou désactivez une règle pour que les plus importantes soient transmises."
   },
   "palette": {
     "openPanel": "Studio : Ouvrir {{name}}",
@@ -1927,5 +1928,6 @@
     "load_more": "Charger plus",
     "loading_more": "Chargement…",
     "restore": "Restaurer"
-  }
+  },
+  "campaigns": "Campagnes (extraction et traduction par lots)"
 }

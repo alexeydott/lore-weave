@@ -925,7 +925,8 @@
       "cap": "Melebihi batas (isi ≤ 8000 karakter, nama ≤ 200, ≤ 20 aturan) atau mode tidak valid.",
       "other": "Tidak dapat menyimpan aturan. Silakan coba lagi.",
       "forbidden": "Anda tidak memiliki izin untuk mengedit pengarah untuk buku ini."
-    }
+    },
+    "overBudget": "Total aturan Anda ~{{total}} token, melebihi batas ~{{cap}} yang dapat diterima model. {{dropped}} akan diabaikan pada setiap giliran: {{names}}. Pendekkan atau nonaktifkan aturan agar aturan yang penting dapat diproses."
   },
   "palette": {
     "openPanel": "Studio: Buka {{name}}",
@@ -1927,5 +1928,6 @@
     "load_more": "Muat lebih banyak",
     "loading_more": "Memuat…",
     "restore": "Pulihkan"
-  }
+  },
+  "campaigns": "Kampanye (ekstraksi & penerjemahan massal)"
 }

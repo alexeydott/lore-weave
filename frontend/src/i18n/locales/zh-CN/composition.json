@@ -97,7 +97,10 @@
     "discard": "Esc 舍弃",
     "need_model": "请在 co-writer 设置中设置默认模型",
     "need_scene": "请先在 co-writer 面板中选择一个场景",
-    "stale": "光标已移动 — 请重试。"
+    "stale": "光标已移动 — 请重试。",
+    "need_editor": "编辑器正在加载中。",
+    "streaming": "正在写作……请等待当前续写完成。",
+    "pending_ghost": "在开始新的建议之前，请先接受或舍弃当前的建议。"
   },
   "beats": "情节节拍",
   "beatsheet": {
@@ -402,7 +405,12 @@
     "criticModel": "评审模型（独立评判者）",
     "criticModelHint": "一个不同的模型将根据您的设定对每篇草稿进行评分，并可以拦截与设定冲突的章节。如果没有评审模型，则没有任何机制可以独立检查文笔 —— 模型无法对自己创作的内容进行评分。",
     "criticSameAsDrafter": "此模型与撰写文笔的模型相同，因此它会对自己的作品进行评分 —— 服务器将拒绝此操作并跳过评判。请选择一个不同的模型。",
-    "noCritic": "无评分机制 — 草稿不会进行独立评分"
+    "noCritic": "无评分机制 — 草稿不会进行独立评分",
+    "criticEnabled": "根据正文设定对每份草稿进行评估",
+    "criticEnabledHint": "默认开启。如果得出严厉的判定，评论员可能会暂停运行。由于小型评论员模型可能会报告不存在的矛盾，如果反馈内容属于噪音，请关闭此功能——无论是否开启，草稿本身都不会受到影响。",
+    "criticVerifier": "验证模型（校验评论者）",
+    "criticVerifierHint": "在违背设定的问题呈送给你之前，系统会根据其引用的规则进行二次核对；如果原文并未真正违反该规则，则会被剔除。留空则使用评论者模型进行自我核对；在此处使用更强大的模型可以减少误报。",
+    "noCriticVerifier": "使用评论者模型对其发现的问题进行重新核对"
   },
   "loadingStats": "正在加载质量数据…",
   "statsUnavailable": "质量统计数据不可用。",
@@ -516,8 +524,6 @@
     "tension": "张力",
     "cast": "角色阵容",
     "beat_role": "节拍角色",
-    "beat_label": "节拍",
-    "inactive_cast": "实体处于非活跃状态",
     "add_cast": "添加角色",
     "remove_cast": "移除 {{name}}",
     "resolve": "将 {{name}} 添加到阵容",
@@ -539,6 +545,8 @@
     "err_too_many_chapters": "章节过多，无法一次性规划。",
     "err_bad_entity": "部分场景角色不在本书的术语表中。",
     "err_bad_chapter": "计划中的某个章节不属于本书。",
+    "beat_label": "节拍",
+    "inactive_cast": "实体处于非活跃状态",
     "add_template": "添加模板",
     "create_template_title": "新建结构模板",
     "template_name": "名称",
@@ -739,7 +747,8 @@
       "title": "您的模组库已准备就绪",
       "body": "情节模组是可复用的情节结构。规划器会为每章选择一个模组，因此即使是简单的模型也能写出扎实的场景。这里已有 12 个入门模组 — 包括“奇遇”和“复仇”。",
       "browseSystem": "浏览 12 个入门模组",
-      "hint": "无需消耗 Token — 手动构建模组是免费的。"
+      "hint": "无需消耗 Token — 手动构建模组是免费的。",
+      "notThemes": "这些是供规划器使用的结构性情节模型，而不是追踪你故事中反复出现的意象或主题的工具——这里没有任何功能会跨章节追踪某个象征。"
     },
     "facet": {
       "tier": "层级",
@@ -1753,5 +1762,9 @@
   "resolvingWork": "正在完成设定… 知识服务曾短暂不可用。",
   "retry": "重试",
   "threadFocusMissing": "您所属的承诺在此视图中不可见 —— 它可能已被支付。请将过滤器切换为“全部”。",
-  "canonConflictCurrent": "当前 (v{{v}}): {{text}}"
+  "canonConflictCurrent": "当前 (v{{v}}): {{text}}",
+  "coverageExtractionFailed": "无法从大纲中提取伏笔（模型调用失败或被截断）。请重试，或选择其他模型。",
+  "coverageScoreFailed": "已读取伏笔，但无法根据书籍内容进行评分。请重试。",
+  "lengthAskedDelivered": "请求字数约为 {{target}}，实际生成 {{actual}} ({{pct}}%)。",
+  "lengthOverCeiling": "单次调用请求的字数超过了模型的可靠输出上限——请将场景拆分为段落以获得完整长度。"
 }

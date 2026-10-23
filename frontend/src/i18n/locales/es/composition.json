@@ -97,7 +97,10 @@
     "discard": "Descartar",
     "need_model": "Configura un modelo predeterminado en los ajustes del coescritor",
     "need_scene": "Primero selecciona una escena en el panel del coescritor",
-    "stale": "El cursor se ha movido; inténtalo de nuevo."
+    "stale": "El cursor se ha movido; inténtalo de nuevo.",
+    "need_editor": "El editor se está cargando todavía.",
+    "streaming": "Escribiendo… deja que termine la continuación actual.",
+    "pending_ghost": "Acepta o descarta la sugerencia actual antes de comenzar otra."
   },
   "beats": "Ritmos",
   "beatsheet": {
@@ -402,7 +405,12 @@
     "criticModel": "Modelo crítico (juez independiente)",
     "criticModelHint": "Un modelo DIFERENTE califica cada borrador según tu canon y puede bloquear un capítulo que lo contradiga. Sin uno, nada verifica la prosa de forma independiente; un modelo no puede calificar su propio trabajo.",
     "criticSameAsDrafter": "Este es el mismo modelo que escribe la prosa, por lo que estaría calificando su propio trabajo; el servidor lo rechazará y omitirá la crítica. Elige un modelo distinto.",
-    "noCritic": "Sin crítica: los borradores no se califican de forma independiente"
+    "noCritic": "Sin crítica: los borradores no se califican de forma independiente",
+    "criticEnabled": "Calificar cada borrador según el canon",
+    "criticEnabledHint": "Activado por defecto. El crítico puede pausar una ejecución ante un veredicto severo. Un modelo de crítico pequeño puede reportar contradicciones inexistentes, así que desactívalo si las notas son ruido; los borradores no se verán afectados de cualquier manera.",
+    "criticVerifier": "Modelo verificador (comprueba al crítico)",
+    "criticVerifierHint": "Antes de que una violación del canon te sea notificada, se vuelve a contrastar con la regla citada y se descarta si la prosa no la contradice realmente. Deja este campo vacío para volver a comprobarlo con el propio crítico; un modelo más potente aquí reducirá las falsas alarmas.",
+    "noCriticVerifier": "Usar el modelo crítico para volver a comprobar sus propios hallazgos"
   },
   "loadingStats": "Cargando calidad...",
   "statsUnavailable": "Estadísticas de calidad no disponibles.",
@@ -516,8 +524,6 @@
     "tension": "Tensión",
     "cast": "Reparto",
     "beat_role": "Función del beat",
-    "beat_label": "Beat",
-    "inactive_cast": "La entidad está inactiva",
     "add_cast": "añadir reparto",
     "remove_cast": "Eliminar a {{name}}",
     "resolve": "Añadir a {{name}} al reparto",
@@ -539,6 +545,8 @@
     "err_too_many_chapters": "Demasiados capítulos para planificar a la vez.",
     "err_bad_entity": "Algunos miembros del reparto de la escena no están en el glosario de este libro.",
     "err_bad_chapter": "Un capítulo en el plan no pertenece a este libro.",
+    "beat_label": "Beat",
+    "inactive_cast": "La entidad está inactiva",
     "add_template": "Añadir plantilla",
     "create_template_title": "Nueva plantilla de estructura",
     "template_name": "Nombre",
@@ -739,7 +747,8 @@
       "title": "Tu biblioteca de motivos está lista",
       "body": "Los motivos son estructuras de trama reutilizables. El planificador elige uno por capítulo para que, incluso con un modelo pequeño, escribas una escena sólida. Ya tienes 12 motivos iniciales: tu-tiên y báo-thù.",
       "browseSystem": "Explorar los 12 iniciales",
-      "hint": "No se necesitan tokens: crear un motivo a mano es gratis."
+      "hint": "No se necesitan tokens: crear un motivo a mano es gratis.",
+      "notThemes": "Son formas ESTRUCTURALES de trama para el planificador, no un rastreador de las imágenes o los temas recurrentes de tu propia historia: nada aquí sigue un símbolo a lo largo de tus capítulos."
     },
     "facet": {
       "tier": "Nivel",
@@ -1753,5 +1762,9 @@
   "resolvingWork": "Finalizando configuración… el servicio de conocimiento no estuvo disponible brevemente.",
   "retry": "Reintentar",
   "threadFocusMissing": "La promesa de la que vienes no está en esta vista; es posible que ya se haya pagado. Cambia el filtro a «todo».",
-  "canonConflictCurrent": "Actual (v{{v}}): {{text}}"
+  "canonConflictCurrent": "Actual (v{{v}}): {{text}}",
+  "coverageExtractionFailed": "No se pudieron leer las promesas de tu esquema (la llamada al modelo falló o se interrumpió). Inténtalo de nuevo o elige un modelo diferente.",
+  "coverageScoreFailed": "Se leyeron las promesas, pero falló la evaluación con el libro. Inténtalo de nuevo.",
+  "lengthAskedDelivered": "Se solicitaron ~{{target}} palabras, se entregaron {{actual}} ({{pct}}%).",
+  "lengthOverCeiling": "Esto solicita en una sola llamada más de lo que una llamada puede entregar de forma fiable; divide la escena en pasajes para obtener la longitud completa."
 }

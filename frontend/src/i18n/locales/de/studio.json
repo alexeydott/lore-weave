@@ -925,7 +925,8 @@
       "cap": "Das überschreitet ein Limit (Text ≤ 8000 Zeichen, Name ≤ 200, ≤ 20 Regeln) oder ein ungültiger Modus.",
       "other": "Regel konnte nicht gespeichert werden. Bitte versuche es erneut.",
       "forbidden": "Du hast keine Berechtigung, die Steuerung für dieses Buch zu bearbeiten."
-    }
+    },
+    "overBudget": "Deine Regeln umfassen insgesamt ~{{total}} Token und überschreiten das Limit von ~{{cap}}, das an das Modell gesendet wird. {{dropped}} werden bei jedem Durchgang weggelassen: {{names}}. Kürze oder deaktiviere eine Regel, damit die wichtigsten Informationen übertragen werden."
   },
   "palette": {
     "openPanel": "Studio: {{name}} öffnen",
@@ -1927,5 +1928,6 @@
     "load_more": "Mehr laden",
     "loading_more": "Laden…",
     "restore": "Wiederherstellen"
-  }
+  },
+  "campaigns": "Kampagnen (Batch-Extraktion & Übersetzung)"
 }
