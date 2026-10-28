@@ -253,10 +253,11 @@ jobs:
           go-version: "1.26.10"
       - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "22"
       - uses: grafana/setup-k6-action@v1
       - name: install hyperfine
-        run: cargo install hyperfine --locked
+        # The repo toolchain is Rust 1.89; hyperfine 2.0 requires Rust 1.97.
+        run: cargo install hyperfine --version 1.20.0 --locked
       - name: build spine binaries (no .exe on Linux)
         run: |
           cargo build -p world-service --bin rebuilder --bin replay-aggregate
@@ -747,7 +748,7 @@ jobs:
       #    w3-checksum ride the booted scale rig shard-0 (no pgvector needed).
       #    w3-generator self-brings-up the foundation-dev PG (pgvector) + builds
       #    the Rust rebuilder. Each embeds its bite(s).
-      - name: W3.1 generator arms (npc rel/memory + persistent kv) + bite
+      - name: W3.1 current canon generator path + bite
         run: |
           set +e; bash scripts/perf/w3-generator.sh; rc=$?; set -e
           echo "w3-generator rc=$rc (0=pass,2=notrun)"; [ "$rc" = 1 ] && exit 1 || exit 0
@@ -769,7 +770,7 @@ jobs:
           PG=scale-pg-shard-0
           docker exec -i $PG psql -q -v ON_ERROR_STOP=1 -U foundation -d foundation -c "DROP DATABASE IF EXISTS dp_kernel_test WITH (FORCE)"
           docker exec -i $PG psql -q -v ON_ERROR_STOP=1 -U foundation -d foundation -c "CREATE DATABASE dp_kernel_test"
-          for m in 0001_initial 0002_events_table 0004_aggregate_snapshots_table 0013_events_content_sha256; do
+          for m in 0001_initial 0002_events_table 0004_aggregate_snapshots_table 0013_events_content_sha256 0014_channel_ordering 0016_events_ruleset_digest; do
             docker exec -i $PG psql -q -v ON_ERROR_STOP=1 -U foundation -d dp_kernel_test < contracts/migrations/per_reality/${m}.up.sql
           done
           docker exec -i $PG psql -q -v ON_ERROR_STOP=1 -U foundation -d dp_kernel_test -c "CREATE TABLE IF NOT EXISTS events_p_default PARTITION OF events DEFAULT"
