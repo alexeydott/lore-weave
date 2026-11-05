@@ -56,6 +56,7 @@ import json
 import pathlib
 import subprocess
 import sys
+from uuid import UUID, uuid5, NAMESPACE_URL
 
 import pytest
 
@@ -227,55 +228,120 @@ def test_only_identifier_shaped_names_are_touched():
     assert _invented_supplier_ids({"proposal_ref": REPDIGIT}, contract=None) == ["proposal_ref"]
 
 
-@pytest.mark.skipif(subprocess.run(["docker", "ps"], capture_output=True).returncode != 0,
-                    reason="needs the local stack to re-derive the precision")
-def test_the_precision_holds_against_the_LIVE_stores():
-    """🔴 RE-DERIVED, NOT REMEMBERED. The threshold rests on a measurement of the real id
-    population; if that population changes the number must be re-measured, not inherited.
+_LIVE_DATABASES = (
+    "loreweave_book", "loreweave_composition", "loreweave_knowledge", "loreweave_glossary",
+    "loreweave_translation", "loreweave_jobs", "loreweave_chat",
+)
+_LIVE_MIN_IDS = 5000
 
-    Re-reads every uuid column in every database and asserts the rule fires on nothing except
-    the two values this row already names."""
-    dbs = ["loreweave_book", "loreweave_composition", "loreweave_knowledge", "loreweave_glossary",
-           "loreweave_translation", "loreweave_jobs", "loreweave_chat"]
 
-    def q(db, sql):
-        r = subprocess.run(["docker", "exec", "-i", "infra-postgres-1", "psql", "-U", "loreweave",
-                            "-d", db, "-At", "-c", sql], capture_output=True, text=True)
-        return r.stdout.strip().splitlines() if r.returncode == 0 else []
+def _live_query(db, sql):
+    """Read-only census. Missing sources are NOT an empty successful population."""
+    try:
+        result = subprocess.run(
+            ["docker", "exec", "-i", "infra-postgres-1", "psql", "-U", "loreweave",
+             "-d", db, "-At", "-v", "ON_ERROR_STOP=1", "-c", sql],
+            capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        pytest.skip(f"live UUID census NOT RUN: {db} unavailable ({type(exc).__name__})")
+    if result.returncode != 0:
+        pytest.skip(f"live UUID census NOT RUN: {db} query failed (exit {result.returncode})")
+    return result.stdout.strip().splitlines()
 
+
+def _collect_live_ids(query):
     ids = set()
-    for db in dbs:
-        for tc in q(db, "SELECT table_name||'.'||column_name FROM information_schema.columns "
-                        "WHERE table_schema='public' AND data_type='uuid' LIMIT 400;"):
-            t, _, c = tc.partition(".")
-            ids.update(v for v in q(
-                db, f'SELECT DISTINCT "{c}"::text FROM public."{t}" '
-                    f'WHERE "{c}" IS NOT NULL LIMIT 200;') if v)
-    if len(ids) < 5000:
-        pytest.skip(f"only {len(ids)} ids readable; not a precision measurement")
-    fired = sorted(u for u in ids if _is_degenerate_uuid(u))
+    for db in _LIVE_DATABASES:
+        columns = query(db, "SELECT table_name||'.'||column_name FROM information_schema.columns "
+                        "WHERE table_schema='public' AND data_type='uuid' LIMIT 400;")
+        if not columns:
+            pytest.skip(f"live UUID census NOT RUN: {db} has no readable UUID columns")
+        for column in columns:
+            table, _, field = column.partition(".")
+            ids.update(value for value in query(
+                db, f'SELECT DISTINCT "{field}"::text FROM public."{table}" '
+                    f'WHERE "{field}" IS NOT NULL LIMIT 200;') if value)
+    if len(ids) < _LIVE_MIN_IDS:
+        pytest.skip(f"live UUID census NOT RUN: only {len(ids)} distinct IDs; need {_LIVE_MIN_IDS}")
+    return ids
 
-    # 🔴 RE-AIMED WITH THE RULE 2026-09-02. `distinct <= 2` fires on MORE stored ids than
-    # the two this used to pin — the sentinel family is real and resolving — and pinning the
-    # exact list would make this a fixture of today's data rather than a property.
-    #
-    # THE PROPERTY THAT MUST HOLD: every stored id the shape arm refuses is one the PROVENANCE
-    # exemption spares once it actually reaches an argument, because a stored id reaches the
-    # model only by being published to it. If that ever fails, the rule refuses a value the
-    # platform can vouch for, and it must not ship in that state.
+
+def _assert_live_ids_are_not_refused(ids):
+    """Every observed UUID exercises the real guard; no sentinel needs to preexist."""
     from app.services.id_ledger import IdLedger
-    for u in fired:
-        led = IdLedger()
-        led.record({"entity_id": u})
-        assert _invented_supplier_ids({"entity_id": u}, contract=None,
-                                      published_ids=led) == [], (
-            f"{u} is a REAL id in the stores that the guard refuses even after the platform "
-            f"published it — the provenance exemption is not reaching this value")
 
-    # The two the all-identical arm already caught are still caught, so the widening is
-    # additive and did not lose an original catch.
-    assert "00000000-0000-0000-0000-000000000000" in fired
-    assert "11111111-1111-1111-1111-111111111111" in fired
+    for value in ids:
+        UUID(value)  # census values must really be UUIDs, not malformed query output
+        ledger = IdLedger()
+        ledger.record({"entity_id": value})
+        # Ordinary genuine UUIDs also exercise the guard WITHOUT an exemption.
+        # Stored sentinel-shaped UUIDs require the separately tested provenance arm.
+        if not _is_degenerate_uuid(value):
+            assert _invented_supplier_ids({"entity_id": value}, contract=None) == []
+        assert _invented_supplier_ids(
+            {"entity_id": value}, contract=None, published_ids=ledger,
+        ) == [], f"the guard refused the platform-published stored UUID {value}"
+
+
+def test_the_precision_holds_against_the_LIVE_stores(record_property):
+    """Measure false refusals over >=5000 actual IDs from all required stores.
+
+    Recall belongs to synthetic positives, not to the accidental presence of nil/repdigit
+    rows in somebody's database. An entirely ordinary live population is valid coverage.
+    """
+    ids = _collect_live_ids(_live_query)
+    record_property("live_uuid_count", len(ids))
+    record_property("required_database_count", len(_LIVE_DATABASES))
+    _assert_live_ids_are_not_refused(ids)
+
+
+@pytest.mark.parametrize("value", [
+    "00000000-0000-0000-0000-000000000000",
+    "11111111-1111-1111-1111-111111111111",
+    REPDIGIT, SEQUENTIAL, TWO_DIGIT,
+])
+def test_synthetic_placeholder_positives_are_rejected_without_live_seed_rows(value):
+    assert _is_degenerate_uuid(value)
+    assert _invented_supplier_ids({"proposal_id": value}, contract=None) == ["proposal_id"]
+    _assert_live_ids_are_not_refused({value})  # publishing even this shape must spare it
+
+
+def test_a_live_census_with_no_placeholder_rows_still_exercises_every_genuine_id():
+    values = {str(uuid5(NAMESPACE_URL, f"https://fixture.test/entity/{n}")) for n in range(5000)}
+    assert len(values) == _LIVE_MIN_IDS
+    assert not any(_is_degenerate_uuid(value) for value in values)
+    assert _collect_live_ids(lambda db, sql: ["entities.id"] if "information_schema" in sql
+                             else list(values)) == values
+    _assert_live_ids_are_not_refused(values)
+
+
+def test_the_live_precision_check_fails_on_a_false_refusal(monkeypatch):
+    monkeypatch.setitem(globals(), "_invented_supplier_ids", lambda *a, **k: ["entity_id"])
+    with pytest.raises(AssertionError):
+        _assert_live_ids_are_not_refused({REAL})
+
+
+def test_an_incomplete_live_population_is_not_reported_as_a_precision_measurement():
+    with pytest.raises(pytest.skip.Exception, match="only 1 distinct IDs"):
+        _collect_live_ids(lambda db, sql: ["entities.id"] if "information_schema" in sql else [REAL])
+
+
+def test_a_missing_live_database_population_is_not_silently_ignored():
+    def query(db, sql):
+        if db == "loreweave_chat":
+            return []
+        return ["entities.id"] if "information_schema" in sql else [REAL]
+
+    with pytest.raises(pytest.skip.Exception, match="loreweave_chat has no readable UUID columns"):
+        _collect_live_ids(query)
+
+
+def test_a_failed_live_query_is_not_counted_as_an_empty_success(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: subprocess.CompletedProcess([], 1, "", "missing database"))
+    with pytest.raises(pytest.skip.Exception, match="query failed"):
+        _live_query("loreweave_chat", "SELECT 1")
+
 
 
 def test_the_two_digit_fabrications_are_NOW_caught():
