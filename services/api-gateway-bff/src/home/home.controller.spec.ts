@@ -167,6 +167,65 @@ describe('HomeController (M2 — home degrade + activity feed)', () => {
     expect(String(call![0])).toContain('limit=50');
   });
 
+  it('activity feed: a first-page list timeout returns 502 and a healthy retry succeeds', async () => {
+    const authorization = bearer('user-timeout');
+    const f = routeFetch({
+      '/v1/notifications/unread-count': () => resp(200, { count: 2 }),
+      '/v1/notifications?': () => resp(200, { items: [{ id: 'n1' }], next_cursor: null }),
+    });
+    // Exercise the real per-source AbortSignal deadline, not a pre-rejected controller helper.
+    // The fixture never opens a socket or contacts a notification service/database.
+    let firstList = true;
+    const fetchMock = jest.fn((url: string, init: any) => {
+      if (url.includes('/v1/notifications?') && firstList) {
+        firstList = false;
+        return new Promise((_resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(init.signal.reason), { once: true });
+        });
+      }
+      return f(url, init);
+    });
+    (global as any).fetch = fetchMock;
+
+    try {
+      await controller.activity(undefined, '20', authorization);
+      throw new Error('expected activity_unavailable after the list deadline');
+    } catch (e) {
+      expect(e).toBeInstanceOf(HttpException);
+      expect((e as HttpException).getStatus()).toBe(502);
+      expect((e as HttpException).getResponse()).toBe('activity_unavailable');
+    }
+
+    const firstListCall = fetchMock.mock.calls.find(([url]) => url.includes('/v1/notifications?'));
+    expect(firstListCall).toBeDefined();
+    expect(new URL(firstListCall![0]).searchParams.get('limit')).toBe('20');
+    expect(new URL(firstListCall![0]).searchParams.has('before')).toBe(false);
+    expect(firstListCall![1].headers.authorization).toBe(authorization);
+    expect(firstListCall![1].signal).toBeInstanceOf(AbortSignal);
+    expect(firstListCall![1].signal.aborted).toBe(true);
+    expect(firstListCall![1].signal.reason.name).toBe('TimeoutError');
+
+    const retry = await controller.activity(undefined, '20', authorization);
+    expect(retry).toEqual({ items: [{ id: 'n1' }], next_cursor: null, unread_count: 2 });
+  });
+
+  it.each([401, 500, 503])('activity feed: downstream list HTTP %i also maps to 502', async (status) => {
+    (global as any).fetch = routeFetch({
+      '/v1/notifications/unread-count': () => resp(200, { count: 2 }),
+      '/v1/notifications?': () => resp(status, { code: 'NOTIF_INTERNAL_ERROR' }),
+    });
+    await expectStatus(controller.activity(undefined, '20', bearer('user-list-error')), 502);
+  });
+
+  it('activity feed: unread-count failure does not hide a healthy list', async () => {
+    (global as any).fetch = routeFetch({
+      '/v1/notifications/unread-count': () => { throw new Error('unread service unavailable'); },
+      '/v1/notifications?': () => resp(200, { items: [{ id: 'n1' }], next_cursor: null }),
+    });
+    const page = await controller.activity(undefined, '20', bearer('user-unread-error'));
+    expect(page).toEqual({ items: [{ id: 'n1' }], next_cursor: null, unread_count: 0 });
+  });
+
   it('mark-all-read proxies read-all', async () => {
     const f = routeFetch({ 'read-all': () => resp(200, { marked: 7 }) });
     (global as any).fetch = f;
