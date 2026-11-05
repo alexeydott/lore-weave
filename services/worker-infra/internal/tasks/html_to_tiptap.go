@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"regexp"
 	"strings"
+
+	htmlparser "golang.org/x/net/html"
 )
 
 // P1 (2026-05-23): splitChapters / splitOnH1 / splitOnTag / extractFirstHeading
@@ -253,9 +255,15 @@ func parseHTMLToNodes(html string) []any {
 				}
 			} else {
 				inner, end := extractElement(html, pos, tagName)
-				text := stripTags(inner)
-				if text != "" {
-					nodes = append(nodes, makeParagraph(text))
+				if containsHTMLBlocks(inner) {
+					// FB2-derived EPUBs can wrap a whole chapter in a span/anchor.
+					// Preserve its block structure instead of stripping every tag.
+					nodes = append(nodes, parseHTMLToNodes(inner)...)
+				} else {
+					text := stripTags(inner)
+					if text != "" {
+						nodes = append(nodes, makeParagraph(text))
+					}
 				}
 				pos = end
 			}
@@ -263,6 +271,25 @@ func parseHTMLToNodes(html string) []any {
 	}
 
 	return nodes
+}
+
+// containsHTMLBlocks distinguishes inline-only wrappers from chapter containers.
+// Tokenize rather than match substrings so tag-like text and attributes do not
+// accidentally split an inline paragraph.
+func containsHTMLBlocks(fragment string) bool {
+	tokenizer := htmlparser.NewTokenizer(strings.NewReader(fragment))
+	for {
+		switch tokenizer.Next() {
+		case htmlparser.ErrorToken:
+			return false
+		case htmlparser.StartTagToken, htmlparser.SelfClosingTagToken:
+			name, _ := tokenizer.TagName()
+			switch string(name) {
+			case "p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "ul", "ol", "pre", "table", "figure", "hr", "div", "section", "article", "main":
+				return true
+			}
+		}
+	}
 }
 
 func makeParagraph(text string) map[string]any {

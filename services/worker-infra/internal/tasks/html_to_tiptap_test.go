@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/loreweave/epubimport"
 )
 
 func TestHtmlToTiptapJSON_EmptyInput(t *testing.T) {
@@ -428,6 +430,64 @@ func TestHtmlToTiptapJSON_SpanUnwrap_NoTextLoss(t *testing.T) {
 	}
 	if !foundContent {
 		t.Error("content paragraph not found — text lost!")
+	}
+}
+
+func TestHtmlToTiptapJSON_BlockContentInInlineWrappers(t *testing.T) {
+	for _, wrapper := range []struct {
+		name  string
+		open  string
+		close string
+	}{
+		{"span", `<span id="chapter">`, "</span>"},
+		{"anchor", `<a id="chapter">`, "</a>"},
+		{"nested spans", `<span id="chapter"><span>`, "</span></span>"},
+	} {
+		t.Run(wrapper.name, func(t *testing.T) {
+			// FB2-derived EPUB chapters can wrap an entire div in an inline anchor.
+			// Keep the synthetic paragraphs adjacent, as in the source XHTML.
+			raw := wrapper.open + `<div><p><strong>Chapter one</strong></p><p>First paragraph.</p><p></p><p>Second <em>paragraph</em>.</p></div>` + wrapper.close
+			sanitized, _, err := epubimport.SanitizeHTML(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var doc map[string]any
+			if err := json.Unmarshal(htmlToTiptapJSON(sanitized), &doc); err != nil {
+				t.Fatal(err)
+			}
+			content := doc["content"].([]any)
+			if len(content) != 4 {
+				t.Fatalf("expected 4 separate paragraphs, got %d", len(content))
+			}
+			for i, want := range []string{"Chapter one", "First paragraph.", "", "Second paragraph."} {
+				node := content[i].(map[string]any)
+				if node["type"] != "paragraph" || node["_text"] != want {
+					t.Fatalf("node %d: expected paragraph %q, got %#v", i, want, node)
+				}
+			}
+			first := content[0].(map[string]any)["content"].([]any)[0].(map[string]any)
+			marks := first["marks"].([]any)
+			if len(marks) != 1 || marks[0].(map[string]any)["type"] != "bold" {
+				t.Fatalf("chapter paragraph lost bold mark: %#v", first)
+			}
+			last := content[3].(map[string]any)["content"].([]any)
+			marked := last[1].(map[string]any)
+			marks = marked["marks"].([]any)
+			if marked["text"] != "paragraph" || len(marks) != 1 || marks[0].(map[string]any)["type"] != "italic" {
+				t.Fatalf("last paragraph lost italic mark: %#v", marked)
+			}
+		})
+	}
+}
+
+func TestHtmlToTiptapJSON_InlineOnlyWrapperRemainsOneParagraph(t *testing.T) {
+	var doc map[string]any
+	if err := json.Unmarshal(htmlToTiptapJSON(`<span>First <span>second</span> third.</span>`), &doc); err != nil {
+		t.Fatal(err)
+	}
+	content := doc["content"].([]any)
+	if len(content) != 1 || content[0].(map[string]any)["_text"] != "First second third." {
+		t.Fatalf("inline-only wrapper must remain one paragraph: %#v", content)
 	}
 }
 
