@@ -348,7 +348,7 @@ describe('PublicMcpController', () => {
     expect(relay).toBeUndefined();
   });
 
-  it('a FRESH session on a BROAD (>=20-tool) scope lists only find_tools — lazy loading (the in-scope catalogue is hidden until discovered)', async () => {
+  it('a FRESH session on a BROAD (>=20-tool) scope lists discovery + invoke_tool, never retired find_tools', async () => {
     setEnv();
     (global as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation((url: string) => {
       if (String(url).includes('/internal/mcp-keys/resolve')) {
@@ -364,12 +364,12 @@ describe('PublicMcpController', () => {
       }
       return Promise.resolve({
         status: 200,
-        // ai-gateway prepends find_tools; the rest is the federated catalogue.
+        // Include a stale upstream find_tools entry to prove retirement is enforced at the edge.
         text: async () =>
           JSON.stringify({
             jsonrpc: '2.0',
             result: {
-              tools: [{ name: 'find_tools' }, { name: 'kg_graph_query' }, { name: 'book_get' }, { name: 'memory_remember' }],
+              tools: [{ name: 'tool_list' }, { name: 'tool_load' }, { name: 'find_tools' }, { name: 'kg_graph_query' }, { name: 'book_get' }, { name: 'memory_remember' }],
             },
             id: 1,
           }),
@@ -386,11 +386,11 @@ describe('PublicMcpController', () => {
     );
     expect(r.statusCode).toBe(200);
     const parsed = JSON.parse(r.sentBody as string);
-    // Minimal session surface: find_tools + invoke_tool (the always-present discover+execute
-    // pair). Out-of-scope tools (book_get/memory_remember) are scope-filtered AND the in-scope
-    // kg_graph_query is hidden by lazy loading until find_tools activates it — so nothing but
-    // the two synthetic edge tools is advertised on a fresh session.
-    expect(parsed.result.tools.map((t: { name: string }) => t.name).sort()).toEqual(['find_tools', 'invoke_tool']);
+    // Fresh broad sessions keep tool_list/tool_load + the synthetic execution facade.
+    // book_get/memory_remember are scope-filtered, kg_graph_query is not loaded yet,
+    // and the retired find_tools must not survive even if upstream still returns it.
+    expect(parsed.result.tools.map((t: { name: string }) => t.name).sort()).toEqual(['invoke_tool', 'tool_list', 'tool_load']);
+    expect(r.sentBody as string).not.toContain('"name":"find_tools"');
     expect(r.headers['content-type']).toBe('application/json');
   });
 
@@ -413,7 +413,7 @@ describe('PublicMcpController', () => {
           JSON.stringify({
             jsonrpc: '2.0',
             result: {
-              tools: [{ name: 'find_tools' }, { name: 'book_list' }, { name: 'book_get' }, { name: 'kg_graph_query' }],
+              tools: [{ name: 'tool_list' }, { name: 'tool_load' }, { name: 'find_tools' }, { name: 'book_list' }, { name: 'book_get' }, { name: 'kg_graph_query' }],
             },
             id: 1,
           }),
@@ -431,20 +431,17 @@ describe('PublicMcpController', () => {
     expect(r.statusCode).toBe(200);
     const parsed = JSON.parse(r.sentBody as string);
     const names = parsed.result.tools.map((t: { name: string }) => t.name).sort();
-    // book_list/book_get are advertised DIRECTLY on a fresh session — no find_tools-then-
-    // activate round trip needed. kg_graph_query is correctly scope-filtered out (out of
-    // scope). invoke_tool stays present (unconditional today — harmless if unused; the
-    // change here is only about WHEN the collapse happens, not invoke_tool's availability).
-    expect(names).toEqual(['book_get', 'book_list', 'find_tools', 'invoke_tool']);
+    // Small scopes advertise book_list/book_get directly, without a tool_load round trip.
+    // Scope filtering still removes kg_graph_query and the retired find_tools;
+    // the surviving discovery pair and invoke_tool remain present.
+    expect(names).toEqual(['book_get', 'book_list', 'invoke_tool', 'tool_list', 'tool_load']);
+    expect(names).not.toContain('find_tools');
     expect(r.headers['content-type']).toBe('application/json');
   });
 
-  it('an EMPTY-scope key (scopeToolCount=0) also takes the direct-list path safely — no leak beyond find_tools', async () => {
-    // review-impl finding (2026-07-08, LOW): scopeToolCount([]) is 0 (< 20) so this key
-    // takes the SAME directList=true branch as a small real scope — verify at the
-    // controller/tools-list level (not just the pure-function level in tool-policy.spec.ts)
-    // that this doesn't leak anything beyond find_tools, since filterTools/isToolAllowed
-    // still gate every entry identically regardless of which list-mode advertised it.
+  it('an EMPTY-scope key (scopeToolCount=0) takes the direct-list path without leaking domains or find_tools', async () => {
+    // An empty key also uses directList=true; policy still permits only the
+    // surviving discovery pair, plus the controller-injected invoke_tool.
     setEnv();
     (global as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation((url: string) => {
       if (String(url).includes('/internal/mcp-keys/resolve')) {
@@ -459,7 +456,7 @@ describe('PublicMcpController', () => {
         text: async () =>
           JSON.stringify({
             jsonrpc: '2.0',
-            result: { tools: [{ name: 'find_tools' }, { name: 'book_list' }, { name: 'kg_graph_query' }] },
+            result: { tools: [{ name: 'tool_list' }, { name: 'tool_load' }, { name: 'find_tools' }, { name: 'book_list' }, { name: 'kg_graph_query' }] },
             id: 1,
           }),
         headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? 'application/json' : null) },
@@ -476,12 +473,12 @@ describe('PublicMcpController', () => {
     expect(r.statusCode).toBe(200);
     const parsed = JSON.parse(r.sentBody as string);
     const names = parsed.result.tools.map((t: { name: string }) => t.name).sort();
-    // No domain tool leaks through — an empty scope is allowed exactly find_tools + invoke_tool,
-    // identical to what the collapsed (large-scope) path would have shown.
-    expect(names).toEqual(['find_tools', 'invoke_tool']);
+    // No domain tool or retired discovery name leaks, even without lazy collapse.
+    expect(names).toEqual(['invoke_tool', 'tool_list', 'tool_load']);
+    expect(names).not.toContain('find_tools');
   });
 
-  it('a directly-listed tool (small scope) is immediately callable via a normal tools/call — no find_tools/activation needed first', async () => {
+  it('a directly-listed tool (small scope) is immediately callable via a normal tools/call — no tool_load/activation needed first', async () => {
     setEnv();
     const f = jest.fn().mockImplementation((url: string) => {
       if (String(url).includes('/internal/mcp-keys/resolve')) {
@@ -729,7 +726,7 @@ describe('PublicMcpController', () => {
         status: 200,
         text: async () =>
           JSON.stringify([
-            { jsonrpc: '2.0', id: 'L', result: { tools: [{ name: 'find_tools' }, { name: 'book_get' }, { name: 'composition_publish' }, { name: 'kg_graph_query' }] } },
+            { jsonrpc: '2.0', id: 'L', result: { tools: [{ name: 'tool_list' }, { name: 'tool_load' }, { name: 'find_tools' }, { name: 'book_get' }, { name: 'composition_publish' }, { name: 'kg_graph_query' }] } },
             { jsonrpc: '2.0', id: 5, result: { structuredContent: { confirm_token: 'SECRET-TOK', domain: 'composition' } } },
           ]),
         headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? 'application/json' : null) },
@@ -745,10 +742,10 @@ describe('PublicMcpController', () => {
     const sent = JSON.parse(r.sentBody as string) as Array<{ id: unknown; result: { tools?: Array<{ name: string }>; structuredContent?: unknown } }>;
     const listItem = sent.find((x) => x.id === 'L')!;
     const names = (listItem.result.tools ?? []).map((t) => t.name);
-    // Fresh session → only find_tools + invoke_tool advertised (lazy loading). book_get/
-    // kg_graph_query are out of scope; the in-scope composition_publish is hidden until
-    // find_tools activates it.
-    expect(names.sort()).toEqual(['find_tools', 'invoke_tool']);
+    // Fresh broad sessions keep discovery + invoke_tool. book_get/kg_graph_query are
+    // out of scope, composition_publish is not loaded, and find_tools is retired.
+    expect(names.sort()).toEqual(['invoke_tool', 'tool_list', 'tool_load']);
+    expect(names).not.toContain('find_tools');
     expect(sent.find((x) => x.id === 5)!.result.structuredContent).toEqual({ status: 'pending_human_approval', approval_id: 'appr-mix' });
   });
 
@@ -1098,8 +1095,8 @@ describe('PublicMcpController', () => {
           return Promise.resolve({ status: 200, json: async () => resolve, headers: { get: () => 'application/json' } });
         }
         const sent = init?.body ? JSON.parse(init.body) : undefined;
-        if (sent?.params?.name === 'find_tools') {
-          const payload = { tools: [{ name: 'book_list', description: 'List books' }] };
+        if (sent?.params?.name === 'tool_load') {
+          const payload = { tools: [{ name: 'book_list', description: 'List books', tier: 'R', input_schema: { type: 'object', properties: { limit: { type: 'integer' } } } }] };
           return Promise.resolve({
             status: 200,
             text: async () => JSON.stringify({ jsonrpc: '2.0', id: sent.id, result: { content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload } }),
@@ -1109,7 +1106,7 @@ describe('PublicMcpController', () => {
         if (sent?.method === 'tools/list') {
           return Promise.resolve({
             status: 200,
-            text: async () => JSON.stringify({ jsonrpc: '2.0', id: sent.id, result: { tools: [{ name: 'find_tools' }] } }),
+            text: async () => JSON.stringify({ jsonrpc: '2.0', id: sent.id, result: { tools: [{ name: 'tool_list' }, { name: 'tool_load' }, { name: 'find_tools' }] } }),
             headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? 'application/json' : null) },
           });
         }
@@ -1122,19 +1119,25 @@ describe('PublicMcpController', () => {
       });
     }
 
-    it('relays to the REAL target after find_tools activates it (unwrap makes every existing gate see the genuine name)', async () => {
+    it('relays to the REAL target after tool_load activates it (unwrap makes every existing gate see the genuine name)', async () => {
       setEnv();
       const f = invokeFetch(bookReadScopes);
       (global as unknown as { fetch: jest.Mock }).fetch = f;
       const ctrl = new PublicMcpController();
 
-      // Step 1 — discover.
+      // NV-6: dropping tool_load's activation names in an isolated source copy failed this real-target test.
+      // Step 1 — load by the exact surviving discovery schema (name, not legacy intent).
+      const loaded = mockRes();
       await ctrl.handle(
-        mockReq({ headers: { authorization: 'Bearer lw_pk_inv' }, body: { jsonrpc: '2.0', method: 'tools/call', params: { name: 'find_tools', arguments: { intent: 'list books' } }, id: 1 } }),
-        mockRes().res,
+        mockReq({ headers: { authorization: 'Bearer lw_pk_inv' }, body: { jsonrpc: '2.0', method: 'tools/call', params: { name: 'tool_load', arguments: { name: 'book_list' } }, id: 1 } }),
+        loaded.res,
       );
+      expect(loaded.statusCode).toBe(200);
+      expect(JSON.parse(loaded.sentBody as string).result.structuredContent.tools).toEqual([
+        { name: 'book_list', description: 'List books', tier: 'R', input_schema: { type: 'object', properties: { limit: { type: 'integer' } } } },
+      ]);
 
-      // Step 2 — invoke_tool with the name find_tools returned.
+      // Step 2 — invoke_tool with the loaded name, using the real session activation store.
       const r = mockRes();
       await ctrl.handle(
         mockReq({
@@ -1146,14 +1149,52 @@ describe('PublicMcpController', () => {
       expect(r.statusCode).toBe(200);
       // The relay saw a normal tools/call for the REAL tool — invoke_tool never reached upstream.
       const relayCalls = f.mock.calls.filter((c) => String(c[0]).endsWith('/mcp'));
-      const secondRelay = JSON.parse((relayCalls[relayCalls.length - 1][1] as { body: string }).body);
+      expect(relayCalls).toHaveLength(2);
+      expect(JSON.parse((relayCalls[0][1] as { body: string }).body).params).toEqual({ name: 'tool_load', arguments: { name: 'book_list' } });
+      const secondRelay = JSON.parse((relayCalls[1][1] as { body: string }).body);
       expect(secondRelay.params.name).toBe('book_list');
       expect(secondRelay.params.arguments).toEqual({ limit: 5 });
       const out = JSON.parse(r.sentBody as string);
       expect(out.result.structuredContent).toEqual({ books: [] });
     });
 
-    it('denies invoke_tool for a target that was never find_tools-activated (no relay, actionable hint)', async () => {
+    it.each([false, true])('denies retired find_tools before relay (batch=%s), without activating its old matches', async (batch) => {
+      setEnv();
+      const f = invokeFetch(bookReadScopes);
+      (global as unknown as { fetch: jest.Mock }).fetch = f;
+      const ctrl = new PublicMcpController();
+      const call = { jsonrpc: '2.0', method: 'tools/call', params: { name: 'find_tools', arguments: { intent: 'list books' } }, id: 8 };
+      const retired = mockRes();
+      await ctrl.handle(mockReq({ headers: { authorization: 'Bearer lw_pk_retired' }, body: batch ? [call] : call }), retired.res);
+      const denial = { jsonrpc: '2.0', id: 8, error: { code: -32601, message: "tool 'find_tools' is not available to this key" } };
+      expect(retired.statusCode).toBe(200);
+      expect(retired.jsonBody).toEqual(batch ? [denial] : denial);
+      expect(f.mock.calls.some((c) => String(c[0]).endsWith('/mcp'))).toBe(false);
+
+      // A denied legacy discovery must not seed book_list into this session.
+      const invoked = mockRes();
+      await ctrl.handle(
+        mockReq({ headers: { authorization: 'Bearer lw_pk_retired' }, body: { jsonrpc: '2.0', method: 'tools/call', params: { name: 'invoke_tool', arguments: { name: 'book_list' } }, id: 9 } }),
+        invoked.res,
+      );
+      expect(invoked.jsonBody).toMatchObject({ id: 9, result: { isError: true, structuredContent: { code: 'NOT_DISCOVERED' } } });
+      expect(f.mock.calls.some((c) => String(c[0]).endsWith('/mcp'))).toBe(false);
+    });
+
+    it('denies invoke_tool for an unactivated retired find_tools target, with no relay', async () => {
+      setEnv();
+      const f = invokeFetch(bookReadScopes);
+      (global as unknown as { fetch: jest.Mock }).fetch = f;
+      const r = mockRes();
+      await new PublicMcpController().handle(
+        mockReq({ headers: { authorization: 'Bearer lw_pk_retired_invoke' }, body: { jsonrpc: '2.0', method: 'tools/call', params: { name: 'invoke_tool', arguments: { name: 'find_tools' } }, id: 10 } }),
+        r.res,
+      );
+      expect(r.jsonBody).toMatchObject({ id: 10, result: { isError: true, structuredContent: { code: 'NOT_DISCOVERED' } } });
+      expect(f.mock.calls.some((c) => String(c[0]).endsWith('/mcp'))).toBe(false);
+    });
+
+    it('denies invoke_tool for a target that was never tool_load-activated (no relay, existing error envelope)', async () => {
       setEnv();
       const f = invokeFetch(bookReadScopes);
       (global as unknown as { fetch: jest.Mock }).fetch = f;
@@ -1168,6 +1209,8 @@ describe('PublicMcpController', () => {
       );
       const out = r.jsonBody as { result: { isError: boolean; content: Array<{ text: string }> } };
       expect(out.result.isError).toBe(true);
+      // The existing error text still mentions the retired name; this test-only change
+      // preserves that envelope without treating the hint as an executable discovery path.
       expect(out.result.content[0].text).toContain('find_tools');
       expect(f.mock.calls.some((c) => String(c[0]).endsWith('/mcp'))).toBe(false);
     });
@@ -1238,7 +1281,7 @@ describe('PublicMcpController', () => {
       expect(JSON.parse((relay![1] as { body: string }).body).params.name).toBe('book_list');
     });
 
-    it('every tools/list carries invoke_tool + an edge-specific find_tools description', async () => {
+    it('every tools/list carries invoke_tool and surviving discovery, but no retired find_tools', async () => {
       setEnv();
       const f = invokeFetch(bookReadScopes);
       (global as unknown as { fetch: jest.Mock }).fetch = f;
@@ -1247,10 +1290,11 @@ describe('PublicMcpController', () => {
         mockReq({ headers: { authorization: 'Bearer lw_pk_list' }, body: { jsonrpc: '2.0', method: 'tools/list', id: 1 } }),
         r.res,
       );
-      // the default relay text for a plain tools/list is a bare {tools:[]} — the invoke_tool
-      // injection still runs and finds no find_tools entry to rewrite, which is fine (no-op).
+      // Filtering runs before augmentation, so the injected legacy entry never gets rewritten.
       const parsed = JSON.parse(r.sentBody as string);
-      expect(parsed.result.tools.map((t: { name: string }) => t.name)).toContain('invoke_tool');
+      const names = parsed.result.tools.map((t: { name: string }) => t.name);
+      expect(names.sort()).toEqual(['invoke_tool', 'tool_list', 'tool_load']);
+      expect(names).not.toContain('find_tools');
     });
   });
 

@@ -86,36 +86,43 @@ function listedNames(text: string): string[] {
 }
 
 describe('filterListResponseText — session collapse (lazy tool-loading)', () => {
-  const FULL = ['find_tools', 'book_get', 'book_list'];
+  // Inject the retired name as a negative control: upstream leftovers must not leak.
+  const FULL = ['tool_list', 'tool_load', 'find_tools', 'book_get', 'book_list'];
 
-  it('a FRESH session (empty activated) advertises only find_tools', () => {
+  it('a FRESH session advertises only the surviving discovery pair, not find_tools', () => {
     const out = filterListResponseText(listResponse(...FULL), SCOPES, undefined, new Set());
-    expect(listedNames(out)).toEqual(['find_tools']);
+    expect(listedNames(out)).toEqual(['tool_list', 'tool_load']);
+    expect(listedNames(out)).not.toContain('find_tools');
   });
 
-  it('a session that activated book_get shows find_tools + book_get (not book_list)', () => {
+  it('a session that activated book_get shows discovery + book_get (not book_list or find_tools)', () => {
     const out = filterListResponseText(listResponse(...FULL), SCOPES, undefined, new Set(['book_get']));
-    expect(listedNames(out).sort()).toEqual(['book_get', 'find_tools']);
+    expect(listedNames(out).sort()).toEqual(['book_get', 'tool_list', 'tool_load']);
+    expect(listedNames(out)).not.toContain('find_tools');
   });
 
-  it('without an activated set, behaves as before (full scoped list)', () => {
+  it('without an activated set, returns the full scoped list but still hides find_tools', () => {
     const out = filterListResponseText(listResponse(...FULL), SCOPES, undefined);
-    expect(listedNames(out).sort()).toEqual(['book_get', 'book_list', 'find_tools']);
+    expect(listedNames(out).sort()).toEqual(['book_get', 'book_list', 'tool_list', 'tool_load']);
+    expect(listedNames(out)).not.toContain('find_tools');
   });
 
-  it('an activated out-of-scope tool is still NOT advertised (scope wins over activation)', () => {
-    const text = listResponse('find_tools', 'book_get', 'kg_search');
-    // even if kg_search were somehow activated, it is out of scope → never listed
-    const out = filterListResponseText(text, SCOPES, undefined, new Set(['book_get', 'kg_search']));
-    expect(listedNames(out).sort()).toEqual(['book_get', 'find_tools']);
+  it('activation cannot advertise an out-of-scope tool or the retired find_tools (scope wins)', () => {
+    const text = listResponse(...FULL, 'kg_search');
+    // Even stale activation state cannot resurrect a retired or out-of-scope name.
+    const out = filterListResponseText(text, SCOPES, undefined, new Set(['book_get', 'kg_search', 'find_tools']));
+    expect(listedNames(out).sort()).toEqual(['book_get', 'tool_list', 'tool_load']);
+    expect(listedNames(out)).not.toContain('find_tools');
   });
 
-  it('a wildcard (*) key keeps the full list (no collapse)', () => {
+  it('a wildcard (*) dev key keeps even upstream legacy leftovers (policy bypass, no collapse)', () => {
     const out = filterListResponseText(listResponse(...FULL), ['*'], undefined, new Set());
-    expect(listedNames(out).sort()).toEqual(['book_get', 'book_list', 'find_tools']);
+    expect(listedNames(out).sort()).toEqual([...FULL].sort());
   });
 });
 
+// Legacy pure helpers remain for historical anti-oracle coverage. Non-wildcard
+// find_tools requests are denied before these helpers can run in the controller.
 function findToolsResponse(...names: string[]): string {
   const tools = names.map((name) => ({ name, description: name }));
   return JSON.stringify({

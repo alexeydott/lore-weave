@@ -65,8 +65,12 @@ describe('detectInvokeToolCall', () => {
 });
 
 describe('requiresActivation', () => {
-  it('exempts find_tools, confirm_action, and invoke_tool itself', () => {
-    expect(requiresActivation('find_tools')).toBe(false);
+  it('exempts only confirm_action and invoke_tool itself, not retired find_tools', () => {
+    // NV-6: restoring the retired exemption in an isolated copy failed this and the controller denial.
+    expect(requiresActivation('find_tools')).toBe(true);
+    // Discovery scope allowance is separate from invoke_tool's activation exemption.
+    expect(requiresActivation('tool_list')).toBe(true);
+    expect(requiresActivation('tool_load')).toBe(true);
     expect(requiresActivation('confirm_action')).toBe(false);
     expect(requiresActivation(INVOKE_TOOL_NAME)).toBe(false);
   });
@@ -76,6 +80,8 @@ describe('requiresActivation', () => {
   });
 });
 
+// These pure-helper tests preserve the existing legacy wording/augmentation behavior.
+// The controller scope-filters find_tools out BEFORE augmentation; none asserts it is reachable.
 describe('notActivatedError', () => {
   it('shapes an isError tool result naming find_tools as the fix, not a silent no-op', () => {
     const out = notActivatedError(5, 'book_list') as { id: unknown; result: { isError: boolean; content: Array<{ text: string }>; structuredContent: { code: string; message: string } } };

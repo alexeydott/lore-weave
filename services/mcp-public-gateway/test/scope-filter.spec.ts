@@ -36,6 +36,25 @@ describe('tool-policy.isToolAllowed (default-deny)', () => {
     expect(isToolAllowed('book_delete', ['write_confirm', domainScope('book')])).toBe(false);
   });
 
+  it('allows only the surviving discovery pair regardless of scope, denies retired find_tools', () => {
+    // Retirement in 5097c0d9e removed find_tools from the scope-independent allowlist.
+    // NV-6: reallowing it in an isolated source copy made 14 tests fail (including this control).
+    // Positive controls prevent a deny-everything implementation from passing.
+    for (const scopes of [[], KNOWLEDGE_READ, BOOK_READ]) {
+      expect(isToolAllowed('tool_list', scopes)).toBe(true);
+      expect(isToolAllowed('tool_load', scopes)).toBe(true);
+      expect(isToolAllowed('find_tools', scopes)).toBe(false);
+      const call = (name: string) => ({ jsonrpc: '2.0', method: 'tools/call', params: { name }, id: 4 });
+      expect(gateRequestBody(call('tool_list'), scopes)).toBeNull();
+      expect(gateRequestBody(call('tool_load'), scopes)).toBeNull();
+      expect(gateRequestBody(call('find_tools'), scopes)).toEqual({
+        jsonrpc: '2.0', id: 4,
+        error: { code: -32601, message: "tool 'find_tools' is not available to this key" },
+      });
+    }
+    expect(knownTool('find_tools')).toBe(false);
+  });
+
   it('denies when the tier scope is missing', () => {
     // has knowledge domain but only read tier → cannot reach a write_auto tool
     expect(isToolAllowed('memory_remember', KNOWLEDGE_READ)).toBe(false);
@@ -261,10 +280,12 @@ describe('WS-1a — tool_list/tool_load edge scope-filter + activation', () => {
     const out = JSON.parse(
       filterListResponseText(listMsg, KNOWLEDGE_READ, undefined, new Set(['kg_graph_query'])),
     );
-    // meta-tools always present; in-scope + activated kept; out-of-scope book_get dropped.
+    // Surviving meta-tools are present; even an injected retired name must be dropped.
+    // In-scope + activated kept; out-of-scope book_get dropped.
     expect(out.result.tools.map((t: { name: string }) => t.name)).toEqual([
-      'tool_list', 'tool_load', 'find_tools', 'kg_graph_query',
+      'tool_list', 'tool_load', 'kg_graph_query',
     ]);
+    expect(out.result.tools.map((t: { name: string }) => t.name)).not.toContain('find_tools');
   });
 
   it('is detected as its own single tools/call', () => {
@@ -280,13 +301,15 @@ describe('WS-1a — tool_list/tool_load edge scope-filter + activation', () => {
       jsonrpc: '2.0', id: 1,
       result: {
         content: [{ type: 'text', text: 'x' }],
-        structuredContent: { tools: [{ name: 'kg_graph_query', input_schema: {} }, { name: 'book_get', input_schema: {} }] },
+        structuredContent: { tools: [{ name: 'kg_graph_query', input_schema: {} }, { name: 'book_get', input_schema: {} }, { name: 'find_tools', input_schema: {} }] },
       },
     });
     const { text, activatedNames } = scopeFilterToolLoadResult(loadResp, KNOWLEDGE_READ);
     expect(activatedNames).toEqual(['kg_graph_query']);
     const sc = JSON.parse(text).result.structuredContent;
     expect(sc.tools.map((t: { name: string }) => t.name)).toEqual(['kg_graph_query']);
+    expect(text).not.toContain('find_tools');
+    expect(JSON.parse(JSON.parse(text).result.content[0].text)).toEqual(sc);
   });
 
   it('tool_list (flat): scope-filters tools, recomputes count, notes an entitlement gap', () => {
