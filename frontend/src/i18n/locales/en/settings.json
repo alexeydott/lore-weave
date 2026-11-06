@@ -563,7 +563,7 @@
     "critic": "Default critic model",
     "criticHint": "Scores practice sessions and audits generated scenes. Optional — unset, scoring falls back to nothing and sessions are not scored. Pick one that differs from your usual chat model.",
     "distill": "Default distiller model",
-    "distillHint": "Turns \"end my day\" chats into the daily diary. Optional — unset, it uses your chat default. Pick a NON-reasoning model: a reasoning model emits only reasoning and distills to an empty diary.
+    "distillHint": "Turns \"end my day\" chats into the daily diary. Optional — unset, it uses your chat default. Pick a NON-reasoning model: a reasoning model emits only reasoning and distills to an empty diary."
   },
   "external_services": {
     "delete_blocked": "This service cannot be removed: its model is in use by {{count}} active job(s). Stop them first.",
