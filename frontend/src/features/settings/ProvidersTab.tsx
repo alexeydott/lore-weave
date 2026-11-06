@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { providerApi, type ProviderCredential, type UserModel, type APIStandard } from './api';
+import { invalidateUserModelsCache } from '@/components/model-picker/useUserModels';
 import { AddModelModal } from './AddModelModal';
 import { EditModelModal } from './EditModelModal';
 import { DefaultModelsCard } from './DefaultModelsCard';
@@ -89,6 +90,9 @@ export function ProvidersTab() {
       ]);
       setProviders(p.items ?? []);
       setModels(m.items ?? []);
+      // #facade — this page is THE write surface for models (add/edit/delete/
+      // activate). Every refresh fans out to all mounted pickers app-wide.
+      invalidateUserModelsCache();
     } catch {
       toast.error(t('providers.toast.load_failed'));
     } finally {

@@ -33,6 +33,14 @@ export type UseUserModelsResult = {
 const CACHE_TTL_MS = 15_000;
 const cache = new Map<string, { ts: number; promise: Promise<{ items: UserModel[] }> }>();
 
+// Cross-screen reactivity: the cache is module-level, so a write on one screen
+// (settings/providers add-edit-delete-activate, favorite toggle, model order)
+// must BOTH clear the TTL cache AND reach every ALREADY-MOUNTED picker — a
+// mounted picker holds its list in local state and never refetches on its own,
+// which is exactly the "changed here, stale everywhere else" defect class.
+// The event is the live fan-out; `generation` below is the per-hook listener.
+const INVALIDATION_EVENT = 'loreweave:user-models-invalidated';
+
 function fetchModels(token: string, capability?: string, includeInactive?: boolean) {
   const key = `${token}|${capability ?? ''}|${includeInactive ? 1 : 0}`;
   const hit = cache.get(key);
@@ -60,6 +68,10 @@ function fetchModels(token: string, capability?: string, includeInactive?: boole
 /** Test seam / explicit invalidation (favorite toggles change server order). */
 export function invalidateUserModelsCache(): void {
   cache.clear();
+  // Live fan-out to mounted pickers (see INVALIDATION_EVENT above).
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(INVALIDATION_EVENT));
+  }
 }
 
 export function useUserModels(options: UseUserModelsOptions = {}): UseUserModelsResult {
@@ -68,6 +80,14 @@ export function useUserModels(options: UseUserModelsOptions = {}): UseUserModels
   const [models, setModels] = useState<UserModel[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
+
+  // Cross-screen fan-out listener: any write path calling invalidateUserModelsCache()
+  // (any screen) bumps generation → this picker refetches immediately.
+  useEffect(() => {
+    const onInvalidate = () => setGeneration((g) => g + 1);
+    window.addEventListener(INVALIDATION_EVENT, onInvalidate);
+    return () => window.removeEventListener(INVALIDATION_EVENT, onInvalidate);
+  }, []);
 
   useEffect(() => {
     if (!enabled) return;

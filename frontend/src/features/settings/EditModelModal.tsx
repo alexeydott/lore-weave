@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
 import { providerApi, type UserModel, type ModelPricing, type ModelDeletionImpact } from './api';
+import { invalidateUserModelsCache } from '@/components/model-picker/useUserModels';
 import { LOCAL_PROVIDER_KINDS } from '@/features/ai-models/api';
 import { KNOWN_FLAGS } from './CapabilityFlags';
 import { CapabilityFlags } from './CapabilityFlags';
@@ -125,6 +126,9 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
       }
 
       toast.success(t('model_modal.toast.updated'));
+      // #facade — alias/context/flags/activation/favorite edits must reflect in
+      // every picker (badges, order, active-only filters) immediately.
+      invalidateUserModelsCache();
       onUpdated();
       onClose();
     } catch (e) {
@@ -205,6 +209,9 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
       if (!deletionImpact.can_delete) return;
       await providerApi.deleteUserModel(accessToken, model.user_model_id, true);
       toast.success(t('model_modal.toast.deleted'));
+      // #facade — deleted models must leave every picker at once (and the orphan
+      // fallback take over for sessions that referenced it).
+      invalidateUserModelsCache();
       onUpdated();
       onClose();
     } catch (e) {

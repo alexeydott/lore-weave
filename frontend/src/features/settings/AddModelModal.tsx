@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
 import { providerApi, getInventoryMeta, type InventoryModel, type ProviderCredential, type CapabilityType } from './api';
+import { invalidateUserModelsCache } from '@/components/model-picker/useUserModels';
 import { KNOWN_FLAGS } from './CapabilityFlags';
 import { CapabilityFlags } from './CapabilityFlags';
 import { TagEditor } from './TagEditor';
@@ -133,6 +134,9 @@ export function AddModelModal({ provider, onClose, onAdded }: Props) {
         notes: notes || undefined,
       });
       toast.success(t('model_modal.toast.model_added', { name: alias || modelName }));
+      // #facade — every ModelPicker in the app (chat, assistant, glossary, jobs,
+      // knowledge, …) must see the new model immediately, not after TTL/remount.
+      invalidateUserModelsCache();
       onAdded();
       onClose();
     } catch (e) {
