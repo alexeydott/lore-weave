@@ -282,8 +282,26 @@ export function useProjectState(project: Project): UseProjectStateResult {
   // any callback. Job identity (job_id + model refs) is what we need.
   const latestJob = jobsQuery.data?.[0];
   const latestJobId = latestJob?.job_id ?? null;
-  const latestLlmModel = latestJob?.llm_model ?? null;
-  const latestEmbeddingModel = latestJob?.embedding_model ?? null;
+  // #stale-replay (user report 2026-11-06) — the LAST JOB's llm_model is a SNAPSHOT
+  // of an old run: if that run carried a non-chat model (an embedding model picked
+  // before any chat model was registered) or the model was since deleted, EVERY
+  // retry/re-extract replays it forever and fails at the provider ("это
+  // эмбеддинг-модель" 400), while the project's CURRENT extraction LLM — the one the
+  // settings dialog edits with a chat-filtered picker — sits right there in
+  // project.extraction_config. Prefer the config; the job snapshot is only the
+  // fallback for projects whose config predates llm_model.
+  const configLlmRef = (() => {
+    const cfg = project.extraction_config as
+      | { llm_model?: { model_ref?: unknown } | null }
+      | null
+      | undefined;
+    const ref = cfg?.llm_model?.model_ref;
+    return typeof ref === 'string' && ref ? ref : null;
+  })();
+  const latestLlmModel = configLlmRef ?? latestJob?.llm_model ?? null;
+  // Same staleness class: the project's embedding model (managed by the tuning
+  // panel) is current state; the job snapshot is the fallback.
+  const latestEmbeddingModel = project.embedding_model ?? latestJob?.embedding_model ?? null;
   const latestScope = latestJob?.scope ?? null;
 
   const actions = useMemo<ProjectStateCardActions>(() => {

@@ -244,7 +244,7 @@ describe('useProjectState — actions', () => {
     });
   });
 
-  it('onRebuild fires rebuildGraph with latest job models', async () => {
+  it('onRebuild fires rebuildGraph with the project current models (job snapshot falls back)', async () => {
     const { Wrapper } = makeWrapper([
       makeJobWire({
         status: 'complete',
@@ -262,7 +262,9 @@ describe('useProjectState — actions', () => {
     await waitFor(() => {
       expect(apiMocks.rebuildGraph).toHaveBeenCalledWith(
         PROJECT_ID,
-        { llm_model: 'gpt-4o-mini', embedding_model: 'bge-m3-v2' },
+        // #stale-replay — llm: fixture has no config → job snapshot; embedding:
+        // the PROJECT current value wins over the stale job snapshot.
+        { llm_model: 'gpt-4o-mini', embedding_model: 'bge-m3' },
         TOKEN,
         true, // bug #14 — commit path passes confirm=true
       );
@@ -313,6 +315,62 @@ describe('useProjectState — actions', () => {
     // noPriorJob is called without opts — the string is the raw key.
     expect(toastErrorMock).toHaveBeenCalledWith('projects.toast.noPriorJob');
     expect(apiMocks.startExtraction).not.toHaveBeenCalled();
+  });
+
+  // Stale-replay regression (user report 2026-11-06): the last job's llm_model is a
+  // SNAPSHOT of an old run. When that run carried a non-chat model (an embedding
+  // model picked before any chat model was registered), every retry replayed it
+  // forever and failed at the provider with "это эмбеддинг-модель" 400 — while the
+  // project's CURRENT extraction LLM (extraction_config.llm_model, edited by the
+  // settings dialog with a chat-filtered picker) sat unused. Retry must prefer the
+  // config; the job snapshot is only the fallback for config-less projects.
+  it('onRetry prefers the project config llm_model over the stale job snapshot', async () => {
+    const { Wrapper } = makeWrapper([
+      makeJobWire({
+        status: 'failed',
+        llm_model: 'm-embed-stale', // what the old run snapshotted
+        embedding_model: 'bge-stale',
+      }),
+    ]);
+    const project = makeProject({
+      embedding_model: 'bge-current',
+      extraction_config: {
+        llm_model: { model_ref: 'm-chat-current', model_source: 'user_model' },
+      },
+    });
+    const { result } = renderHook(() => useProjectState(project), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      result.current.actions.onRetry();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(apiMocks.startExtraction).toHaveBeenCalledTimes(1);
+    });
+    const payload = apiMocks.startExtraction.mock.calls[0][1];
+    expect(payload.llm_model).toBe('m-chat-current');
+    expect(payload.embedding_model).toBe('bge-current');
+  });
+
+  // The fallback half: a project whose config predates llm_model (empty config)
+  // must still replay the job snapshot — the pre-fix behavior is the fallback,
+  // not something to break.
+  it('onRetry falls back to the job snapshot when the config has no llm_model', async () => {
+    const { Wrapper } = makeWrapper([
+      makeJobWire({ status: 'failed', llm_model: 'claude-sonnet-4-6' }),
+    ]);
+    const { result } = renderHook(() => useProjectState(makeProject()), {
+      wrapper: Wrapper, // makeProject() has extraction_config: {}
+    });
+    await act(async () => {
+      result.current.actions.onRetry();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(apiMocks.startExtraction).toHaveBeenCalledTimes(1);
+    });
+    expect(apiMocks.startExtraction.mock.calls[0][1].llm_model).toBe('claude-sonnet-4-6');
   });
 
   it('onExtractNew forces scope="chapters" even when prior job was chat', async () => {
@@ -378,7 +436,9 @@ describe('useProjectState — actions', () => {
         embedding_model: null as unknown as string,
       }),
     ]);
-    const { result } = renderHook(() => useProjectState(makeProject()), {
+    // #stale-replay — the project embedding fallback would fill the gap; null the
+    // project field so the missing-on-both guard is genuinely exercised.
+    const { result } = renderHook(() => useProjectState(makeProject({ embedding_model: null })), {
       wrapper: Wrapper,
     });
     await act(async () => {
@@ -427,7 +487,8 @@ describe('useProjectState — actions', () => {
     await waitFor(() => {
       expect(apiMocks.rebuildGraph).toHaveBeenCalledWith(
         PROJECT_ID,
-        { llm_model: 'gpt-4o', embedding_model: 'text-embedding-3-large' },
+        // #stale-replay — project embedding wins; llm falls back (no config).
+        { llm_model: 'gpt-4o', embedding_model: 'bge-m3' },
         TOKEN,
         true, // bug #14 — commit path passes confirm=true
       );
@@ -463,7 +524,8 @@ describe('useProjectState — actions', () => {
         embedding_model: null as unknown as string,
       }),
     ]);
-    const { result } = renderHook(() => useProjectState(makeProject()), {
+    // #stale-replay — null the project field too (see the retry twin above).
+    const { result } = renderHook(() => useProjectState(makeProject({ embedding_model: null })), {
       wrapper: Wrapper,
     });
     await act(async () => {
@@ -496,7 +558,8 @@ describe('useProjectState — actions', () => {
         embedding_model: null as unknown as string,
       }),
     ]);
-    const { result } = renderHook(() => useProjectState(makeProject()), {
+    // #stale-replay — null the project field too (see the retry twin above).
+    const { result } = renderHook(() => useProjectState(makeProject({ embedding_model: null })), {
       wrapper: Wrapper,
     });
     await act(async () => {
