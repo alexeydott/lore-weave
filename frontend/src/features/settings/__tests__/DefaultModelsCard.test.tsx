@@ -36,6 +36,16 @@ vi.mock('../api', () => ({
   },
 }));
 
+// #facade — default→session propagation uses the chat sessions API.
+const listChatSessions = vi.fn();
+const patchChatSession = vi.fn();
+vi.mock('@/features/chat/api', () => ({
+  chatApi: {
+    listSessions: (...a: unknown[]) => listChatSessions(...a),
+    patchSession: (...a: unknown[]) => patchChatSession(...a),
+  },
+}));
+
 import { DefaultModelsCard } from '../DefaultModelsCard';
 import { invalidateUserModelsCache } from '@/components/model-picker';
 
@@ -62,6 +72,11 @@ async function openRow(index: number) {
 }
 
 describe('DefaultModelsCard', () => {
+  beforeEach(() => {
+    listChatSessions.mockReset().mockResolvedValue({ items: [], next_cursor: null });
+    patchChatSession.mockReset().mockResolvedValue({});
+  });
+
   it('lists chat + rerank + planner models and persists a selected default', async () => {
     render(<DefaultModelsCard />);
     await waitFor(() => expect(listUserModels).toHaveBeenCalledWith('tok', { capability: 'rerank', include_inactive: false }));
@@ -92,6 +107,43 @@ describe('DefaultModelsCard', () => {
     await openRow(0);
     fireEvent.click(await screen.findByText('bge-reranker'));
     await waitFor(() => expect(setDefault).toHaveBeenCalledWith('tok', 'chat', 'm1'));
+  });
+
+  // #facade — default→dependent propagation: sessions still pinned to the OLD
+  // chat default follow the new one. Sessions deliberately set to another model
+  // are untouched.
+  it('moves sessions pinned to the OLD chat default onto the new default', async () => {
+    listChatSessions.mockResolvedValue({
+      items: [
+        { session_id: 's-follow', model_ref: 'm-old' },
+        { session_id: 's-other', model_ref: 'm-deliberate' },
+        { session_id: 's-follow2', model_ref: 'm-old' },
+      ],
+      next_cursor: null,
+    });
+    getDefaults.mockResolvedValue({ defaults: { chat: 'm-old' } });
+    render(<DefaultModelsCard />);
+    await openRow(0);
+    fireEvent.click(await screen.findByText('bge-reranker'));
+    await waitFor(() => expect(setDefault).toHaveBeenCalledWith('tok', 'chat', 'm1'));
+    await waitFor(() => {
+      expect(patchChatSession).toHaveBeenCalledTimes(2);
+      expect(patchChatSession).toHaveBeenCalledWith('tok', 's-follow', { model_source: 'user_model', model_ref: 'm1' });
+      expect(patchChatSession).toHaveBeenCalledWith('tok', 's-follow2', { model_source: 'user_model', model_ref: 'm1' });
+    });
+    // Sessions deliberately on another model are not touched.
+    expect(patchChatSession).not.toHaveBeenCalledWith('tok', 's-other', expect.anything());
+  });
+
+  // A chat default CHANGED while sessions are pinned to the old one is the only
+  // propagation trigger; the rerank capability has no propagation at all.
+  it('rerank default changes do not touch chat sessions', async () => {
+    getDefaults.mockResolvedValue({ defaults: { rerank: 'm-old' } });
+    render(<DefaultModelsCard />);
+    await openRow(1);
+    fireEvent.click(await screen.findByText('bge-reranker'));
+    await waitFor(() => expect(setDefault).toHaveBeenCalledWith('tok', 'rerank', 'm1'));
+    expect(patchChatSession).not.toHaveBeenCalled();
   });
 
   it('preloads the existing defaults from the server (trigger shows the model)', async () => {

@@ -22,10 +22,11 @@ const base = apiBase;
 export const chatApi = {
   // ── Sessions ──────────────────────────────────────────────────────────────────
 
-  listSessions(token: string, status = 'active', bookId?: string) {
+  listSessions(token: string, status = 'active', bookId?: string, cursor?: string | null) {
     const bookParam = bookId ? `&book_id=${encodeURIComponent(bookId)}` : '';
+    const cursorParam = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
     return apiJson<{ items: ChatSession[]; next_cursor: string | null }>(
-      `/v1/chat/sessions?status=${status}${bookParam}`,
+      `/v1/chat/sessions?status=${status}${bookParam}${cursorParam}`,
       { token },
     );
   },

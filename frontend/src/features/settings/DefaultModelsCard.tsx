@@ -5,6 +5,42 @@ import { useAuth } from '@/auth';
 import { AddModelCta } from '@/components/shared/AddModelCta';
 import { ModelPicker } from '@/components/model-picker';
 import { defaultModelsApi, RERANK_CAPABILITY, PLANNER_CAPABILITY, CHAT_CAPABILITY, COMPOSER_CAPABILITY } from './api';
+import { chatApi } from '@/features/chat/api';
+
+/**
+ * #facade — default→dependent propagation. A chat session PINNS its model at
+ * creation (model_source:'user_model'), so changing the account chat default
+ * afterwards did NOT reflect in existing chats (incl. the studio co-author,
+ * whose "Модель" binds to session.model_ref — the exact "default not applied"
+ * report). After a successful chat-default save, every ACTIVE session still
+ * pinned to the OLD default moves to the new one. Sessions deliberately set to
+ * a different model are untouched (their model_ref differs).
+ */
+async function propagateChatDefault(
+  token: string,
+  oldDefault: string | null,
+  newDefault: string,
+): Promise<number> {
+  if (!oldDefault || oldDefault === newDefault) return 0;
+  const moved: string[] = [];
+  let cursor: string | null = null;
+  // Cursor-follow all active sessions (50/page server-side).
+  for (;;) {
+    const page = await chatApi.listSessions(token, 'active', undefined, cursor);
+    for (const s of page.items) {
+      if (s.model_ref === oldDefault && !moved.includes(s.session_id)) {
+        await chatApi.patchSession(token, s.session_id, {
+          model_source: 'user_model',
+          model_ref: newDefault,
+        });
+        moved.push(s.session_id);
+      }
+    }
+    cursor = page.next_cursor;
+    if (!cursor) break;
+  }
+  return moved.length;
+}
 
 /**
  * Per-user DEFAULT model per capability (rerank/embedding). Restores the
@@ -81,6 +117,7 @@ export function DefaultModelsCard() {
   const save = async (capability: string, userModelId: string | null) => {
     if (!accessToken) return;
     const prev = defaults;
+    const oldDefault = prev[capability] ?? null;
     // Optimistic update.
     setDefaults((d) => {
       const next = { ...d };
@@ -92,6 +129,30 @@ export function DefaultModelsCard() {
     try {
       await defaultModelsApi.set(accessToken, capability, userModelId);
       toast.success(t('defaultModels.saved', { defaultValue: 'Default updated' }));
+      // #facade — default→dependent propagation for the CHAT role: sessions
+      // still pinned to the old default follow the new one (deliberately-set
+      // sessions differ and are untouched). Fire-and-forget: the default is
+      // already saved; propagation failures surface as their own toast.
+      if (capability === CHAT_CAPABILITY) {
+        void propagateChatDefault(accessToken, oldDefault, userModelId ?? '')
+          .then((n) => {
+            if (n > 0) {
+              toast.success(
+                t('defaultModels.propagated', {
+                  defaultValue: '{{n}} existing chat(s) moved to the new default',
+                  n,
+                }),
+              );
+            }
+          })
+          .catch(() => {
+            toast.error(
+              t('defaultModels.propagate_failed', {
+                defaultValue: 'Existing chats were NOT moved to the new default — re-pin them manually.',
+              }),
+            );
+          });
+      }
     } catch (e) {
       setDefaults(prev); // rollback
       toast.error((e as Error).message);

@@ -236,6 +236,17 @@ export function EditorPanel(props: IDockviewPanelProps) {
   useEffect(() => {
     editorRef.current?.setGlossaryEnabled(glossaryEnabled);
   }, [glossaryEnabled, editorRef]);
+  // #287-class race fix (user report: glossary "not applied" in the studio dock) — the
+  // mount-time push above silently drops when the TiptapEditor/chapter has not mounted
+  // yet (editorRef.current is null; the optional chaining swallows it), and the plugin
+  // is left decorating with an EMPTY sorted list even after the chapter doc arrives.
+  // When the chapter (or the editor element) subsequently appears, RE-PUSH the
+  // already-loaded entities + toggle so the plugin decorates the fresh doc.
+  useEffect(() => {
+    if (!editorRef.current || glossaryEntities.length === 0) return;
+    editorRef.current.setGlossaryEntities(glossaryEntities);
+    editorRef.current.setGlossaryEnabled(glossaryEnabled);
+  }, [chapterId, editorEl, glossaryEntities, glossaryEnabled, editorRef]);
   // Re-capture the container's own `.tiptap-content` node after the editor (re)mounts —
   // chapter switches remount the underlying ProseMirror view.
   useEffect(() => {
