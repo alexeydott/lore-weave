@@ -510,7 +510,7 @@
       "pricing_hint": "Wird bei der Erstellung vorausgefüllt. Falls sich der veröffentlichte Tarif des Anbieters geändert hat, bitte anpassen oder OpenRouter für eine aktuelle Schätzung prüfen.",
       "pricing_check": "OpenRouter prüfen",
       "pricing_checking": "Prüfung läuft...",
-      "pricing_suggestion_found": "OpenRouter ({{source}}): ${{input}} in / ${{output}} out",
+      "pricing_suggestion_found": "OpenRouter ({{source}}): ${{input}} eingehend / ${{output}} ausgehend",
       "pricing_apply": "Anwenden",
       "pricing_not_found": "Kein passendes Modell auf OpenRouter gefunden — Preisangaben von dieser Quelle nicht verfügbar.",
       "pricing_check_failed": "Fehler beim Abrufen der OpenRouter-Preise",
@@ -557,7 +557,13 @@
     "empty": "Keine geeigneten Modelle konfiguriert.",
     "saved": "Standardmodelle aktualisiert",
     "composer": "Standard-Composer",
-    "composerHint": "Das Modell, das deine Prosa schreibt, wenn ein Buch kein eigenes Modell hat. Wähle dies bewusst – die Generierung ist der kostspieligste Prozess hier, und es wird kein Chat-Modell in deinem Namen auf deine Kosten verbraucht."
+    "composerHint": "Das Modell, das deine Prosa schreibt, wenn ein Buch kein eigenes Modell hat. Wähle dies bewusst – die Generierung ist der kostspieligste Prozess hier, und es wird kein Chat-Modell in deinem Namen auf deine Kosten verbraucht.",
+    "critic": "Standard-Kritikermodell",
+    "criticHint": "Bewertet Übungssitzungen und prüft generierte Szenen. Optional — ohne ihn findet keine Bewertung statt und Sitzungen werden nicht benotet. Wählen Sie ein Modell, das sich von Ihrem üblichen Chatmodell unterscheidet.",
+    "distill": "Standard-Destillermodell",
+    "distillHint": "Verwandelt „Beende meinen Tag“-Chats in das tägliche Tagebuch. Optional — ohne ihn wird Ihr Standard-Chatmodell verwendet. Wählen Sie ein Modell OHNE Reasoning: ein Reasoning-Modell gibt nur Reasoning aus und destilliert ein leeres Tagebuch.",
+    "propagated": "{{n}} bestehende Chats auf die neue Voreinstellung umgestellt",
+    "propagate_failed": "Bestehende Chats wurden NICHT auf die neue Voreinstellung umgestellt — bitte manuell neu anheften."
   },
   "external_services": {
     "delete_blocked": "Dieser Dienst kann nicht entfernt werden: Sein Modell wird von {{count}} aktiven Job(s) verwendet. Beenden Sie diese zuerst.",

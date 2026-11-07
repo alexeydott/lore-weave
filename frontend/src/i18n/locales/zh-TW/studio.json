@@ -865,7 +865,8 @@
     "sceneSuggestionsHint": "選取原稿文字，使用 AI 生成場景建議",
     "sceneSuggestionsReady": "在選取段落上方的 AI 工具列中使用「建議場景」功能。",
     "sceneSuggestionsSelect": "請先選擇一段文字，然後使用選取範圍上方的「建議場景」。",
-    "suggestScenes": "建議場景"
+    "suggestScenes": "建議場景",
+    "techEdit": "技術編輯"
   },
   "sceneCompose": {
     "empty": "請在手稿導覽器中選擇一個章節，在此草擬其場景。",

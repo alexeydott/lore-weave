@@ -557,7 +557,13 @@
     "empty": "No hay modelos capaces configurados.",
     "saved": "Predeterminado actualizado",
     "composer": "Compositor predeterminado",
-    "composerHint": "El modelo que escribe tu prosa cuando un libro no tiene un modelo propio. Configúralo con cuidado: la generación es el proceso más costoso y nada consumirá tus créditos de modelo de chat en tu nombre."
+    "composerHint": "El modelo que escribe tu prosa cuando un libro no tiene un modelo propio. Configúralo con cuidado: la generación es el proceso más costoso y nada consumirá tus créditos de modelo de chat en tu nombre.",
+    "critic": "Modelo crítico predeterminado",
+    "criticHint": "Puntúa las sesiones de práctica y audita las escenas generadas. Opcional: si no se establece, la puntuación no ocurre y las sesiones no se evalúan. Elige uno que difiera de tu modelo de chat habitual.",
+    "distill": "Modelo destilador predeterminado",
+    "distillHint": "Convierte los chats «termina mi día» en el diario diario. Opcional: si no se establece, usa tu modelo de chat predeterminado. Elige un modelo SIN razonamiento: un modelo de razonamiento solo emite razonamiento y destila un diario vacío.",
+    "propagated": "{{n}} chats existentes movidos al nuevo predeterminado",
+    "propagate_failed": "Los chats existentes NO se movieron al nuevo predeterminado: vuelve a fijarlos manualmente."
   },
   "external_services": {
     "delete_blocked": "Este servicio no se puede eliminar: su modelo está siendo utilizado por {{count}} trabajo(s) activo(s). Deténlos primero.",

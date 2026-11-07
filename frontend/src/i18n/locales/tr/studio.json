@@ -865,7 +865,8 @@
     "sceneSuggestionsHint": "Yapay zeka ile sahne önerileri oluşturmak için taslak metni seçin",
     "sceneSuggestionsReady": "Seçili pasajın üzerindeki yapay zeka araç çubuğundan Sahne önerilerini kullanın.",
     "sceneSuggestionsSelect": "Önce bir pasaj seçin, ardından seçim üzerindeki Seçenekler kısmından sahne önerilerini kullanın.",
-    "suggestScenes": "Sahneleri öner"
+    "suggestScenes": "Sahneleri öner",
+    "techEdit": "Teknik düzenleme"
   },
   "sceneCompose": {
     "empty": "Sahnelerini burada taslak haline getirmek için taslak gezgininden bir bölüm seçin.",

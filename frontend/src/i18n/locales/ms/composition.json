@@ -1766,5 +1766,35 @@
   "coverageExtractionFailed": "Tidak dapat membaca janji daripada rangka kerja anda (panggilan model gagal atau terputus). Cuba lagi, atau pilih model yang berbeza.",
   "coverageScoreFailed": "Janji telah dibaca, tetapi pemarkahan terhadap buku telah gagal. Cuba lagi.",
   "lengthAskedDelivered": "Meminta ~{{target}} patah perkataan, menghasilkan {{actual}} ({{pct}}%).",
-  "lengthOverCeiling": "Ini meminta satu panggilan untuk lebih daripada jumlah yang boleh dihantar secara stabil oleh satu panggilan — pecahkan 场景 kepada perenggan untuk mendapatkan panjang penuh."
+  "lengthOverCeiling": "Ini meminta satu panggilan untuk lebih daripada jumlah yang boleh dihantar secara stabil oleh satu panggilan — pecahkan 场景 kepada perenggan untuk mendapatkan panjang penuh.",
+  "techEdit": {
+    "title": "Penyuntingan teknikal",
+    "close": "Tutup",
+    "mode_presets": "Pembersihan segera",
+    "mode_ai": "Tugasan AI",
+    "presets": {
+      "collapse_spaces": "Runtuhkan ruang berulang",
+      "space_before_punct": "Buang ruang sebelum tanda baca",
+      "strip_invisible": "Buang aksara halimunan",
+      "unify_quotes": "Satukan tanda petik kepada «…»",
+      "unify_dashes": "Satukan tanda sempang kepada —",
+      "collapse_blank_paragraphs": "Runtuhkan baris kosong berulang"
+    },
+    "find_ph": "Cari…",
+    "replace_ph": "Ganti dengan…",
+    "preview_hits": "Penggantian yang perlu dibuat: {{n}}",
+    "preview_clean": "Tiada apa yang perlu dibaiki.",
+    "apply_presets": "Laksanakan pembersihan",
+    "applied": "Dilaksanakan: {{n}} penggantian",
+    "nothing": "Tiada apa yang perlu dibaiki — teks sudah bersih.",
+    "backup_note": "Titik pemulihan dirakam sebelum pelaksanaan — Buat asal dalam panel semakan mengembalikan teks.",
+    "task_ph": "Huraikan tugasan untuk AI: cth. buang perkataan berulang, ganti istilah X dengan Y…",
+    "need_model": "Tiada model AI dipilih — pilih satu dalam sembang penulis bersama.",
+    "model_label": "Model: {{name}}",
+    "run_ai": "Jalankan penyuntingan AI",
+    "running": "AI sedang bekerja…",
+    "ai_result": "AI telah sediakan teks bab yang dibaiki ({{n}} aksara). Semak kemudian laksanakan — titik pemulihan dirakam secara automatik.",
+    "apply_ai": "Laksanakan hasil AI",
+    "guide_prefix": "Penyuntingan teknikal teks. Lakukan tugasan INI SAHAJA — jangan tulis semula prosa atas inisiatif sendiri dan kekalkan bilangan perenggan serta struktur melainkan tugasan menghendakkan:"
+  }
 }

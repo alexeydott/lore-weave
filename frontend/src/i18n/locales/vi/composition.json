@@ -1766,5 +1766,35 @@
   "coverageExtractionFailed": "Không thể đọc các lời hứa từ dàn ý của bạn (lệnh gọi mô hình bị lỗi hoặc bị ngắt quãng). Hãy thử lại hoặc chọn một mô hình khác.",
   "coverageScoreFailed": "Đã đọc các lời hứa, nhưng việc chấm điểm chúng dựa trên cuốn sách đã thất bại. Hãy thử lại.",
   "lengthAskedDelivered": "Yêu cầu khoảng {{target}} từ, đã trả về {{actual}} từ ({{pct}}%).",
-  "lengthOverCeiling": "Yêu cầu này vượt quá số lượng từ mà một lần gọi có thể đảm bảo cung cấp — hãy chia cảnh thành các đoạn văn để đạt được độ dài đầy đủ."
+  "lengthOverCeiling": "Yêu cầu này vượt quá số lượng từ mà một lần gọi có thể đảm bảo cung cấp — hãy chia cảnh thành các đoạn văn để đạt được độ dài đầy đủ.",
+  "techEdit": {
+    "title": "Chỉnh sửa kỹ thuật",
+    "close": "Đóng",
+    "mode_presets": "Dọn dẹp tức thì",
+    "mode_ai": "Tác vụ AI",
+    "presets": {
+      "collapse_spaces": "Gộp các khoảng trắng lặp lại",
+      "space_before_punct": "Xóa khoảng trắng trước dấu câu",
+      "strip_invisible": "Xóa ký tự vô hình",
+      "unify_quotes": "Thống nhất dấu ngoặc kép thành «…»",
+      "unify_dashes": "Thống nhất gạch ngang thành —",
+      "collapse_blank_paragraphs": "Gộp các dòng trống lặp lại"
+    },
+    "find_ph": "Tìm…",
+    "replace_ph": "Thay bằng…",
+    "preview_hits": "Số lần thay thế: {{n}}",
+    "preview_clean": "Không có gì cần sửa.",
+    "apply_presets": "Áp dụng dọn dẹp",
+    "applied": "Đã áp dụng: {{n}} thay thế",
+    "nothing": "Không có gì cần sửa — văn bản đã sạch.",
+    "backup_note": "Điểm khôi phục được ghi lại trước khi áp dụng — Hoàn tác trong bảng bản sửa đổi sẽ đưa văn bản về trạng thái trước đó.",
+    "task_ph": "Mô tả tác vụ cho AI: ví dụ xóa từ lặp, thay thuật ngữ X bằng Y…",
+    "need_model": "Chưa chọn mô hình AI — hãy chọn một trong khung chat đồng sáng tác.",
+    "model_label": "Mô hình: {{name}}",
+    "run_ai": "Chạy chỉnh sửa bằng AI",
+    "running": "AI đang làm việc…",
+    "ai_result": "AI đã chuẩn bị văn bản chương đã chỉnh ({{n}} ký tự). Xem lại rồi áp dụng — điểm khôi phục được ghi tự động.",
+    "apply_ai": "Áp dụng kết quả AI",
+    "guide_prefix": "Chỉnh sửa kỹ thuật văn bản. Chỉ THỰC HIỆN đúng tác vụ này — không tự ý viết lại văn bản và giữ nguyên số đoạn cùng cấu trúc, trừ khi tác vụ yêu cầu khác:"
+  }
 }

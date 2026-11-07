@@ -865,7 +865,8 @@
     "sceneSuggestionsHint": "Selecciona texto del manuscrito para generar propuestas de escenas con IA",
     "sceneSuggestionsReady": "Usa «Sugerir escenas» en la barra de herramientas de IA sobre el pasaje seleccionado.",
     "sceneSuggestionsSelect": "Selecciona primero un pasaje y luego usa «Sugerir escenas» sobre la selección.",
-    "suggestScenes": "Sugerir escenas"
+    "suggestScenes": "Sugerir escenas",
+    "techEdit": "Edición técnica"
   },
   "sceneCompose": {
     "empty": "Selecciona un capítulo en el navegador del manuscrito para redactar sus escenas aquí.",

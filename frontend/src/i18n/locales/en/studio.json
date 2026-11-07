@@ -865,7 +865,8 @@
     "sceneSuggestionsHint": "Select manuscript text to generate scene proposals with AI",
     "sceneSuggestionsReady": "Use Suggest scenes in the AI toolbar above the selected passage.",
     "sceneSuggestionsSelect": "Select a passage first, then use Suggest scenes above the selection.",
-    "suggestScenes": "Suggest scenes"
+    "suggestScenes": "Suggest scenes",
+    "techEdit": "Tech edit"
   },
   "sceneCompose": {
     "empty": "Select a chapter in the manuscript navigator to draft its scenes here.",

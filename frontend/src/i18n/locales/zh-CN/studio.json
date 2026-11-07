@@ -865,7 +865,8 @@
     "sceneSuggestionsHint": "选择手稿文本，使用 AI 生成场景建议",
     "sceneSuggestionsReady": "在所选段落上方的 AI 工具栏中使用“建议场景”功能。",
     "sceneSuggestionsSelect": "请先选择一段文字，然后使用上方的“建议场景”功能。",
-    "suggestScenes": "建议场景"
+    "suggestScenes": "建议场景",
+    "techEdit": "技术编辑"
   },
   "sceneCompose": {
     "empty": "在手稿导航器中选择一个章节，在此起草其场景。",

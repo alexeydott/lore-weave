@@ -865,7 +865,8 @@
     "sceneSuggestionsHint": "Pilih teks manuskrip untuk membuat usulan adegan dengan AI",
     "sceneSuggestionsReady": "Gunakan «Sarankan adegan» pada toolbar AI di atas bagian yang dipilih.",
     "sceneSuggestionsSelect": "Pilih kutipan terlebih dahulu, lalu gunakan Sarankan 场景 di atas pilihan tersebut.",
-    "suggestScenes": "Sarankan 场景"
+    "suggestScenes": "Sarankan 场景",
+    "techEdit": "Penyuntingan teknis"
   },
   "sceneCompose": {
     "empty": "Pilih bab dalam navigator manuskrip untuk menyusun adegan di sini.",

@@ -1766,5 +1766,35 @@
   "coverageExtractionFailed": "Tidak dapat membaca janji dalam kerangka Anda (pemanggilan model gagal atau terputus). Coba lagi, atau pilih model lain.",
   "coverageScoreFailed": "Janji telah dibaca, tetapi gagal saat mencocokkannya dengan buku. Coba lagi.",
   "lengthAskedDelivered": "Meminta ~{{target}} kata, menghasilkan {{actual}} ({{pct}}%).",
-  "lengthOverCeiling": "Permintaan ini melebihi jumlah kata yang dapat dihasilkan dalam satu panggilan secara andal — bagi adegan menjadi beberapa bagian untuk mendapatkan panjang penuh."
+  "lengthOverCeiling": "Permintaan ini melebihi jumlah kata yang dapat dihasilkan dalam satu panggilan secara andal — bagi adegan menjadi beberapa bagian untuk mendapatkan panjang penuh.",
+  "techEdit": {
+    "title": "Penyuntingan teknis",
+    "close": "Tutup",
+    "mode_presets": "Pembersihan instan",
+    "mode_ai": "Tugas AI",
+    "presets": {
+      "collapse_spaces": "Padatkan spasi berulang",
+      "space_before_punct": "Hapus spasi sebelum tanda baca",
+      "strip_invisible": "Hapus karakter tak terlihat",
+      "unify_quotes": "Satukan tanda kutip menjadi «…»",
+      "unify_dashes": "Satukan tanda pisah menjadi —",
+      "collapse_blank_paragraphs": "Padatkan baris kosong berulang"
+    },
+    "find_ph": "Cari…",
+    "replace_ph": "Ganti dengan…",
+    "preview_hits": "Penggantian yang akan dilakukan: {{n}}",
+    "preview_clean": "Tidak ada yang perlu diperbaiki.",
+    "apply_presets": "Terapkan pembersihan",
+    "applied": "Diterapkan: {{n}} penggantian",
+    "nothing": "Tidak ada yang perlu diperbaiki — teks sudah bersih.",
+    "backup_note": "Titik pemulihan diambil sebelum penerapan — Urungkan di panel revisi mengembalikan teks.",
+    "task_ph": "Jelaskan tugas untuk AI: mis. hapus kata duplikat, ganti istilah X dengan Y…",
+    "need_model": "Belum ada model AI dipilih — pilih satu di obrolan co-author.",
+    "model_label": "Model: {{name}}",
+    "run_ai": "Jalankan penyuntingan AI",
+    "running": "AI sedang bekerja…",
+    "ai_result": "AI menyiapkan teks bab yang sudah diperbaiki ({{n}} karakter). Tinjau lalu terapkan — titik pemulihan diambil otomatis.",
+    "apply_ai": "Terapkan hasil AI",
+    "guide_prefix": "Penyuntingan teknis teks. Lakukan HANYA tugas ini — jangan tulis ulang prosa atas inisiatif sendiri dan pertahankan jumlah paragraf serta strukturnya, kecuali tugas menghendaki:"
+  }
 }

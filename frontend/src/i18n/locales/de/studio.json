@@ -865,7 +865,8 @@
     "sceneSuggestionsHint": "Wählen Sie Text aus dem Manuskript aus, um Szenenvorschläge mit KI zu generieren",
     "sceneSuggestionsReady": "Verwenden Sie „Szenen vorschlagen“ in der KI-Symbolleiste oberhalb des markierten Abschnitts.",
     "sceneSuggestionsSelect": "Wähle zuerst eine Passage aus und verwende dann „Szenen vorschlagen“ oberhalb der Auswahl.",
-    "suggestScenes": "Szenen vorschlagen"
+    "suggestScenes": "Szenen vorschlagen",
+    "techEdit": "Tech-Bearbeitung"
   },
   "sceneCompose": {
     "empty": "Wählen Sie ein Kapitel im Manuskript-Navigator aus, um dessen Szenen hier zu entwerfen.",

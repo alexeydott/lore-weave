@@ -1766,5 +1766,35 @@
   "coverageExtractionFailed": "Impossible de lire les promesses de votre plan (l'appel au modèle a échoué ou a été interrompu). Réessayez ou choisissez un autre modèle.",
   "coverageScoreFailed": "Les promesses ont été lues, mais l'évaluation par rapport au livre a échoué. Réessayez.",
   "lengthAskedDelivered": "Demande de ~{{target}} mots, {{actual}} livrés ({{pct}} %).",
-  "lengthOverCeiling": "Ceci demande en un seul appel plus que ce qu'un appel peut fournir de manière fiable — divisez la scène en passages pour obtenir la longueur complète."
+  "lengthOverCeiling": "Ceci demande en un seul appel plus que ce qu'un appel peut fournir de manière fiable — divisez la scène en passages pour obtenir la longueur complète.",
+  "techEdit": {
+    "title": "Édition technique",
+    "close": "Fermer",
+    "mode_presets": "Nettoyage instantané",
+    "mode_ai": "Tâche IA",
+    "presets": {
+      "collapse_spaces": "Réduire les espaces répétés",
+      "space_before_punct": "Supprimer les espaces avant la ponctuation",
+      "strip_invisible": "Supprimer les caractères invisibles",
+      "unify_quotes": "Uniformiser les guillemets en « … »",
+      "unify_dashes": "Uniformiser les tirets en —",
+      "collapse_blank_paragraphs": "Réduire les lignes vides répétées"
+    },
+    "find_ph": "Rechercher…",
+    "replace_ph": "Remplacer par…",
+    "preview_hits": "Remplacements à effectuer : {{n}}",
+    "preview_clean": "Rien à corriger.",
+    "apply_presets": "Appliquer le nettoyage",
+    "applied": "Appliqués : {{n}} remplacement(s)",
+    "nothing": "Rien à corriger — le texte est déjà propre.",
+    "backup_note": "Un point de restauration est capturé avant application — Annuler dans le panneau des révisions rétablit le texte.",
+    "task_ph": "Décrivez la tâche pour l'IA : p. ex. supprimer les mots dupliqués, remplacer le terme X par Y…",
+    "need_model": "Aucun modèle d'IA sélectionné — choisissez-en un dans le chat de co-écriture.",
+    "model_label": "Modèle : {{name}}",
+    "run_ai": "Lancer l'édition par IA",
+    "running": "L'IA travaille…",
+    "ai_result": "L'IA a préparé le texte corrigé du chapitre ({{n}} caractères). Vérifiez, puis appliquez — un point de restauration est capturé automatiquement.",
+    "apply_ai": "Appliquer le résultat de l'IA",
+    "guide_prefix": "Édition technique du texte. Effectue UNIQUEMENT cette tâche — ne réécris pas la prose de ta propre initiative et conserve le nombre de paragraphes et la structure, sauf si la tâche l'exige :"
+  }
 }

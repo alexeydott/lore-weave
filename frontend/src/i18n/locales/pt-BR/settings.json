@@ -557,7 +557,13 @@
     "empty": "Nenhum modelo capaz configurado.",
     "saved": "Padrão atualizado",
     "composer": "Compositor padrão",
-    "composerHint": "O modelo que escreve sua prosa quando um livro não possui um modelo próprio. Defina com cautela — a geração é o processo mais caro aqui, e nada consumirá seu modelo de chat em seu nome."
+    "composerHint": "O modelo que escreve sua prosa quando um livro não possui um modelo próprio. Defina com cautela — a geração é o processo mais caro aqui, e nada consumirá seu modelo de chat em seu nome.",
+    "critic": "Modelo crítico padrão",
+    "criticHint": "Avalia sessões de prática e audita cenas geradas. Opcional — sem ele, a avaliação não acontece e as sessões não são pontuadas. Escolha um que diferencie do seu modelo de chat habitual.",
+    "distill": "Modelo destilador padrão",
+    "distillHint": "Transforma conversas de \"encerrar meu dia\" no diário diário. Opcional — sem ele, usa seu modelo de chat padrão. Escolha um modelo SEM raciocínio: um modelo de raciocínio emite apenas raciocínio e destila um diário vazio.",
+    "propagated": "{{n}} conversas existentes movidas para o novo padrão",
+    "propagate_failed": "As conversas existentes NÃO foram movidas para o novo padrão — refixe-as manualmente."
   },
   "external_services": {
     "delete_blocked": "Este serviço não pode ser removido: seu modelo está sendo usado por {{count}} trabalho(s) ativo(s). Pare-os primeiro.",

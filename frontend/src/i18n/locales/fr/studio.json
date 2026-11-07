@@ -865,7 +865,8 @@
     "sceneSuggestionsHint": "Sélectionnez du texte dans le manuscrit pour générer des propositions de scènes avec l'IA",
     "sceneSuggestionsReady": "Utilisez « Suggérer des scènes » dans la barre d'outils IA au-dessus du passage sélectionné.",
     "sceneSuggestionsSelect": "Sélectionnez d'abord un passage, puis utilisez « Suggérer des scènes » au-dessus de la sélection.",
-    "suggestScenes": "Suggérer des scènes"
+    "suggestScenes": "Suggérer des scènes",
+    "techEdit": "Édition technique"
   },
   "sceneCompose": {
     "empty": "Sélectionnez un chapitre dans le navigateur de manuscrit pour en rédiger les scènes ici.",

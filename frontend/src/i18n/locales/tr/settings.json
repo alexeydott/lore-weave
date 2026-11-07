@@ -557,7 +557,13 @@
     "empty": "Yapılandırılmış yetkin model bulunmuyor.",
     "saved": "Varsayılan güncellendi",
     "composer": "Varsayılan besteci",
-    "composerHint": "Bir kitabın kendine ait bir modeli olmadığında düzyazınızı yazan modeldir. Bilinçli bir şekilde ayarlayın — üretim buradaki en maliyetli işlemdir ve sohbet modeliniz üzerinden sizin adınıza harcama yapılmayacaktır."
+    "composerHint": "Bir kitabın kendine ait bir modeli olmadığında düzyazınızı yazan modeldir. Bilinçli bir şekilde ayarlayın — üretim buradaki en maliyetli işlemdir ve sohbet modeliniz üzerinden sizin adınıza harcama yapılmayacaktır.",
+    "critic": "Varsayılan eleştirmen modeli",
+    "criticHint": "Alıştırma oturumlarını puanlar ve üretilen sahneleri denetler. İsteğe bağlı — ayarlanmazsa puanlama yapılmaz ve oturumlar puanlanmaz. Olağan sohbet modelinizden farklı bir tane seçin.",
+    "distill": "Varsayılan damıtıcı model",
+    "distillHint": "\"Günümü bitir\" sohbetlerini günlüğe dönüştürür. İsteğe bağlı — ayarlanmazsa varsayılan sohbet modeliniz kullanılır. AKIL YÜRÜTME olmayan bir model seçin: akıl yürütme modeli yalnızca akıl yürütme çıkarır ve boş bir günlük damıtır.",
+    "propagated": "{{n}} mevcut sohbet yeni varsayılana taşındı",
+    "propagate_failed": "Mevcut sohbetler yeni varsayılana TAŞINMADI — bunları elle yeniden sabitleyin."
   },
   "external_services": {
     "delete_blocked": "Bu servis kaldırılamaz: modeli {{count}} aktif iş tarafından kullanılıyor. Önce bunları durdurun.",

@@ -1766,5 +1766,35 @@
   "coverageExtractionFailed": "개요에서 약속된 내용을 읽어오지 못했습니다 (모델 호출 실패 또는 중단됨). 다시 시도하거나 다른 모델을 선택하세요.",
   "coverageScoreFailed": "약속된 내용은 읽어왔으나, 도서 내용과의 일치 여부 점수 산출에 실패했습니다. 다시 시도하세요.",
   "lengthAskedDelivered": "~{{target}} 단어를 요청하여 {{actual}} 단어가 생성되었습니다 ({{pct}}%).",
-  "lengthOverCeiling": "이 요청은 한 번의 호출로 안정적으로 생성할 수 있는 양을 초과했습니다. 장면을 여러 구절로 나누어 전체 길이를 확보하세요."
+  "lengthOverCeiling": "이 요청은 한 번의 호출로 안정적으로 생성할 수 있는 양을 초과했습니다. 장면을 여러 구절로 나누어 전체 길이를 확보하세요.",
+  "techEdit": {
+    "title": "기술 편집",
+    "close": "닫기",
+    "mode_presets": "즉시 정리",
+    "mode_ai": "AI 작업",
+    "presets": {
+      "collapse_spaces": "반복된 공백 정리",
+      "space_before_punct": "문장 부호 앞 공백 제거",
+      "strip_invisible": "보이지 않는 문자 제거",
+      "unify_quotes": "따옴표를 «…»로 통일",
+      "unify_dashes": "대시를 —로 통일",
+      "collapse_blank_paragraphs": "반복된 빈 줄 정리"
+    },
+    "find_ph": "찾기…",
+    "replace_ph": "바꾸기…",
+    "preview_hits": "적용할 바꾸기: {{n}}",
+    "preview_clean": "수정할 항목이 없습니다.",
+    "apply_presets": "정리 적용",
+    "applied": "적용됨: 바꾸기 {{n}}건",
+    "nothing": "수정할 항목이 없습니다 — 텍스트가 이미 깨끗합니다.",
+    "backup_note": "적용 전에 복원 지점이 저장됩니다 — 리비전 패널의 되돌리기로 텍스트를 복원할 수 있습니다.",
+    "task_ph": "AI에 할 일을 설명하세요: 예: 중복 단어 제거, 용어 X를 Y로 교체…",
+    "need_model": "AI 모델이 선택되지 않았습니다 — 공동 집필 채팅에서 선택하세요.",
+    "model_label": "모델: {{name}}",
+    "run_ai": "AI 편집 실행",
+    "running": "AI가 작업 중…",
+    "ai_result": "AI가 수정된 챕터 텍스트를 준비했습니다 ({{n}}자). 검토 후 적용하세요 — 복원 지점은 자동으로 저장됩니다.",
+    "apply_ai": "AI 결과 적용",
+    "guide_prefix": "텍스트 기술 편집. 이 작업만 수행하세요 — 임의로 문장을 재작성하지 말고, 작업이 요구하지 않는 한 단락 수와 구조를 유지하세요:"
+  }
 }

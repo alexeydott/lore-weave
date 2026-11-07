@@ -1766,5 +1766,35 @@
   "coverageExtractionFailed": "無法從您的大綱中讀取伏筆（模型呼叫失敗或中斷）。請重試，或選擇不同的模型。",
   "coverageScoreFailed": "已讀取伏筆，但與全書進行比對評分時失敗。請重試。",
   "lengthAskedDelivered": "要求約 {{target}} 字，實際交付 {{actual}} 字 ({{pct}}%)。",
-  "lengthOverCeiling": "單次呼叫要求的字數超過了模型能穩定交付的範圍 — 請將場景拆分為段落以獲得完整長度。"
+  "lengthOverCeiling": "單次呼叫要求的字數超過了模型能穩定交付的範圍 — 請將場景拆分為段落以獲得完整長度。",
+  "techEdit": {
+    "title": "技術性編輯",
+    "close": "關閉",
+    "mode_presets": "即時清理",
+    "mode_ai": "AI 任務",
+    "presets": {
+      "collapse_spaces": "合併重複空格",
+      "space_before_punct": "刪除標點前的空格",
+      "strip_invisible": "刪除不可見字元",
+      "unify_quotes": "統一引號為 «…»",
+      "unify_dashes": "統一破折號為 —",
+      "collapse_blank_paragraphs": "合併重複空行"
+    },
+    "find_ph": "尋找…",
+    "replace_ph": "取代為…",
+    "preview_hits": "待取代：{{n}} 處",
+    "preview_clean": "沒有需要修正的內容。",
+    "apply_presets": "套用清理",
+    "applied": "已套用：{{n}} 處取代",
+    "nothing": "沒有需要修正的內容 — 文字已經很乾淨。",
+    "backup_note": "套用前會建立還原點 — 在修訂面板中點「復原」即可還原文字。",
+    "task_ph": "描述給 AI 的任務：例如刪除重複詞語、把術語 X 換成 Y…",
+    "need_model": "未選擇 AI 模型 — 請在合著聊天中選擇一個。",
+    "model_label": "模型：{{name}}",
+    "run_ai": "執行 AI 編輯",
+    "running": "AI 正在工作中…",
+    "ai_result": "AI 已準備好修改後的章節文字（{{n}} 字元）。請檢查後套用 — 系統會自動建立還原點。",
+    "apply_ai": "套用 AI 結果",
+    "guide_prefix": "技術性文字編輯。只執行這項任務 — 不要擅自重寫正文，除非任務要求，否則保持段落數量與結構不變："
+  }
 }

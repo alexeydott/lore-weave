@@ -864,7 +864,8 @@
     "sceneSuggestionsHint": "원고 텍스트를 선택하여 AI로 장면 제안을 생성하세요",
     "sceneSuggestionsReady": "선택한 구절 위의 AI 도구 모음에서 ‘장면 제안’을 사용하세요.",
     "sceneSuggestionsSelect": "먼저 구절을 선택한 다음, 선택 영역 위에서 ‘장면 제안’을 사용하세요.",
-    "suggestScenes": "장면 제안"
+    "suggestScenes": "장면 제안",
+    "techEdit": "기술 편집"
   },
   "sceneCompose": {
     "empty": "원고 탐색기에서 챕터를 선택하여 이곳에서 장면을 초안 작성하세요.",

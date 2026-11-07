@@ -865,7 +865,8 @@
     "sceneSuggestionsHint": "Chọn văn bản bản thảo để tạo các đề xuất cảnh bằng AI",
     "sceneSuggestionsReady": "Sử dụng Gợi ý cảnh trong thanh công cụ AI phía trên đoạn văn đã chọn.",
     "sceneSuggestionsSelect": "Hãy chọn một đoạn văn trước, sau đó sử dụng Gợi ý cảnh phía trên phần đã chọn.",
-    "suggestScenes": "Gợi ý cảnh"
+    "suggestScenes": "Gợi ý cảnh",
+    "techEdit": "Chỉnh sửa kỹ thuật"
   },
   "sceneCompose": {
     "empty": "Chọn một chương trong trình điều hướng bản thảo để soạn thảo các cảnh tại đây.",

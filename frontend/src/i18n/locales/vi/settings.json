@@ -557,7 +557,13 @@
     "empty": "Chưa cấu hình mô hình phù hợp nào.",
     "saved": "Đã cập nhật mặc định",
     "composer": "Trình soạn thảo mặc định",
-    "composerHint": "Mô hình sẽ viết văn xuôi cho bạn khi một cuốn sách không có mô hình riêng. Hãy thiết lập một cách cẩn thận — việc tạo nội dung là tác vụ tốn kém nhất ở đây, và sẽ không có gì tiêu tốn hạn mức mô hình chat của bạn thay cho bạn cả."
+    "composerHint": "Mô hình sẽ viết văn xuôi cho bạn khi một cuốn sách không có mô hình riêng. Hãy thiết lập một cách cẩn thận — việc tạo nội dung là tác vụ tốn kém nhất ở đây, và sẽ không có gì tiêu tốn hạn mức mô hình chat của bạn thay cho bạn cả.",
+    "critic": "Mô hình phê bình mặc định",
+    "criticHint": "Chấm điểm các phiên luyện tập và kiểm toán các cảnh được tạo. Tùy chọn — không đặt thì không chấm điểm và các phiên không được đánh giá. Chọn mô hình khác với mô hình chat bạn thường dùng.",
+    "distill": "Mô hình chưng cất mặc định",
+    "distillHint": "Biến các đoạn chat \"kết thúc ngày của tôi\" thành nhật ký hàng ngày. Tùy chọn — không đặt thì dùng mô hình chat mặc định của bạn. Chọn mô hình KHÔNG suy luận: mô hình suy luận chỉ phát ra suy luận và chưng cất ra nhật ký trống.",
+    "propagated": "Đã chuyển {{n}} đoạn chat hiện có sang mặc định mới",
+    "propagate_failed": "Các đoạn chat hiện có KHÔNG được chuyển sang mặc định mới — hãy ghim lại thủ công."
   },
   "external_services": {
     "delete_blocked": "Không thể xóa dịch vụ này: mô hình của nó đang được sử dụng bởi {{count}} công việc đang chạy. Hãy dừng chúng trước.",

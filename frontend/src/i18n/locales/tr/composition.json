@@ -1766,5 +1766,35 @@
   "coverageExtractionFailed": "Taslağınızdaki vaatler okunamadı (model çağrısı başarısız oldu veya yarıda kesildi). Tekrar deneyin veya farklı bir model seçin.",
   "coverageScoreFailed": "Vaatler okundu ancak kitapla karşılaştırılırken puanlama başarısız oldu. Tekrar deneyin.",
   "lengthAskedDelivered": "~{{target}} kelime istendi, {{actual}} kelime iletildi ({{pct}}%).",
-  "lengthOverCeiling": "Bu istek, tek bir çağrının güvenilir bir şekilde teslim edebileceğinden daha fazla kelime içeriyor — tam uzunluğu elde etmek için sahneyi pasajlara bölün."
+  "lengthOverCeiling": "Bu istek, tek bir çağrının güvenilir bir şekilde teslim edebileceğinden daha fazla kelime içeriyor — tam uzunluğu elde etmek için sahneyi pasajlara bölün.",
+  "techEdit": {
+    "title": "Teknik düzenleme",
+    "close": "Kapat",
+    "mode_presets": "Anında temizlik",
+    "mode_ai": "YZ görevi",
+    "presets": {
+      "collapse_spaces": "Tekrarlanan boşlukları daralt",
+      "space_before_punct": "Noktalama işaretlerinden önceki boşlukları kaldır",
+      "strip_invisible": "Görünmez karakterleri kaldır",
+      "unify_quotes": "Tırnak işaretlerini «…» olarak birleştir",
+      "unify_dashes": "Tire işaretlerini — olarak birleştir",
+      "collapse_blank_paragraphs": "Tekrarlanan boş satırları daralt"
+    },
+    "find_ph": "Bul…",
+    "replace_ph": "Şununla değiştir…",
+    "preview_hits": "Yapılacak değişiklikler: {{n}}",
+    "preview_clean": "Düzeltilecek bir şey yok.",
+    "apply_presets": "Temizliği uygula",
+    "applied": "Uygulandı: {{n}} değişiklik",
+    "nothing": "Düzeltilecek bir şey yok — metin zaten temiz.",
+    "backup_note": "Uygulamadan önce bir geri yükleme noktası alınır — revizyon panelindeki Geri Al metni eski haline getirir.",
+    "task_ph": "YZ için görevi tanımlayın: örn. yinelenen kelimeleri kaldır, X terimini Y ile değiştir…",
+    "need_model": "Seçili YZ modeli yok — ortak yazar sohbetinden bir tane seçin.",
+    "model_label": "Model: {{name}}",
+    "run_ai": "YZ düzenlemesini çalıştır",
+    "running": "YZ çalışıyor…",
+    "ai_result": "YZ, düzeltilmiş bölüm metnini hazırladı ({{n}} karakter). İnceleyin ve uygulayın — geri yükleme noktası otomatik alınır.",
+    "apply_ai": "YZ sonucunu uygula",
+    "guide_prefix": "Teknik metin düzenlemesi. YALNIZCA bu görevi yap — metni kendi başına yeniden yazma ve görev gerektirmedikçe paragraf sayısını ve yapıyı koru:"
+  }
 }

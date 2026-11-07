@@ -1766,5 +1766,35 @@
   "coverageExtractionFailed": "Die Versprechen konnten nicht aus Ihrem Entwurf gelesen werden (der Modellaufruf ist fehlgeschlagen oder wurde abgebrochen). Versuchen Sie es erneut oder wählen Sie ein anderes Modell.",
   "coverageScoreFailed": "Die Versprechen wurden gelesen, aber die Bewertung im Abgleich mit dem Buch ist fehlgeschlagen. Versuchen Sie es erneut.",
   "lengthAskedDelivered": "Anforderung: ~{{target}} Wörter, geliefert: {{actual}} ({{pct}}%).",
-  "lengthOverCeiling": "Dies erfordert mehr Wörter, als ein einzelner Aufruf zuverlässig liefern kann – teilen Sie die Szene in Passagen auf, um die volle Länge zu erreichen."
+  "lengthOverCeiling": "Dies erfordert mehr Wörter, als ein einzelner Aufruf zuverlässig liefern kann – teilen Sie die Szene in Passagen auf, um die volle Länge zu erreichen.",
+  "techEdit": {
+    "title": "Technische Bearbeitung",
+    "close": "Schließen",
+    "mode_presets": "Sofortige Bereinigung",
+    "mode_ai": "KI-Aufgabe",
+    "presets": {
+      "collapse_spaces": "Wiederholte Leerzeichen zusammenfassen",
+      "space_before_punct": "Leerzeichen vor Satzzeichen entfernen",
+      "strip_invisible": "Unsichtbare Zeichen entfernen",
+      "unify_quotes": "Anführungszeichen zu «…» vereinheitlichen",
+      "unify_dashes": "Gedankenstriche zu — vereinheitlichen",
+      "collapse_blank_paragraphs": "Wiederholte Leerzeilen zusammenfassen"
+    },
+    "find_ph": "Suchen…",
+    "replace_ph": "Ersetzen durch…",
+    "preview_hits": "Ersetzungen: {{n}}",
+    "preview_clean": "Nichts zu korrigieren.",
+    "apply_presets": "Bereinigung anwenden",
+    "applied": "Angewendet: {{n}} Ersetzung(en)",
+    "nothing": "Nichts zu korrigieren — der Text ist bereits sauber.",
+    "backup_note": "Vor dem Anwenden wird ein Wiederherstellungspunkt erfasst — Undo im Revisions-Panel setzt den Text zurück.",
+    "task_ph": "Beschreiben Sie die Aufgabe für die KI: z. B. doppelte Wörter entfernen, Begriff X durch Y ersetzen…",
+    "need_model": "Kein KI-Modell ausgewählt — wählen Sie eines im Koautoren-Chat.",
+    "model_label": "Modell: {{name}}",
+    "run_ai": "KI-Bearbeitung ausführen",
+    "running": "Die KI arbeitet…",
+    "ai_result": "Die KI hat den korrigierten Kapiteltext vorbereitet ({{n}} Zeichen). Prüfen und anwenden — ein Wiederherstellungspunkt wird automatisch erfasst.",
+    "apply_ai": "KI-Ergebnis anwenden",
+    "guide_prefix": "Technische Textbearbeitung. Führe NUR diese Aufgabe aus — schreibe den Text nicht eigenmächtig um und behalte Absatzzahl und Struktur bei, es sei denn, die Aufgabe verlangt es:"
+  }
 }

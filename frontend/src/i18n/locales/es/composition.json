@@ -1766,5 +1766,35 @@
   "coverageExtractionFailed": "No se pudieron leer las promesas de tu esquema (la llamada al modelo falló o se interrumpió). Inténtalo de nuevo o elige un modelo diferente.",
   "coverageScoreFailed": "Se leyeron las promesas, pero falló la evaluación con el libro. Inténtalo de nuevo.",
   "lengthAskedDelivered": "Se solicitaron ~{{target}} palabras, se entregaron {{actual}} ({{pct}}%).",
-  "lengthOverCeiling": "Esto solicita en una sola llamada más de lo que una llamada puede entregar de forma fiable; divide la escena en pasajes para obtener la longitud completa."
+  "lengthOverCeiling": "Esto solicita en una sola llamada más de lo que una llamada puede entregar de forma fiable; divide la escena en pasajes para obtener la longitud completa.",
+  "techEdit": {
+    "title": "Edición técnica",
+    "close": "Cerrar",
+    "mode_presets": "Limpieza instantánea",
+    "mode_ai": "Tarea de IA",
+    "presets": {
+      "collapse_spaces": "Contraer espacios repetidos",
+      "space_before_punct": "Eliminar espacios antes de signos de puntuación",
+      "strip_invisible": "Eliminar caracteres invisibles",
+      "unify_quotes": "Unificar comillas en «…»",
+      "unify_dashes": "Unificar guiones en —",
+      "collapse_blank_paragraphs": "Contraer líneas en blanco repetidas"
+    },
+    "find_ph": "Buscar…",
+    "replace_ph": "Reemplazar por…",
+    "preview_hits": "Reemplazos a realizar: {{n}}",
+    "preview_clean": "Nada que corregir.",
+    "apply_presets": "Aplicar limpieza",
+    "applied": "Aplicados: {{n}} reemplazo(s)",
+    "nothing": "Nada que corregir: el texto ya está limpio.",
+    "backup_note": "Antes de aplicar se crea un punto de restauración; «Deshacer» en el panel de revisiones revierte el texto.",
+    "task_ph": "Describe la tarea para la IA: p. ej., eliminar palabras duplicadas, reemplazar el término X por Y…",
+    "need_model": "No hay modelo de IA seleccionado — elige uno en el chat de coautoría.",
+    "model_label": "Modelo: {{name}}",
+    "run_ai": "Ejecutar la edición con IA",
+    "running": "La IA está trabajando…",
+    "ai_result": "La IA preparó el texto corregido del capítulo ({{n}} caracteres). Revísalo y aplícalo: se crea un punto de restauración automáticamente.",
+    "apply_ai": "Aplicar el resultado de la IA",
+    "guide_prefix": "Edición técnica del texto. Realiza SOLO esta tarea: no reescribas la prosa por iniciativa propia y conserva el número de párrafos y la estructura, salvo que la tarea exija lo contrario:"
+  }
 }

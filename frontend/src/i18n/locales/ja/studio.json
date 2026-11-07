@@ -865,7 +865,8 @@
     "sceneSuggestionsHint": "原稿のテキストを選択して、AIでシーンの提案を生成します",
     "sceneSuggestionsReady": "選択した箇所の上にあるAIツールバーの「シーンを提案」を使用してください。",
     "sceneSuggestionsSelect": "先に一節を選択してから、選択範囲の上にある「シーンを提案」を使用してください。",
-    "suggestScenes": "シーンを提案"
+    "suggestScenes": "シーンを提案",
+    "techEdit": "テクニカル編集"
   },
   "sceneCompose": {
     "empty": "原稿ナビゲーターから章を選択して、ここにシーンをドラフトしてください。",

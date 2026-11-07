@@ -865,7 +865,8 @@
     "sceneSuggestionsHint": "Pilih teks manuskrip untuk menjana cadangan adegan dengan AI",
     "sceneSuggestionsReady": "Gunakan Cadangkan adegan dalam bar alatan AI di atas petikan yang dipilih.",
     "sceneSuggestionsSelect": "Pilih petikan terlebih dahulu, kemudian gunakan Cadangkan 场景 di atas pilihan tersebut.",
-    "suggestScenes": "Cadangkan 场景"
+    "suggestScenes": "Cadangkan 场景",
+    "techEdit": "Penyuntingan teknikal"
   },
   "sceneCompose": {
     "empty": "Pilih bab dalam navigasi manuskrip untuk merangka babak di sini.",
