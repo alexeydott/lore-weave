@@ -12,6 +12,7 @@ import type { IDockviewPanelProps } from 'dockview-react';
 import { Chat } from '@/features/chat/Chat';
 import { UiNavInterceptorContext } from '@/features/chat/nav/uiNavScope';
 import { PopoutBridge } from '@/features/composition/components/workspace/PopoutBridge';
+import { WorkDefaultModelPrompt } from '@/features/composition/components/WorkDefaultModelPrompt';
 import { useStudioHost, useRegisterStudioTool } from '../host/StudioHostProvider';
 import { useDraftHandoffCta } from './useDraftHandoffCta';
 import { useManuscriptUnitMeta } from '../manuscript/unit/ManuscriptUnitProvider';
@@ -115,6 +116,10 @@ export function ComposePanel(props: IDockviewPanelProps) {
           ⤢ {t('popout.open', { defaultValue: 'Pop out' })}
         </button>
       </div>
+      {/* #facade — Work-tier model offer: a Work whose settings predate the role map
+          has no chat model, so inline AI / continue stay disabled with no cause.
+          The prompt OFFERS the account chat default with explicit confirmation. */}
+      <WorkDefaultModelPrompt bookId={bookId} />
       {/* The agent↔GUI bridge (Lane A/B #09) rides the actionBar slot — Chat renders it INSIDE its
           providers, so it reads the live chat stream (useChatStream). It renders nothing visible.
           studioContext (presence) makes chat-service advertise the studio dock-nav tools (Lane A). */}
