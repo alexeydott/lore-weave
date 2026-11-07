@@ -542,7 +542,10 @@
       "save_failed": "Speichern fehlgeschlagen",
       "deleted": "Modell gel선cht",
       "delete_failed": "Löschen fehlgeschlagen"
-    }
+    },
+    "max_output_tokens": "Max. Ausgabe-Token",
+    "max_output_hint": "Automatisch aus dem Kontextfenster: {{n}} (ein Viertel des Fensters geht in die Ausgabe, der Rest in den Prompt). Überschreibbar.",
+    "max_output_no_context": "Geben Sie die Kontextlänge an — das Ausgabebudget wird automatisch daraus abgeleitet."
   },
   "defaultModels": {
     "heading": "Standardmodelle",

@@ -542,7 +542,10 @@
       "save_failed": "保存失败",
       "deleted": "模型已删除",
       "delete_failed": "删除模型失败"
-    }
+    },
+    "max_output_tokens": "最大输出 token 数",
+    "max_output_hint": "根据上下文窗口自动计算：{{n}}（窗口的四分之一用于输出，其余留给提示词）。可手动修改。",
+    "max_output_no_context": "请填写上下文长度，输出预算将自动据此推算。"
   },
   "defaultModels": {
     "heading": "默认模型",

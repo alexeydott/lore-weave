@@ -542,7 +542,10 @@
       "save_failed": "Échec de l'enregistrement",
       "deleted": "Modèle supprimé",
       "delete_failed": "Échec de la suppression"
-    }
+    },
+    "max_output_tokens": "Nombre max de tokens en sortie",
+    "max_output_hint": "Automatique selon la fenêtre de contexte : {{n}} (un quart de la fenêtre va à la sortie, le reste au prompt). Modifiable.",
+    "max_output_no_context": "Indiquez la longueur de contexte : le budget de sortie en sera dérivé automatiquement."
   },
   "defaultModels": {
     "heading": "Modèles par défaut",

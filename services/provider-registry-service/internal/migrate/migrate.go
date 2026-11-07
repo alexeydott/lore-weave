@@ -347,6 +347,14 @@ ALTER TABLE usage_outbox ADD COLUMN IF NOT EXISTS response_payload TEXT;
 -- rest so a partial reorder is well-defined.
 ALTER TABLE user_models ADD COLUMN IF NOT EXISTS sort_order INTEGER;
 
+-- Model output budget: the model's optimal max_output_tokens, derived from its
+-- context window (reserve ~3/4 of the window for the assembled prompt, spend up
+-- to 1/4 on output; see MaxOutputFromContext). NULL = no explicit override —
+-- readers fall back to the same derivation from context_length, so legacy rows
+-- surface a computed value without a backfill. Inventory sync deliberately does
+-- NOT touch this column: an explicit user setting must survive re-syncs.
+ALTER TABLE user_models ADD COLUMN IF NOT EXISTS max_output_tokens INTEGER;
+
 -- PDF-import vision op (docs/specs/2026-07-06-pdf-book-import.md L5): drop +
 -- recreate operation CHECK to add 'vision'. Same idempotent pattern as the
 -- prior additions — the cross-cutting-enum lesson (validJobOperations map +

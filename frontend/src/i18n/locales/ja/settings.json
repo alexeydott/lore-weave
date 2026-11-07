@@ -542,7 +542,10 @@
       "save_failed": "保存に失敗しました",
       "deleted": "モデルを削除しました",
       "delete_failed": "削除に失敗しました"
-    }
+    },
+    "max_output_tokens": "最大出力トークン数",
+    "max_output_hint": "コンテキスト窓から自動計算: {{n}}（窓の4分の1を出力に、残りをプロンプトに充てます）。手動で上書き可能。",
+    "max_output_no_context": "コンテキスト長を指定すると、出力予算が自動的に導出されます。"
   },
   "defaultModels": {
     "heading": "デフォルトモデル",

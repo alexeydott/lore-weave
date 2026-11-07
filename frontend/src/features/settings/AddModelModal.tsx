@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, RefreshCw, Search, Star, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { computeMaxOutputTokens } from '@/lib/outputBudget';
 import { useAuth } from '@/auth';
 import { providerApi, getInventoryMeta, type InventoryModel, type ProviderCredential, type CapabilityType } from './api';
 import { invalidateUserModelsCache } from '@/components/model-picker/useUserModels';
@@ -51,10 +52,20 @@ export function AddModelModal({ provider, onClose, onAdded }: Props) {
   // Form
   const [alias, setAlias] = useState('');
   const [contextLength, setContextLength] = useState('');
+  // Output budget: auto-derived from the context window (computeMaxOutputTokens)
+  // until the user edits it by hand — then their explicit value sticks.
+  const [maxOutputTokens, setMaxOutputTokens] = useState('');
+  const [maxOutputTouched, setMaxOutputTouched] = useState(false);
   const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [tags, setTags] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const derivedMaxOutput = computeMaxOutputTokens(contextLength ? Number(contextLength) : null);
+  // Keep the field following the derivation until the user claims it.
+  useEffect(() => {
+    if (!maxOutputTouched) setMaxOutputTokens(derivedMaxOutput ? String(derivedMaxOutput) : '');
+  }, [derivedMaxOutput, maxOutputTouched]);
 
   // Load inventory
   const fetchInventory = useCallback((refresh: boolean) => {
@@ -97,6 +108,7 @@ export function AddModelModal({ provider, onClose, onAdded }: Props) {
     setSearch(meta.displayName);
     setAlias(meta.displayName);
     setContextLength(m.context_length ? String(m.context_length) : '');
+    setMaxOutputTouched(false); // a fresh model follows the derivation again
     setShowDropdown(false);
     const f: Record<string, boolean> = {};
     for (const key of KNOWN_FLAGS) {
@@ -128,6 +140,7 @@ export function AddModelModal({ provider, onClose, onAdded }: Props) {
         provider_model_name: modelName,
         alias: alias || undefined,
         context_length: contextLength ? Number(contextLength) : undefined,
+        max_output_tokens: maxOutputTokens ? Number(maxOutputTokens) : undefined,
         capability_flags: capFlags,
         ...(selected?.pricing ? { pricing: selected.pricing } : {}),
         tags: tags.map((t) => ({ tag_name: t })),
@@ -311,6 +324,25 @@ export function AddModelModal({ provider, onClose, onAdded }: Props) {
                 </p>
               )}
             </div>
+          </div>
+
+          {/* Output budget — derived from the context window (clamp(ctx/4, 1024, 32768),
+              the practice mirror of provider-registry MaxOutputFromContext). Editable:
+              a manual value is stored as an explicit override. */}
+          <div className="mt-3">
+            <label className="mb-1 block text-xs font-medium">{t('model_modal.max_output_tokens')}</label>
+            <input
+              type="number"
+              data-testid="model-max-output-tokens"
+              value={maxOutputTokens}
+              onChange={(e) => { setMaxOutputTokens(e.target.value); setMaxOutputTouched(true); }}
+              className="h-9 w-full rounded-md border bg-background px-3 font-mono text-[13px] focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring/30"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {derivedMaxOutput
+                ? t('model_modal.max_output_hint', { n: derivedMaxOutput.toLocaleString() })
+                : t('model_modal.max_output_no_context')}
+            </p>
           </div>
 
           {/* Capability flags */}

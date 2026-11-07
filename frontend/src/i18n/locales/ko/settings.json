@@ -542,7 +542,10 @@
       "save_failed": "저장 실패",
       "deleted": "모델 삭제됨",
       "delete_failed": "모델 삭제 실패"
-    }
+    },
+    "max_output_tokens": "최대 출력 토큰",
+    "max_output_hint": "컨텍스트 윈도우에서 자동 계산: {{n}} (윈도우의 4분의 1은 출력에, 나머지는 프롬프트에 사용). 수동으로 변경 가능.",
+    "max_output_no_context": "컨텍스트 길이를 지정하면 출력 예산이 자동으로 산출됩니다."
   },
   "defaultModels": {
     "heading": "기본 모델",

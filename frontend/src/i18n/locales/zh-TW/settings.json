@@ -542,7 +542,10 @@
       "save_failed": "儲存失敗",
       "deleted": "已刪除模型",
       "delete_failed": "刪除失敗"
-    }
+    },
+    "max_output_tokens": "最大輸出 token 數",
+    "max_output_hint": "根據上下文視窗自動計算：{{n}}（視窗的四分之一用於輸出，其餘留給提示詞）。可手動修改。",
+    "max_output_no_context": "請填寫上下文長度，輸出預算將自動據此推算。"
   },
   "defaultModels": {
     "heading": "預設模型",

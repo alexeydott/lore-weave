@@ -195,6 +195,8 @@ export const providerApi = {
     provider_model_name: string;
     alias?: string;
     context_length?: number;
+    /** Omitted → the server derives the optimal budget from context_length. */
+    max_output_tokens?: number;
     capability_flags?: Record<string, unknown>;
     pricing?: ModelPricing;
     tags?: Array<{ tag_name: string; note?: string }>;
@@ -208,6 +210,8 @@ export const providerApi = {
   patchUserModel(token: string, modelId: string, payload: {
     alias?: string;
     context_length?: number | null;
+    /** Explicit output-budget override; omitted = leave the stored one. */
+    max_output_tokens?: number;
     capability_flags?: Record<string, unknown>;
     notes?: string;
     /** D-PRICING-REFRESH — omit to leave pricing unchanged; a full replace

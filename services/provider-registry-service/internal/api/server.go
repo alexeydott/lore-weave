@@ -550,6 +550,7 @@ func (s *Server) getInternalCredentials(w http.ResponseWriter, r *http.Request) 
 		BaseURL           string          `json:"base_url"`
 		APIKey            string          `json:"api_key"`
 		ContextLength     *int            `json:"context_length"`
+		MaxOutputTokens   *int            `json:"max_output_tokens"`
 		Capabilities      map[string]bool `json:"capabilities"`
 	}
 
@@ -558,13 +559,14 @@ func (s *Server) getInternalCredentials(w http.ResponseWriter, r *http.Request) 
 	if modelSource == "user_model" {
 		var secretCipher string
 		var contextLength *int
+		var maxOutputTokens *int
 		err = s.pool.QueryRow(r.Context(), `
-SELECT um.provider_kind, um.provider_model_name, um.context_length,
+SELECT um.provider_kind, um.provider_model_name, um.context_length, um.max_output_tokens,
        COALESCE(pc.endpoint_base_url,''), COALESCE(pc.secret_ciphertext,'')
 FROM user_models um
 JOIN provider_credentials pc ON pc.provider_credential_id = um.provider_credential_id
 WHERE um.user_model_id=$1 AND um.owner_user_id=$2 AND um.is_active=true AND pc.status='active'
-`, modelRef, userID).Scan(&out.ProviderKind, &out.ProviderModelName, &contextLength, &out.BaseURL, &secretCipher)
+`, modelRef, userID).Scan(&out.ProviderKind, &out.ProviderModelName, &contextLength, &maxOutputTokens, &out.BaseURL, &secretCipher)
 		if err == pgx.ErrNoRows {
 			writeError(w, http.StatusNotFound, "INTERNAL_MODEL_NOT_FOUND", "user model not found or inactive")
 			return
@@ -591,6 +593,15 @@ WHERE um.user_model_id=$1 AND um.owner_user_id=$2 AND um.is_active=true AND pc.s
 		}
 		out.APIKey = secret
 		out.ContextLength = contextLength
+		// Effective output budget: explicit override wins, NULL derives from the
+		// context window — same semantics as readUserModel, so every service that
+		// resolves a model here can trust max_output_tokens when present.
+		out.MaxOutputTokens = maxOutputTokens
+		if out.MaxOutputTokens == nil && contextLength != nil {
+			if d := MaxOutputFromContext(*contextLength); d > 0 {
+				out.MaxOutputTokens = &d
+			}
+		}
 	} else if modelSource == "platform_model" {
 		err = s.pool.QueryRow(r.Context(), `
 SELECT provider_kind, provider_model_name
@@ -1710,6 +1721,7 @@ func (s *Server) createUserModel(w http.ResponseWriter, r *http.Request) {
 		ProviderCredentialID string          `json:"provider_credential_id"`
 		ProviderModelName    string          `json:"provider_model_name"`
 		ContextLength        *int            `json:"context_length"`
+		MaxOutputTokens      *int            `json:"max_output_tokens"`
 		Alias                string          `json:"alias"`
 		CapabilityFlags      map[string]any  `json:"capability_flags"`
 		Tags                 []modelTag      `json:"tags"`
@@ -1753,6 +1765,18 @@ WHERE provider_credential_id=$1 AND owner_user_id=$2 AND status='active'
 		writeError(w, http.StatusBadRequest, "M03_VALIDATION_ERROR", "context_length must be positive")
 		return
 	}
+	// Output budget: an explicit max_output_tokens must be positive; when the
+	// caller omits it, derive the optimal budget from the context window
+	// (MaxOutputFromContext) so every new model gets a sane default for free.
+	if in.MaxOutputTokens != nil && *in.MaxOutputTokens <= 0 {
+		writeError(w, http.StatusBadRequest, "M03_VALIDATION_ERROR", "max_output_tokens must be positive")
+		return
+	}
+	if in.MaxOutputTokens == nil && in.ContextLength != nil {
+		if d := MaxOutputFromContext(*in.ContextLength); d > 0 {
+			in.MaxOutputTokens = &d
+		}
+	}
 	flagsBytes, _ := json.Marshal(in.CapabilityFlags)
 
 	// Phase 6a — pricing pre-fill. An explicit `pricing` from the caller
@@ -1777,11 +1801,11 @@ WHERE provider_credential_id=$1 AND owner_user_id=$2 AND status='active'
 
 	var out userModelRow
 	err = s.pool.QueryRow(r.Context(), `
-INSERT INTO user_models(owner_user_id, provider_credential_id, provider_kind, provider_model_name, context_length, alias, capability_flags, notes, pricing)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-RETURNING user_model_id, provider_credential_id, provider_kind, provider_model_name, context_length, alias, is_active, is_favorite, capability_flags, notes, created_at, updated_at
-`, userID, credentialID, providerKind, in.ProviderModelName, in.ContextLength, nullableString(in.Alias), flagsBytes, in.Notes, pricingJSON).
-		Scan(&out.UserModelID, &out.ProviderCredentialID, &out.ProviderKind, &out.ProviderModelName, &out.ContextLength, &out.Alias, &out.IsActive, &out.IsFavorite, &out.CapabilityFlags, &out.Notes, &out.CreatedAt, &out.UpdatedAt)
+INSERT INTO user_models(owner_user_id, provider_credential_id, provider_kind, provider_model_name, context_length, max_output_tokens, alias, capability_flags, notes, pricing)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+RETURNING user_model_id, provider_credential_id, provider_kind, provider_model_name, context_length, max_output_tokens, alias, is_active, is_favorite, capability_flags, notes, created_at, updated_at
+`, userID, credentialID, providerKind, in.ProviderModelName, in.ContextLength, in.MaxOutputTokens, nullableString(in.Alias), flagsBytes, in.Notes, pricingJSON).
+		Scan(&out.UserModelID, &out.ProviderCredentialID, &out.ProviderKind, &out.ProviderModelName, &out.ContextLength, &out.MaxOutputTokens, &out.Alias, &out.IsActive, &out.IsFavorite, &out.CapabilityFlags, &out.Notes, &out.CreatedAt, &out.UpdatedAt)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "M03_USER_MODEL_CREATE_FAILED", "failed to create user model")
 		return
@@ -1804,6 +1828,7 @@ type userModelRow struct {
 	ProviderKind         string
 	ProviderModelName    string
 	ContextLength        *int
+	MaxOutputTokens      *int
 	Alias                *string
 	IsActive             bool
 	IsFavorite           bool
@@ -1981,10 +2006,10 @@ func (s *Server) reorderUserModels(w http.ResponseWriter, r *http.Request) {
 func (s *Server) readUserModel(ctx context.Context, userID, id uuid.UUID) (map[string]any, error) {
 	var row userModelRow
 	err := s.pool.QueryRow(ctx, `
-SELECT user_model_id, provider_credential_id, provider_kind, provider_model_name, context_length, alias, is_active, is_favorite, capability_flags, pricing, notes, sort_order, created_at, updated_at
+SELECT user_model_id, provider_credential_id, provider_kind, provider_model_name, context_length, max_output_tokens, alias, is_active, is_favorite, capability_flags, pricing, notes, sort_order, created_at, updated_at
 FROM user_models
 WHERE user_model_id=$1 AND owner_user_id=$2
-`, id, userID).Scan(&row.UserModelID, &row.ProviderCredentialID, &row.ProviderKind, &row.ProviderModelName, &row.ContextLength, &row.Alias, &row.IsActive, &row.IsFavorite, &row.CapabilityFlags, &row.Pricing, &row.Notes, &row.SortOrder, &row.CreatedAt, &row.UpdatedAt)
+`, id, userID).Scan(&row.UserModelID, &row.ProviderCredentialID, &row.ProviderKind, &row.ProviderModelName, &row.ContextLength, &row.MaxOutputTokens, &row.Alias, &row.IsActive, &row.IsFavorite, &row.CapabilityFlags, &row.Pricing, &row.Notes, &row.SortOrder, &row.CreatedAt, &row.UpdatedAt)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
@@ -2001,12 +2026,22 @@ WHERE user_model_id=$1 AND owner_user_id=$2
 	if err != nil {
 		return nil, err
 	}
+	// Effective output budget: an explicit override wins; a NULL column derives
+	// from the context window (MaxOutputFromContext) so legacy models surface
+	// the computed value without a backfill.
+	effectiveMaxOutput := row.MaxOutputTokens
+	if effectiveMaxOutput == nil && row.ContextLength != nil {
+		if d := MaxOutputFromContext(*row.ContextLength); d > 0 {
+			effectiveMaxOutput = &d
+		}
+	}
 	return map[string]any{
 		"user_model_id":          row.UserModelID,
 		"provider_credential_id": row.ProviderCredentialID,
 		"provider_kind":          row.ProviderKind,
 		"provider_model_name":    row.ProviderModelName,
 		"context_length":         row.ContextLength,
+		"max_output_tokens":      effectiveMaxOutput,
 		"alias":                  row.Alias,
 		"is_active":              row.IsActive,
 		"is_favorite":            row.IsFavorite,
@@ -2050,6 +2085,7 @@ func (s *Server) patchUserModel(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Alias           *string         `json:"alias"`
 		ContextLength   *int            `json:"context_length"`
+		MaxOutputTokens *int            `json:"max_output_tokens"`
 		CapabilityFlags map[string]any  `json:"capability_flags"`
 		Notes           *string         `json:"notes"`
 		Pricing         json.RawMessage `json:"pricing,omitempty"` // D-PRICING-REFRESH
@@ -2067,6 +2103,12 @@ func (s *Server) patchUserModel(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "M03_VALIDATION_ERROR", "context_length must be positive")
 		return
 	}
+	// Same guard for the output budget: an override must be positive (a 0 would
+	// zero every generation call that trusts it).
+	if in.MaxOutputTokens != nil && *in.MaxOutputTokens <= 0 {
+		writeError(w, http.StatusBadRequest, "M03_VALIDATION_ERROR", "max_output_tokens must be positive")
+		return
+	}
 	// D-PRICING-REFRESH — until this fix, `pricing` was frozen at model-creation
 	// time forever: patchUserModel had no field for it at all, so a user who
 	// registered a paid model (e.g. gpt-4o) with a stale/wrong pre-filled rate
@@ -2082,12 +2124,13 @@ func (s *Server) patchUserModel(w http.ResponseWriter, r *http.Request) {
 UPDATE user_models
 SET alias=COALESCE($3, alias),
     context_length=COALESCE($4, context_length),
-    capability_flags=CASE WHEN $5::jsonb IS NULL THEN capability_flags ELSE $5 END,
-    notes=COALESCE($6, notes),
-    pricing=CASE WHEN $7::jsonb IS NULL THEN pricing ELSE $7 END,
+    max_output_tokens=COALESCE($5, max_output_tokens),
+    capability_flags=CASE WHEN $6::jsonb IS NULL THEN capability_flags ELSE $6 END,
+    notes=COALESCE($7, notes),
+    pricing=CASE WHEN $8::jsonb IS NULL THEN pricing ELSE $8 END,
     updated_at=now()
 WHERE user_model_id=$1 AND owner_user_id=$2
-`, id, userID, in.Alias, in.ContextLength, nullJSON(flagsBytes, in.CapabilityFlags != nil), in.Notes, nullJSON(pricingJSON, pricingJSON != nil))
+`, id, userID, in.Alias, in.ContextLength, in.MaxOutputTokens, nullJSON(flagsBytes, in.CapabilityFlags != nil), in.Notes, nullJSON(pricingJSON, pricingJSON != nil))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "M03_USER_MODEL_UPDATE_FAILED", "failed to patch user model")
 		return

@@ -542,7 +542,10 @@
       "save_failed": "Không thể lưu",
       "deleted": "Đã xóa mô hình",
       "delete_failed": "Không thể xóa"
-    }
+    },
+    "max_output_tokens": "Số token đầu ra tối đa",
+    "max_output_hint": "Tự động từ cửa sổ ngữ cảnh: {{n}} (một phần tư cửa sổ dành cho đầu ra, phần còn lại cho lời nhắc). Có thể sửa thủ công.",
+    "max_output_no_context": "Nhập độ dài ngữ cảnh — ngân sách đầu ra sẽ được tính tự động từ đó."
   },
   "defaultModels": {
     "heading": "Mô hình mặc định",

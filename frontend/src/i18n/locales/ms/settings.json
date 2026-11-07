@@ -542,7 +542,10 @@
       "save_failed": "Gagal menyimpan",
       "deleted": "Model dipadam",
       "delete_failed": "Gagal memadam"
-    }
+    },
+    "max_output_tokens": "Token keluaran maksimum",
+    "max_output_hint": "Automatik daripada tetingkap konteks: {{n}} (suku tetingkap untuk keluaran, bakinya untuk gesaan). Boleh diubah manual.",
+    "max_output_no_context": "Masukkan panjang konteks — belanjawan keluaran akan dihitung secara automatik."
   },
   "defaultModels": {
     "heading": "Model lalai",

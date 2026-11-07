@@ -542,7 +542,10 @@
       "save_failed": "Failed to save",
       "deleted": "Model deleted",
       "delete_failed": "Failed to delete"
-    }
+    },
+    "max_output_tokens": "Max output tokens",
+    "max_output_hint": "Auto from the context window: {{n}} (a quarter of the window is spent on output — the rest stays for the prompt). Edit to override.",
+    "max_output_no_context": "Set the context length and the output budget will be derived from it automatically."
   },
   "defaultModels": {
     "heading": "Default models",

@@ -542,7 +542,10 @@
       "save_failed": "Gagal menyimpan",
       "deleted": "Model dihapus",
       "delete_failed": "Gagal menghapus"
-    }
+    },
+    "max_output_tokens": "Maksimum token keluaran",
+    "max_output_hint": "Otomatis dari jendela konteks: {{n}} (seperempat jendela untuk keluaran, sisanya untuk prompt). Bisa diubah manual.",
+    "max_output_no_context": "Isi panjang konteks — anggaran keluaran akan dihitung otomatis darinya."
   },
   "defaultModels": {
     "heading": "Model default",

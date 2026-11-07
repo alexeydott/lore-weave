@@ -542,7 +542,10 @@
       "save_failed": "Kaydedilemedi",
       "deleted": "Model silindi",
       "delete_failed": "Model silinemedi"
-    }
+    },
+    "max_output_tokens": "Maksimum çıktı tokeni",
+    "max_output_hint": "Bağlam penceresinden otomatik: {{n}} (pencerenin çeyreği çıktıya gider, geri kalanı isteme). Elle değiştirilebilir.",
+    "max_output_no_context": "Bağlam uzunluğunu girin — çıktı bütçesi otomatik olarak ondan hesaplanır."
   },
   "defaultModels": {
     "heading": "Varsayılan modeller",

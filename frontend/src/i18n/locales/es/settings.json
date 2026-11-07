@@ -542,7 +542,10 @@
       "save_failed": "Error al guardar",
       "deleted": "Modelo eliminado",
       "delete_failed": "Error al eliminar"
-    }
+    },
+    "max_output_tokens": "Máximo de tokens de salida",
+    "max_output_hint": "Automático desde la ventana de contexto: {{n}} (un cuarto de la ventana se dedica a la salida; el resto, al prompt). Edítalo para anularlo.",
+    "max_output_no_context": "Indica la longitud de contexto y el presupuesto de salida se calculará automáticamente."
   },
   "defaultModels": {
     "heading": "Modelos predeterminados",

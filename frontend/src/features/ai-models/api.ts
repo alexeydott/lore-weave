@@ -28,6 +28,14 @@ export type UserModel = {
   provider_kind: ProviderKind;
   provider_model_name: string;
   context_length?: number | null;
+  /**
+   * Output budget (max_output_tokens) — the server returns the EFFECTIVE value:
+   * an explicit user override, or derived from context_length when none was
+   * stored (clamp(ctx/4, 1024, 32768), mirror in lib/outputBudget.ts). Callers
+   * pass it as max_output_tokens/maxOutputTokens on generation calls instead of
+   * a hardcoded constant.
+   */
+  max_output_tokens?: number | null;
   alias?: string | null;
   is_active: boolean;
   is_favorite: boolean;

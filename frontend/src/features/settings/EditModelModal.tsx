@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Save, Trash2, X, Loader2, Zap, CheckCircle, DollarSign, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { computeMaxOutputTokens } from '@/lib/outputBudget';
 import { useAuth } from '@/auth';
 import { providerApi, type UserModel, type ModelPricing, type ModelDeletionImpact } from './api';
 import { invalidateUserModelsCache } from '@/components/model-picker/useUserModels';
@@ -32,6 +33,13 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
   const { accessToken } = useAuth();
   const [alias, setAlias] = useState(model.alias ?? '');
   const [contextLength, setContextLength] = useState(model.context_length ? String(model.context_length) : '');
+  // Output budget: prefilled with the model's EFFECTIVE value (an explicit
+  // override, or the server-derived budget). Editing it stores an explicit
+  // override; the derivation hint keeps showing what "auto" would be.
+  const [maxOutputTokens, setMaxOutputTokens] = useState(
+    model.max_output_tokens != null ? String(model.max_output_tokens) : '',
+  );
+  const derivedMaxOutput = computeMaxOutputTokens(contextLength ? Number(contextLength) : null);
   const [flags, setFlags] = useState<Record<string, boolean>>(() => {
     const f: Record<string, boolean> = {};
     for (const key of KNOWN_FLAGS) {
@@ -93,10 +101,11 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
       const capFlags: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(flags)) { if (v) capFlags[k] = true; }
 
-      // 1. Patch model fields (alias, context, flags, notes, pricing)
+      // 1. Patch model fields (alias, context, output budget, flags, notes, pricing)
       await providerApi.patchUserModel(accessToken, model.user_model_id, {
         alias: alias || undefined,
         context_length: contextLength ? Number(contextLength) : null,
+        max_output_tokens: maxOutputTokens ? Number(maxOutputTokens) : undefined,
         capability_flags: capFlags,
         notes,
         // pricing is a FULL replace server-side (not a per-field merge) — spread
@@ -149,6 +158,9 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
       if (typeof canonical === 'string' && KNOWN_FLAGS.includes(canonical as (typeof KNOWN_FLAGS)[number])) nextFlags[canonical] = true;
       setFlags(nextFlags);
       setContextLength(updated.context_length ? String(updated.context_length) : '');
+      // The refresh returns the EFFECTIVE budget (override or re-derived from the
+      // refreshed context_length) — follow it, matching the field's initial value.
+      if (updated.max_output_tokens != null) setMaxOutputTokens(String(updated.max_output_tokens));
       if (updated.pricing?.input_per_mtok != null) setInputPerMTok(String(updated.pricing.input_per_mtok));
       if (updated.pricing?.output_per_mtok != null) setOutputPerMTok(String(updated.pricing.output_per_mtok));
       toast.success(t('model_modal.edit.capabilities_refreshed', { defaultValue: 'Model capabilities refreshed' }));
@@ -284,6 +296,27 @@ export function EditModelModal({ model, onClose, onUpdated }: Props) {
               <label className="mb-1 block text-xs font-medium">{t('model_modal.add.context_length')}</label>
               <input type="number" min={1} step={1} value={contextLength} onChange={(e) => setContextLength(e.target.value)} className="h-9 w-full rounded-md border bg-background px-3 font-mono text-[13px] focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring/30" />
             </div>
+          </div>
+
+          {/* Output budget — the model's max_output_tokens. Editing stores an
+              explicit override; the hint shows what "auto" (the context-window
+              derivation) would be, so a manual value is an informed choice. */}
+          <div>
+            <label className="mb-1 block text-xs font-medium">{t('model_modal.max_output_tokens')}</label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              data-testid="model-max-output-tokens"
+              value={maxOutputTokens}
+              onChange={(e) => setMaxOutputTokens(e.target.value)}
+              className="h-9 w-full rounded-md border bg-background px-3 font-mono text-[13px] focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring/30"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {derivedMaxOutput
+                ? t('model_modal.max_output_hint', { n: derivedMaxOutput.toLocaleString() })
+                : t('model_modal.max_output_no_context')}
+            </p>
           </div>
 
           {/* Pricing (D-PRICING-REFRESH) */}
