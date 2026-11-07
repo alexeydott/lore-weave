@@ -157,11 +157,13 @@ export function TechEditDialog({
     if (!pending) return;
     const n = onRunDeterministic({ presets: [...pending.opts.presets], find: pending.opts.find, replace: pending.opts.replace, scope });
     setPending(null);
-    setSummary(
-      n > 0
-        ? t('techEdit.applied', { defaultValue: 'Применено замен: {{n}}', n })
-        : t('techEdit.nothing', { defaultValue: 'Исправлять нечего — текст уже чистый.' }),
-    );
+    if (n > 0) {
+      // Операция завершена — закрываем диалог: результат виден в тексте,
+      // точка восстановления осталась в панели контрольных точек.
+      onClose();
+      return;
+    }
+    setSummary(t('techEdit.nothing', { defaultValue: 'Исправлять нечего — текст уже чистый.' }));
   };
 
   // Step 1 → step 2: collect the changes from the live doc (read-only) and show
@@ -319,7 +321,9 @@ export function TechEditDialog({
             <>
               {/* Шаг 2 — предпросмотр изменений (для параноиков): что ИМЕННО
                   изменится, собрано из живого документа тем же обходом, каким
-                  применится. Применение — только по явному подтверждению. */}
+                  применится. Кнопки действия СВЕРХУ — они всегда в зоне видимости,
+                  даже когда список дифа уходит под край низкой панели (дефект
+                  «нет завершить операцию»). Применение закрывает диалог. */}
               <p className="mb-2 text-[11px] text-muted-foreground">
                 {t('techEdit.preview_title', {
                   defaultValue: 'Замен: {{text}} · пустых строк удалится: {{blank}}',
@@ -327,19 +331,6 @@ export function TechEditDialog({
                   blank: pending.result.blankTotal,
                 })}
               </p>
-              <div data-testid="techedit-preview-list" className="mb-3 flex max-h-[40vh] flex-col gap-1.5 overflow-y-auto rounded border bg-background/40 p-2">
-                {pending.result.items.map((item, i) => (
-                  <PreviewRow key={i} item={item} />
-                ))}
-                {pending.result.textTotal + pending.result.blankTotal > pending.result.items.length && (
-                  <p className="text-[10px] text-muted-foreground">
-                    {t('techEdit.preview_more', {
-                      defaultValue: '…и ещё {{n}}',
-                      n: pending.result.textTotal + pending.result.blankTotal - pending.result.items.length,
-                    })}
-                  </p>
-                )}
-              </div>
               <div className="mb-2 flex gap-2">
                 <button
                   type="button"
@@ -360,6 +351,19 @@ export function TechEditDialog({
                 >
                   {t('techEdit.preview_back', { defaultValue: 'Назад' })}
                 </button>
+              </div>
+              <div data-testid="techedit-preview-list" className="mb-3 flex max-h-[34vh] flex-col gap-1.5 overflow-y-auto rounded border bg-background/40 p-2">
+                {pending.result.items.map((item, i) => (
+                  <PreviewRow key={i} item={item} />
+                ))}
+                {pending.result.textTotal + pending.result.blankTotal > pending.result.items.length && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {t('techEdit.preview_more', {
+                      defaultValue: '…и ещё {{n}}',
+                      n: pending.result.textTotal + pending.result.blankTotal - pending.result.items.length,
+                    })}
+                  </p>
+                )}
               </div>
               <p className="text-[10px] text-muted-foreground">
                 {t('techEdit.backup_note', {
