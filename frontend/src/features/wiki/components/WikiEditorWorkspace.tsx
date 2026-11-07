@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { wikiApi } from '../api';
 import type { WikiRevisionListItem, WikiSuggestionResp, WikiInfoboxAttr } from '../types';
+import { localizedAttrLabel, localizedKindLabel } from '../wikiLabels';
 import { WikiSuggestionReview } from './WikiSuggestionReview';
 import { TiptapEditor } from '@/components/editor/TiptapEditor';
 import { Skeleton } from '@/components/shared/Skeleton';
@@ -33,10 +34,12 @@ export type WikiEditorRightPanel = 'infobox' | 'history' | 'suggestions';
 
 /* ── Infobox sidebar (read-only) ─────────────────────────────────────────── */
 
-function InfoboxPanel({ attrs, displayName, kindName }: {
+function InfoboxPanel({ attrs, displayName, kindName, kindCode, locale }: {
   attrs: WikiInfoboxAttr[];
   displayName: string;
   kindName: string;
+  kindCode?: string;
+  locale: string;
 }) {
   const { t } = useTranslation('wiki');
   const visible = attrs.filter(a => a.original_value || a.translations.length > 0);
@@ -49,13 +52,13 @@ function InfoboxPanel({ attrs, displayName, kindName }: {
         </div>
         <span className="font-serif text-sm font-semibold">{displayName}</span>
         <br />
-        <span className="text-[10px] text-muted-foreground">{kindName}</span>
+        <span className="text-[10px] text-muted-foreground">{localizedKindLabel(locale, { code: kindCode, name: kindName })}</span>
       </div>
       <div className="text-[11px]">
         {visible.map(attr => (
           <div key={attr.attr_value_id} className="mb-2">
             <label className="mb-0.5 block font-medium text-muted-foreground">
-              {attr.attribute_def.name}
+              {localizedAttrLabel(locale, attr.attribute_def)}
             </label>
             <div className="rounded border bg-background px-2 py-1 text-xs">
               {attr.original_value || attr.translations[0]?.value || '—'}
@@ -258,7 +261,9 @@ export interface WikiEditorWorkspaceProps {
 // in the SAME component as useStudioPanel, exactly like BookReaderPanel does.
 export function WikiEditorWorkspace({ bookId, articleId, initialRightPanel, onBack, onDirtyChange }: WikiEditorWorkspaceProps) {
   const { accessToken } = useAuth();
-  const { t } = useTranslation('wiki');
+  const { t, i18n } = useTranslation('wiki');
+  // Tests mock react-i18next with { t } only — i18n may be undefined.
+  const locale = i18n?.language ?? '';
   const queryClient = useQueryClient();
 
   const [body, setBody] = useState<unknown>(null);
@@ -434,7 +439,7 @@ export function WikiEditorWorkspace({ bookId, articleId, initialRightPanel, onBa
             className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
             style={{ backgroundColor: article.kind.color + '18', color: article.kind.color }}
           >
-            {article.kind.name}
+            {localizedKindLabel(locale, article.kind)}
           </span>
           <span className="min-w-0 flex-1 truncate text-sm font-semibold">{article.display_name}</span>
           <span className="hidden shrink-0 text-[11px] text-muted-foreground lg:inline">
@@ -517,6 +522,8 @@ export function WikiEditorWorkspace({ bookId, articleId, initialRightPanel, onBa
                 attrs={article.infobox}
                 displayName={article.display_name}
                 kindName={article.kind.name}
+                kindCode={article.kind.code}
+                locale={locale}
               />
             )}
             {rightPanel === 'history' && (

@@ -19,6 +19,7 @@ import { WikiSuggestionReview } from '@/features/wiki/components/WikiSuggestionR
 import { KnowledgeUpdatesPanel } from '@/features/wiki/components/KnowledgeUpdatesPanel';
 import { CreateArticleDialog } from '@/features/wiki/components/CreateArticleDialog';
 import { useWikiStaleness } from '@/features/wiki/hooks/useWikiStaleness';
+import { localizedAttrLabel, localizedKindLabel } from '../wikiLabels';
 import { ContentRenderer } from '@/components/reader/ContentRenderer';
 import { CitationProvider } from '@/components/reader/CitationContext';
 import { Skeleton } from '@/components/shared/Skeleton';
@@ -32,10 +33,13 @@ import { cn } from '@/lib/utils';
 
 /* ── Infobox ─────────────────────────────────────────────────────────────── */
 
-function WikiInfobox({ attrs, kindName, displayName }: {
+function WikiInfobox({ attrs, kindName, displayName, locale }: {
   attrs: WikiInfoboxAttr[];
   kindName: string;
   displayName: string;
+  /** The kind's stable CODE for the label overlay (kind.name is System-standard English). */
+  kindCode?: string;
+  locale: string;
 }) {
   const visibleAttrs = attrs.filter(a => a.original_value || a.translations.length > 0);
   if (visibleAttrs.length === 0) return null;
@@ -53,12 +57,12 @@ function WikiInfobox({ attrs, kindName, displayName }: {
         </div>
         <span className="font-serif text-sm font-semibold">{displayName}</span>
         <br />
-        <span className="text-[11px] text-muted-foreground">{kindName}</span>
+        <span className="text-[11px] text-muted-foreground">{localizedKindLabel(locale, { code: kindCode, name: kindName })}</span>
       </div>
       {visibleAttrs.map(attr => (
         <div key={attr.attr_value_id} className="flex border-b border-border py-1.5 text-xs last:border-b-0">
           <span className="w-[90px] shrink-0 font-medium text-muted-foreground">
-            {attr.attribute_def.name}
+            {localizedAttrLabel(locale, attr.attribute_def)}
           </span>
           <span>{attr.original_value || attr.translations[0]?.value || ''}</span>
         </div>
@@ -114,7 +118,7 @@ function WikiToC({ headings }: { headings: { text: string; level: number; id: st
 
 /* ── Sidebar article list ────────────────────────────────────────────────── */
 
-export function WikiSidebar({ articles, selectedId, onSelect, kinds, kindFilter, onKindFilter, search, onSearch, t, onGenerate, generating, onCreateOpen }: {
+export function WikiSidebar({ articles, selectedId, onSelect, kinds, kindFilter, onKindFilter, search, onSearch, t, locale, onGenerate, generating, onCreateOpen }: {
   articles: WikiArticleListItem[];
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -124,14 +128,17 @@ export function WikiSidebar({ articles, selectedId, onSelect, kinds, kindFilter,
   search: string;
   onSearch: (s: string) => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
+  locale: string;
   onGenerate?: () => void;
   generating?: boolean;
   onCreateOpen?: () => void;
 }) {
   const grouped = useMemo(() => {
+    // Group by the kind's stable CODE; the header renders the LOCALIZED label
+    // (#user-report — the sidebar showed the System standards' English names).
     const groups: Record<string, WikiArticleListItem[]> = {};
     for (const a of articles) {
-      const key = a.kind.name;
+      const key = a.kind.code || a.kind.name;
       if (!groups[key]) groups[key] = [];
       groups[key].push(a);
     }
@@ -212,7 +219,7 @@ export function WikiSidebar({ articles, selectedId, onSelect, kinds, kindFilter,
               )}
               style={kindFilter === k.code ? { backgroundColor: k.color + '18', color: k.color } : { backgroundColor: 'var(--secondary)' }}
             >
-              {k.icon} {k.name}
+              {k.icon} {localizedKindLabel(locale, k)}
             </button>
           ))}
         </div>
@@ -220,10 +227,10 @@ export function WikiSidebar({ articles, selectedId, onSelect, kinds, kindFilter,
 
       {/* Article list grouped by kind */}
       <div className="flex-1 overflow-y-auto py-1">
-        {Object.entries(grouped).map(([kindName, items]) => (
-          <div key={kindName}>
+        {Object.entries(grouped).map(([kindCode, items]) => (
+          <div key={kindCode}>
             <div className="px-3 pb-1 pt-2 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {kindName}
+              {localizedKindLabel(locale, items[0]?.kind)}
             </div>
             {items.map(a => (
               <button
@@ -279,7 +286,10 @@ export function WikiArticleView({ bookId, articleId, onRegenerate }: {
   onRegenerate: (entityId: string, displayName: string) => void;
 }) {
   const { accessToken } = useAuth();
-  const { t } = useTranslation('wiki');
+  const { t, i18n } = useTranslation('wiki');
+  // Tests mock react-i18next with { t } only — i18n may be undefined.
+  const locale = i18n?.language ?? '';
+  const locale = locale;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showSugs, setShowSugs] = useState(false);
@@ -346,7 +356,7 @@ export function WikiArticleView({ bookId, articleId, onRegenerate }: {
   const headings = extractHeadings(article.body_json);
   const blocks = (article.body_json as { content?: JSONContent[] }).content ?? [];
   const hasContent = blocks.length > 0;
-  const updatedDate = new Date(article.updated_at).toLocaleDateString(undefined, {
+  const updatedDate = new Date(article.updated_at).toLocaleDateString(locale || undefined, {
     year: 'numeric', month: 'short', day: 'numeric',
   });
 
@@ -366,7 +376,7 @@ export function WikiArticleView({ bookId, articleId, onRegenerate }: {
                 className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
                 style={{ backgroundColor: article.kind.color + '18', color: article.kind.color }}
               >
-                {article.kind.name}
+                {localizedKindLabel(locale, article.kind)}
               </span>
               <WikiGenBadge status={article.generation_status} />
               {article.is_knowledge_stale && (
@@ -450,7 +460,9 @@ export function WikiArticleView({ bookId, articleId, onRegenerate }: {
             <WikiInfobox
               attrs={article.infobox}
               kindName={article.kind.name}
+              kindCode={article.kind.code}
               displayName={article.display_name}
+              locale={locale}
             />
           )}
 
@@ -484,7 +496,9 @@ export function WikiArticleView({ bookId, articleId, onRegenerate }: {
 
 export function WikiWorkspace({ bookId }: { bookId: string }) {
   const { accessToken } = useAuth();
-  const { t } = useTranslation('wiki');
+  const { t, i18n } = useTranslation('wiki');
+  // Tests mock react-i18next with { t } only — i18n may be undefined.
+  const locale = i18n?.language ?? '';
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
@@ -634,6 +648,7 @@ export function WikiWorkspace({ bookId }: { bookId: string }) {
             search={search}
             onSearch={setSearch}
             t={t}
+            locale={locale}
             onGenerate={openBatchGenerate}
             generating={isActive}
             onCreateOpen={() => setCreateOpen(true)}

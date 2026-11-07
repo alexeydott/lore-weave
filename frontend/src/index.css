@@ -489,3 +489,48 @@
   50% { transform: translateX(210%); }
   100% { transform: translateX(420%); }
 }
+
+/* ── Wiki article body (#user-report 2026-11-07 — the .wiki-article-body class was
+   referenced by WikiWorkspace/WikiSuggestionReview but never defined, so generated
+   articles rendered as an unstyled wall of text). Scoped typography for the
+   reader ContentRenderer output, dark-theme friendly via theme tokens. */
+.wiki-article-body {
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: var(--foreground);
+  overflow-wrap: break-word;
+}
+.wiki-article-body > * + * { margin-top: 0.9em; }
+.wiki-article-body h1,
+.wiki-article-body h2,
+.wiki-article-body h3 {
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.6em;
+  color: var(--foreground);
+}
+.wiki-article-body h1 { font-size: 1.35rem; }
+.wiki-article-body h2 { font-size: 1.15rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+.wiki-article-body h3 { font-size: 1rem; }
+.wiki-article-body p { margin: 0; }
+.wiki-article-body strong { font-weight: 600; color: var(--foreground); }
+.wiki-article-body em { font-style: italic; }
+.wiki-article-body ul,
+.wiki-article-body ol { padding-left: 1.4em; display: flex; flex-direction: column; gap: 0.3em; }
+.wiki-article-body ul { list-style: disc; }
+.wiki-article-body ol { list-style: decimal; }
+.wiki-article-body blockquote {
+  border-left: 3px solid var(--primary);
+  padding: 0.3em 0 0.3em 1em;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.wiki-article-body code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85em;
+  background: var(--secondary);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.wiki-article-body a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.wiki-article-body hr { border-color: var(--border); margin: 1.6em 0; }
