@@ -528,6 +528,7 @@ class SendMessageRequest(BaseModel):
     admin_context: AdminContext | None = None  # T4c: cms admin chat → advertise System-tier admin tools (token via X-Admin-Token header)
     disable_tools: bool = False  # Editor "Compose" mode: advertise no tools this turn (prose-only; reasoning model drafts, user Applies)
     display_language: str | None = None  # S6: the user's display language → knowledge composes entity aliases in this language (omit = source-language)
+    ui_locale: str | None = None  # the UI i18n locale (i18next.language) — LLM answers and auto-generated session titles follow the interface language
     # Story 04: per-turn ephemeral overrides (do not PATCH session).
     enabled_tools: list[str] | None = None
     enabled_skills: list[str] | None = None

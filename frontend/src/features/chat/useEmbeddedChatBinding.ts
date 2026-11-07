@@ -92,8 +92,10 @@ export function useEmbeddedChatBinding({
       return;
     }
     if (!bookId) {
+      // Global chat (no book binding): there is nothing to bind, and a stale
+      // "needs new session" here forced the create dialog on every /chat visit
+      // and blocked the most-recent-session auto-select (#user-report 2026-11-07).
       boundRef.current = true;
-      setNeedsNewSession(true);
       return;
     }
     if (!accessToken || bookFetchInFlightRef.current) return; // wait for auth, or a fetch already in flight

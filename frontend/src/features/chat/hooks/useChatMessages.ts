@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/auth';
 import { chatApi } from '../api';
 import type { ChatMessage, AgentSurfaceState, ContextBudget, CompactionEvent } from '../types';
@@ -119,6 +120,11 @@ export function useChatMessages(
   studioContext?: { book_id?: string; project_id?: string; active_chapter_id?: string; active_panel_ids?: string[]; context_revision?: number },
 ) {
   const { accessToken } = useAuth();
+  // #user-report — the UI i18n locale rides every stream turn so chat-service
+  // pins LLM answers (and session titles) to the interface language. `i18n`
+  // may be undefined under test mocks of react-i18next — hence the optional
+  // spread at the call sites.
+  const { i18n } = useTranslation();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // RAID C2 — Ask/Write permission mode (lazy-init from localStorage, setter
@@ -297,6 +303,8 @@ export function useChatMessages(
             ...(composeMode != null ? { composeMode } : {}),
             ...(bookContext ? { bookContext } : {}),
             ...(displayLanguage ? { displayLanguage } : {}),
+            // #user-report — LLM answers follow the UI localization language.
+            ...(i18n.language ? { uiLocale: i18n.language } : {}),
             ...(pins.enabledTools?.length ? { enabledTools: pins.enabledTools } : {}),
             ...(pins.enabledSkills?.length ? { enabledSkills: pins.enabledSkills } : {}),
             permissionMode,
@@ -392,7 +400,7 @@ export function useChatMessages(
         setIsComposing(false);  // never leave the drafting indicator stuck on
       }
     },
-    [accessToken, sessionId, fetchMessages, editorContext, studioContext, composeMode, bookContext, displayLanguage, resolveStreamPins, messages.length, permissionMode],
+    [accessToken, sessionId, fetchMessages, editorContext, studioContext, composeMode, bookContext, displayLanguage, i18n, resolveStreamPins, messages.length, permissionMode],
   );
 
   // ── ARCH-1 C6: resume a suspended run after a frontend-tool decision ──────────
@@ -547,12 +555,13 @@ export function useChatMessages(
         ...(composeMode != null ? { composeMode } : {}),
         ...(bookContext ? { bookContext } : {}),
         ...(displayLanguage ? { displayLanguage } : {}),
+        ...(i18n.language ? { uiLocale: i18n.language } : {}),
         ...(pins.enabledTools?.length ? { enabledTools: pins.enabledTools } : {}),
         ...(pins.enabledSkills?.length ? { enabledSkills: pins.enabledSkills } : {}),
         permissionMode,
       };
     },
-    [sessionId, editorContext, studioContext, composeMode, bookContext, displayLanguage, resolveStreamPins, permissionMode],
+    [sessionId, editorContext, studioContext, composeMode, bookContext, displayLanguage, i18n, resolveStreamPins, permissionMode],
   );
 
   // ── Public API ────────────────────────────────────────────────────────────────

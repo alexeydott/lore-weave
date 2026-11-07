@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/auth';
 import { ChatSessionProvider, ChatStreamProvider, ChatLiveStateProvider, useChatSession } from './providers';
 import { ChatView } from './components/ChatView';
@@ -102,6 +102,20 @@ function EmbeddedChat({ bookId, actionBar, className, composeMode, sessionKind }
     selectSession,
     updateActiveSession,
   });
+
+  // #user-report 2026-11-07 — /chat landed on the «Чат не выбран» empty state
+  // even when sessions existed: a dead end forcing a manual click on every
+  // visit. Auto-select the most recent session once the list loads (the list
+  // is newest-first). Book-scoped bindings keep their own flow — a binding
+  // that NEEDS a new session must not silently adopt an old one.
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (autoSelectedRef.current || sessionsLoading || activeSession) return;
+    // Wait for the list BEFORE arming the one-shot (see ChatPage twin).
+    if (!sessions.length) return;
+    autoSelectedRef.current = true;
+    if (!needsNewSession) selectSession(sessions[0]);
+  }, [sessions, sessionsLoading, activeSession, needsNewSession, selectSession]);
 
   // F-QC-1 — the diary assistant auto-creates its session (default model, book-bound) instead of greeting
   // the user with the generic new-chat dialog. suppressGenericDialog is true while the assistant owns the

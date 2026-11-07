@@ -62,6 +62,9 @@ export type ChatStreamArgs = {
   composeMode?: boolean;
   bookContext?: { book_id: string };
   displayLanguage?: string;
+  /** The UI i18n locale (i18next.language) — chat-service pins LLM answers and
+   *  auto-generated session titles to the interface language (#user-report). */
+  uiLocale?: string;
   enabledTools?: string[];
   enabledSkills?: string[];
   // RAID C2 (DR-C2): HITL permission mode — 'ask' filters the server-tool
@@ -149,6 +152,9 @@ function buildRequest(args: ChatStreamArgs): { url: string; body: Record<string,
   // S6: forward the per-book display language so knowledge composes entity
   // aliases in it (omitted when not viewing a translation → source aliases).
   if (args.displayLanguage) body.display_language = args.displayLanguage;
+  // #user-report — the UI i18n locale: chat-service pins LLM answers and
+  // session titles to the interface language.
+  if (args.uiLocale) body.ui_locale = args.uiLocale;
   if (args.enabledTools?.length) body.enabled_tools = args.enabledTools;
   if (args.enabledSkills?.length) body.enabled_skills = args.enabledSkills;
   // Compose mode: prose-only turn, no tool advertising (server-side gate).

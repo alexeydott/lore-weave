@@ -9909,6 +9909,7 @@ async def stream_response(
     admin_token: str | None = None,
     disable_tools: bool = False,
     display_language: str | None = None,
+    ui_locale: str | None = None,
     enabled_tools: list[str] | None = None,
     enabled_skills: list[str] | None = None,
     studio_context: dict | None = None,
@@ -9966,6 +9967,12 @@ async def stream_response(
         session_id,
     )
     system_prompt = session_row["system_prompt"] if session_row else None
+    # #user-report 2026-11-07 — LLM answers must follow the UI localization
+    # language: pin it in the (cache-stable) system prefix. Empty directive →
+    # current behavior (older clients / surfaces that don't send ui_locale).
+    _ui_lang = _ui_language_directive(ui_locale)
+    if _ui_lang:
+        system_prompt = f"{system_prompt.rstrip()}\n\n{_ui_lang}" if system_prompt else _ui_lang
     gp_raw = session_row["generation_params"] if session_row else {}
     if isinstance(gp_raw, str):
         gp_raw = json.loads(gp_raw)
@@ -11384,6 +11391,7 @@ async def stream_response(
         discovery_extra_frontend=discovery_extra_frontend,
         discovery_seed_names=discovery_seed_names,
         curated=curated_mode,
+        ui_locale=ui_locale,
         activation_state=activation_state,
         surface_tracker=surface_tracker,
         injected_skills=injected_skill_codes,
@@ -12191,6 +12199,11 @@ async def _emit_chat_turn(
     composer_model: tuple[str, str] | None = None,
     composer_system_prompt: str | None = None,
     planner_model_ref: str | None = None,
+    #: #user-report 2026-11-07 — the UI i18n locale for the auto title (the
+    #: title prompt writes the title in the interface language). Threaded from
+    #: stream_response for the SAME reason as prior_request_text above: a name
+    #: bound in stream_response is not in scope in this frame.
+    ui_locale: str | None = None,
     max_iterations: int = MAX_TOOL_ITERATIONS,
     discovery_catalog: list[dict] | None = None,
     #: name -> superseded_by for the LEGACY tools dropped from `discovery_catalog`, so
@@ -13748,6 +13761,7 @@ async def _emit_chat_turn(
                     model_source=model_source,
                     model_ref=model_ref,
                     pool=pool,
+                    ui_locale=ui_locale,
                 )
             )
 
@@ -14642,6 +14656,41 @@ def _sanitize_title(raw: str) -> str:
     return line if len(line) <= 100 else ""
 
 
+# UI i18n locales (frontend/src/i18n) → English names for LLM directives.
+# Kept in lockstep with the locale tree; an unknown code yields no directive.
+_UI_LANGUAGE_NAMES = {
+    "ar": "Arabic", "bn": "Bengali", "de": "German", "en": "English",
+    "es": "Spanish", "fr": "French", "hi": "Hindi", "id": "Indonesian",
+    "ja": "Japanese", "ko": "Korean", "ms": "Malay", "pt-BR": "Brazilian Portuguese",
+    "ru": "Russian", "th": "Thai", "tr": "Turkish", "vi": "Vietnamese",
+    "zh-CN": "Simplified Chinese", "zh-TW": "Traditional Chinese",
+}
+
+
+def _ui_language_name(ui_locale: str | None) -> str:
+    """The English language name for a UI locale code; base-code tolerant
+    ('ru-RU' → 'ru'). '' when the code is not a known UI locale."""
+    if not ui_locale:
+        return ""
+    return _UI_LANGUAGE_NAMES.get(ui_locale) or _UI_LANGUAGE_NAMES.get(ui_locale.split("-")[0], "")
+
+
+def _ui_language_directive(ui_locale: str | None) -> str:
+    """System-prompt directive pinning LLM output to the user's interface
+    language (#user-report 2026-11-07: answers drifted to English under a
+    ru UI). '' when there is no known locale — current behavior."""
+    name = _ui_language_name(ui_locale)
+    if not name:
+        return ""
+    code = ui_locale
+    return (
+        f"Always respond in {name} ({code}) — the user's interface language — "
+        "regardless of the language the user writes in, unless they explicitly ask "
+        "for a different language. Short quotations from source material stay in "
+        "the original language with a translation."
+    )
+
+
 async def _auto_generate_title(
     session_id: str,
     user_id: str,
@@ -14650,16 +14699,19 @@ async def _auto_generate_title(
     model_source: str,
     model_ref: str,
     pool: asyncpg.Pool,
+    ui_locale: str | None = None,
 ) -> None:
     """Generate a short title via the LLM gateway. Phase 1c-ii: routes
     through `loreweave_llm.Client.stream()` and accumulates tokens
     instead of calling AsyncOpenAI/litellm directly. Title generation is
     short enough (≤200 tokens) that streaming-then-collect is cheap."""
+    _title_name = _ui_language_name(ui_locale)
     title_messages = [
         {
             "role": "system",
-            "content": "Generate a concise title (max 6 words) for this conversation. "
-            "Return ONLY the title, no quotes, no explanation. "
+            "content": "Generate a concise title (max 6 words) for this conversation."
+            + (f" Write the title in {_title_name} — the user's interface language." if _title_name else "")
+            + " Return ONLY the title, no quotes, no explanation. "
             "Do NOT think or reason — just output the title directly.",
         },
         {"role": "user", "content": user_message[:300]},

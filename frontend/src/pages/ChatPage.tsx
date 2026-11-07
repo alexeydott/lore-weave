@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { ChatSessionProvider, ChatStreamProvider, useChatSession } from '@/features/chat/providers';
 import { SessionSidebar } from '@/features/chat/components/SessionSidebar';
 import { ChatView } from '@/features/chat/components/ChatView';
@@ -33,6 +34,21 @@ function ChatPageLayout() {
     setMobileSidebarOpen,
     createSession,
   } = useChatSession();
+
+  // #user-report 2026-11-07 — /chat landed on the «Чат не выбран» empty state
+  // even when sessions existed: a dead end forcing a manual click on every
+  // visit. Auto-select the most recent session once the list loads (the list
+  // is newest-first). Direct /chat/:sessionId links are unaffected — the
+  // session context resolves the URL param before this matters.
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (autoSelectedRef.current || sessionsLoading || activeSession) return;
+    // Wait for the list BEFORE arming the one-shot: the flag must not burn on
+    // an early render where loading is still false but sessions haven't arrived.
+    if (!sessions.length) return;
+    autoSelectedRef.current = true;
+    selectSession(sessions[0]);
+  }, [sessions, sessionsLoading, activeSession, selectSession]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
