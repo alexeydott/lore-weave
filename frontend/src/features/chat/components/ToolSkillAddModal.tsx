@@ -4,6 +4,7 @@ import { FormDialog } from '@/components/shared/FormDialog';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Pagination } from '@/components/shared/Pagination';
 import type { ToolCatalogItem } from '../types';
+import { localizedDomainLabel, localizedSkillLabel, localizedToolDescription } from '../toolCatalogLocales';
 import {
   TOOL_SKILL_TABS, TOOL_SKILL_ALL_CATEGORY, TOOL_SKILL_PAGE_SIZE,
   useToolSkillCatalog, type ToolSkillTab,
@@ -35,7 +36,10 @@ export function ToolSkillAddModal({
   onAddLegacyTool,
   existingLegacyTools = [],
 }: ToolSkillAddModalProps) {
-  const { t } = useTranslation('chat');
+  const { t, i18n } = useTranslation('chat');
+  // #user-report 2026-11-07 — the dialog shows LOCALIZED tool summaries /
+  // domain labels / skill labels (the raw MCP strings are the LLM's specs).
+  const locale = i18n.language;
   const {
     tab, onTabChange, query, onQueryChange, category, onCategoryChange, page, setPage,
     loading, availableTools, categories, filteredTools, showGroupedAllView, groupedAllView,
@@ -80,6 +84,7 @@ export function ToolSkillAddModal({
             onCategoryChange={onCategoryChange}
             totalCount={availableTools.length}
             t={t}
+            locale={locale}
           />
         )}
 
@@ -105,6 +110,7 @@ export function ToolSkillAddModal({
               onSeeAll={onCategoryChange}
               onAddTool={(name) => { onAddTool(name); onClose(); }}
               t={t}
+              locale={locale}
             />
           )}
 
@@ -112,7 +118,7 @@ export function ToolSkillAddModal({
             <>
               <ul className="space-y-1">
                 {pagedTools.map((item) => (
-                  <ToolRow key={item.name} item={item} onAdd={() => { onAddTool(item.name); onClose(); }} />
+                  <ToolRow key={item.name} item={item} locale={locale} onAdd={() => { onAddTool(item.name); onClose(); }} />
                 ))}
               </ul>
               <Pagination
@@ -133,6 +139,7 @@ export function ToolSkillAddModal({
               count={availableLegacyToolsCount}
               onAdd={(name) => { onAddLegacyTool(name); onClose(); }}
               t={t}
+              locale={locale}
             />
           )}
 
@@ -156,7 +163,7 @@ export function ToolSkillAddModal({
                     onClick={() => { onAddSkill(item.id); onClose(); }}
                     className="w-full rounded-md px-2 py-2 text-left transition-colors hover:bg-muted/60"
                   >
-                    <div className="text-xs font-medium">{item.label}</div>
+                    <div className="text-xs font-medium">{localizedSkillLabel(locale, item.id, item.label)}</div>
                     <div className="text-[10px] text-muted-foreground">{item.surfaces.join(', ')}</div>
                   </button>
                 </li>
@@ -210,12 +217,13 @@ function TabBar({ tab, onTabChange, onKeyDown, t, toolsCount, skillsCount }: {
   );
 }
 
-function CategoryChips({ categories, category, onCategoryChange, totalCount, t }: {
+function CategoryChips({ categories, category, onCategoryChange, totalCount, t, locale }: {
   categories: { category: string; items: ToolCatalogItem[] }[];
   category: string;
   onCategoryChange: (c: string) => void;
   totalCount: number;
   t: Translate;
+  locale: string;
 }) {
   return (
     <div className="flex flex-wrap gap-1.5" data-testid="tool-skill-category-chips">
@@ -237,26 +245,27 @@ function CategoryChips({ categories, category, onCategoryChange, totalCount, t }
           data-active={category === c}
           className="rounded-full border px-2.5 py-1 text-[11px] font-medium capitalize text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground data-[active=true]:border-primary/40 data-[active=true]:bg-primary/10 data-[active=true]:text-primary"
         >
-          {c} ({items.length})
+          {localizedDomainLabel(locale, c)} ({items.length})
         </button>
       ))}
     </div>
   );
 }
 
-function GroupedToolsView({ groups, previewSize, onSeeAll, onAddTool, t }: {
+function GroupedToolsView({ groups, previewSize, onSeeAll, onAddTool, t, locale }: {
   groups: { category: string; items: ToolCatalogItem[] }[];
   previewSize: number;
   onSeeAll: (category: string) => void;
   onAddTool: (name: string) => void;
   t: Translate;
+  locale: string;
 }) {
   return (
     <div className="space-y-4" data-testid="tool-skill-grouped-view">
       {groups.map(({ category: c, items }) => (
         <div key={c}>
           <div className="mb-1 flex items-center justify-between">
-            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{c}</h4>
+            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{localizedDomainLabel(locale, c)}</h4>
             {items.length > previewSize && (
               <button
                 type="button"
@@ -270,7 +279,7 @@ function GroupedToolsView({ groups, previewSize, onSeeAll, onAddTool, t }: {
           </div>
           <ul className="space-y-1">
             {items.slice(0, previewSize).map((item) => (
-              <ToolRow key={item.name} item={item} onAdd={() => onAddTool(item.name)} />
+              <ToolRow key={item.name} item={item} locale={locale} onAdd={() => onAddTool(item.name)} />
             ))}
           </ul>
         </div>
@@ -283,13 +292,14 @@ function GroupedToolsView({ groups, previewSize, onSeeAll, onAddTool, t }: {
  *  unreachable through any normal agent action (find_tools excludes it); this
  *  is the ONLY GUI path back to one, and it's deliberately behind a collapsed
  *  toggle so it doesn't compete with the primary (new-tool) discovery flow. */
-function AdvancedToolsSection({ show, onToggle, items, count, onAdd, t }: {
+function AdvancedToolsSection({ show, onToggle, items, count, onAdd, t, locale }: {
   show: boolean;
   onToggle: () => void;
   items: ToolCatalogItem[];
   count: number;
   onAdd: (name: string) => void;
   t: Translate;
+  locale: string;
 }) {
   return (
     <div className="mt-3 border-t pt-2" data-testid="tool-skill-advanced-section">
@@ -310,7 +320,7 @@ function AdvancedToolsSection({ show, onToggle, items, count, onAdd, t }: {
           </p>
           <ul className="mt-1 space-y-1">
             {items.map((item) => (
-              <ToolRow key={item.name} item={item} onAdd={() => onAdd(item.name)} legacy />
+              <ToolRow key={item.name} item={item} locale={locale} onAdd={() => onAdd(item.name)} legacy />
             ))}
           </ul>
         </>
@@ -319,7 +329,7 @@ function AdvancedToolsSection({ show, onToggle, items, count, onAdd, t }: {
   );
 }
 
-function ToolRow({ item, onAdd, legacy }: { item: ToolCatalogItem; onAdd: () => void; legacy?: boolean }) {
+function ToolRow({ item, locale, onAdd, legacy }: { item: ToolCatalogItem; locale: string; onAdd: () => void; legacy?: boolean }) {
   return (
     <li>
       <button
@@ -331,7 +341,7 @@ function ToolRow({ item, onAdd, legacy }: { item: ToolCatalogItem; onAdd: () => 
         <div className="flex items-center gap-1.5 text-xs font-medium">
           {item.name}
           <span className="rounded-full border px-1.5 py-0.5 text-[9px] font-normal capitalize text-muted-foreground">
-            {item.domain || 'other'}
+            {localizedDomainLabel(locale, item.domain)}
           </span>
           {legacy && (
             <span
@@ -342,7 +352,7 @@ function ToolRow({ item, onAdd, legacy }: { item: ToolCatalogItem; onAdd: () => 
             </span>
           )}
         </div>
-        <div className="text-[10px] text-muted-foreground line-clamp-2">{item.description}</div>
+        <div className="text-[10px] text-muted-foreground line-clamp-2">{localizedToolDescription(locale, item.name, item.description)}</div>
       </button>
     </li>
   );
