@@ -21,7 +21,7 @@ from typing import Any
 
 from app.wiki.ir import Span, WikiArticleIR
 
-_REFERENCES_HEADING = "引用来源 · References"
+_REFERENCES_HEADING = "References"
 
 
 def _number_citations(ir: WikiArticleIR) -> dict[str, int]:

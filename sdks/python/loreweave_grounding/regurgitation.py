@@ -137,14 +137,16 @@ def detect_regurgitation(
     if max_lcs >= LCS_REJECT and lcs_fraction >= LCS_FRACTION:
         sev: str | None = "high"
         ev = (
-            f"输出几乎整体复制授权来源原文表达（最长逐字 {max_lcs} 字，"
-            f"占输出 {lcs_fraction:.0%}）— 非再创作，版权风险，自动拒绝"
+            f"output substantially copies verbatim source expression (longest verbatim run "
+            f"{max_lcs} chars, {lcs_fraction:.0%} of the output) — not transformative; "
+            f"copyright risk, auto-reject"
         )
     elif max_lcs >= LCS_FLAG or (overlap_applies and max_overlap >= OVERLAP_FLAG):
         sev = "medium"
         ev = (
-            f"输出与来源有显著重合（最长逐字 {max_lcs} 字，n-gram 重合 "
-            f"{max_overlap:.0%}）— 建议人工复核是否过度借用原文表达"
+            f"significant overlap with the source (longest verbatim run {max_lcs} chars, "
+            f"n-gram containment {max_overlap:.0%}) — manual review recommended for "
+            f"over-borrowing of the source wording"
         )
     else:
         sev = None

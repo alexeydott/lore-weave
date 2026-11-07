@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { localizedVerifyEvidence } from '../wikiLabels';
 import type { WikiGenerationProvenance } from '../types';
 
 /**
@@ -17,7 +18,7 @@ export function VerifyFlagsPanel({
   /** generation_status === 'blocked' — the article won't auto-publish. */
   blocked?: boolean;
 }) {
-  const { t } = useTranslation('wiki');
+  const { t, i18n } = useTranslation('wiki');
   const flags = provenance?.verify_flags ?? [];
   if (flags.length === 0 && !blocked) return null;
 
@@ -55,7 +56,7 @@ export function VerifyFlagsPanel({
               </span>
               <span className="min-w-0">
                 <span className="font-medium">{f.dimension}</span>
-                {f.evidence && <span className="text-muted-foreground"> — {f.evidence}</span>}
+                {f.evidence && <span className="text-muted-foreground"> — {localizedVerifyEvidence(i18n?.language, f.evidence)}</span>}
               </span>
             </li>
           ))}

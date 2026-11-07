@@ -19,7 +19,7 @@ import { WikiSuggestionReview } from '@/features/wiki/components/WikiSuggestionR
 import { KnowledgeUpdatesPanel } from '@/features/wiki/components/KnowledgeUpdatesPanel';
 import { CreateArticleDialog } from '@/features/wiki/components/CreateArticleDialog';
 import { useWikiStaleness } from '@/features/wiki/hooks/useWikiStaleness';
-import { localizedAttrLabel, localizedKindLabel } from '../wikiLabels';
+import { localizedAttrLabel, localizedKindLabel, localizedWikiHeading } from '../wikiLabels';
 import { ContentRenderer } from '@/components/reader/ContentRenderer';
 import { CitationProvider } from '@/components/reader/CitationContext';
 import { Skeleton } from '@/components/shared/Skeleton';
@@ -33,7 +33,7 @@ import { cn } from '@/lib/utils';
 
 /* ── Infobox ─────────────────────────────────────────────────────────────── */
 
-function WikiInfobox({ attrs, kindName, displayName, locale }: {
+function WikiInfobox({ attrs, kindName, kindCode, displayName, locale }: {
   attrs: WikiInfoboxAttr[];
   kindName: string;
   displayName: string;
@@ -289,7 +289,6 @@ export function WikiArticleView({ bookId, articleId, onRegenerate }: {
   const { t, i18n } = useTranslation('wiki');
   // Tests mock react-i18next with { t } only — i18n may be undefined.
   const locale = i18n?.language ?? '';
-  const locale = locale;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showSugs, setShowSugs] = useState(false);
@@ -353,8 +352,19 @@ export function WikiArticleView({ bookId, articleId, onRegenerate }: {
 
   if (!article) return null;
 
+  // #user-report 2026-11-08 — the generator baked boilerplate headings (the
+  // first cut shipped a Chinese «引用来源 · References») into the STORED body;
+  // localize the known boilerplate heading texts at render so already-stored
+  // articles display in the UI language without a regeneration.
+  const localizeHeadings = (nodes: JSONContent[]): JSONContent[] =>
+    nodes.map((n) => {
+      if (n.type !== 'heading') return n;
+      const parts = (n.content as { text?: string }[] | undefined)?.map((c) => ({ ...c, text: localizedWikiHeading(locale, c.text ?? '') }));
+      return parts ? { ...n, content: parts } : n;
+    });
+
   const headings = extractHeadings(article.body_json);
-  const blocks = (article.body_json as { content?: JSONContent[] }).content ?? [];
+  const blocks = localizeHeadings((article.body_json as { content?: JSONContent[] }).content ?? []);
   const hasContent = blocks.length > 0;
   const updatedDate = new Date(article.updated_at).toLocaleDateString(locale || undefined, {
     year: 'numeric', month: 'short', day: 'numeric',
