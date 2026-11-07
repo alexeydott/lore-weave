@@ -92,7 +92,12 @@
     "toast_none": "No entities were merged (they may have changed)",
     "toast_dismissed": "Dismissed",
     "toast_undone": "Merge undone",
-    "unnamed": "(unnamed)"
+    "unnamed": "(unnamed)",
+    "scan": "Find duplicates",
+    "scanning": "Scanning…",
+    "toast_scanned": "Clusters found: {{clusters}}, proposed for review: {{proposed}}",
+    "toast_scan_empty": "No duplicate clusters found this pass.",
+    "scan_failed": "The duplicate scan failed."
   },
   "unknown": {
     "title": "Unknown Kinds",

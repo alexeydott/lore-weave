@@ -92,7 +92,12 @@
     "toast_none": "Tidak ada entitas yang digabungkan (mungkin telah berubah)",
     "toast_dismissed": "Diabaikan",
     "toast_undone": "Penggabungan dibatalkan",
-    "unnamed": "(tanpa nama)"
+    "unnamed": "(tanpa nama)",
+    "scan": "Cari duplikat",
+    "scanning": "Memindai…",
+    "toast_scanned": "Klaster ditemukan: {{clusters}}, diusulkan untuk ditinjau: {{proposed}}",
+    "toast_scan_empty": "Tidak ada klaster duplikat pada putaran ini.",
+    "scan_failed": "Pemindaian duplikat gagal."
   },
   "unknown": {
     "title": "Jenis Tidak Dikenal",

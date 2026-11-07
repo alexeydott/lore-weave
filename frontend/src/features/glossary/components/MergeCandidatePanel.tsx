@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, GitMerge, Check, X } from 'lucide-react';
+import { ArrowLeft, GitMerge, Check, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuthOptional } from '@/auth';
+import { knowledgeApi } from '@/features/knowledge/api';
 import type { MergeCandidate } from '../types';
 import { useMergeCandidates } from '../hooks/useMergeCandidates';
 
@@ -88,8 +90,42 @@ function MergeCandidateCard({
  */
 export function MergeCandidatePanel({ bookId, onClose }: Props) {
   const { t } = useTranslation('glossaryEditor');
-  const { candidates, total, isLoading, error, confirm, dismiss, undo } = useMergeCandidates(bookId);
+  const { accessToken } = useAuthOptional() ?? { accessToken: null };
+  const { candidates, total, isLoading, error, refetch, confirm, dismiss, undo } = useMergeCandidates(bookId);
   const [busy, setBusy] = useState<string | null>(null);
+  // The knowledge project anchoring this book's memory — the detection pass
+  // runs per project; resolved once on mount (listProjects by book_id).
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+
+  useEffect(() => {
+    if (!accessToken || !bookId || projectId) return;
+    knowledgeApi
+      .listProjects({ book_id: bookId, limit: 1 }, accessToken)
+      .then((r) => setProjectId(r.items[0]?.project_id ?? null))
+      .catch(() => setProjectId(null));
+  }, [accessToken, bookId, projectId]);
+
+  // #user-report 2026-11-08 — the inbox stayed empty forever because nothing
+  // ever TRIGGERED the detection (auto-on-extraction is off by default). The
+  // author can now run the pass from here; the detection only proposes.
+  const runScan = async () => {
+    if (!accessToken || !projectId || scanning) return;
+    setScanning(true);
+    try {
+      const r = await knowledgeApi.runCorefDetect(projectId, accessToken);
+      if (r.proposed > 0) {
+        toast.success(t('merge_candidates.toast_scanned', { clusters: r.clusters_found, proposed: r.proposed }));
+      } else {
+        toast.info(t('merge_candidates.toast_scan_empty'));
+      }
+      await refetch();
+    } catch (e) {
+      toast.error((e as Error).message || t('merge_candidates.scan_failed'));
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const onConfirm = async (c: MergeCandidate, winnerId: string) => {
     const name = c.members.find((m) => m.entity_id === winnerId)?.name || t('merge_candidates.unnamed');
@@ -144,6 +180,17 @@ export function MergeCandidatePanel({ bookId, onClose }: Props) {
         <GitMerge className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold">{t('merge_candidates.title')}</h3>
         <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{total}</span>
+        <button
+          type="button"
+          onClick={() => void runScan()}
+          disabled={scanning || !projectId}
+          title={t('merge_candidates.scan')}
+          data-testid="merge-candidates-rescan"
+          className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50"
+        >
+          <Search className="h-3 w-3" />
+          {scanning ? t('merge_candidates.scanning') : t('merge_candidates.scan')}
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
@@ -162,6 +209,16 @@ export function MergeCandidatePanel({ bookId, onClose }: Props) {
             <GitMerge className="h-8 w-8 text-muted-foreground/50" />
             <p className="text-sm font-medium">{t('merge_candidates.empty_title')}</p>
             <p className="max-w-sm text-xs text-muted-foreground">{t('merge_candidates.empty_desc')}</p>
+            <button
+              type="button"
+              onClick={() => void runScan()}
+              disabled={scanning || !projectId}
+              data-testid="merge-candidates-scan-empty"
+              className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:brightness-110 disabled:opacity-50"
+            >
+              <Search className="h-3.5 w-3.5" />
+              {scanning ? t('merge_candidates.scanning') : t('merge_candidates.scan')}
+            </button>
           </div>
         )}
 

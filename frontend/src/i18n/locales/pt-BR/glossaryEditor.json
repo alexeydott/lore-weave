@@ -92,7 +92,12 @@
     "toast_none": "Nenhuma entidade foi fundida (elas podem ter mudado)",
     "toast_dismissed": "Descartado",
     "toast_undone": "Fusão desfeita",
-    "unnamed": "(sem nome)"
+    "unnamed": "(sem nome)",
+    "scan": "Localizar duplicatas",
+    "scanning": "Verificando…",
+    "toast_scanned": "Grupos encontrados: {{clusters}}, propostos para revisão: {{proposed}}",
+    "toast_scan_empty": "Nenhum grupo duplicado nesta passagem.",
+    "scan_failed": "Falha ao buscar duplicatas."
   },
   "unknown": {
     "title": "Tipos Desconhecidos",

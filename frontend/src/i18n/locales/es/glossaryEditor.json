@@ -92,7 +92,12 @@
     "toast_none": "No se fusionaron entidades (pueden haber cambiado)",
     "toast_dismissed": "Descartado",
     "toast_undone": "Fusión deshecha",
-    "unnamed": "(sin nombre)"
+    "unnamed": "(sin nombre)",
+    "scan": "Buscar duplicados",
+    "scanning": "Buscando…",
+    "toast_scanned": "Clústeres encontrados: {{clusters}}, propuestos para revisión: {{proposed}}",
+    "toast_scan_empty": "Esta pasada no encontró clústeres duplicados.",
+    "scan_failed": "Error al buscar duplicados."
   },
   "unknown": {
     "title": "Tipos Desconocidos",

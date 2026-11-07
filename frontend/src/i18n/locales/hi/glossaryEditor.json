@@ -92,7 +92,12 @@
     "toast_none": "कोई एंटिटी विलय नहीं हुई (वे बदल गई होंगी)",
     "toast_dismissed": "हटा दिया गया",
     "toast_undone": "विलय पूर्ववत किया गया",
-    "unnamed": "(अनाम)"
+    "unnamed": "(अनाम)",
+    "scan": "डुप्लिकेट खोजें",
+    "scanning": "स्कैन हो रहा है…",
+    "toast_scanned": "मिले क्लस्टर: {{clusters}}, समीक्षा हेतु प्रस्तावित: {{proposed}}",
+    "toast_scan_empty": "इस रन में कोई डुप्लिकेट क्लस्टर नहीं मिला।",
+    "scan_failed": "डुप्लिकेट खोज विफल रही।"
   },
   "unknown": {
     "title": "अज्ञात प्रकार (Unknown Kinds)",

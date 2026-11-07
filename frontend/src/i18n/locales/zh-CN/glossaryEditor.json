@@ -92,7 +92,12 @@
     "toast_none": "未合并任何实体（它们可能已发生变化）",
     "toast_dismissed": "已忽略",
     "toast_undone": "合并已撤销",
-    "unnamed": "(未命名)"
+    "unnamed": "(未命名)",
+    "scan": "查找重复项",
+    "scanning": "扫描中…",
+    "toast_scanned": "找到簇：{{clusters}} 个，提议待审：{{proposed}} 个",
+    "toast_scan_empty": "本轮未发现重复簇。",
+    "scan_failed": "重复项扫描失败。"
   },
   "unknown": {
     "title": "未知种类",

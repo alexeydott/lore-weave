@@ -92,7 +92,12 @@
     "toast_none": "沒有實體被合併（可能已變更）",
     "toast_dismissed": "已略過",
     "toast_undone": "已還原合併",
-    "unnamed": "（未命名）"
+    "unnamed": "（未命名）",
+    "scan": "尋找重複項",
+    "scanning": "掃描中…",
+    "toast_scanned": "找到群組：{{clusters}} 個，提議待審：{{proposed}} 個",
+    "toast_scan_empty": "這一輪未發現重複群組。",
+    "scan_failed": "重複項掃描失敗。"
   },
   "unknown": {
     "title": "未知種類",

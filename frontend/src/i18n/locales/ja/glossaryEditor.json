@@ -92,7 +92,12 @@
     "toast_none": "統合されたエンティティはありません（変更された可能性があります）",
     "toast_dismissed": "却下しました",
     "toast_undone": "統合を取り消しました",
-    "unnamed": "（名称未設定）"
+    "unnamed": "（名称未設定）",
+    "scan": "重複を検索",
+    "scanning": "スキャン中…",
+    "toast_scanned": "検出クラスター: {{clusters}} 件、レビュー提案: {{proposed}} 件",
+    "toast_scan_empty": "今回の走査で重複クラスターは見つかりませんでした。",
+    "scan_failed": "重複検索に失敗しました。"
   },
   "unknown": {
     "title": "未分類の種別",

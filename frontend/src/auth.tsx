@@ -155,6 +155,13 @@ export function useAuth() {
   return x;
 }
 
+/** Non-throwing variant — returns null outside a provider. For components that
+ *  render in isolation under test mocks (MergeCandidatePanel pattern) or on
+ *  surfaces where auth is already resolved at a higher level. */
+export function useAuthOptional() {
+  return useContext(Ctx);
+}
+
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { accessToken } = useAuth();
   const location = useLocation();

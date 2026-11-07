@@ -1063,6 +1063,22 @@ export const knowledgeApi = {
     return apiJson<Project>(`${BASE}/projects/${projectId}`, { token });
   },
 
+  /**
+   * #user-report 2026-11-08 — run the coreference-detection pass for a
+   * project: proposes merge-candidate clusters (duplicate entities under
+   * different names) into glossary's merge inbox. Owner-gated server-side;
+   * the detection only PROPOSES — nothing merges without the human confirm.
+   */
+  runCorefDetect(
+    projectId: string,
+    token: string,
+  ): Promise<{ clusters_found: number; proposed: number; suppressed: number; skipped: number }> {
+    return apiJson(`${BASE}/projects/${projectId}/coref/detect`, {
+      method: 'POST',
+      token,
+    });
+  },
+
   createProject(
     payload: ProjectCreatePayload,
     token: string,

@@ -92,7 +92,12 @@
     "toast_none": "Es wurden keine Entitäten zusammengeführt (sie könnten sich geändert haben)",
     "toast_dismissed": "Abgelehnt",
     "toast_undone": "Zusammenführung rückgängig gemacht",
-    "unnamed": "(unbenannt)"
+    "unnamed": "(unbenannt)",
+    "scan": "Duplikate suchen",
+    "scanning": "Läuft…",
+    "toast_scanned": "Gefundene Cluster: {{clusters}}, zur Prüfung vorgeschlagen: {{proposed}}",
+    "toast_scan_empty": "Keine doppelten Cluster in diesem Durchlauf.",
+    "scan_failed": "Die Duplikatsuche ist fehlgeschlagen."
   },
   "unknown": {
     "title": "Unbekannte Arten",

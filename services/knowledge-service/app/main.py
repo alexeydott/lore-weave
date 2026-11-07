@@ -52,6 +52,7 @@ from app.routers import (
     working_memory,
 )
 from app.routers.public import costs as public_costs
+from app.routers.public import coref as public_coref
 from app.routers.public import drawers as public_drawers
 from app.routers.public import labels as public_labels
 from app.routers.public import raw_search as public_raw_search
@@ -916,6 +917,7 @@ app.include_router(internal_timeline.router)
 app.include_router(internal_wiki.router)
 app.include_router(metrics.router)
 app.include_router(public_costs.router)
+app.include_router(public_coref.router)
 app.include_router(public_drawers.router)
 app.include_router(public_raw_search.router)
 app.include_router(public_labels.router)

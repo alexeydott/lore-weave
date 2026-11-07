@@ -92,7 +92,12 @@
     "toast_none": "Không có thực thể nào được gộp (có thể đã thay đổi)",
     "toast_dismissed": "Đã bỏ qua",
     "toast_undone": "Đã hoàn tác hợp nhất",
-    "unnamed": "(chưa đặt tên)"
+    "unnamed": "(chưa đặt tên)",
+    "scan": "Tìm trùng lặp",
+    "scanning": "Đang quét…",
+    "toast_scanned": "Đã tìm thấy nhóm: {{clusters}}, đề xuất xem xét: {{proposed}}",
+    "toast_scan_empty": "Lần quét này không có nhóm trùng lặp.",
+    "scan_failed": "Không thể quét trùng lặp."
   },
   "unknown": {
     "title": "Loại chưa rõ",

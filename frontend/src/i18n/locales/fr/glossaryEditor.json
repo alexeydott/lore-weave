@@ -92,7 +92,12 @@
     "toast_none": "Aucune entité n'a été fusionnée (elles ont peut-être changé)",
     "toast_dismissed": "Ignoré",
     "toast_undone": "Fusion annulée",
-    "unnamed": "(sans nom)"
+    "unnamed": "(sans nom)",
+    "scan": "Rechercher les doublons",
+    "scanning": "Analyse…",
+    "toast_scanned": "Groupes trouvés : {{clusters}}, proposés pour révision : {{proposed}}",
+    "toast_scan_empty": "Aucun groupe de doublons trouvé lors de cette passe.",
+    "scan_failed": "Échec de la recherche de doublons."
   },
   "unknown": {
     "title": "Types inconnus",
