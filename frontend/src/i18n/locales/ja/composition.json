@@ -1801,6 +1801,12 @@
     "scope_selection": "選択範囲",
     "scope_doc": "章全体",
     "empty_chunk": "AIが空のフラグメントを返したため、実行を停止しました。",
-    "stopped": "実行を停止しました。"
+    "stopped": "実行を停止しました。",
+    "preview_show": "変更を表示",
+    "preview_title": "置換: {{text}} 件 · 削除される空行: {{blank}} 行",
+    "preview_apply": "適用 ({{n}})",
+    "preview_back": "戻る",
+    "preview_more": "…ほか {{n}} 件",
+    "preview_blank": "空行を削除します"
   }
 }

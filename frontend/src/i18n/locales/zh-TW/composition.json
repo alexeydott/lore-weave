@@ -1801,6 +1801,12 @@
     "scope_selection": "選取範圍",
     "scope_doc": "整章",
     "empty_chunk": "AI 傳回了空片段，執行已停止。",
-    "stopped": "執行已停止。"
+    "stopped": "執行已停止。",
+    "preview_show": "檢視變更",
+    "preview_title": "取代：{{text}} 處 · 將刪除空行：{{blank}} 行",
+    "preview_apply": "套用（{{n}}）",
+    "preview_back": "返回",
+    "preview_more": "…還有 {{n}} 處",
+    "preview_blank": "將刪除一個空行"
   }
 }

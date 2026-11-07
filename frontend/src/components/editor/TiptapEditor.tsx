@@ -17,7 +17,7 @@ import { AudioAttrsExtension } from './AudioAttrsExtension';
 import { AudioAttachBarExtension } from './AudioAttachBarExtension';
 import { AudioAttachActionsExtension } from './AudioAttachActionsExtension';
 import { MediaGuardExtension } from './MediaGuardExtension';
-import { transformTextNode } from '@/features/studio/editor/techEdits';
+import { collectBlankDeletions, isBlankishParagraph, transformTextNode, type TechEditPreviewResult } from '@/features/studio/editor/techEdits';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import Highlight from '@tiptap/extension-highlight';
@@ -75,6 +75,14 @@ export interface TiptapEditorHandle {
   /** Техправка — collapse consecutive empty paragraphs. `scope: 'selection'`
    *  only touches paragraphs that lie fully inside the current selection. */
   collapseBlankParagraphs: (scope?: 'doc' | 'selection') => number;
+  /** Техправка — the preview count for the blank-line preset: how many
+   *  blank-line paragraphs the same walk would delete (read-only). */
+  countBlankParagraphs: (scope?: 'doc' | 'selection') => number;
+  /** Техправка — pre-apply preview («для параноиков»): collects what an apply
+   *  WOULD change under the same walk the apply runs (read-only) — text
+   *  before/after pairs plus blank-line deletions with neighbour context.
+   *  `limit` caps the item list; totals are always exact. */
+  previewTechEdits: (opts: { presets: string[]; find?: string; replace?: string; scope?: 'doc' | 'selection' }, limit?: number) => TechEditPreviewResult;
   /** Техправка — select the whole document body (the pre-select for a
    *  checkpointed whole-doc replace). */
   selectAllDoc: () => boolean;
@@ -398,21 +406,78 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
       collapseBlankParagraphs: (scope?: 'doc' | 'selection') => {
         if (!editor) return 0;
         const tr = editor.state.tr;
-        const doc = editor.state.doc;
-        const toDelete: number[] = [];
-        // In selection scope only paragraphs FULLY inside the selection participate.
+        // Blank LINE semantics (chapter-28 lesson): every paragraph that renders
+        // as an empty line is removed — including runs, and imported bare-<br>
+        // blank paragraphs (content.size > 0, invisible to the old empty test).
         const sel = scope === 'selection' && !editor.state.selection.empty ? editor.state.selection : null;
-        doc.forEach((node, offset, index) => {
-          if (node.type.name !== 'paragraph') return;
-          if (sel && (offset < sel.from || offset + node.nodeSize > sel.to)) return;
-          const prev = index > 0 ? doc.child(index - 1) : null;
-          if (node.content.size === 0 && prev !== null && prev.type.name === 'paragraph' && prev.content.size === 0) {
-            toDelete.push(offset);
+        const deletions = collectBlankDeletions(editor.state.doc, sel);
+        // END→START, FULL node spans — a one-position delete would rip only the
+        // opening token of a bare-<br> paragraph (nodeSize 3) and let the fitter
+        // merge the surrounding text paragraphs (data loss).
+        for (const { pos, size } of deletions.reverse()) {
+          tr.delete(pos, pos + size);
+        }
+        if (deletions.length > 0) editor.view.dispatch(tr);
+        return deletions.length;
+      },
+      countBlankParagraphs: (scope?: 'doc' | 'selection') => {
+        if (!editor) return 0;
+        const sel = scope === 'selection' && !editor.state.selection.empty ? editor.state.selection : null;
+        // The preview's structural count — SAME walk/predicate as
+        // collapseBlankParagraphs, so the preview number is exactly what an
+        // apply will delete (flat text cannot express empty paragraphs).
+        return collectBlankDeletions(editor.state.doc, sel).length;
+      },
+      previewTechEdits: (opts: { presets: string[]; find?: string; replace?: string; scope?: 'doc' | 'selection' }, limit = 40) => {
+        if (!editor) return { items: [], textTotal: 0, blankTotal: 0 };
+        const sel = opts.scope === 'selection' && !editor.state.selection.empty ? editor.state.selection : null;
+        const presetSet = new Set(opts.presets);
+        const items: TechEditPreviewResult['items'] = [];
+        let textTotal = 0;
+        // Text rewrites — the SAME walk and slice-clipping the apply runs, so the
+        // preview shows exactly what will change. In selection scope only the
+        // selected slice is transformed; the item shows that slice's before/after.
+        const collectText = (nodeText: string, from: number, to: number) => {
+          const slice = nodeText.slice(from, to);
+          const { text: newSlice } = transformTextNode(slice, presetSet, opts.find, opts.replace);
+          if (newSlice !== slice) {
+            textTotal += 1;
+            if (items.length < limit) items.push({ kind: 'text', before: slice, after: newSlice });
+          }
+        };
+        if (sel) {
+          editor.state.doc.nodesBetween(sel.from, sel.to, (node, pos) => {
+            if (!node.isText || !node.text) return;
+            const start = pos;
+            const end = pos + node.text.length;
+            const o0 = Math.max(sel.from, start) - start;
+            const o1 = Math.min(sel.to, end) - start;
+            if (o1 <= o0) return;
+            collectText(node.text, o0, o1);
+          });
+        } else {
+          editor.state.doc.descendants((node) => {
+            if (!node.isText || !node.text) return;
+            collectText(node.text, 0, node.text.length);
+          });
+        }
+        // Blank-line deletions with neighbour context (same predicate as the apply).
+        const kids: Array<{ node: NonNullable<typeof editor.state.doc.firstChild>; offset: number }> = [];
+        editor.state.doc.forEach((node, offset) => kids.push({ node, offset }));
+        let blankTotal = 0;
+        kids.forEach((k, i) => {
+          if (!isBlankishParagraph(k.node)) return;
+          if (sel && (k.offset < sel.from || k.offset + k.node.nodeSize > sel.to)) return;
+          blankTotal += 1;
+          if (items.length < limit) {
+            items.push({
+              kind: 'blank',
+              prevText: kids[i - 1]?.node?.textContent ?? '',
+              nextText: kids[i + 1]?.node?.textContent ?? '',
+            });
           }
         });
-        for (const pos of toDelete.reverse()) tr.delete(pos, pos + 1);
-        if (toDelete.length > 0) editor.view.dispatch(tr);
-        return toDelete.length;
+        return { items, textTotal, blankTotal };
       },
       selectAllDoc: () => {
         if (!editor) return false;

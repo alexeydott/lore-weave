@@ -1801,6 +1801,12 @@
     "scope_selection": "Vùng chọn",
     "scope_doc": "Cả chương",
     "empty_chunk": "AI trả về một phân đoạn rỗng — việc chạy đã dừng.",
-    "stopped": "Việc chạy đã dừng."
+    "stopped": "Việc chạy đã dừng.",
+    "preview_show": "Xem các thay đổi",
+    "preview_title": "Số thay thế: {{text}} · dòng trống sẽ xóa: {{blank}}",
+    "preview_apply": "Áp dụng ({{n}})",
+    "preview_back": "Quay lại",
+    "preview_more": "…và {{n}} nữa",
+    "preview_blank": "dòng trống sẽ bị xóa"
   }
 }

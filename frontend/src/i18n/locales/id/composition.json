@@ -1801,6 +1801,12 @@
     "scope_selection": "Pilihan",
     "scope_doc": "Seluruh bab",
     "empty_chunk": "AI mengembalikan fragmen kosong — proses dihentikan.",
-    "stopped": "Proses dihentikan."
+    "stopped": "Proses dihentikan.",
+    "preview_show": "Tampilkan perubahan",
+    "preview_title": "Penggantian: {{text}} · baris kosong yang dihapus: {{blank}}",
+    "preview_apply": "Terapkan ({{n}})",
+    "preview_back": "Kembali",
+    "preview_more": "…dan {{n}} lagi",
+    "preview_blank": "baris kosong akan dihapus"
   }
 }

@@ -1801,6 +1801,12 @@
     "scope_selection": "Selection",
     "scope_doc": "Whole chapter",
     "empty_chunk": "The AI returned an empty fragment — the run was stopped.",
-    "stopped": "The run was stopped."
+    "stopped": "The run was stopped.",
+    "preview_show": "Show changes",
+    "preview_title": "Replacements: {{text}} · blank lines to delete: {{blank}}",
+    "preview_apply": "Apply ({{n}})",
+    "preview_back": "Back",
+    "preview_more": "…and {{n}} more",
+    "preview_blank": "blank line will be deleted"
   }
 }

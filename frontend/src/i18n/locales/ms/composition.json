@@ -1801,6 +1801,12 @@
     "scope_selection": "Pilihan",
     "scope_doc": "Seluruh bab",
     "empty_chunk": "AI memulangkan bahagian kosong — pelaksanaan dihentikan.",
-    "stopped": "Pelaksanaan dihentikan."
+    "stopped": "Pelaksanaan dihentikan.",
+    "preview_show": "Tunjukkan perubahan",
+    "preview_title": "Penggantian: {{text}} · baris kosong untuk dipadam: {{blank}}",
+    "preview_apply": "Laksanakan ({{n}})",
+    "preview_back": "Kembali",
+    "preview_more": "…dan {{n}} lagi",
+    "preview_blank": "baris kosong akan dipadam"
   }
 }

@@ -1801,6 +1801,12 @@
     "scope_selection": "Sélection",
     "scope_doc": "Tout le chapitre",
     "empty_chunk": "L'IA a renvoyé un fragment vide — l'exécution a été arrêtée.",
-    "stopped": "L'exécution a été arrêtée."
+    "stopped": "L'exécution a été arrêtée.",
+    "preview_show": "Afficher les changements",
+    "preview_title": "Remplacements : {{text}} · lignes vides à supprimer : {{blank}}",
+    "preview_apply": "Appliquer ({{n}})",
+    "preview_back": "Retour",
+    "preview_more": "…et {{n}} de plus",
+    "preview_blank": "une ligne vide sera supprimée"
   }
 }

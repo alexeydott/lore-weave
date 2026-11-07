@@ -86,6 +86,41 @@ export interface TechEditCounts {
   replaced: number;
 }
 
+/** One row of the pre-apply preview («для параноиков»): what WILL change. */
+export type TechEditPreviewItem =
+  /** A text-node (or selected slice) rewrite — before/after of the affected span. */
+  | { kind: 'text'; before: string; after: string }
+  /** A blank-line paragraph that will be deleted, with neighbour context. */
+  | { kind: 'blank'; prevText: string; nextText: string };
+
+export type TechEditPreviewResult = {
+  items: TechEditPreviewItem[];
+  /** Node/slice-level text rewrites (what an apply will dispatch). */
+  textTotal: number;
+  /** Blank-line paragraphs an apply will delete. */
+  blankTotal: number;
+};
+
+/** Splits before/after into {pre, removed, added, post} for inline diff rows.
+ *  Greedy common prefix/suffix; the degenerate case (both walks meet inside
+ *  equal runs, e.g. double→single space) gives the change one character so the
+ *  row never renders as a no-op. */
+export function diffSegments(before: string, after: string): { pre: string; removed: string; added: string; post: string } {
+  const bl = before.length;
+  const al = after.length;
+  let s = 0;
+  while (s < bl && s < al && before[s] === after[s]) s++;
+  let e = 0;
+  while (e < bl - s && e < al - s && before[bl - 1 - e] === after[al - 1 - e]) e++;
+  let removed = before.slice(s, bl - e);
+  const added = after.slice(s, al - e);
+  if (!removed && !added && s > 0) {
+    s -= 1;
+    removed = before.slice(s, bl - e);
+  }
+  return { pre: before.slice(0, s), removed, added, post: before.slice(bl - e) };
+}
+
 const INVISIBLE = /[\u200B\u200C\u200D\u2060\uFEFF\u00AD]/g;
 const MULTI_SPACE = / {2,}/g;
 const SPACE_BEFORE_PUNCT = /[ \t]+([,.!?;:…])/g;
@@ -189,22 +224,33 @@ export function transformTextNode(
   return { text: out, hits };
 }
 
-/** collapse_blank_paragraphs is structural — not a text-node transform — so the flat
- *  dry run must count it separately. In flat getText() text (blocks joined by \n\n)
- *  a run of k consecutive empty paragraphs shows up as a run of L=2(k+1) newlines;
- *  the collapse deletes k−1 of them, i.e. L/2 − 2 per newline run. Estimate only —
- *  the post-apply count comes from the real structural pass. */
-function countBlankCollapses(flat: string): number {
-  let n = 0;
-  for (const m of flat.matchAll(/\n{2,}/g)) {
-    n += Math.max(0, Math.floor(m[0].length / 2) - 2);
-  }
-  return n;
+/** A paragraph that RENDERS as a blank line: no textual content at all — truly
+ *  empty, whitespace-only, or holding only hardBreak nodes. Imported manuscripts
+ *  encode blank lines as paragraphs holding a bare <br>, which the naive
+ *  content.size === 0 test does not see (a hardBreak is a leaf with size 1), and
+ *  ProseMirror's textBetween() hides empty blocks entirely — so both the old
+ *  collapse predicate and the flat-text preview were blind to them. A paragraph
+ *  carrying any other visual node (image, mention, …) is NOT a blank line. */
+export function isBlankishParagraph(node: {
+  type: { name: string };
+  textContent: string;
+  forEach: (f: (child: { isText: boolean; type: { name: string } }) => void) => void;
+}): boolean {
+  if (node.type.name !== 'paragraph') return false;
+  if (node.textContent.replace(/[\s\u00A0\u200B-\u200D\uFEFF]/g, '') !== '') return false;
+  let blankish = true;
+  node.forEach((child) => {
+    if (child.isText) return; // its text was blank per the check above
+    if (child.type.name === 'hardBreak') return;
+    blankish = false;
+  });
+  return blankish;
 }
 
-/** Dry-run: counts only, no mutation — the dialog's preview. Includes the
- *  structural blank-paragraph estimate so a blank-lines-only selection still
- *  shows honest hits instead of a dead preview. */
+/** Dry-run: counts only, no mutation — the dialog's preview. Covers the
+ *  text-node presets; the structural blank-line count comes from the LIVE doc
+ *  (countBlankParagraphs on the editor handle) because flat text cannot
+ *  represent empty paragraphs at all. */
 export function dryRunTechEdits(
   fullText: string,
   presets: Set<TechEditPresetId>,
@@ -214,10 +260,25 @@ export function dryRunTechEdits(
   // Split the flat text into "node-like" chunks is unnecessary for a preview — the
   // same transforms are order-independent per node for these classes of edit.
   const { hits } = transformTextNode(fullText, presets, find, replace);
-  if (presets.has('collapse_blank_paragraphs')) {
-    const structural = countBlankCollapses(fullText);
-    if (structural > 0) hits.collapse_blank_paragraphs = structural;
-  }
   const totalHits = Object.values(hits).reduce((a, b) => (a ?? 0) + (b ?? 0), 0) || 0;
   return { totalHits, perPreset: hits };
+}
+
+/** Collects the blank-line paragraphs to delete, as FULL node spans {pos, size}
+ *  (top-level children END→START-ready). `range` (a ProseMirror selection) keeps
+ *  only paragraphs fully inside it. Deleting the FULL span matters: a bare-<br>
+ *  blank paragraph has nodeSize 3 — a one-position delete would rip just the
+ *  opening token and let ProseMirror's fitter merge the SURROUNDING text
+ *  paragraphs (data loss). Duck-typed so unit tests can fake the doc. */
+export function collectBlankDeletions(
+  doc: { forEach: (f: (node: { type: { name: string }; textContent: string; nodeSize: number; forEach: Parameters<typeof isBlankishParagraph>[0]['forEach'] }, offset: number) => void) => void },
+  range?: { from: number; to: number } | null,
+): Array<{ pos: number; size: number }> {
+  const out: Array<{ pos: number; size: number }> = [];
+  doc.forEach((node, offset) => {
+    if (!isBlankishParagraph(node)) return;
+    if (range && (offset < range.from || offset + node.nodeSize > range.to)) return;
+    out.push({ pos: offset, size: node.nodeSize });
+  });
+  return out;
 }

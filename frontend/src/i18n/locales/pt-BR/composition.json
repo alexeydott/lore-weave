@@ -1801,6 +1801,12 @@
     "scope_selection": "Seleção",
     "scope_doc": "Capítulo inteiro",
     "empty_chunk": "A IA devolveu um fragmento vazio — a execução foi interrompida.",
-    "stopped": "A execução foi interrompida."
+    "stopped": "A execução foi interrompida.",
+    "preview_show": "Mostrar alterações",
+    "preview_title": "Substituições: {{text}} · linhas em branco a excluir: {{blank}}",
+    "preview_apply": "Aplicar ({{n}})",
+    "preview_back": "Voltar",
+    "preview_more": "…e mais {{n}}",
+    "preview_blank": "linha em branco será excluída"
   }
 }

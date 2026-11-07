@@ -1801,6 +1801,12 @@
     "scope_selection": "Auswahl",
     "scope_doc": "Ganzes Kapitel",
     "empty_chunk": "Die KI hat ein leeres Fragment zurückgegeben — der Lauf wurde gestoppt.",
-    "stopped": "Der Lauf wurde gestoppt."
+    "stopped": "Der Lauf wurde gestoppt.",
+    "preview_show": "Änderungen anzeigen",
+    "preview_title": "Ersetzungen: {{text}} · zu löschende Leerzeilen: {{blank}}",
+    "preview_apply": "Anwenden ({{n}})",
+    "preview_back": "Zurück",
+    "preview_more": "…und {{n}} weitere",
+    "preview_blank": "Leerzeile wird gelöscht"
   }
 }

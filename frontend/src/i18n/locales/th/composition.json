@@ -1801,6 +1801,12 @@
     "scope_selection": "ส่วนที่เลือก",
     "scope_doc": "ทั้งบท",
     "empty_chunk": "AI ส่งข้อความว่างกลับมา — หยุดการทำงานแล้ว",
-    "stopped": "หยุดการทำงานแล้ว"
+    "stopped": "หยุดการทำงานแล้ว",
+    "preview_show": "ดูการเปลี่ยนแปลง",
+    "preview_title": "แทนที่: {{text}} · บรรทัดว่างที่จะลบ: {{blank}}",
+    "preview_apply": "ใช้ ({{n}})",
+    "preview_back": "ย้อนกลับ",
+    "preview_more": "…และอีก {{n}}",
+    "preview_blank": "บรรทัดว่างจะถูกลบ"
   }
 }

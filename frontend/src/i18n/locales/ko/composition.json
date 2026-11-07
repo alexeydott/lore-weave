@@ -1801,6 +1801,12 @@
     "scope_selection": "선택 영역",
     "scope_doc": "챕터 전체",
     "empty_chunk": "AI가 빈 조각을 반환하여 실행이 중지되었습니다.",
-    "stopped": "실행이 중지되었습니다."
+    "stopped": "실행이 중지되었습니다.",
+    "preview_show": "변경 사항 보기",
+    "preview_title": "바꾸기: {{text}}건 · 삭제될 빈 줄: {{blank}}줄",
+    "preview_apply": "적용 ({{n}})",
+    "preview_back": "뒤로",
+    "preview_more": "…외 {{n}}건",
+    "preview_blank": "빈 줄이 삭제됩니다"
   }
 }

@@ -1801,6 +1801,12 @@
     "scope_selection": "Seçim",
     "scope_doc": "Tüm bölüm",
     "empty_chunk": "YZ boş bir parça döndürdü — çalışma durduruldu.",
-    "stopped": "Çalışma durduruldu."
+    "stopped": "Çalışma durduruldu.",
+    "preview_show": "Değişiklikleri göster",
+    "preview_title": "Değişiklik: {{text}} · silinecek boş satır: {{blank}}",
+    "preview_apply": "Uygula ({{n}})",
+    "preview_back": "Geri",
+    "preview_more": "…ve {{n}} tane daha",
+    "preview_blank": "boş satır silinecek"
   }
 }

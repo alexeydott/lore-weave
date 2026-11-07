@@ -697,6 +697,9 @@ export function EditorPanel(props: IDockviewPanelProps) {
           }}
           getText={() => editorRef.current?.getText() ?? ''}
           getSelectedText={() => editorRef.current?.getSelectedText() ?? ''}
+          countBlankParagraphs={(scope) => editorRef.current?.countBlankParagraphs(scope) ?? 0}
+          onPreview={(opts) => editorRef.current?.previewTechEdits(opts, 40)
+            ?? { items: [], textTotal: 0, blankTotal: 0 }}
           projectId={composeProjectId}
           token={accessToken}
           modelRef={composeDefaultModel ?? null}

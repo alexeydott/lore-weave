@@ -1801,6 +1801,12 @@
     "scope_selection": "Selección",
     "scope_doc": "Todo el capítulo",
     "empty_chunk": "La IA devolvió un fragmento vacío: la ejecución se detuvo.",
-    "stopped": "La ejecución se detuvo."
+    "stopped": "La ejecución se detuvo.",
+    "preview_show": "Mostrar cambios",
+    "preview_title": "Sustituciones: {{text}} · líneas en blanco a eliminar: {{blank}}",
+    "preview_apply": "Aplicar ({{n}})",
+    "preview_back": "Atrás",
+    "preview_more": "…y {{n}} más",
+    "preview_blank": "se eliminará una línea en blanco"
   }
 }

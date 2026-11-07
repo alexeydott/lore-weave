@@ -1801,6 +1801,12 @@
     "scope_selection": "التحديد",
     "scope_doc": "الفصل بأكمله",
     "empty_chunk": "أعاد الذكاء الاصطناعي جزءًا فارغًا — تم إيقاف التنفيذ.",
-    "stopped": "تم إيقاف التنفيذ."
+    "stopped": "تم إيقاف التنفيذ.",
+    "preview_show": "عرض التغييرات",
+    "preview_title": "الاستبدالات: {{text}} · الأسطر الفارغة المراد حذفها: {{blank}}",
+    "preview_apply": "تطبيق ({{n}})",
+    "preview_back": "رجوع",
+    "preview_more": "…و{{n}} أخرى",
+    "preview_blank": "سيُحذف سطر فارغ"
   }
 }

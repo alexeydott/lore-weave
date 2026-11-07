@@ -1801,6 +1801,12 @@
     "scope_selection": "चयनित",
     "scope_doc": "पूरा अध्याय",
     "empty_chunk": "AI ने खाली अंश लौटाया — रन रोक दिया गया।",
-    "stopped": "रन रोक दिया गया।"
+    "stopped": "रन रोक दिया गया।",
+    "preview_show": "बदलाव देखें",
+    "preview_title": "बदलाव: {{text}} · मिटाई जाने वाली खाली पंक्तियाँ: {{blank}}",
+    "preview_apply": "लागू करें ({{n}})",
+    "preview_back": "वापस",
+    "preview_more": "…और {{n}}",
+    "preview_blank": "खाली पंक्ति हटाई जाएगी"
   }
 }
