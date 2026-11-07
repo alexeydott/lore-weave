@@ -10,7 +10,7 @@
  *     hot-swapped mid-interaction.
  * Bump SHELL_CACHE to invalidate the precache on a shell change.
  */
-const SHELL_CACHE = 'loreweave-shell-v1';
+const SHELL_CACHE = 'loreweave-shell-v2';
 const SHELL_ASSETS = ['/', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {

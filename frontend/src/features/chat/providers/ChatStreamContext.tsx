@@ -27,6 +27,10 @@ export type ChatStreamValue = ReturnType<typeof useChatMessages> & {
    *  so Apply POSTed to `/books/<entity-id>/…` and 403'd — the harmless failure of that
    *  class; the harmful one writes to a real book that happens to match). */
   ambientBookId: string | null;
+  /** The editor surface's open chapter (studio compose chat only) — lets the
+   *  ContextPicker default the «главы» scope to the chapter the author is
+   *  actually working in (#user-report 2026-11-07). */
+  editorContext?: { book_id: string; chapter_id: string };
 };
 
 const ChatStreamCtx = createContext<ChatStreamValue | null>(null);
@@ -170,6 +174,7 @@ export function ChatStreamProvider({
       // Editor → book → studio: the most specific surface the chat is mounted on wins.
       ambientBookId:
         editorContext?.book_id ?? bookContext?.book_id ?? studioContext?.book_id ?? null,
+      editorContext: editorContext ?? undefined,
     }}>
       {children}
     </ChatStreamCtx.Provider>

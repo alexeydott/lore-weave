@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, FileText, Search } from 'lucide-react';
 import { useEntityKinds } from '@/features/glossary/hooks/useEntityKinds';
 import { useContextCandidates } from '../hooks/useContextCandidates';
+import { useChatSession } from '../providers/ChatSessionContext';
+import { useChatStreamOptional } from '../providers/ChatStreamContext';
 import { cn } from '@/lib/utils';
 import type { ContextItem, ContextType } from './types';
 
@@ -20,16 +22,72 @@ export function ContextPicker({ attached, onAttach, onDetach, onClose }: Context
   const [tab, setTab] = useState<PickerTab>('book');
   const [search, setSearch] = useState('');
 
+  // ── #user-report 2026-11-07 — default the dialog to the CURRENT book ──────
+  // The co-author chat is bound to a book (session.book_id); the dialog must
+  // open scoped to THAT book — its glossary, its book entry, its chapters —
+  // and pre-attach the book-level defaults (see the effect below). All-chapter
+  // pre-attach is deliberately NOT done: each chapter injects up to 8k chars
+  // of prose, so 30 chapters ≈ 60k tokens per turn — the ACTIVE chapter only.
+
+  const { activeSession } = useChatSession();
+  const stream = useChatStreamOptional();
+  const sessionBookId = activeSession?.book_id || '';
+  const activeChapterId = stream?.editorContext?.chapter_id || '';
+
   // ── Data (shared with the @-mention picker via useContextCandidates) ──────
 
   const { kinds } = useEntityKinds();
 
-  // Glossary filters ('' book = default to first book, resolved by the hook)
+  // Glossary filters ('' book = default to the SESSION's book, then the first)
   const [glossaryBookId, setGlossaryBookId] = useState('');
   const [glossaryKind, setGlossaryKind] = useState('');
 
   const { books, chapters, entities } = useContextCandidates({ glossaryBookId, glossaryKind });
-  const effectiveGlossaryBookId = glossaryBookId || books[0]?.book_id || '';
+  const sessionBookFirst = (a: { book_id: string }) => (a.book_id === sessionBookId ? -1 : 0);
+  const effectiveGlossaryBookId =
+    glossaryBookId ||
+    (sessionBookId && books.some((b) => b.book_id === sessionBookId) ? sessionBookId : '') ||
+    books[0]?.book_id ||
+    '';
+
+  // Pre-attach defaults ONCE per dialog open, in two phases (books arrive
+  // before entities): the session's book + its active chapter, then its
+  // glossary entities when the entity fetch lands.
+  const bookPhaseDone = useRef(false);
+  const entitiesPhaseDone = useRef(false);
+  useEffect(() => {
+    if (!sessionBookId || !books.length) return;
+    if (!bookPhaseDone.current) {
+      bookPhaseDone.current = true;
+      const book = books.find((b) => b.book_id === sessionBookId);
+      if (book) onAttach({ id: book.book_id, type: 'book', label: book.title });
+      const ch = activeChapterId
+        ? chapters.find((c) => c.chapter_id === activeChapterId)
+        : undefined;
+      if (ch) {
+        onAttach({
+          id: ch.chapter_id,
+          type: 'chapter',
+          label: ch.title || ch.original_filename || '',
+          bookId: ch.book_id,
+          chapterId: ch.chapter_id,
+        });
+      }
+    }
+    if (!entitiesPhaseDone.current && entities.some((e) => e.book_id === sessionBookId)) {
+      entitiesPhaseDone.current = true;
+      for (const e of entities) {
+        if (e.book_id !== sessionBookId) continue;
+        onAttach({
+          id: e.entity_id,
+          type: 'glossary',
+          label: e.display_name || '',
+          bookId: e.book_id,
+          kindColor: e.kind.color,
+        });
+      }
+    }
+  }, [sessionBookId, books, chapters, entities, activeChapterId, onAttach]);
 
   const attachedIds = useMemo(() => new Set(attached.map((a) => a.id)), [attached]);
 
@@ -38,8 +96,12 @@ export function ContextPicker({ attached, onAttach, onDetach, onClose }: Context
   const q = search.toLowerCase();
 
   const filteredBooks = useMemo(
-    () => books.filter((b) => !q || b.title.toLowerCase().includes(q)),
-    [books, q],
+    () =>
+      books
+        .filter((b) => !q || b.title.toLowerCase().includes(q))
+        // The session's book leads the list (co-author context default).
+        .sort((a, b) => sessionBookFirst(a) - sessionBookFirst(b)),
+    [books, q, sessionBookId],
   );
 
   const filteredChapters = useMemo(
@@ -89,7 +151,7 @@ export function ContextPicker({ attached, onAttach, onDetach, onClose }: Context
     },
   ];
 
-  // Chapter grouping by book
+  // Chapter grouping by book — the session's book group first
   const chaptersByBook = useMemo(() => {
     const map = new Map<string, { title: string; chapters: typeof filteredChapters }>();
     for (const ch of filteredChapters) {
@@ -97,11 +159,16 @@ export function ContextPicker({ attached, onAttach, onDetach, onClose }: Context
       if (!map.has(key)) map.set(key, { title: ch.bookTitle, chapters: [] });
       map.get(key)!.chapters.push(ch);
     }
-    return Array.from(map.entries());
-  }, [filteredChapters]);
+    return Array.from(map.entries()).sort(
+      ([a], [b]) => (a === sessionBookId ? -1 : 0) - (b === sessionBookId ? -1 : 0),
+    );
+  }, [filteredChapters, sessionBookId]);
 
   return (
-    <div className="w-[380px] max-h-[70vh] overflow-hidden rounded-xl border border-border bg-card shadow-[0_16px_48px_rgba(0,0,0,0.5)]">
+    <div
+      className="w-[380px] max-h-[70vh] overflow-hidden rounded-xl border border-border bg-card shadow-[0_16px_48px_rgba(0,0,0,0.5)]"
+      data-testid="context-picker"
+    >
       {/* Tabs */}
       <div className="flex border-b border-border">
         {TABS.map((tb) => (
