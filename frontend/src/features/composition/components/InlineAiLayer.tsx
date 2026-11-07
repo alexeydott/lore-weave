@@ -25,7 +25,7 @@ function readMode(): Mode {
 }
 
 export function InlineAiLayer({
-  editor, projectId, sceneId, modelRef, modelKind, modelName, token,
+  editor, projectId, sceneId, modelRef, modelKind, modelName, token, onOpenCoauthorSettings,
 }: {
   editor: Editor;
   projectId: string | null;
@@ -34,6 +34,9 @@ export function InlineAiLayer({
   modelKind?: string;
   modelName?: string;
   token: string | null;
+  /** #260-class — makes the need-model hint actionable: opens the co-author chat,
+   *  where the session model picker lives. Optional; hidden when absent. */
+  onOpenCoauthorSettings?: () => void;
 }) {
   const { t } = useTranslation('composition');
   const [mode, setMode] = useState<Mode>(readMode);
@@ -140,7 +143,20 @@ export function InlineAiLayer({
           data-reason={disabledReason.key}
           className="absolute right-2 top-9 z-30 max-w-[22rem] rounded-md border bg-background/95 px-2 py-1 text-right text-[11px] leading-snug text-muted-foreground shadow-sm"
         >
-          {disabledReason.text}
+          <span>{disabledReason.text}</span>
+          {/* #260-class — the need-model hint becomes actionable: the link opens the
+              co-author chat, where the session model picker lives. Without it the
+              hint was a dead end (the 2026-09-06 human-sim run's exact complaint). */}
+          {disabledReason.key === 'need-model' && onOpenCoauthorSettings && (
+            <button
+              type="button"
+              data-testid="inline-open-coauthor-settings"
+              className="ml-1 font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+              onClick={onOpenCoauthorSettings}
+            >
+              {t('inline.open_coauthor_settings', { defaultValue: 'Open the co-writer chat' })}
+            </button>
+          )}
         </div>
       )}
 

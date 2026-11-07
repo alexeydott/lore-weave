@@ -11,6 +11,7 @@ import { compositionApi } from '@/features/composition/api';
 import type { IDockviewPanelProps } from 'dockview-react';
 import { TiptapEditor, type TiptapEditorHandle } from '@/components/editor/TiptapEditor';
 import { registerEditorTarget } from '@/features/chat/context/editorBridge';
+import { chatApi } from '@/features/chat/api';
 import { useAuth } from '@/auth';
 import { useGrammarEnabled } from '@/hooks/useGrammarCheck';
 import { useFocusMode } from '@/features/composition/hooks/useFocusMode';
@@ -299,7 +300,19 @@ export function EditorPanel(props: IDockviewPanelProps) {
   const persistedDefaultModel =
     typeof composeWork?.settings?.default_model_ref === 'string' ? composeWork.settings.default_model_ref : null;
   const soleChatModel = chatModels.data?.length === 1 ? chatModels.data[0].user_model_id : null;
-  const composeDefaultModel = persistedDefaultModel ?? soleChatModel;
+  // #facade — resolution chain for the compose/inline model: Work default ▸ the book's
+  // co-author CHAT SESSION model (what the user actually picked in the chat — the exact
+  // report "в чате соавтора модель выбрана, а не применяется") ▸ sole chat model. The
+  // session lives on chat-service, keyed by THIS book; its model_ref is the user's
+  // explicit choice for this book's co-writing.
+  const coAuthorSession = useQuery({
+    queryKey: ['chat', 'coauthor-session', bookId],
+    queryFn: () => chatApi.listSessions(accessToken!, 'active', bookId),
+    enabled: !!accessToken && !!bookId,
+    select: (d) => d.items[0] ?? null,
+  });
+  const coAuthorSessionModel = coAuthorSession.data?.model_ref ?? null;
+  const composeDefaultModel = persistedDefaultModel ?? coAuthorSessionModel ?? soleChatModel;
   const composeDefaultModelMeta = chatModels.data?.find((m) => m.user_model_id === composeDefaultModel);
   // Same scene the Scene Rail highlights (studio bus, not a second local selection) — falls
   // back to this chapter's first scene so Continue works before the writer ever touches the rail.
@@ -608,6 +621,7 @@ export function EditorPanel(props: IDockviewPanelProps) {
                   modelKind={composeDefaultModelMeta?.provider_kind}
                   modelName={composeDefaultModelMeta?.provider_model_name}
                   token={accessToken}
+                  onOpenCoauthorSettings={() => host.openPanel('compose', { focus: true })}
                 />
               )
               : undefined}
