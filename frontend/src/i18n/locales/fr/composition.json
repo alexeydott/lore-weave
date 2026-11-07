@@ -1795,6 +1795,12 @@
     "running": "L'IA travaille…",
     "ai_result": "L'IA a préparé le texte corrigé du chapitre ({{n}} caractères). Vérifiez, puis appliquez — un point de restauration est capturé automatiquement.",
     "apply_ai": "Appliquer le résultat de l'IA",
-    "guide_prefix": "Édition technique du texte. Effectue UNIQUEMENT cette tâche — ne réécris pas la prose de ta propre initiative et conserve le nombre de paragraphes et la structure, sauf si la tâche l'exige :"
+    "guide_prefix": "Édition technique du texte. Effectue UNIQUEMENT cette tâche — ne réécris pas la prose de ta propre initiative et conserve le nombre de paragraphes et la structure, sauf si la tâche l'exige :",
+    "stop": "Arrêter",
+    "progress": "Partie {{done}} sur {{total}}",
+    "scope_selection": "Sélection",
+    "scope_doc": "Tout le chapitre",
+    "empty_chunk": "L'IA a renvoyé un fragment vide — l'exécution a été arrêtée.",
+    "stopped": "L'exécution a été arrêtée."
   }
 }

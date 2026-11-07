@@ -752,6 +752,7 @@ export function ChapterEditorPage() {
                   modelRef={composeDefaultModel}
                   modelKind={composeDefaultModelMeta?.provider_kind}
                   modelName={composeDefaultModelMeta?.provider_model_name}
+                  maxOutputTokens={composeDefaultModelMeta?.max_output_tokens}
                   token={accessToken}
                 />
               )

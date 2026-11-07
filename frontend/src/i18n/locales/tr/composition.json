@@ -1795,6 +1795,12 @@
     "running": "YZ çalışıyor…",
     "ai_result": "YZ, düzeltilmiş bölüm metnini hazırladı ({{n}} karakter). İnceleyin ve uygulayın — geri yükleme noktası otomatik alınır.",
     "apply_ai": "YZ sonucunu uygula",
-    "guide_prefix": "Teknik metin düzenlemesi. YALNIZCA bu görevi yap — metni kendi başına yeniden yazma ve görev gerektirmedikçe paragraf sayısını ve yapıyı koru:"
+    "guide_prefix": "Teknik metin düzenlemesi. YALNIZCA bu görevi yap — metni kendi başına yeniden yazma ve görev gerektirmedikçe paragraf sayısını ve yapıyı koru:",
+    "stop": "Durdur",
+    "progress": "{{total}} parçadan {{done}}. parça",
+    "scope_selection": "Seçim",
+    "scope_doc": "Tüm bölüm",
+    "empty_chunk": "YZ boş bir parça döndürdü — çalışma durduruldu.",
+    "stopped": "Çalışma durduruldu."
   }
 }

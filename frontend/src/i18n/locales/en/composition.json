@@ -1795,6 +1795,12 @@
     "running": "AI is working…",
     "ai_result": "The AI prepared the edited chapter text ({{n}} chars). Review, then apply — a restore point is captured automatically.",
     "apply_ai": "Apply the AI result",
-    "guide_prefix": "Technical text edit. Perform ONLY this task — do not rewrite the prose on your own initiative, and keep the paragraph count and structure unless the task requires otherwise:"
+    "guide_prefix": "Technical text edit. Perform ONLY this task — do not rewrite the prose on your own initiative, and keep the paragraph count and structure unless the task requires otherwise:",
+    "stop": "Stop",
+    "progress": "Part {{done}} of {{total}}",
+    "scope_selection": "Selection",
+    "scope_doc": "Whole chapter",
+    "empty_chunk": "The AI returned an empty fragment — the run was stopped.",
+    "stopped": "The run was stopped."
   }
 }

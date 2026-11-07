@@ -631,6 +631,7 @@ export function EditorPanel(props: IDockviewPanelProps) {
                   modelRef={composeDefaultModel ?? null}
                   modelKind={composeDefaultModelMeta?.provider_kind}
                   modelName={composeDefaultModelMeta?.provider_model_name}
+                  maxOutputTokens={composeDefaultModelMeta?.max_output_tokens}
                   token={accessToken}
                   onOpenCoauthorSettings={() => host.openPanel('compose', { focus: true })}
                 />
@@ -679,25 +680,28 @@ export function EditorPanel(props: IDockviewPanelProps) {
             if (!handle || !cid) return 0;
             // Pin the pre-edit revision BEFORE the transforms mutate the doc.
             checkpoints.capture(cid, 'tech edit', 'replace');
-            const n = handle.runTechTransforms(opts) + handle.collapseBlankParagraphs();
+            const n = handle.runTechTransforms(opts) + handle.collapseBlankParagraphs(opts.scope);
             return n;
           }}
-          onApplyWholeDoc={(text, label) => {
+          onApplyScoped={(text, label, scope) => {
             const handle = editorRef.current;
             const cid = unit?.state.chapterId ?? null;
             if (!handle || !cid) return false;
-            // selectAllDoc first, then the checkpointed wrapper captures the pre-edit
-            // revision and writes the AI result (the G7 dirty-guard applies to Restore).
-            handle.selectAllDoc();
+            // Whole-chapter scope pre-selects the doc body; selection scope replaces
+            // the CURRENT selection in place. Either way the checkpointed wrapper
+            // captures the pre-edit revision (the G7 dirty-guard applies to Restore).
+            if (scope === 'doc') handle.selectAllDoc();
             const ok = checkpoints.applyProposedEdit({ operation: 'replace_selection', text });
             if (ok) checkpoints.capture(cid, label, 'replace');
             return ok;
           }}
           getText={() => editorRef.current?.getText() ?? ''}
+          getSelectedText={() => editorRef.current?.getSelectedText() ?? ''}
           projectId={composeProjectId}
           token={accessToken}
           modelRef={composeDefaultModel ?? null}
           modelName={composeDefaultModelMeta?.provider_model_name}
+          maxOutputTokens={composeDefaultModelMeta?.max_output_tokens}
         />
       )}
       {/* S-10 O7 — the `[[`-create flow is now wired (onCreateNew). It's undefined until the Work's

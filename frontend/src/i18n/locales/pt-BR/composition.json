@@ -1795,6 +1795,12 @@
     "running": "A IA está trabalhando…",
     "ai_result": "A IA preparou o texto corrigido do capítulo ({{n}} caracteres). Revise e aplique — um ponto de restauração é capturado automaticamente.",
     "apply_ai": "Aplicar o resultado da IA",
-    "guide_prefix": "Edição técnica do texto. Execute SOMENTE esta tarefa — não reescreva a prosa por conta própria e mantenha a quantidade de parágrafos e a estrutura, a menos que a tarefa exija o contrário:"
+    "guide_prefix": "Edição técnica do texto. Execute SOMENTE esta tarefa — não reescreva a prosa por conta própria e mantenha a quantidade de parágrafos e a estrutura, a menos que a tarefa exija o contrário:",
+    "stop": "Parar",
+    "progress": "Parte {{done}} de {{total}}",
+    "scope_selection": "Seleção",
+    "scope_doc": "Capítulo inteiro",
+    "empty_chunk": "A IA devolveu um fragmento vazio — a execução foi interrompida.",
+    "stopped": "A execução foi interrompida."
   }
 }

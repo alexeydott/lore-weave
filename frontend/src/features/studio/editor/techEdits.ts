@@ -20,6 +20,48 @@ export type TechEditPresetId =
   | 'unify_dashes'
   | 'collapse_blank_paragraphs';
 
+/** The selection-edit endpoint's rewrite ceiling (composition-service
+ *  engine.py SELECTION_MAX_CHARS) — a whole-chapter selection used to 422 on
+ *  it. The AI path chunks the scope text under this size. */
+export const SELECTION_CEILING = 8000;
+
+/** Split AI-scope text into ≤ SELECTION_CEILING chunks at paragraph (\n\n)
+ *  boundaries; a single oversized paragraph degrades to a hard split at
+ *  spaces. Pure — unit-tested alongside the transforms. */
+export function splitScopeChunks(text: string): string[] {
+  const hardSplit = (part: string): string[] => {
+    if (part.length <= SELECTION_CEILING) return [part];
+    const out: string[] = [];
+    let cur = '';
+    for (const word of part.split(' ')) {
+      const candidate = cur ? cur + ' ' + word : word;
+      if (candidate.length > SELECTION_CEILING && cur) {
+        out.push(cur);
+        cur = word;
+      } else {
+        cur = candidate;
+      }
+    }
+    if (cur) out.push(cur);
+    return out;
+  };
+  const chunks: string[] = [];
+  let cur = '';
+  for (const part of text.split('\n\n')) {
+    for (const piece of hardSplit(part)) {
+      const candidate = cur ? cur + '\n\n' + piece : piece;
+      if (candidate.length > SELECTION_CEILING && cur) {
+        chunks.push(cur);
+        cur = piece;
+      } else {
+        cur = candidate;
+      }
+    }
+  }
+  if (cur) chunks.push(cur);
+  return chunks;
+}
+
 export interface TechEditPreset {
   id: TechEditPresetId;
   /** i18n key under `editor.techEdit.presets`. */
@@ -147,7 +189,22 @@ export function transformTextNode(
   return { text: out, hits };
 }
 
-/** Dry-run: counts only, no mutation — the dialog's preview. */
+/** collapse_blank_paragraphs is structural — not a text-node transform — so the flat
+ *  dry run must count it separately. In flat getText() text (blocks joined by \n\n)
+ *  a run of k consecutive empty paragraphs shows up as a run of L=2(k+1) newlines;
+ *  the collapse deletes k−1 of them, i.e. L/2 − 2 per newline run. Estimate only —
+ *  the post-apply count comes from the real structural pass. */
+function countBlankCollapses(flat: string): number {
+  let n = 0;
+  for (const m of flat.matchAll(/\n{2,}/g)) {
+    n += Math.max(0, Math.floor(m[0].length / 2) - 2);
+  }
+  return n;
+}
+
+/** Dry-run: counts only, no mutation — the dialog's preview. Includes the
+ *  structural blank-paragraph estimate so a blank-lines-only selection still
+ *  shows honest hits instead of a dead preview. */
 export function dryRunTechEdits(
   fullText: string,
   presets: Set<TechEditPresetId>,
@@ -157,6 +214,10 @@ export function dryRunTechEdits(
   // Split the flat text into "node-like" chunks is unnecessary for a preview — the
   // same transforms are order-independent per node for these classes of edit.
   const { hits } = transformTextNode(fullText, presets, find, replace);
+  if (presets.has('collapse_blank_paragraphs')) {
+    const structural = countBlankCollapses(fullText);
+    if (structural > 0) hits.collapse_blank_paragraphs = structural;
+  }
   const totalHits = Object.values(hits).reduce((a, b) => (a ?? 0) + (b ?? 0), 0) || 0;
   return { totalHits, perPreset: hits };
 }

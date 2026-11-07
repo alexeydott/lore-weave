@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { BubbleMenu } from '@tiptap/react/menus';
 import type { Editor } from '@tiptap/react';
 import { ModelPicker, useUserModels } from '@/components/model-picker';
+import { clampOutputBudget } from '@/lib/outputBudget';
 import { useEffectiveModel } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 import { trackRange, type RangeHandle } from '../../../components/editor/TrackedPositions';
 import { useCompositionStream } from '../hooks/useCompositionStream';
@@ -109,6 +110,7 @@ export function SelectionToolbar({
       guide: instruction.trim(),
       modelKind: selectedModel?.provider_kind,
       modelName: selectedModel?.provider_model_name,
+      maxOutputTokens: clampOutputBudget(selectedModel?.max_output_tokens) ?? undefined,
     });
   };
 

@@ -1,35 +1,57 @@
 // Техправка dialog (#user-report 2026-11-07) — deterministic cleanup presets +
 // custom find→replace + an open-ended AI task. The DETERMINISTIC path applies
 // mark-preserving ProseMirror transactions through the handle (runTechTransforms
-// + collapseBlankParagraphs); the AI path streams the edited chapter through the
+// + collapseBlankParagraphs); the AI path streams the SCOPE text through the
 // selection-edit SSE (operation 'rewrite', the user's task as the guide) and
-// applies the result through EditorPanel's checkpointed whole-doc seam — every
-// apply captures a pre-edit checkpoint, so the existing Restore panel undoes it.
+// applies the result through EditorPanel's checkpointed seam — every apply
+// captures a pre-edit checkpoint, so the existing Restore panel undoes it.
+//
+// SCOPE (#user-report 2026-11-07, «применить чистку не активируется»): a non-empty
+// editor selection confines BOTH paths to the selected fragment; with no selection
+// the whole chapter is the scope. The apply button enables as soon as the user
+// picks presets / fills find — the preview is informational (it counts the
+// structural blank-line estimate too), and the honest "nothing to fix" summary is
+// reported AFTER an apply. The AI path chunks the scope text at paragraph
+// boundaries under the endpoint's 8 000-char selection ceiling (whole-chapter
+// selections used to 422 on that ceiling) and concatenates the streamed chunks.
 //
 // The dialog NEVER auto-applies: Preview (per-preset hit counts / streamed
 // result) → explicit «Применить».
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
-import { useCompositionStream } from '../../composition/hooks/useCompositionStream';
-import { dryRunTechEdits, TECH_PRESETS, type TechEditPresetId } from './techEdits';
+import { runCompositionGeneration } from '../../composition/hooks/runCompositionGeneration';
+import { clampOutputBudget } from '@/lib/outputBudget';
+import { dryRunTechEdits, splitScopeChunks, TECH_PRESETS, type TechEditPresetId } from './techEdits';
+
+/** Fallback output budget per chunk when the resolved model carries no
+ *  max_output_tokens: the endpoint default (1024) cannot re-emit an
+ *  ~8 000-char chunk, so this is the minimum that can round-trip. */
+const FALLBACK_CHUNK_OUTPUT_TOKENS = 8192;
+
+export type TechEditScope = 'doc' | 'selection';
 
 export interface TechEditDialogProps {
   onClose: () => void;
   /** Runs the deterministic presets + custom find/replace inside the editor's
    *  transaction (mark-preserving). Returns node-level replacements made. */
-  onRunDeterministic: (opts: { presets: string[]; find?: string; replace?: string }) => number;
-  /** Applies a whole-document replacement through the checkpointed seam
-   *  (select-all + checkpoint capture + replace). Returns false when the
-   *  editor/chapter isn't live. */
-  onApplyWholeDoc: (text: string, label: string) => boolean;
-  /** The chapter's current plain text (preview source). */
+  onRunDeterministic: (opts: { presets: string[]; find?: string; replace?: string; scope: TechEditScope }) => number;
+  /** Applies an AI result through the checkpointed seam: `selection` replaces
+   *  the current selection, `doc` replaces the whole chapter. Returns false
+   *  when the editor/chapter isn't live. */
+  onApplyScoped: (text: string, label: string, scope: TechEditScope) => boolean;
+  /** The chapter's current plain text (preview/stream source when no selection). */
   getText: () => string;
+  /** The current selection's plain text ('' when there is no selection). */
+  getSelectedText: () => string;
   projectId: string | null;
   token: string | null;
   /** Resolved compose model (Work ▸ session ▸ sole chat) for the AI task. */
   modelRef: string | null;
   modelName?: string;
+  /** The model's output budget (user_models.max_output_tokens, effective) —
+   *  sent as max_output_tokens on every chunk instead of a hardcoded constant. */
+  maxOutputTokens?: number | null;
 }
 
 type Mode = 'presets' | 'ai';
@@ -37,12 +59,14 @@ type Mode = 'presets' | 'ai';
 export function TechEditDialog({
   onClose,
   onRunDeterministic,
-  onApplyWholeDoc,
+  onApplyScoped,
   getText,
+  getSelectedText,
   projectId,
   token,
   modelRef,
   modelName,
+  maxOutputTokens,
 }: TechEditDialogProps) {
   const { t } = useTranslation('composition');
   const [mode, setMode] = useState<Mode>('presets');
@@ -51,9 +75,17 @@ export function TechEditDialog({
   const [replace, setReplace] = useState('');
   const [task, setTask] = useState('');
   const [summary, setSummary] = useState<string | null>(null);
-  const stream = useCompositionStream(token);
+  // AI-run state (direct runCompositionGeneration — the chunk loop owns accumulation;
+  // useCompositionStream resets its ghost per start, which a multi-chunk run can't use).
+  const [aiResult, setAiResult] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const text = getText();
+  const scopeText = getSelectedText();
+  const scope: TechEditScope = scopeText ? 'selection' : 'doc';
+  const text = scope === 'selection' ? scopeText : getText();
   const preview = useMemo(
     () => dryRunTechEdits(text, selected, find || undefined, replace || undefined),
     [text, selected, find, replace],
@@ -70,37 +102,105 @@ export function TechEditDialog({
 
   const applyPresets = () => {
     if (selected.size === 0 && !find) return;
-    const n = onRunDeterministic({ presets: [...selected], find: find || undefined, replace: replace || undefined });
+    const n = onRunDeterministic({ presets: [...selected], find: find || undefined, replace: replace || undefined, scope });
     setSummary(
       n > 0
-        ? t('techEdit.applied', { defaultValue: 'Applied: {{n}} replacement(s)', n })
-        : t('techEdit.nothing', { defaultValue: 'Nothing to fix — the text is already clean.' }),
+        ? t('techEdit.applied', { defaultValue: 'Применено замен: {{n}}', n })
+        : t('techEdit.nothing', { defaultValue: 'Исправлять нечего — текст уже чистый.' }),
     );
   };
 
-  const runAi = () => {
-    if (!task.trim() || !projectId || !modelRef) return;
+  const runAi = async () => {
+    if (!task.trim() || !projectId || !modelRef || aiBusy) return;
+    const guide = t('techEdit.guide_prefix', {
+      defaultValue:
+        'Техническая правка текста. Выполни ТОЛЬКО эту задачу, не переписывай прозу по своему усмотрению и сохрани объём и структуру абзацев, если задача не требует иного:',
+    }) + ' ' + task.trim();
+    const chunks = splitScopeChunks(text);
+    // The model's own output budget (settings-derived), clamped to the
+    // composition endpoints' accepted range; the fallback covers models
+    // registered without a context_length (no derivation possible).
+    const budget = clampOutputBudget(maxOutputTokens) ?? FALLBACK_CHUNK_OUTPUT_TOKENS;
+    setAiError(null);
+    setAiResult('');
     setSummary(null);
-    void stream.start({
-      projectId,
-      selection: text,
-      operation: 'rewrite',
-      sceneContext: null,
-      modelSource: 'user_model',
-      modelRef,
-      guide: t('techEdit.guide_prefix', {
-        defaultValue:
-          'Техническая правка текста. Выполни ТОЛЬКО эту задачу, не переписывай прозу по своему усмотрению и сохрани объём и структуру абзацев, если задача не требует иного:',
-      }) + ' ' + task.trim(),
-      modelName,
-    });
+    setProgress({ done: 0, total: chunks.length });
+    setAiBusy(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let acc = '';
+    try {
+      for (let i = 0; i < chunks.length; i++) {
+        let piece = '';
+        let failed: string | null = null;
+        await runCompositionGeneration(
+          {
+            projectId,
+            selection: chunks[i],
+            operation: 'rewrite',
+            sceneContext: null,
+            modelSource: 'user_model',
+            modelRef,
+            guide,
+            maxOutputTokens: budget,
+            modelName,
+          },
+          token,
+          {
+            onToken: (delta) => {
+              piece += delta;
+              setAiResult(acc + piece);
+            },
+            onText: (full) => {
+              piece = full;
+              setAiResult(acc + piece);
+            },
+            onError: (msg) => {
+              failed = msg;
+            },
+          },
+          controller.signal,
+        );
+        if (controller.signal.aborted) return;
+        if (failed) {
+          setAiError(failed);
+          return;
+        }
+        if (!piece.trim()) {
+          setAiError(t('techEdit.empty_chunk', { defaultValue: 'ИИ вернул пустой фрагмент — выполнение остановлено.' }));
+          return;
+        }
+        // Chunk i ends with paragraph text (no trailing joiner) — restore the
+        // \n\n boundary this split consumed.
+        acc = acc ? acc + '\n\n' + piece : piece;
+        setAiResult(acc);
+        setProgress({ done: i + 1, total: chunks.length });
+      }
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') setAiError(String((e as Error).message || e));
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setAiBusy(false);
+        setProgress(null);
+      }
+    }
   };
 
-  const aiResult = stream.ghost;
+  const stopAi = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    // A partially streamed scope is NOT applyable — discard it rather than
+    // offer a result that silently misses the un-streamed chunks.
+    setAiBusy(false);
+    setProgress(null);
+    setAiResult('');
+    setAiError(t('techEdit.stopped', { defaultValue: 'Выполнение остановлено.' }));
+  };
 
   const applyAi = () => {
     if (!aiResult.trim()) return;
-    if (onApplyWholeDoc(aiResult, task.trim() || 'AI technical edit')) onClose();
+    if (onApplyScoped(aiResult, task.trim() || 'AI technical edit', scope)) onClose();
   };
 
   return (
@@ -113,26 +213,36 @@ export function TechEditDialog({
           </button>
         </div>
 
-        <div className="mb-3 flex items-center gap-2 text-[11px]">
-          <button
-            type="button"
-            data-testid="techedit-mode-presets"
-            aria-pressed={mode === 'presets'}
-            onClick={() => setMode('presets')}
-            className={mode === 'presets' ? 'font-medium text-primary' : 'text-muted-foreground'}
+        <div className="mb-3 flex items-center justify-between text-[11px]">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              data-testid="techedit-mode-presets"
+              aria-pressed={mode === 'presets'}
+              onClick={() => setMode('presets')}
+              className={mode === 'presets' ? 'font-medium text-primary' : 'text-muted-foreground'}
+            >
+              {t('techEdit.mode_presets', { defaultValue: 'Чистка (мгновенно)' })}
+            </button>
+            <span className="text-muted-foreground/50">·</span>
+            <button
+              type="button"
+              data-testid="techedit-mode-ai"
+              aria-pressed={mode === 'ai'}
+              onClick={() => setMode('ai')}
+              className={mode === 'ai' ? 'font-medium text-primary' : 'text-muted-foreground'}
+            >
+              {t('techEdit.mode_ai', { defaultValue: 'Задача для ИИ' })}
+            </button>
+          </div>
+          <span
+            data-testid="techedit-scope"
+            className={scope === 'selection' ? 'text-primary' : 'text-muted-foreground'}
           >
-            {t('techEdit.mode_presets', { defaultValue: 'Чистка (мгновенно)' })}
-          </button>
-          <span className="text-muted-foreground/50">·</span>
-          <button
-            type="button"
-            data-testid="techedit-mode-ai"
-            aria-pressed={mode === 'ai'}
-            onClick={() => setMode('ai')}
-            className={mode === 'ai' ? 'font-medium text-primary' : 'text-muted-foreground'}
-          >
-            {t('techEdit.mode_ai', { defaultValue: 'Задача для ИИ' })}
-          </button>
+            {scope === 'selection'
+              ? t('techEdit.scope_selection', { defaultValue: 'Выделение' })
+              : t('techEdit.scope_doc', { defaultValue: 'Вся глава' })}
+          </span>
         </div>
 
         {mode === 'presets' ? (
@@ -174,7 +284,10 @@ export function TechEditDialog({
             <button
               type="button"
               data-testid="techedit-apply-presets"
-              disabled={preview.totalHits === 0}
+              // Enabled as soon as the user picked ANY work to do — the preview is
+              // informational, and 0-hit runs report an honest "nothing to fix"
+              // instead of leaving the button dead (the reported bug).
+              disabled={selected.size === 0 && !find.trim()}
               onClick={applyPresets}
               className="mb-2 w-full rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
             >
@@ -209,30 +322,46 @@ export function TechEditDialog({
                 {t('techEdit.model_label', { defaultValue: 'Модель: {{name}}', name: modelName })}
               </p>
             )}
-            <button
-              type="button"
-              data-testid="techedit-run-ai"
-              disabled={!task.trim() || !modelRef || !projectId || stream.streaming}
-              onClick={runAi}
-              className="mb-2 w-full rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
-            >
-              {stream.streaming
-                ? t('techEdit.running', { defaultValue: 'ИИ работает…' })
-                : t('techEdit.run_ai', { defaultValue: 'Выполнить правку с помощью ИИ' })}
-            </button>
-            {stream.error && <p className="mb-2 text-[11px] text-destructive">{stream.error}</p>}
-            {aiResult.trim() && !stream.streaming && (
+            {aiBusy ? (
+              <div className="mb-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  data-testid="techedit-stop-ai"
+                  onClick={stopAi}
+                  className="flex-1 rounded border px-3 py-1.5 text-xs font-medium"
+                >
+                  {t('techEdit.stop', { defaultValue: 'Остановить' })}
+                </button>
+                {progress && (
+                  <span className="text-[11px] text-muted-foreground">
+                    {t('techEdit.progress', { defaultValue: 'Часть {{done}} из {{total}}', done: progress.done, total: progress.total })}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                data-testid="techedit-run-ai"
+                disabled={!task.trim() || !modelRef || !projectId}
+                onClick={() => void runAi()}
+                className="mb-2 w-full rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              >
+                {t('techEdit.run_ai', { defaultValue: 'Выполнить правку с помощью ИИ' })}
+              </button>
+            )}
+            {aiError && <p className="mb-2 text-[11px] text-destructive">{aiError}</p>}
+            {aiResult.trim() && !aiBusy && (
               <>
                 <p className="mb-1 text-[11px] text-muted-foreground">
                   {t('techEdit.ai_result', {
-                    defaultValue: 'ИИ подготовил новый текст главы ({{n}} симв.). Проверьте и примените — точка восстановления создаётся автоматически.',
+                    defaultValue: 'ИИ подготовил новый текст ({{n}} симв.). Проверьте и примените — точка восстановления создаётся автоматически.',
                     n: aiResult.length,
                   })}
                 </p>
                 <button
                   type="button"
                   data-testid="techedit-apply-ai"
-                  onClick={() => onApplyWholeDoc(aiResult, task.trim() || 'AI technical edit') && onClose()}
+                  onClick={applyAi}
                   className="w-full rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
                 >
                   {t('techEdit.apply_ai', { defaultValue: 'Применить результат ИИ' })}

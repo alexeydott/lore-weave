@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/react';
 import { trackPosition, type PositionHandle } from '../../../components/editor/TrackedPositions';
+import { clampOutputBudget } from '@/lib/outputBudget';
 import { useCompositionStream } from './useCompositionStream';
 import { useCritique } from './useCritique';
 import { useCorrection } from './useAutoGenerate';
@@ -24,6 +25,8 @@ export function useInlineGhost(
     modelRef: string | null;
     modelKind?: string;
     modelName?: string;
+    /** The model's output budget (user_models.max_output_tokens, effective). */
+    maxOutputTokens?: number | null;
     token: string | null;
   },
 ) {
@@ -65,8 +68,9 @@ export function useInlineGhost(
       modelRef: opts.modelRef!,
       modelKind: opts.modelKind,
       modelName: opts.modelName,
+      maxOutputTokens: clampOutputBudget(opts.maxOutputTokens) ?? undefined,
     });
-  }, [stream, opts.projectId, opts.sceneId, opts.modelRef, opts.modelKind, opts.modelName]);
+  }, [stream, opts.projectId, opts.sceneId, opts.modelRef, opts.modelKind, opts.modelName, opts.maxOutputTokens]);
 
   const continueDraft = useCallback(() => {
     if (!canContinue || !editor) return;

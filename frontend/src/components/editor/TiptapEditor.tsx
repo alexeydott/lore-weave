@@ -65,17 +65,24 @@ export interface TiptapEditorHandle {
    *  surface "this mark lost its place" instead of a highlight silently not appearing. */
   setErrorBlocks: (blocks: ErrorBlockRow[]) => string[];
   /** Техправка (#user-report 2026-11-07) — mark-preserving deterministic cleanup
-   *  over the whole doc (presets + custom find/replace). Returns the number of
-   *  node-level replacements; 0 = nothing changed (caller must not dispatch a
-   *  no-op transaction → no phantom autosave/revision). The backup is the caller's
-   *  checkpoint capture (the caller pins the pre-edit revision). */
-  runTechTransforms: (opts: { presets: string[]; find?: string; replace?: string }) => number;
-  collapseBlankParagraphs: () => number;
+   *  (presets + custom find/replace). `scope: 'selection'` confines the transforms
+   *  to the current non-empty selection (each text node is transformed on its
+   *  selected slice only); 'doc' (default) covers the whole chapter. Returns the
+   *  number of node-level replacements; 0 = nothing changed (caller must not
+   *  dispatch a no-op transaction → no phantom autosave/revision). The backup is
+   *  the caller's checkpoint capture (the caller pins the pre-edit revision). */
+  runTechTransforms: (opts: { presets: string[]; find?: string; replace?: string; scope?: 'doc' | 'selection' }) => number;
+  /** Техправка — collapse consecutive empty paragraphs. `scope: 'selection'`
+   *  only touches paragraphs that lie fully inside the current selection. */
+  collapseBlankParagraphs: (scope?: 'doc' | 'selection') => number;
   /** Техправка — select the whole document body (the pre-select for a
    *  checkpointed whole-doc replace). */
   selectAllDoc: () => boolean;
   /** Техправка — full plain text of the document ('' when the editor isn't ready). */
   getText: () => string;
+  /** Техправка — plain text of the current selection with block joins like
+   *  getText ('\n\n'), '' when there is no (or a whitespace-only) selection. */
+  getSelectedText: () => string;
   /** ARCH-1 C6 — current selection (ProseMirror positions + selected text),
    *  or null if the editor isn't ready. `empty` = a caret with no selection. */
   getSelection: () => { from: number; to: number; empty: boolean; text: string } | null;
@@ -348,33 +355,56 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
       // replaceSelection(plainText) over the whole doc would strip bold/italic.
       // Returns the number of node-level replacements (0 = nothing changed, the
       // caller must not dispatch a no-op transaction → no phantom revision).
-      runTechTransforms: (opts: { presets: string[]; find?: string; replace?: string }) => {
+      runTechTransforms: (opts: { presets: string[]; find?: string; replace?: string; scope?: 'doc' | 'selection' }) => {
         if (!editor) return 0;
         const presetSet = new Set(opts.presets);
         const tr = editor.state.tr;
         let total = 0;
         const replacements: Array<{ from: number; to: number; text: string; marks: readonly unknown[] }> = [];
-        editor.state.doc.descendants((node, pos) => {
-          if (!node.isText || !node.text) return;
-          const { text: newText, hits } = transformTextNode(node.text, presetSet, opts.find, opts.replace);
-          if (newText !== node.text) {
-            replacements.push({ from: pos, to: pos + node.text.length, text: newText, marks: node.marks });
-            for (const v of Object.values(hits)) total += v ?? 0;
-          }
-        });
+        if (opts.scope === 'selection' && !editor.state.selection.empty) {
+          // Selection scope: transform each text node's SELECTED slice only — the
+          // rest of the node (outside the selection) must keep its exact text.
+          const { from, to } = editor.state.selection;
+          editor.state.doc.nodesBetween(from, to, (node, pos) => {
+            if (!node.isText || !node.text) return;
+            const start = pos;
+            const end = pos + node.text.length;
+            const o0 = Math.max(from, start) - start;
+            const o1 = Math.min(to, end) - start;
+            if (o1 <= o0) return;
+            const slice = node.text.slice(o0, o1);
+            const { text: newSlice, hits } = transformTextNode(slice, presetSet, opts.find, opts.replace);
+            if (newSlice !== slice) {
+              replacements.push({ from: start + o0, to: start + o1, text: newSlice, marks: node.marks });
+              for (const v of Object.values(hits)) total += v ?? 0;
+            }
+          });
+        } else {
+          editor.state.doc.descendants((node, pos) => {
+            if (!node.isText || !node.text) return;
+            const { text: newText, hits } = transformTextNode(node.text, presetSet, opts.find, opts.replace);
+            if (newText !== node.text) {
+              replacements.push({ from: pos, to: pos + node.text.length, text: newText, marks: node.marks });
+              for (const v of Object.values(hits)) total += v ?? 0;
+            }
+          });
+        }
         for (const r of replacements.reverse()) {
           tr.replaceWith(r.from, r.to, editor.schema.text(r.text, r.marks as never));
         }
         if (total > 0) editor.view.dispatch(tr);
         return total;
       },
-      collapseBlankParagraphs: () => {
+      collapseBlankParagraphs: (scope?: 'doc' | 'selection') => {
         if (!editor) return 0;
         const tr = editor.state.tr;
         const doc = editor.state.doc;
         const toDelete: number[] = [];
+        // In selection scope only paragraphs FULLY inside the selection participate.
+        const sel = scope === 'selection' && !editor.state.selection.empty ? editor.state.selection : null;
         doc.forEach((node, offset, index) => {
           if (node.type.name !== 'paragraph') return;
+          if (sel && (offset < sel.from || offset + node.nodeSize > sel.to)) return;
           const prev = index > 0 ? doc.child(index - 1) : null;
           if (node.content.size === 0 && prev !== null && prev.type.name === 'paragraph' && prev.content.size === 0) {
             toDelete.push(offset);
@@ -390,6 +420,15 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
         return true;
       },
       getText: () => (editor ? editor.getText() : ''),
+      getSelectedText: () => {
+        if (!editor) return '';
+        const { from, to, empty } = editor.state.selection;
+        if (empty) return '';
+        const text = editor.state.doc.textBetween(from, to, '\n\n');
+        // A whitespace-only selection (e.g. blank paragraphs) is no scope — treat
+        // it as no selection so the caller falls back to the whole chapter.
+        return text.trim() ? text : '';
+      },
       insertAtCursor: (text: string, provenance?: ProvenanceAttrs) => {
         if (!editor || !text) return false;
         const from = editor.state.selection.from;

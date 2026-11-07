@@ -25,7 +25,7 @@ function readMode(): Mode {
 }
 
 export function InlineAiLayer({
-  editor, projectId, sceneId, modelRef, modelKind, modelName, token, onOpenCoauthorSettings,
+  editor, projectId, sceneId, modelRef, modelKind, modelName, maxOutputTokens, token, onOpenCoauthorSettings,
 }: {
   editor: Editor;
   projectId: string | null;
@@ -33,6 +33,8 @@ export function InlineAiLayer({
   modelRef: string | null;
   modelKind?: string;
   modelName?: string;
+  /** The model's output budget (user_models.max_output_tokens, effective). */
+  maxOutputTokens?: number | null;
   token: string | null;
   /** #260-class — makes the need-model hint actionable: opens the co-author chat,
    *  where the session model picker lives. Optional; hidden when absent. */
@@ -40,7 +42,7 @@ export function InlineAiLayer({
 }) {
   const { t } = useTranslation('composition');
   const [mode, setMode] = useState<Mode>(readMode);
-  const g = useInlineGhost(editor, { projectId, sceneId, modelRef, modelKind, modelName, token });
+  const g = useInlineGhost(editor, { projectId, sceneId, modelRef, modelKind, modelName, maxOutputTokens, token });
 
   const pickMode = (m: Mode) => {
     setMode(m);
