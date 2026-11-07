@@ -39,7 +39,8 @@ export function ToolSkillAddModal({
   const { t, i18n } = useTranslation('chat');
   // #user-report 2026-11-07 — the dialog shows LOCALIZED tool summaries /
   // domain labels / skill labels (the raw MCP strings are the LLM's specs).
-  const locale = i18n.language;
+  // Tests mock react-i18next with { t } only — i18n may be undefined.
+  const locale = i18n?.language ?? '';
   const {
     tab, onTabChange, query, onQueryChange, category, onCategoryChange, page, setPage,
     loading, availableTools, categories, filteredTools, showGroupedAllView, groupedAllView,
