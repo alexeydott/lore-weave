@@ -17,6 +17,7 @@ import { AudioAttrsExtension } from './AudioAttrsExtension';
 import { AudioAttachBarExtension } from './AudioAttachBarExtension';
 import { AudioAttachActionsExtension } from './AudioAttachActionsExtension';
 import { MediaGuardExtension } from './MediaGuardExtension';
+import { transformTextNode } from '@/features/studio/editor/techEdits';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import Highlight from '@tiptap/extension-highlight';
@@ -63,6 +64,18 @@ export interface TiptapEditorHandle {
    *  each against its quote first. Returns the ids that could not be placed, so the caller can
    *  surface "this mark lost its place" instead of a highlight silently not appearing. */
   setErrorBlocks: (blocks: ErrorBlockRow[]) => string[];
+  /** Техправка (#user-report 2026-11-07) — mark-preserving deterministic cleanup
+   *  over the whole doc (presets + custom find/replace). Returns the number of
+   *  node-level replacements; 0 = nothing changed (caller must not dispatch a
+   *  no-op transaction → no phantom autosave/revision). The backup is the caller's
+   *  checkpoint capture (the caller pins the pre-edit revision). */
+  runTechTransforms: (opts: { presets: string[]; find?: string; replace?: string }) => number;
+  collapseBlankParagraphs: () => number;
+  /** Техправка — select the whole document body (the pre-select for a
+   *  checkpointed whole-doc replace). */
+  selectAllDoc: () => boolean;
+  /** Техправка — full plain text of the document ('' when the editor isn't ready). */
+  getText: () => string;
   /** ARCH-1 C6 — current selection (ProseMirror positions + selected text),
    *  or null if the editor isn't ready. `empty` = a caret with no selection. */
   getSelection: () => { from: number; to: number; empty: boolean; text: string } | null;
@@ -329,6 +342,54 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
         const { from, to, empty } = editor.state.selection;
         return { from, to, empty, text: editor.state.doc.textBetween(from, to, ' ') };
       },
+      // Техправка (#user-report 2026-11-07) — mark-preserving technical cleanup.
+      // The transforms run INSIDE one ProseMirror transaction over the text nodes
+      // (marks ride along via schema.text), applied END→START — a naive
+      // replaceSelection(plainText) over the whole doc would strip bold/italic.
+      // Returns the number of node-level replacements (0 = nothing changed, the
+      // caller must not dispatch a no-op transaction → no phantom revision).
+      runTechTransforms: (opts: { presets: string[]; find?: string; replace?: string }) => {
+        if (!editor) return 0;
+        const presetSet = new Set(opts.presets);
+        const tr = editor.state.tr;
+        let total = 0;
+        const replacements: Array<{ from: number; to: number; text: string; marks: readonly unknown[] }> = [];
+        editor.state.doc.descendants((node, pos) => {
+          if (!node.isText || !node.text) return;
+          const { text: newText, hits } = transformTextNode(node.text, presetSet, opts.find, opts.replace);
+          if (newText !== node.text) {
+            replacements.push({ from: pos, to: pos + node.text.length, text: newText, marks: node.marks });
+            for (const v of Object.values(hits)) total += v ?? 0;
+          }
+        });
+        for (const r of replacements.reverse()) {
+          tr.replaceWith(r.from, r.to, editor.schema.text(r.text, r.marks as never));
+        }
+        if (total > 0) editor.view.dispatch(tr);
+        return total;
+      },
+      collapseBlankParagraphs: () => {
+        if (!editor) return 0;
+        const tr = editor.state.tr;
+        const doc = editor.state.doc;
+        const toDelete: number[] = [];
+        doc.forEach((node, offset, index) => {
+          if (node.type.name !== 'paragraph') return;
+          const prev = index > 0 ? doc.child(index - 1) : null;
+          if (node.content.size === 0 && prev !== null && prev.type.name === 'paragraph' && prev.content.size === 0) {
+            toDelete.push(offset);
+          }
+        });
+        for (const pos of toDelete.reverse()) tr.delete(pos, pos + 1);
+        if (toDelete.length > 0) editor.view.dispatch(tr);
+        return toDelete.length;
+      },
+      selectAllDoc: () => {
+        if (!editor) return false;
+        editor.commands.setTextSelection({ from: 1, to: editor.state.doc.content.size });
+        return true;
+      },
+      getText: () => (editor ? editor.getText() : ''),
       insertAtCursor: (text: string, provenance?: ProvenanceAttrs) => {
         if (!editor || !text) return false;
         const from = editor.state.selection.from;

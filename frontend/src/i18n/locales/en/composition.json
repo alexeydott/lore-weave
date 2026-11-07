@@ -1766,5 +1766,35 @@
   "coverageExtractionFailed": "Could not read the promises out of your outline (the model call failed or was cut short). Try again, or pick a different model.",
   "coverageScoreFailed": "The promises were read, but scoring them against the book failed. Try again.",
   "lengthAskedDelivered": "Asked for ~{{target}} words, delivered {{actual}} ({{pct}}%).",
-  "lengthOverCeiling": "This asked one call for more than one call reliably delivers — split the scene into passages to get the full length."
+  "lengthOverCeiling": "This asked one call for more than one call reliably delivers — split the scene into passages to get the full length.",
+  "techEdit": {
+    "title": "Technical edit",
+    "close": "Close",
+    "mode_presets": "Instant cleanup",
+    "mode_ai": "AI task",
+    "presets": {
+      "collapse_spaces": "Collapse repeated spaces",
+      "space_before_punct": "Remove spaces before punctuation",
+      "strip_invisible": "Remove invisible characters",
+      "unify_quotes": "Unify quotes to «…»",
+      "unify_dashes": "Unify dashes to —",
+      "collapse_blank_paragraphs": "Collapse repeated blank lines"
+    },
+    "find_ph": "Find…",
+    "replace_ph": "Replace with…",
+    "preview_hits": "Replacements to make: {{n}}",
+    "preview_clean": "Nothing to fix.",
+    "apply_presets": "Apply cleanup",
+    "applied": "Applied: {{n}} replacement(s)",
+    "nothing": "Nothing to fix — the text is already clean.",
+    "backup_note": "A restore point is captured before applying — Undo in the revisions panel reverts the text.",
+    "task_ph": "Describe the task for the AI: e.g. remove duplicated words, replace term X with term Y…",
+    "need_model": "No AI model selected — pick one in the co-author chat.",
+    "model_label": "Model: {{name}}",
+    "run_ai": "Run the AI edit",
+    "running": "AI is working…",
+    "ai_result": "The AI prepared the edited chapter text ({{n}} chars). Review, then apply — a restore point is captured automatically.",
+    "apply_ai": "Apply the AI result",
+    "guide_prefix": "Technical text edit. Perform ONLY this task — do not rewrite the prose on your own initiative, and keep the paragraph count and structure unless the task requires otherwise:"
+  }
 }

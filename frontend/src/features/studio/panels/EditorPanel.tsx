@@ -46,6 +46,7 @@ import { ManuscriptCheckpoints } from '../manuscript/unit/ManuscriptCheckpoints'
 import { SceneRail } from '../manuscript/SceneRail';
 import { RevisionHistorySection } from './RevisionHistorySection';
 import { EditorPublishGate } from './EditorPublishGate';
+import { TechEditDialog } from '../editor/TechEditDialog';
 import type { StudioToolRegistration } from '../host/types';
 
 export function EditorPanel(props: IDockviewPanelProps) {
@@ -103,6 +104,8 @@ export function EditorPanel(props: IDockviewPanelProps) {
   const [heatmapEnabled, setHeatmapEnabled] = useState(false);
   // #16 2.4 — glossary inline decoration + `[[` autocomplete.
   const [glossaryEnabled, setGlossaryEnabled] = useState(true);
+  // Техправка dialog (#user-report 2026-11-07) — AI/technical cleanup toolkit.
+  const [techEditOpen, setTechEditOpen] = useState(false);
   const [glossaryEntities, setGlossaryEntities] = useState<EntityNameEntry[]>([]);
   // Scoped to THIS panel's own editor container (a querySelector against `document` would grab
   // whichever chapter tab's `.tiptap-content` happens to be first in the DOM — the same
@@ -469,6 +472,14 @@ export function EditorPanel(props: IDockviewPanelProps) {
         </button>
         <button
           type="button"
+          data-testid="studio-editor-toggle-techedit"
+          onClick={() => setTechEditOpen(true)}
+          className="rounded px-1.5 py-0.5 hover:bg-secondary hover:text-foreground"
+        >
+          {t('editor.techEdit', { defaultValue: 'Tech edit' })}
+        </button>
+        <button
+          type="button"
           data-testid="studio-editor-toggle-heatmap"
           onClick={() => setHeatmapEnabled((v) => !v)}
           className={cn('rounded px-1.5 py-0.5 hover:bg-secondary hover:text-foreground', heatmapEnabled && 'text-primary')}
@@ -657,6 +668,38 @@ export function EditorPanel(props: IDockviewPanelProps) {
       )}
       {/* #16 2.4 — glossary hover tooltip + `[[` autocomplete, scoped to this panel's own editor. */}
       {glossaryEnabled && <GlossaryTooltip bookId={bookId} />}
+      {/* Техправка (#user-report 2026-11-07) — deterministic cleanup + AI task, both
+          checkpoint-backed (Restore in the revisions panel). */}
+      {techEditOpen && (
+        <TechEditDialog
+          onClose={() => setTechEditOpen(false)}
+          onRunDeterministic={(opts) => {
+            const handle = editorRef.current;
+            const cid = unit?.state.chapterId ?? null;
+            if (!handle || !cid) return 0;
+            // Pin the pre-edit revision BEFORE the transforms mutate the doc.
+            checkpoints.capture(cid, 'tech edit', 'replace');
+            const n = handle.runTechTransforms(opts) + handle.collapseBlankParagraphs();
+            return n;
+          }}
+          onApplyWholeDoc={(text, label) => {
+            const handle = editorRef.current;
+            const cid = unit?.state.chapterId ?? null;
+            if (!handle || !cid) return false;
+            // selectAllDoc first, then the checkpointed wrapper captures the pre-edit
+            // revision and writes the AI result (the G7 dirty-guard applies to Restore).
+            handle.selectAllDoc();
+            const ok = checkpoints.applyProposedEdit({ operation: 'replace_selection', text });
+            if (ok) checkpoints.capture(cid, label, 'replace');
+            return ok;
+          }}
+          getText={() => editorRef.current?.getText() ?? ''}
+          projectId={composeProjectId}
+          token={accessToken}
+          modelRef={composeDefaultModel ?? null}
+          modelName={composeDefaultModelMeta?.provider_model_name}
+        />
+      )}
       {/* S-10 O7 — the `[[`-create flow is now wired (onCreateNew). It's undefined until the Work's
           project resolves, so GlossaryAutocomplete still HIDES "＋ Create" rather than offering a
           create that would fail — the 2026-07-17 audit's no-dead-affordance rule still holds. */}
