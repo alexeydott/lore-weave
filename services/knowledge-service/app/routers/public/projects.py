@@ -24,7 +24,7 @@ from typing import Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -38,6 +38,7 @@ from app.db.models import (
 from app.db.graph import graph_session
 from app.adapters.graph_store_provider import get_graph_store
 from app.domain.passage_contract import SUPPORTED_PASSAGE_DIMS
+from app.config import settings
 from app.db.pool import get_knowledge_pool
 from app.db.repositories import VersionMismatchError
 from app.db.repositories.event_text_translations import EventTextTranslationsRepo
@@ -659,6 +660,7 @@ async def put_capture_consent(
 
 @router.put("/{project_id}/extraction-config", response_model=Project)
 async def put_extraction_config(
+    request: Request,
     project_id: UUID,
     body: ProjectExtractionConfigUpdate,
     response: Response,
@@ -691,6 +693,37 @@ async def put_extraction_config(
     raw = body.model_dump(exclude_none=True)
     new_config = {k: v for k, v in raw.items() if v}
     old_config = current.extraction_config or {}
+
+    # #user-report 2026-11-08 — a precision_filter model that was later
+    # DEACTIVATED kept the audit pass calling a dead model_ref (1649 rejected
+    # chat calls over 3h in the usage log). Validate the referenced model is
+    # still active AT SAVE TIME via the user-scoped provider-registry read.
+    pf = new_config.get("precision_filter") or {}
+    pf_model_ref = pf.get("model_ref") if isinstance(pf, dict) else None
+    if pf_model_ref:
+        import httpx
+        auth = request.headers.get("authorization", "")
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                check = await client.get(
+                    f"{settings.provider_registry_internal_url}/user-models/{pf_model_ref}",
+                    headers={"Authorization": auth} if auth else {},
+                )
+            model_row = check.json() if check.status_code == 200 else None
+            if check.status_code == 404 or (model_row and model_row.get("is_active") is False):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=(
+                        "precision_filter.model_ref refers to an INACTIVE or deleted model — "
+                        "pick an active model (the audit pass would have failed on every item)"
+                    ),
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            # The registry is unreachable — degrade open (today's behavior)
+            # rather than blocking the config edit on a transient outage.
+            pass
     # Track 4 P2 (review MED): the L3 rerank knobs are managed by a DIFFERENT
     # surface (model pickers / direct API), not the FE structural-config editor —
     # so an editor save that simply doesn't know these keys must not silently
