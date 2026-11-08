@@ -481,7 +481,7 @@ async def threads_assistant(
     anchors, and canon-rule inconsistencies checked against the Work's active
     rules. READ-ONLY: it never writes the ledger — adoption is the explicit
     /threads/adopt call. EDIT-tier (spends LLM tokens)."""
-    work = _gate_work(works, grant, user_id, project_id)
+    work = await _gate_work(works, grant, user_id, project_id)
     draft = await book.get_draft(work.book_id, body.chapter_id, bearer)
     text = _tiptap_text(draft if isinstance(draft, dict) else {})
     if not text.strip():
@@ -522,7 +522,7 @@ async def threads_assistant(
 
     job = await llm.submit_and_wait(
         user_id=str(user_id), operation="chat",
-        model_source=body.model_source, model_ref=body.model_ref,
+        model_source=body.model_source, model_ref=str(body.model_ref),
         input={
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "response_format": {"type": "text"}, "temperature": 0.0,
@@ -561,7 +561,7 @@ async def threads_adopt(
 ) -> dict[str, Any]:
     """Adopt assistant-proposed promises into the ledger (open rows). Requires
     the Work's tracking gate ON — the panel flips it before any adoption."""
-    work = _gate_work(works, grant, user_id, project_id)
+    work = await _gate_work(works, grant, user_id, project_id)
     if not (work.settings or {}).get("narrative_thread_enabled"):
         raise HTTPException(status_code=409, detail="narrative_thread tracking is disabled for this Work")
     created = 0
@@ -596,7 +596,7 @@ async def threads_detect(
     had an empty «Обещания» panel with no way to fill it. EDIT-tier (the pass
     spends LLM tokens), owner/gated like the generate routes; requires the
     Work's tracking gate ON (the FE setup card flips it explicitly)."""
-    work = _gate_work(works, grant, user_id, project_id)
+    work = await _gate_work(works, grant, user_id, project_id)
     if not (work.settings or {}).get("narrative_thread_enabled"):
         raise HTTPException(
             status_code=409,
