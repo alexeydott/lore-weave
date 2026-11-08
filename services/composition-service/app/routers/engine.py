@@ -415,6 +415,62 @@ def _scene_marker_rows(scenes: Any) -> list[dict[str, Any]] | None:
         return None
 
 
+class ThreadsDetectBody(BaseModel):
+    chapter_id: UUID
+    model_source: Literal["user_model", "platform_model"] = "user_model"
+    model_ref: UUID
+
+
+@router.post("/works/{project_id}/threads/detect")
+async def threads_detect(
+    project_id: UUID,
+    body: ThreadsDetectBody,
+    works: WorksRepo = Depends(get_works_repo),
+    grant: GrantClient = Depends(get_grant_client_dep),
+    user_id: UUID = Depends(get_current_user),
+    bearer: str = Depends(get_bearer_token),
+    llm: LLMClient = Depends(get_llm_client_dep),
+    narrative_threads: NarrativeThreadRepo = Depends(get_narrative_thread_repo),
+    book: BookClient = Depends(get_book_client_dep),
+) -> dict[str, Any]:
+    """#user-report 2026-11-08 — run the promise-detection pass over an
+    ALREADY-WRITTEN chapter. The ledger's only writer was the post-generation
+    hook (gated per-Work on `narrative_thread_enabled`, default OFF), so a
+    book whose prose predates the feature — or whose gate was never flipped —
+    had an empty «Обещания» panel with no way to fill it. EDIT-tier (the pass
+    spends LLM tokens), owner/gated like the generate routes; requires the
+    Work's tracking gate ON (the FE setup card flips it explicitly)."""
+    work = _gate_work(works, grant, user_id, project_id)
+    if not (work.settings or {}).get("narrative_thread_enabled"):
+        raise HTTPException(
+            status_code=409,
+            detail="narrative_thread tracking is disabled for this Work — enable it first",
+        )
+    draft = await book.get_draft(work.book_id, body.chapter_id, bearer)
+    text = (draft.get("text_content") if isinstance(draft, dict) else None) or ""
+
+    def _walk(node: Any) -> list[str]:
+        if not isinstance(node, dict):
+            return []
+        parts: list[str] = []
+        if isinstance(node.get("text"), str):
+            parts.append(node["text"])
+        for child in node.get("content") or []:
+            parts.extend(_walk(child))
+        return parts
+
+    if not text.strip():
+        text = "\n\n".join(_walk(draft.get("body") if isinstance(draft, dict) else {}))
+
+    result = await detect_and_update_threads(
+        llm, narrative_threads, user_id=user_id, project_id=project_id,
+        scene_text=text, opened_at_node=None,
+        drafter_source=body.model_source, drafter_ref=str(body.model_ref),
+        source_language="auto",
+    )
+    return {"opened": result.opened, "paid": result.paid, "status": result.status}
+
+
 async def _persist_chapter_draft(
     book: BookClient, book_id: UUID, chapter_id: UUID, bearer: str,
     text: str, commit_message: str,
