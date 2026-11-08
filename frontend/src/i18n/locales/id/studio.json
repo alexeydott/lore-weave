@@ -187,7 +187,19 @@
       "detectOk": "Dibuka: {{opened}} · dilunasi: {{paid}}",
       "detectFailed": "Putaran analisis gagal — coba lagi.",
       "needModel": "Pilih dulu model co-author bawaan (pengaturan obrolan co-author).",
-      "untitled": "(tanpa judul)"
+      "untitled": "(tanpa judul)",
+      "backfillCta": "Tambahkan ke registar",
+      "assistantCta": "Analisis AI bab",
+      "assistantRunning": "AI sedang menganalisis bab…",
+      "assistantFailed": "Analisis AI gagal.",
+      "assistantPromises": "Janji yang diusulkan ({{count}})",
+      "adopt": "Ke registar",
+      "adoptAll": "Semua ke registar",
+      "adopted": "Janji ditambahkan ke registar.",
+      "adoptedAll": "Janji ditambahkan ke registar: {{count}}",
+      "assistantCritic": "Catatan kritikus",
+      "assistantChains": "Rantai janji",
+      "assistantCanon": "Inkonsistensi kanon"
     },
     "quality-critic": {
       "title": "Kritikus",

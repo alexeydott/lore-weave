@@ -187,7 +187,19 @@
       "detectOk": "Geöffnet: {{opened}} · beglichen: {{paid}}",
       "detectFailed": "Der Analyse-Durchlauf ist fehlgeschlagen — bitte erneut versuchen.",
       "needModel": "Wählen Sie zuerst ein Standard-Koautorenmodell (Einstellungen des Koautoren-Chats).",
-      "untitled": "(ohne Titel)"
+      "untitled": "(ohne Titel)",
+      "backfillCta": "Ins Register aufnehmen",
+      "assistantCta": "KI-Analyse des Kapitels",
+      "assistantRunning": "Die KI analysiert das Kapitel…",
+      "assistantFailed": "Die KI-Analyse ist fehlgeschlagen.",
+      "assistantPromises": "Vorgeschlagene Versprechen ({{count}})",
+      "adopt": "Ins Register",
+      "adoptAll": "Alle ins Register",
+      "adopted": "Das Versprechen wurde ins Register aufgenommen.",
+      "adoptedAll": "Versprechen im Register: {{count}}",
+      "assistantCritic": "Kritiker-Notizen",
+      "assistantChains": "Versprechen-Ketten",
+      "assistantCanon": "Kanon-Widersprüche"
     },
     "quality-critic": {
       "title": "Kritiker",

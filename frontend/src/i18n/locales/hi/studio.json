@@ -187,7 +187,19 @@
       "detectOk": "खोले: {{opened}} · चुकते: {{paid}}",
       "detectFailed": "विश्लेषण पास विफल — फिर से प्रयास करें।",
       "needModel": "पहले डिफ़ॉल्ट सह-लेखक मॉडल चुनें (सह-लेखक चैट सेटिंग्स)।",
-      "untitled": "(शीर्षकहीन)"
+      "untitled": "(शीर्षकहीन)",
+      "backfillCta": "रजिस्टर में जोड़ें",
+      "assistantCta": "अध्याय का AI विश्लेषण",
+      "assistantRunning": "AI अध्याय का विश्लेषण कर रहा है…",
+      "assistantFailed": "AI विश्लेषण विफल रहा।",
+      "assistantPromises": "प्रस्तावित प्रॉमिस ({{count}})",
+      "adopt": "रजिस्टर में",
+      "adoptAll": "सभी रजिस्टर में",
+      "adopted": "प्रॉमिस रजिस्टर में जोड़ा गया।",
+      "adoptedAll": "रजिस्टर में जोड़े गए प्रॉमिस: {{count}}",
+      "assistantCritic": "आलोचक टिप्पणियाँ",
+      "assistantChains": "प्रॉमिस श्रृंखलाएँ",
+      "assistantCanon": "कैनन विसंगतियाँ"
     },
     "quality-critic": {
       "title": "समीक्षक",

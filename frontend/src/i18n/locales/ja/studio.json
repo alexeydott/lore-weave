@@ -187,7 +187,19 @@
       "detectOk": "新規 {{opened}} 件 · 回収 {{paid}} 件",
       "detectFailed": "分析パスに失敗しました — もう一度お試しください。",
       "needModel": "先にデフォルトの共著モデルを選択してください（共著チャットの設定）。",
-      "untitled": "(無題)"
+      "untitled": "(無題)",
+      "backfillCta": "台帳に追加",
+      "assistantCta": "章のAI分析",
+      "assistantRunning": "AIが章を分析中…",
+      "assistantFailed": "AI分析に失敗しました。",
+      "assistantPromises": "提案されたプロミス（{{count}}）",
+      "adopt": "台帳へ",
+      "adoptAll": "すべて台帳へ",
+      "adopted": "プロミスを台帳に追加しました。",
+      "adoptedAll": "台帳に追加したプロミス: {{count}}",
+      "assistantCritic": "批評家のメモ",
+      "assistantChains": "プロミスの連鎖",
+      "assistantCanon": "カノンの不整合"
     },
     "quality-critic": {
       "title": "批評",

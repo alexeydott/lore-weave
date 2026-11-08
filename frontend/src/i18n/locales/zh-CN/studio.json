@@ -187,7 +187,19 @@
       "detectOk": "新开：{{opened}} · 已回收：{{paid}}",
       "detectFailed": "分析轮次失败——请重试。",
       "needModel": "请先选择默认合著模型（合著聊天设置）。",
-      "untitled": "（无标题）"
+      "untitled": "（无标题）",
+      "backfillCta": "加入台账",
+      "assistantCta": "章节 AI 分析",
+      "assistantRunning": "AI 正在分析章节…",
+      "assistantFailed": "AI 分析失败。",
+      "assistantPromises": "建议的承诺（{{count}}）",
+      "adopt": "入台账",
+      "adoptAll": "全部入台账",
+      "adopted": "承诺已加入台账。",
+      "adoptedAll": "已加入台账的承诺：{{count}}",
+      "assistantCritic": "评审意见",
+      "assistantChains": "承诺链",
+      "assistantCanon": "正典不一致"
     },
     "quality-critic": {
       "title": "评论家",

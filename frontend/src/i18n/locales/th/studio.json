@@ -186,7 +186,19 @@
       "detectOk": "เปิด: {{opened}} · ปิดแล้ว: {{paid}}",
       "detectFailed": "รอบวิเคราะห์ไม่สำเร็จ — ลองอีกครั้ง",
       "needModel": "เลือกโมเดลผู้ร่วมเขียนเริ่มต้นก่อน (การตั้งค่าแชทผู้ร่วมเขียน)",
-      "untitled": "(ไม่มีชื่อ)"
+      "untitled": "(ไม่มีชื่อ)",
+      "backfillCta": "เพิ่มเข้าบัญชี",
+      "assistantCta": "วิเคราะห์บทด้วย AI",
+      "assistantRunning": "AI กำลังวิเคราะห์บท…",
+      "assistantFailed": "การวิเคราะห์ด้วย AI ล้มเหลว",
+      "assistantPromises": "คำสัญญาที่เสนอ ({{count}})",
+      "adopt": "เข้าบัญชี",
+      "adoptAll": "ทั้งหมดเข้าบัญชี",
+      "adopted": "เพิ่มคำสัญญาเข้าบัญชีแล้ว",
+      "adoptedAll": "คำสัญญาที่เพิ่มเข้าบัญชี: {{count}}",
+      "assistantCritic": "บันทึกนักวิจารณ์",
+      "assistantChains": "ห่วงโซ่คำสัญญา",
+      "assistantCanon": "ความไม่สอดคล้องของแคนนอน"
     },
     "quality-critic": {
       "title": "นักวิจารณ์",

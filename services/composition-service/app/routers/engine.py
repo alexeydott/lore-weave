@@ -421,6 +421,156 @@ class ThreadsDetectBody(BaseModel):
     model_ref: UUID
 
 
+class ThreadsAssistantBody(BaseModel):
+    chapter_id: UUID
+    model_source: Literal["user_model", "platform_model"] = "user_model"
+    model_ref: UUID
+
+
+class ThreadsAdoptItem(BaseModel):
+    kind: Literal["promise", "foreshadow", "question", "mice_thread"]
+    summary: str = Field(min_length=3, max_length=500)
+
+
+class ThreadsAdoptBody(BaseModel):
+    items: list[ThreadsAdoptItem] = Field(min_length=1, max_length=20)
+
+
+def _tiptap_text(draft: dict[str, Any]) -> str:
+    """The chapter draft's prose: the server's extracted text_content, else a
+    minimal walk over the Tiptap body (composition has no shared helper)."""
+    text = draft.get("text_content")
+    if isinstance(text, str) and text.strip():
+        return text
+
+    def walk(node: Any) -> list[str]:
+        if not isinstance(node, dict):
+            return []
+        parts: list[str] = []
+        if isinstance(node.get("text"), str):
+            parts.append(node["text"])
+        for child in node.get("content") or []:
+            parts.extend(walk(child))
+        return parts
+
+    return "\n\n".join(walk(draft.get("body") or {}))
+
+
+@router.post("/works/{project_id}/threads/assistant")
+async def threads_assistant(
+    project_id: UUID,
+    body: ThreadsAssistantBody,
+    works: WorksRepo = Depends(get_works_repo),
+    grant: GrantClient = Depends(get_grant_client_dep),
+    user_id: UUID = Depends(get_current_user),
+    bearer: str = Depends(get_bearer_token),
+    llm: LLMClient = Depends(get_llm_client_dep),
+    narrative_threads: NarrativeThreadRepo = Depends(get_narrative_thread_repo),
+    book: BookClient = Depends(get_book_client_dep),
+    canon_rules: CanonRulesRepo = Depends(get_canon_rules_repo),
+) -> dict[str, Any]:
+    """#user-report 2026-11-08 — the «Обещания» ИИ-помощник: ONE analysis pass
+    over an already-written chapter that returns a STRUCTURED report the panel
+    renders for review — proposed unclosed promises (adoptable into the
+    ledger), a critic-style assessment, the open promise chains with their
+    anchors, and canon-rule inconsistencies checked against the Work's active
+    rules. READ-ONLY: it never writes the ledger — adoption is the explicit
+    /threads/adopt call. EDIT-tier (spends LLM tokens)."""
+    work = _gate_work(works, grant, user_id, project_id)
+    draft = await book.get_draft(work.book_id, body.chapter_id, bearer)
+    text = _tiptap_text(draft if isinstance(draft, dict) else {})
+    if not text.strip():
+        return {"promises": [], "paid": [], "chains": [], "critic": [], "canon_issues": [], "empty": True}
+
+    open_rows = await narrative_threads.list_open(project_id, limit=50)
+    rules = [r for r in await canon_rules.list_active(project_id)]
+
+    open_ctx = [
+        {"thread_id": str(t.id), "kind": t.kind, "summary": t.summary, "trigger": t.trigger}
+        for t in open_rows
+    ]
+    rules_ctx = [r.text for r in rules[:20]]
+
+    from loreweave_llm import no_thinking_fields
+
+    system = (
+        "You are a narrative-promise auditor for a novel. You are given the SOURCE TEXT of one "
+        "chapter, the book's currently-OPEN promise ledger, and the author's canon rules. "
+        "Analyze the chapter and return STRICT JSON only — no prose, no markdown fences, no thinking:\n"
+        '{"promises": [{"kind": "promise|foreshadow|question|mice_thread", "summary": "<one sentence>", '
+        '"quote": "<short verbatim quote from the text>"}], '
+        '"paid": [{"thread_id": "<thread_id from the open list>", "quote": "<short quote>"}], '
+        '"chains": [{"summary": "<an open promise being developed>", "anchor": "<where it opened>", '
+        '"beats": ["<what this chapter adds>", "..."]}], '
+        '"critic": ["<one-sentence critic notes on how promises are planted/paid — concrete, actionable>"], '
+        '"canon_issues": ["<rule text violated> — <what contradicts it>"]}\n'
+        "Rules: only report promises the text ACTUALLY opens (a hook, an unexplained detail, a charged "
+        "moment); only report paid threads from the open list whose payoff is really in the text; "
+        "canon_issues only for REAL contradictions with the given rules; empty arrays are valid. "
+        "Write every summary/quote-adjacent string in the SAME LANGUAGE as the chapter text."
+    )
+    user = (
+        "CANON RULES:\n" + ("\n".join(f"- {r}" for r in rules_ctx) or "(none)") +
+        "\n\nOPEN PROMISE LEDGER:\n" + ("\n".join(f"- [{t['thread_id']}] ({t['kind']}) {t['summary']}" for t in open_ctx) or "(none)") +
+        "\n\nCHAPTER TEXT:\n" + text[:24000]
+    )
+
+    job = await llm.submit_and_wait(
+        user_id=str(user_id), operation="chat",
+        model_source=body.model_source, model_ref=body.model_ref,
+        input={
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "response_format": {"type": "text"}, "temperature": 0.0, "max_tokens": 4096,
+            **no_thinking_fields(),
+        },
+        job_meta={"usage_purpose": "threads_assistant", "extractor": "threads_assistant"},
+    )
+    from app.clients.eval_client import extract_judge_content
+
+    raw = extract_judge_content(job.result) or ""
+    try:
+        report = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except Exception:
+        logger.warning("threads_assistant: non-JSON report (len=%d)", len(raw))
+        return {"promises": [], "paid": [], "chains": [], "critic": [raw[:2000]] if raw.strip() else [],
+                "canon_issues": [], "degraded": True}
+
+    report["canon_rules_checked"] = len(rules_ctx)
+    report["open_ledger_count"] = len(open_ctx)
+    return report
+
+
+class ThreadsAdoptBody(BaseModel):
+    items: list[ThreadsAdoptItem] = Field(min_length=1, max_length=20)
+
+
+@router.post("/works/{project_id}/threads/adopt")
+async def threads_adopt(
+    project_id: UUID,
+    body: ThreadsAdoptBody,
+    works: WorksRepo = Depends(get_works_repo),
+    grant: GrantClient = Depends(get_grant_client_dep),
+    user_id: UUID = Depends(get_current_user),
+    narrative_threads: NarrativeThreadRepo = Depends(get_narrative_thread_repo),
+) -> dict[str, Any]:
+    """Adopt assistant-proposed promises into the ledger (open rows). Requires
+    the Work's tracking gate ON — the panel flips it before any adoption."""
+    work = _gate_work(works, grant, user_id, project_id)
+    if not (work.settings or {}).get("narrative_thread_enabled"):
+        raise HTTPException(status_code=409, detail="narrative_thread tracking is disabled for this Work")
+    created = 0
+    for item in body.items:
+        try:
+            await narrative_threads.open_thread(
+                project_id, created_by=user_id, kind=item.kind,
+                summary=item.summary.strip()[:500], trigger="assistant",
+            )
+            created += 1
+        except Exception:  # noqa: BLE001 — best-effort per item
+            continue
+    return {"created": created}
+
+
 @router.post("/works/{project_id}/threads/detect")
 async def threads_detect(
     project_id: UUID,

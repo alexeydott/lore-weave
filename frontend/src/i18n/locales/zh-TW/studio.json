@@ -187,7 +187,19 @@
       "detectOk": "新開：{{opened}} · 已回收：{{paid}}",
       "detectFailed": "分析輪次失敗——請重試。",
       "needModel": "請先選擇預設合著模型（合著聊天設定）。",
-      "untitled": "（無標題）"
+      "untitled": "（無標題）",
+      "backfillCta": "加入臺帳",
+      "assistantCta": "章節 AI 分析",
+      "assistantRunning": "AI 正在分析章節…",
+      "assistantFailed": "AI 分析失敗。",
+      "assistantPromises": "建議的承諾（{{count}}）",
+      "adopt": "入臺帳",
+      "adoptAll": "全部入臺帳",
+      "adopted": "承諾已加入臺帳。",
+      "adoptedAll": "已加入臺帳的承諾：{{count}}",
+      "assistantCritic": "評審意見",
+      "assistantChains": "承諾鏈",
+      "assistantCanon": "正典不一致"
     },
     "quality-critic": {
       "title": "評論",

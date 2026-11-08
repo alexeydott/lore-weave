@@ -187,7 +187,19 @@
       "detectOk": "Abiertas: {{opened}} · cerradas: {{paid}}",
       "detectFailed": "La pasada de análisis falló — inténtalo de nuevo.",
       "needModel": "Elige primero un modelo de coautoría predeterminado (ajustes del chat de coautoría).",
-      "untitled": "(sin título)"
+      "untitled": "(sin título)",
+      "backfillCta": "Añadir al registro",
+      "assistantCta": "Análisis de IA del capítulo",
+      "assistantRunning": "La IA está analizando el capítulo…",
+      "assistantFailed": "El análisis de IA falló.",
+      "assistantPromises": "Promisas propuestos ({{count}})",
+      "adopt": "Al registro",
+      "adoptAll": "Todos al registro",
+      "adopted": "El promisa fue añadido al registro.",
+      "adoptedAll": "Promisas añadidos al registro: {{count}}",
+      "assistantCritic": "Notas del crítico",
+      "assistantChains": "Cadenas de promisas",
+      "assistantCanon": "Incoherencias de canon"
     },
     "quality-critic": {
       "title": "Crítico",

@@ -22,6 +22,7 @@ import type { IDockviewPanelProps } from 'dockview-react';
 import { useAuth } from '@/auth';
 import { booksApi } from '@/features/books/api';
 import { compositionApi } from '@/features/composition/api';
+import type { ThreadsAssistantReport } from '@/features/composition/types';
 import { chapterDisplayTitle } from '@/features/studio/manuscript/partsTree';
 import { ThreadsPanel } from '@/features/composition/components/ThreadsPanel';
 import { useStudioHost } from '../host/StudioHostProvider';
@@ -110,6 +111,65 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
     }
   };
 
+  // ── ИИ-помощник (#user-report 2026-11-08) — read-only analysis report ──────
+  const [report, setReport] = useState<ThreadsAssistantReport | null>(null);
+  const [assistantBusy, setAssistantBusy] = useState(false);
+  const runAssistant = async () => {
+    if (!activeWork || !accessToken || !chapterId || !defaultModelRef || assistantBusy) return;
+    setAssistantBusy(true);
+    setReport(null);
+    try {
+      const r = await compositionApi.threadsAssistant(activeWork.project_id, {
+        chapter_id: chapterId,
+        model_source: 'user_model',
+        model_ref: defaultModelRef,
+      }, accessToken);
+      setReport(r);
+      if (r.degraded) toast.error(t('panels.quality-promises.assistantFailed'));
+    } catch (e) {
+      toast.error((e as Error).message || t('panels.quality-promises.assistantFailed'));
+    } finally {
+      setAssistantBusy(false);
+    }
+  };
+  const [adopting, setAdopting] = useState<string | null>(null);
+  const adoptPromise = async (p: { kind: string; summary: string }) => {
+    if (!activeWork || !accessToken || adopting) return;
+    setAdopting(p.summary);
+    try {
+      const r = await compositionApi.threadsAdopt(activeWork.project_id, {
+        items: [{ kind: p.kind, summary: p.summary }],
+      }, accessToken);
+      if (r.created > 0) {
+        setReport((prev) => (prev ? { ...prev, promises: prev.promises.filter((x) => x.summary !== p.summary) } : prev));
+        toast.success(t('panels.quality-promises.adopted'));
+        await queryClient.invalidateQueries({ queryKey: ['composition', 'threads', activeWork.project_id] });
+      }
+    } catch (e) {
+      toast.error((e as Error).message || t('panels.quality-promises.assistantFailed'));
+    } finally {
+      setAdopting(null);
+    }
+  };
+  const adoptAllPromises = async () => {
+    if (!activeWork || !accessToken || !report || adopting) return;
+    const items = report.promises.map((p) => ({ kind: p.kind, summary: p.summary }));
+    if (items.length === 0) return;
+    setAdopting('__all__');
+    try {
+      const r = await compositionApi.threadsAdopt(activeWork.project_id, { items }, accessToken);
+      if (r.created > 0) {
+        setReport((prev) => (prev ? { ...prev, promises: [] } : prev));
+        toast.success(t('panels.quality-promises.adoptedAll', { count: r.created }));
+        await queryClient.invalidateQueries({ queryKey: ['composition', 'threads', activeWork.project_id] });
+      }
+    } catch (e) {
+      toast.error((e as Error).message || t('panels.quality-promises.assistantFailed'));
+    } finally {
+      setAdopting(null);
+    }
+  };
+
   if (work.kind !== 'ready') return <QualityWorkGate state={work} testIdPrefix="quality-promises" bookId={host.bookId} token={accessToken} />;
 
   return (
@@ -130,6 +190,7 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
         </div>
       )}
       {ntEnabled && (
+        <>
         <div className="mx-3 mt-3 flex items-center gap-2 rounded-lg border bg-card p-2">
           <select
             value={chapterId}
@@ -149,12 +210,112 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
             disabled={analyzing || !chapterId || !defaultModelRef}
             title={!defaultModelRef ? t('panels.quality-promises.needModel') : undefined}
             data-testid="quality-promises-analyze"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50"
+          >
+            <Sparkles className="h-3 w-3" />
+            {analyzing ? t('panels.quality-promises.analyzing') : t('panels.quality-promises.backfillCta')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void runAssistant()}
+            disabled={assistantBusy || !chapterId || !defaultModelRef}
+            title={!defaultModelRef ? t('panels.quality-promises.needModel') : undefined}
+            data-testid="quality-promises-assistant"
             className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground hover:brightness-110 disabled:opacity-50"
           >
             <Sparkles className="h-3 w-3" />
-            {analyzing ? t('panels.quality-promises.analyzing') : t('panels.quality-promises.analyzeCta')}
+            {assistantBusy ? t('panels.quality-promises.assistantRunning') : t('panels.quality-promises.assistantCta')}
           </button>
         </div>
+        {assistantBusy && (
+          <div className="mx-3 mb-3 flex items-center gap-2 rounded-lg border bg-card p-2 text-xs text-muted-foreground">
+            <Sparkles className="h-3.5 w-3.5 animate-spin text-primary" />
+            {t('panels.quality-promises.assistantRunning')}
+          </div>
+        )}
+        {report && (
+          <div className="mx-3 mb-3 space-y-3" data-testid="quality-promises-report">
+            {/* Proposed unclosed promises — adoptable */}
+            {report.promises.length > 0 && (
+              <div className="rounded-lg border bg-card p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('panels.quality-promises.assistantPromises', { count: report.promises.length })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void adoptAllPromises()}
+                    disabled={adopting === '__all__'}
+                    className="rounded border border-primary/40 px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+                  >
+                    {t('panels.quality-promises.adoptAll')}
+                  </button>
+                </div>
+                <ul className="space-y-1.5">
+                  {report.promises.map((p, i) => (
+                    <li key={i} className="rounded bg-background/60 p-2 text-xs">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="min-w-0 flex-1">{p.summary}</span>
+                        <button
+                          type="button"
+                          onClick={() => void adoptPromise(p)}
+                          disabled={adopting !== null}
+                          data-testid={`quality-promises-adopt-${i}`}
+                          className="shrink-0 rounded border border-primary/40 px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+                        >
+                          {t('panels.quality-promises.adopt')}
+                        </button>
+                      </div>
+                      {p.quote && <p className="mt-1 truncate text-[10px] italic text-muted-foreground">«{p.quote}»</p>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {/* Critic notes */}
+            {report.critic.length > 0 && (
+              <div className="rounded-lg border bg-card p-3">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t('panels.quality-promises.assistantCritic')}
+                </span>
+                <ul className="mt-1.5 list-inside list-disc space-y-1 text-xs">
+                  {report.critic.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              </div>
+            )}
+            {/* Promise chains */}
+            {report.chains.length > 0 && (
+              <div className="rounded-lg border bg-card p-3">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t('panels.quality-promises.assistantChains')}
+                </span>
+                <ul className="mt-1.5 space-y-1.5 text-xs">
+                  {report.chains.map((c, i) => (
+                    <li key={i}>
+                      <span className="font-medium">{c.summary}</span>
+                      {c.anchor && <span className="ml-1 text-[10px] text-muted-foreground">— {c.anchor}</span>}
+                      {c.beats && c.beats.length > 0 && (
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">{c.beats.join(' → ')}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {/* Canon inconsistencies */}
+            {report.canon_issues.length > 0 && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-destructive">
+                  {t('panels.quality-promises.assistantCanon')}
+                </span>
+                <ul className="mt-1.5 list-inside list-disc space-y-1 text-xs">
+                  {report.canon_issues.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+        </>
       )}
       <ThreadsPanel projectId={work.projectId} token={accessToken} enabled focusThreadId={focusThreadId} />
     </div>

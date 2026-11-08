@@ -1,5 +1,18 @@
 // LOOM Composition (M8) — FE types mirroring the composition-service contract.
 
+/** #user-report 2026-11-08 — the «Обещания» ИИ-помощник report (read-only analysis). */
+export type ThreadsAssistantReport = {
+  promises: Array<{ kind: string; summary: string; quote?: string }>;
+  paid: Array<{ thread_id?: string; summary?: string; quote?: string }>;
+  chains: Array<{ summary: string; anchor?: string; beats?: string[] }>;
+  critic: string[];
+  canon_issues: string[];
+  canon_rules_checked?: number;
+  open_ledger_count?: number;
+  empty?: boolean;
+  degraded?: boolean;
+};
+
 export type Work = {
   project_id: string;
   user_id: string;

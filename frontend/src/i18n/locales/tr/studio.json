@@ -187,7 +187,19 @@
       "detectOk": "Açılan: {{opened}} · kapatılan: {{paid}}",
       "detectFailed": "Analiz geçişi başarısız — tekrar deneyin.",
       "needModel": "Önce varsayılan ortak yazar modeli seçin (ortak yazar sohbeti ayarları).",
-      "untitled": "(başlıksız)"
+      "untitled": "(başlıksız)",
+      "backfillCta": "Deftere ekle",
+      "assistantCta": "Bölümün YZ analizi",
+      "assistantRunning": "YZ bölümü analiz ediyor…",
+      "assistantFailed": "YZ analizi başarısız oldu.",
+      "assistantPromises": "Önerilen sözler ({{count}})",
+      "adopt": "Deftere",
+      "adoptAll": "Tümü deftere",
+      "adopted": "Söz deftere eklendi.",
+      "adoptedAll": "Deftere eklenen sözler: {{count}}",
+      "assistantCritic": "Eleştirmen notları",
+      "assistantChains": "Söz zincirleri",
+      "assistantCanon": "Kanon çelişkileri"
     },
     "quality-critic": {
       "title": "Eleştirmen",

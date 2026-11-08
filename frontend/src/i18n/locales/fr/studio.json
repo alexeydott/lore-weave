@@ -187,7 +187,19 @@
       "detectOk": "Ouvertes : {{opened}} · soldées : {{paid}}",
       "detectFailed": "La passe d'analyse a échoué — réessayez.",
       "needModel": "Choisissez d'abord un modèle de co-écriture par défaut (réglages du chat de co-écriture).",
-      "untitled": "(sans titre)"
+      "untitled": "(sans titre)",
+      "backfillCta": "Ajouter au registre",
+      "assistantCta": "Analyse IA du chapitre",
+      "assistantRunning": "L'IA analyse le chapitre…",
+      "assistantFailed": "L'analyse IA a échoué.",
+      "assistantPromises": "Promesses proposées ({{count}})",
+      "adopt": "Au registre",
+      "adoptAll": "Tous au registre",
+      "adopted": "La promesse a été ajoutée au registre.",
+      "adoptedAll": "Promesses ajoutées au registre : {{count}}",
+      "assistantCritic": "Notes du critique",
+      "assistantChains": "Chaînes de promesses",
+      "assistantCanon": "Incohérences de canon"
     },
     "quality-critic": {
       "title": "Critique",

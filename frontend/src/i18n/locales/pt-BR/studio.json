@@ -187,7 +187,19 @@
       "detectOk": "Abertas: {{opened}} · quitadas: {{paid}}",
       "detectFailed": "A passada de análise falhou — tente novamente.",
       "needModel": "Escolha antes um modelo de coautoria padrão (ajustes do chat de coautoria).",
-      "untitled": "(sem título)"
+      "untitled": "(sem título)",
+      "backfillCta": "Adicionar ao registro",
+      "assistantCta": "Análise de IA do capítulo",
+      "assistantRunning": "A IA está analisando o capítulo…",
+      "assistantFailed": "A análise de IA falhou.",
+      "assistantPromises": "Promessas propostas ({{count}})",
+      "adopt": "Ao registro",
+      "adoptAll": "Todas ao registro",
+      "adopted": "A promessa foi adicionada ao registro.",
+      "adoptedAll": "Promessas adicionadas ao registro: {{count}}",
+      "assistantCritic": "Notas do crítico",
+      "assistantChains": "Cadeias de promessas",
+      "assistantCanon": "Incoerências de cânon"
     },
     "quality-critic": {
       "title": "Crítico",

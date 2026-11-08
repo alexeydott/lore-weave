@@ -186,7 +186,19 @@
       "detectOk": "Открыто обещаний: {{opened}} · закрыто: {{paid}}",
       "detectFailed": "Проход анализа не удался — попробуйте ещё раз.",
       "needModel": "Сначала выберите модель соавтора по умолчанию (в настройках чата соавтора).",
-      "untitled": "(без названия)"
+      "untitled": "(без названия)",
+      "backfillCta": "Внести в реестр",
+      "assistantCta": "ИИ-анализ главы",
+      "assistantRunning": "ИИ анализирует главу…",
+      "assistantFailed": "ИИ-анализ не удался.",
+      "assistantPromises": "Предлагаемые обещания ({{count}})",
+      "adopt": "В реестр",
+      "adoptAll": "Все в реестр",
+      "adopted": "Обещание внесено в реестр.",
+      "adoptedAll": "Обещаний внесено: {{count}}",
+      "assistantCritic": "Оценки критика",
+      "assistantChains": "Цепочки обещаний",
+      "assistantCanon": "Канонические несоответствия"
     },
     "quality-critic": {
       "title": "Критик",

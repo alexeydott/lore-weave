@@ -187,7 +187,19 @@
       "detectOk": "খোলা: {{opened}} · পরিশোধিত: {{paid}}",
       "detectFailed": "বিশ্লেষণ পাস ব্যর্থ — আবার চেষ্টা করুন।",
       "needModel": "প্রথমে ডিফল্ট সহ-লেখক মডেল বেছে নিন (সহ-লেখক চ্যাট সেটিংস)।",
-      "untitled": "(শিরোনামহীন)"
+      "untitled": "(শিরোনামহীন)",
+      "backfillCta": "রেজিস্টারে যোগ করুন",
+      "assistantCta": "অধ্যায়ের AI বিশ্লেষণ",
+      "assistantRunning": "AI অধ্যায় বিশ্লেষণ করছে…",
+      "assistantFailed": "AI বিশ্লেষণ ব্যর্থ হয়েছে।",
+      "assistantPromises": "প্রস্তাবিত প্রমিস ({{count}})",
+      "adopt": "রেজিস্টারে",
+      "adoptAll": "সব রেজিস্টারে",
+      "adopted": "প্রমিস রেজিস্টারে যোগ হয়েছে।",
+      "adoptedAll": "রেজিস্টারে যোগ হওয়া প্রমিস: {{count}}",
+      "assistantCritic": "সমালোচকের নোট",
+      "assistantChains": "প্রমিস শৃঙ্খল",
+      "assistantCanon": "ক্যানন অসঙ্গতি"
     },
     "quality-critic": {
       "title": "সমালোচক",

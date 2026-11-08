@@ -187,7 +187,19 @@
       "detectOk": "افتُتح: {{opened}} · سُدّد: {{paid}}",
       "detectFailed": "فشلت جولة التحليل — حاول مجددًا.",
       "needModel": "اختر أولًا نموذج الكتابة المشتركة الافتراضي (إعدادات دردشة الكتابة المشتركة).",
-      "untitled": "(بدون عنوان)"
+      "untitled": "(بدون عنوان)",
+      "backfillCta": "أضف إلى السجل",
+      "assistantCta": "تحليل الفصل بالذكاء الاصطناعي",
+      "assistantRunning": "الذكاء الاصطناعي يحلل الفصل…",
+      "assistantFailed": "فشل تحليل الذكاء الاصطناعي.",
+      "assistantPromises": "وعود مقترحة ({{count}})",
+      "adopt": "إلى السجل",
+      "adoptAll": "الكل إلى السجل",
+      "adopted": "أُضيف الوعد إلى السجل.",
+      "adoptedAll": "الوعود المضافة إلى السجل: {{count}}",
+      "assistantCritic": "ملاحظات الناقد",
+      "assistantChains": "سلاسل الوعود",
+      "assistantCanon": "تناقضات القانون"
     },
     "quality-critic": {
       "title": "الناقد",

@@ -187,7 +187,19 @@
       "detectOk": "Opened: {{opened}} · paid off: {{paid}}",
       "detectFailed": "The analysis pass failed — try again.",
       "needModel": "Pick a default co-author model first (settings of the co-author chat).",
-      "untitled": "(untitled)"
+      "untitled": "(untitled)",
+      "backfillCta": "Add to ledger",
+      "assistantCta": "AI analysis",
+      "assistantRunning": "AI is analyzing the chapter…",
+      "assistantFailed": "The AI analysis failed.",
+      "assistantPromises": "Proposed promises ({{count}})",
+      "adopt": "To ledger",
+      "adoptAll": "All to ledger",
+      "adopted": "The promise was added to the ledger.",
+      "adoptedAll": "Promises added to the ledger: {{count}}",
+      "assistantCritic": "Critic notes",
+      "assistantChains": "Promise chains",
+      "assistantCanon": "Canon inconsistencies"
     },
     "quality-critic": {
       "title": "Critic",

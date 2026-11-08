@@ -187,7 +187,19 @@
       "detectOk": "Mở: {{opened}} · tất toán: {{paid}}",
       "detectFailed": "Lượt phân tích thất bại — thử lại nhé.",
       "needModel": "Trước tiên hãy chọn mô hình đồng sáng tác mặc định (cài đặt chat đồng sáng tác).",
-      "untitled": "(không tiêu đề)"
+      "untitled": "(không tiêu đề)",
+      "backfillCta": "Thêm vào sổ",
+      "assistantCta": "Phân tích chương bằng AI",
+      "assistantRunning": "AI đang phân tích chương…",
+      "assistantFailed": "Phân tích AI thất bại.",
+      "assistantPromises": "Lời hứa đề xuất ({{count}})",
+      "adopt": "Vào sổ",
+      "adoptAll": "Tất cả vào sổ",
+      "adopted": "Đã thêm lời hứa vào sổ.",
+      "adoptedAll": "Số lời hứa đã thêm: {{count}}",
+      "assistantCritic": "Nhận xét của phản biện",
+      "assistantChains": "Chuỗi lời hứa",
+      "assistantCanon": "Mâu thuẫn chính tắc"
     },
     "quality-critic": {
       "title": "Chuyên gia",

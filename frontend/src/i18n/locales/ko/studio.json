@@ -186,7 +186,19 @@
       "detectOk": "열림: {{opened}} · 완료: {{paid}}",
       "detectFailed": "분석 패스에 실패했습니다 — 다시 시도하세요.",
       "needModel": "먼저 기본 공동 집필 모델을 선택하세요(공동 집필 채팅 설정).",
-      "untitled": "(제목 없음)"
+      "untitled": "(제목 없음)",
+      "backfillCta": "장부에 추가",
+      "assistantCta": "챕터 AI 분석",
+      "assistantRunning": "AI가 챕터를 분석 중…",
+      "assistantFailed": "AI 분석에 실패했습니다.",
+      "assistantPromises": "제안된 프로미스 ({{count}})",
+      "adopt": "장부로",
+      "adoptAll": "모두 장부로",
+      "adopted": "프로미스가 장부에 추가되었습니다.",
+      "adoptedAll": "장부에 추가된 프로미스: {{count}}",
+      "assistantCritic": "비평가 노트",
+      "assistantChains": "프로미스 사슬",
+      "assistantCanon": "캐논 불일치"
     },
     "quality-critic": {
       "title": "비평",

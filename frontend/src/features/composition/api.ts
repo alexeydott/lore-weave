@@ -4,8 +4,7 @@
 import { apiBase, apiJson } from '../../api';
 import type {
   AutoGeneration, CanonRule, ChapterGeneration, CommitDecomposePayload, CorrectionBody, CorrectionStats,
-  Beat, BookDiagnostics, CanonIssue, ConformanceStatus, DecomposePreview, DeriveBody, DerivativeContextResponse, DivergenceSpecPatch, DivergenceTaxonomy, EntityOverrideRow, GenerationJob, Grounding, GroundingItemType, NarrativeThread, OutlineNode, OutlineSearchHit, PinAction, ProgressStats, PublishGate, ReferenceList, ReferenceSearch, ReferenceSource, RuleViolationItem, SceneLink, SceneLinkKind, StructureTemplate, StyleProfile, StyleScope, VoiceProfile, Work, WorkResolution,
-} from './types';
+  Beat, BookDiagnostics, CanonIssue, ConformanceStatus, DecomposePreview, DeriveBody, DerivativeContextResponse, DivergenceSpecPatch, DivergenceTaxonomy, EntityOverrideRow, GenerationJob, Grounding, GroundingItemType, NarrativeThread, OutlineNode, OutlineSearchHit, PinAction, ProgressStats, PublishGate, ReferenceList, ReferenceSearch, ReferenceSource, RuleViolationItem, SceneLink, SceneLinkKind, StructureTemplate, StyleProfile, StyleScope, VoiceProfile, Work, WorkResolution, ThreadsAssistantReport } from './types';
 import type { MotifBindingsResponse } from './motif/types';
 
 // A3 decompose preview request (cycle 13).
@@ -573,6 +572,35 @@ export const compositionApi = {
     token: string,
   ): Promise<{ opened: number; paid: number; status: string }> {
     return apiJson(`${BASE}/works/${projectId}/threads/detect`, {
+      method: 'POST', token,
+      body: JSON.stringify(body),
+    });
+  },
+
+  /**
+   * #user-report 2026-11-08 — the «Обещания» ИИ-помощник: ONE analysis pass
+   * over a chapter returning a STRUCTURED report (proposed unclosed promises,
+   * critic notes, promise chains, canon-rule inconsistencies). READ-ONLY —
+   * adoption into the ledger is the separate threadsAdopt call.
+   */
+  async threadsAssistant(
+    projectId: string,
+    body: { chapter_id: string; model_source: string; model_ref: string },
+    token: string,
+  ): Promise<ThreadsAssistantReport> {
+    return apiJson(`${BASE}/works/${projectId}/threads/assistant`, {
+      method: 'POST', token,
+      body: JSON.stringify(body),
+    });
+  },
+
+  /** Adopt assistant-proposed promises into the ledger (open rows). */
+  async threadsAdopt(
+    projectId: string,
+    body: { items: Array<{ kind: string; summary: string }> },
+    token: string,
+  ): Promise<{ created: number }> {
+    return apiJson(`${BASE}/works/${projectId}/threads/adopt`, {
       method: 'POST', token,
       body: JSON.stringify(body),
     });
