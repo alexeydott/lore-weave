@@ -574,6 +574,7 @@ export const compositionApi = {
     return apiJson(`${BASE}/works/${projectId}/threads/detect`, {
       method: 'POST', token,
       body: JSON.stringify(body),
+      timeoutMs: 180_000, // the detection pass is a long LLM job (40-90s live)
     });
   },
 
@@ -591,6 +592,7 @@ export const compositionApi = {
     return apiJson(`${BASE}/works/${projectId}/threads/assistant`, {
       method: 'POST', token,
       body: JSON.stringify(body),
+      timeoutMs: 180_000, // the assistant pass is a long LLM job
     });
   },
 

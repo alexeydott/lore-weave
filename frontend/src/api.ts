@@ -99,7 +99,7 @@ const MAX_PLAIN_TEXT_MESSAGE = 200;
 // Keep this bounded so callers can render an actionable error and offer retry.
 const API_REQUEST_TIMEOUT_MS = 20_000;
 
-async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs = API_REQUEST_TIMEOUT_MS): Promise<Response> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
@@ -107,7 +107,7 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit): Pr
       new Promise<Response>((_, reject) => {
         timer = setTimeout(
           () => reject(Object.assign(new Error('Request timed out'), { code: 'REQUEST_TIMEOUT' })),
-          API_REQUEST_TIMEOUT_MS,
+          timeoutMs,
         );
       }),
     ]);
@@ -127,7 +127,7 @@ export function isPlainTextMessage(text: string): boolean {
 
 export async function apiJson<T>(
   path: string,
-  init: RequestInit & { token?: string | null } = {},
+  init: RequestInit & { token?: string | null; timeoutMs?: number } = {},
   retried = false,
 ): Promise<T> {
   const method = (init.method ?? 'GET').toUpperCase();
@@ -147,7 +147,7 @@ export async function apiJson<T>(
   if (init.token) {
     headers.Authorization = `Bearer ${init.token}`;
   }
-  const res = await fetchWithTimeout(`${base()}${path}`, { ...init, headers });
+  const res = await fetchWithTimeout(`${base()}${path}`, { ...init, headers }, init.timeoutMs);
   if (res.status === 204) {
     return undefined as T;
   }

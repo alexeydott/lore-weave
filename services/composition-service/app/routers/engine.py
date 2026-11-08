@@ -10,6 +10,7 @@ ACTIVE canon at call time. CC4: a critic failure degrades, never blocks.
 from __future__ import annotations
 
 import json
+import re
 import logging
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -526,7 +527,7 @@ async def threads_assistant(
         input={
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "response_format": {"type": "text"}, "temperature": 0.0,
-                "max_tokens": body.max_output_tokens or 4096,
+                "max_tokens": body.max_output_tokens or 8192,
             **no_thinking_fields(),
         },
         job_meta={"usage_purpose": "threads_assistant", "extractor": "threads_assistant"},
@@ -534,12 +535,63 @@ async def threads_assistant(
     from app.clients.eval_client import extract_judge_content
 
     raw = extract_judge_content(job.result) or ""
-    try:
-        report = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
-    except Exception:
+
+    def _largest_json_object(text: str) -> str | None:
+        """The largest balanced {..} block (brace-depth scan, strings respected).
+        A plain first-{..last-} slice breaks when the model adds prose with stray
+        braces or wraps the JSON in commentary."""
+        depth = 0
+        start = None
+        in_str = False
+        esc = False
+        best = None
+        for i, ch in enumerate(text):
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = not in_str
+            elif not in_str:
+                if ch == "{":
+                    if depth == 0:
+                        start = i
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0 and start is not None:
+                        cand = text[start:i + 1]
+                        if best is None or len(cand) > len(best):
+                            best = cand
+                        start = None
+        return best
+
+    def _parse_report(text: str) -> dict[str, Any] | None:
+        cleaned = text.strip()
+        # markdown fences first
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"```\s*$", "", cleaned).strip()
+        for candidate in (cleaned,):
+            try:
+                return json.loads(candidate)
+            except Exception:
+                pass
+        block = _largest_json_object(cleaned)
+        if block:
+            try:
+                return json.loads(block)
+            except Exception:
+                pass
+        return None
+
+    report = _parse_report(raw)
+    if report is None:
         logger.warning("threads_assistant: non-JSON report (len=%d)", len(raw))
         return {"promises": [], "paid": [], "chains": [], "critic": [raw[:2000]] if raw.strip() else [],
                 "canon_issues": [], "degraded": True}
+    if not isinstance(report, dict):
+        logger.warning("threads_assistant: report is not an object (%s)", type(report).__name__)
+        return {"promises": [], "paid": [], "chains": [], "critic": [], "canon_issues": [], "degraded": True}
 
     report["canon_rules_checked"] = len(rules_ctx)
     report["open_ledger_count"] = len(open_ctx)
