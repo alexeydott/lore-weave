@@ -178,7 +178,16 @@
     "quality-promises": {
       "title": "Promessas",
       "desc": "O livro de débitos de promessas em aberto (preparações ainda não resolvidas)",
-      "guideBody": "Promessas é o seu livro de débitos narrativos — cada preparação que a história fez e ainda não foi cumprida. Uma promessa se abre onde você a planta (uma traição sugerida, uma arma carregada, uma cicatriz inexplicada) e se fecha onde o manuscrito a cumpre. Trabalhe a lista até o fim antes de terminar um livro; qualquer coisa que ainda estiver aberta no final é um fio que os leitores notarão que você abandonou."
+      "guideBody": "Promessas é o seu livro de débitos narrativos — cada preparação que a história fez e ainda não foi cumprida. Uma promessa se abre onde você a planta (uma traição sugerida, uma arma carregada, uma cicatriz inexplicada) e se fecha onde o manuscrito a cumpre. Trabalhe a lista até o fim antes de terminar um livro; qualquer coisa que ainda estiver aberta no final é um fio que os leitores notarão que você abandonou.",
+      "enableCta": "Ativar o rastreamento de promessas",
+      "enabling": "Ativando…",
+      "enableFailed": "Não foi possível ativar o rastreamento de promessas.",
+      "analyzeCta": "Analisar capítulo",
+      "analyzing": "Analisando…",
+      "detectOk": "Abertas: {{opened}} · quitadas: {{paid}}",
+      "detectFailed": "A passada de análise falhou — tente novamente.",
+      "needModel": "Escolha antes um modelo de coautoria padrão (ajustes do chat de coautoria).",
+      "untitled": "(sem título)"
     },
     "quality-critic": {
       "title": "Crítico",

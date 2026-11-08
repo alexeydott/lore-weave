@@ -561,6 +561,22 @@ export const compositionApi = {
   selectionEditUrl(projectId: string): string {
     return `${apiBase()}${BASE}/works/${projectId}/selection-edit`;
   },
+  /**
+   * #user-report 2026-11-08 — run the promise-detection pass over an
+   * ALREADY-WRITTEN chapter (the ledger's only writer was the post-generation
+   * hook). Requires the Work's narrative_thread_enabled gate ON; spends the
+   * co-author model's tokens; returns {opened, paid, status}.
+   */
+  async detectThreads(
+    projectId: string,
+    body: { chapter_id: string; model_source: string; model_ref: string },
+    token: string,
+  ): Promise<{ opened: number; paid: number; status: string }> {
+    return apiJson(`${BASE}/works/${projectId}/threads/detect`, {
+      method: 'POST', token,
+      body: JSON.stringify(body),
+    });
+  },
   // V1 slice 3 — auto (diverge→converge): NON-streaming POST that returns the
   // winner + all K candidate texts (the human-gate cards).
   async generateAuto(projectId: string, params: AutoGenerateParams, token: string): Promise<AutoGeneration> {

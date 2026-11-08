@@ -178,7 +178,16 @@
     "quality-promises": {
       "title": "Promesses",
       "desc": "Le registre des dettes de promesses en suspens (les éléments installés non encore résolus)",
-      "guideBody": "Les Promesses constituent votre grand livre de dettes narratives — chaque indice posé par l'histoire et non encore honoré. Une promesse s'ouvre là où vous la plantez (une trahison suggérée, une arme chargée, une cicatrice inexpliquée) et se ferme là où le manuscrit la concrétise. Épuisez cette liste avant de terminer un livre ; tout ce qui reste ouvert à la fin est un fil que les lecteurs remarqueront avoir abandonné."
+      "guideBody": "Les Promesses constituent votre grand livre de dettes narratives — chaque indice posé par l'histoire et non encore honoré. Une promesse s'ouvre là où vous la plantez (une trahison suggérée, une arme chargée, une cicatrice inexpliquée) et se ferme là où le manuscrit la concrétise. Épuisez cette liste avant de terminer un livre ; tout ce qui reste ouvert à la fin est un fil que les lecteurs remarqueront avoir abandonné.",
+      "enableCta": "Activer le suivi des promesses",
+      "enabling": "Activation…",
+      "enableFailed": "Impossible d'activer le suivi des promesses.",
+      "analyzeCta": "Analyser le chapitre",
+      "analyzing": "Analyse…",
+      "detectOk": "Ouvertes : {{opened}} · soldées : {{paid}}",
+      "detectFailed": "La passe d'analyse a échoué — réessayez.",
+      "needModel": "Choisissez d'abord un modèle de co-écriture par défaut (réglages du chat de co-écriture).",
+      "untitled": "(sans titre)"
     },
     "quality-critic": {
       "title": "Critique",

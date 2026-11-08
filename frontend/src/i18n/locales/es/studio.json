@@ -178,7 +178,16 @@
     "quality-promises": {
       "title": "Promesas",
       "desc": "El registro de deuda de promesas abiertas (preparaciones aún no resueltas)",
-      "guideBody": "Promesas es tu libro de contabilidad de deuda narrativa: cada preparación que la historia ha planteado y que aún no se ha saldado. Una promesa se abre donde la siembras (una traición insinuada, un arma cargada, una cicatriz sin explicar) y se cierra donde el manuscrito la cumple. Agota la lista antes de terminar un libro; cualquier cosa que siga abierta al final es un hilo que los lectores notarán que has abandonado."
+      "guideBody": "Promesas es tu libro de contabilidad de deuda narrativa: cada preparación que la historia ha planteado y que aún no se ha saldado. Una promesa se abre donde la siembras (una traición insinuada, un arma cargada, una cicatriz sin explicar) y se cierra donde el manuscrito la cumple. Agota la lista antes de terminar un libro; cualquier cosa que siga abierta al final es un hilo que los lectores notarán que has abandonado.",
+      "enableCta": "Activar el seguimiento de promesas",
+      "enabling": "Activando…",
+      "enableFailed": "No se pudo activar el seguimiento de promesas.",
+      "analyzeCta": "Analizar capítulo",
+      "analyzing": "Analizando…",
+      "detectOk": "Abiertas: {{opened}} · cerradas: {{paid}}",
+      "detectFailed": "La pasada de análisis falló — inténtalo de nuevo.",
+      "needModel": "Elige primero un modelo de coautoría predeterminado (ajustes del chat de coautoría).",
+      "untitled": "(sin título)"
     },
     "quality-critic": {
       "title": "Crítico",

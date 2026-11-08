@@ -178,7 +178,16 @@
     "quality-promises": {
       "title": "Lời hứa",
       "desc": "Sổ nợ các lời hứa chưa thực hiện (các tình tiết cài cắm chưa được giải quyết)",
-      "guideBody": "Lời hứa là sổ cái nợ tự sự của bạn — mọi sự thiết lập mà câu chuyện đã tạo ra nhưng chưa được giải quyết. Một lời hứa mở ra khi bạn gieo nó (một sự phản bội được gợi ý, một khẩu súng đã nạp đạn, một vết sẹo không lời giải thích) và đóng lại khi bản thảo thực hiện nó. Hãy xử lý hết danh sách này trước khi bạn hoàn thành một cuốn sách; bất cứ điều gì vẫn còn bỏ ngỏ ở cuối truyện là một sợi dây mà độc giả sẽ nhận ra bạn đã bỏ lơ."
+      "guideBody": "Lời hứa là sổ cái nợ tự sự của bạn — mọi sự thiết lập mà câu chuyện đã tạo ra nhưng chưa được giải quyết. Một lời hứa mở ra khi bạn gieo nó (một sự phản bội được gợi ý, một khẩu súng đã nạp đạn, một vết sẹo không lời giải thích) và đóng lại khi bản thảo thực hiện nó. Hãy xử lý hết danh sách này trước khi bạn hoàn thành một cuốn sách; bất cứ điều gì vẫn còn bỏ ngỏ ở cuối truyện là một sợi dây mà độc giả sẽ nhận ra bạn đã bỏ lơ.",
+      "enableCta": "Bật theo dõi lời hứa",
+      "enabling": "Đang bật…",
+      "enableFailed": "Không thể bật theo dõi lời hứa.",
+      "analyzeCta": "Phân tích chương",
+      "analyzing": "Đang phân tích…",
+      "detectOk": "Mở: {{opened}} · tất toán: {{paid}}",
+      "detectFailed": "Lượt phân tích thất bại — thử lại nhé.",
+      "needModel": "Trước tiên hãy chọn mô hình đồng sáng tác mặc định (cài đặt chat đồng sáng tác).",
+      "untitled": "(không tiêu đề)"
     },
     "quality-critic": {
       "title": "Chuyên gia",

@@ -178,7 +178,16 @@
     "quality-promises": {
       "title": "Vaatler",
       "desc": "Açık vaat borcu defteri (henüz sonuçlanmamış kurgusal hazırlıklar)",
-      "guideBody": "Vaatler, anlatısal borç defterinizdir — hikayenin oluşturduğu ve henüz ödenmemiş her bir kurulum. Bir vaat, onu yerleştirdiğiniz yerde (ima edilen bir ihanet, dolu bir silah, açıklanmamış bir yara) açılır ve taslak metin onu yerine getirdiğinde kapanır. Bir kitabı bitirmeden önce listeyi temizleyin; sonunda hala açık olan her şey, okuyucuların gözden kaçırdığınızı fark edeceği bir izdir."
+      "guideBody": "Vaatler, anlatısal borç defterinizdir — hikayenin oluşturduğu ve henüz ödenmemiş her bir kurulum. Bir vaat, onu yerleştirdiğiniz yerde (ima edilen bir ihanet, dolu bir silah, açıklanmamış bir yara) açılır ve taslak metin onu yerine getirdiğinde kapanır. Bir kitabı bitirmeden önce listeyi temizleyin; sonunda hala açık olan her şey, okuyucuların gözden kaçırdığınızı fark edeceği bir izdir.",
+      "enableCta": "Söz takibini etkinleştir",
+      "enabling": "Etkinleştiriliyor…",
+      "enableFailed": "Söz takibi etkinleştirilemedi.",
+      "analyzeCta": "Bölümü analiz et",
+      "analyzing": "Analiz ediliyor…",
+      "detectOk": "Açılan: {{opened}} · kapatılan: {{paid}}",
+      "detectFailed": "Analiz geçişi başarısız — tekrar deneyin.",
+      "needModel": "Önce varsayılan ortak yazar modeli seçin (ortak yazar sohbeti ayarları).",
+      "untitled": "(başlıksız)"
     },
     "quality-critic": {
       "title": "Eleştirmen",

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { X } from 'lucide-react';
-import { useAuth } from '@/auth';
+import { useAuthOptional } from '@/auth';
 import { defaultModelsApi, CHAT_CAPABILITY } from '@/features/settings/api';
 import { useWorkResolution } from '../hooks/useWork';
 import { useActiveWorkId } from '../hooks/useActiveWork';
@@ -26,7 +26,8 @@ import { patchForRole, roleRef } from '../modelRoles';
  */
 export function WorkDefaultModelPrompt({ bookId }: { bookId: string }) {
   const { t } = useTranslation('composition');
-  const { accessToken } = useAuth();
+  // Degrades outside a provider (isolated renders/tests): no token → no offer.
+  const { accessToken } = useAuthOptional() ?? { accessToken: null };
   const resolution = useWorkResolution(bookId, accessToken);
   const { data: activeWorkId } = useActiveWorkId(bookId, accessToken);
   const work = resolveActiveWork(resolution.data, activeWorkId);

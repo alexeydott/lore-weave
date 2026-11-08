@@ -178,7 +178,16 @@
     "quality-promises": {
       "title": "Versprechen",
       "desc": "Das Register der offenen Versprechen (Setups, die noch nicht aufgelöst wurden)",
-      "guideBody": "Versprechen sind Ihr Buchhaltungssystem für narrative Schulden – jedes Setup, das die Geschichte etabliert hat, aber noch nicht eingelöst wurde. Ein Versprechen wird dort eröffnet, wo Sie es platzieren (ein angedeuteter Verrat, eine geladene Waffe, eine unerklärliche Narbe), und geschlossen, wo das Manuskript es erfüllt. Arbeiten Sie die Liste ab, bevor Sie ein Buch beenden; alles, was am Ende noch offen ist, ist ein Faden, den die Leser als vernachlässigt wahrnehmen werden."
+      "guideBody": "Versprechen sind Ihr Buchhaltungssystem für narrative Schulden – jedes Setup, das die Geschichte etabliert hat, aber noch nicht eingelöst wurde. Ein Versprechen wird dort eröffnet, wo Sie es platzieren (ein angedeuteter Verrat, eine geladene Waffe, eine unerklärliche Narbe), und geschlossen, wo das Manuskript es erfüllt. Arbeiten Sie die Liste ab, bevor Sie ein Buch beenden; alles, was am Ende noch offen ist, ist ein Faden, den die Leser als vernachlässigt wahrnehmen werden.",
+      "enableCta": "Versprechen-Verfolgung aktivieren",
+      "enabling": "Aktiviere…",
+      "enableFailed": "Die Versprechen-Verfolgung konnte nicht aktiviert werden.",
+      "analyzeCta": "Kapitel analysieren",
+      "analyzing": "Analysiere…",
+      "detectOk": "Geöffnet: {{opened}} · beglichen: {{paid}}",
+      "detectFailed": "Der Analyse-Durchlauf ist fehlgeschlagen — bitte erneut versuchen.",
+      "needModel": "Wählen Sie zuerst ein Standard-Koautorenmodell (Einstellungen des Koautoren-Chats).",
+      "untitled": "(ohne Titel)"
     },
     "quality-critic": {
       "title": "Kritiker",

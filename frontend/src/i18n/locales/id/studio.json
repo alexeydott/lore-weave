@@ -178,7 +178,16 @@
     "quality-promises": {
       "title": "Janji",
       "desc": "Daftar utang janji yang belum terpenuhi (setup yang belum diselesaikan)",
-      "guideBody": "Janji adalah buku besar utang naratif Anda — setiap petunjuk yang telah dibuat cerita dan belum dibayar lunas. Sebuah janji dimulai saat Anda menanamnya (pengkhianatan yang disinggung, pistol yang terisi, bekas luka yang tak terjelaskan) dan ditutup saat naskah menepatinya. Selesaikan daftar ini sebelum Anda menyelesaikan buku; apa pun yang masih terbuka di akhir adalah alur yang akan disadari pembaca telah Anda abaikan."
+      "guideBody": "Janji adalah buku besar utang naratif Anda — setiap petunjuk yang telah dibuat cerita dan belum dibayar lunas. Sebuah janji dimulai saat Anda menanamnya (pengkhianatan yang disinggung, pistol yang terisi, bekas luka yang tak terjelaskan) dan ditutup saat naskah menepatinya. Selesaikan daftar ini sebelum Anda menyelesaikan buku; apa pun yang masih terbuka di akhir adalah alur yang akan disadari pembaca telah Anda abaikan.",
+      "enableCta": "Aktifkan pelacakan janji",
+      "enabling": "Mengaktifkan…",
+      "enableFailed": "Pelacakan janji gagal diaktifkan.",
+      "analyzeCta": "Analisis bab",
+      "analyzing": "Menganalisis…",
+      "detectOk": "Dibuka: {{opened}} · dilunasi: {{paid}}",
+      "detectFailed": "Putaran analisis gagal — coba lagi.",
+      "needModel": "Pilih dulu model co-author bawaan (pengaturan obrolan co-author).",
+      "untitled": "(tanpa judul)"
     },
     "quality-critic": {
       "title": "Kritikus",

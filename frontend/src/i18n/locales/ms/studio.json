@@ -178,7 +178,18 @@
     "quality-promises": {
       "title": "Janji",
       "desc": "Lejar hutang janji terbuka (set-up yang belum diselesaikan)",
-      "guideBody": "Janji adalah lejar hutang naratif anda — setiap petunjuk yang telah dibuat oleh cerita tetapi belum dijelaskan. Sebuah janji bermula di mana anda menanamnya (pengkhianatan yang dibayangkan, pistol yang berisi peluru, parut yang tidak dijelaskan) dan berakhir apabila manuskrip menunaikannya. Selesaikan senarai ini sebelum anda menamatkan buku; apa sahaja yang masih terbuka di penghujung cerita adalah plot yang akan disedari pembaca sebagai sesuatu yang terbiar."
+      "guideBody": "Janji adalah lejar hutang naratif anda — setiap petunjuk yang telah dibuat oleh cerita tetapi belum dijelaskan. Sebuah janji bermula di mana anda menanamnya (pengkhianatan yang dibayangkan, pistol yang berisi peluru, parut yang tidak dijelaskan) dan berakhir apabila manuskrip menunaikannya. Selesaikan senarai ini sebelum anda menamatkan buku; apa sahaja yang masih terbuka di penghujung cerita adalah plot yang akan disedari pembaca sebagai sesuatu yang terbiar.",
+      "scan": "Cari pendua",
+      "scanning": " Mengimbas…",
+      "enableCta": "Aktifkan penjejakan janji",
+      "enabling": "Mengaktifkan…",
+      "enableFailed": "Penjejakan janji gagal diaktifkan.",
+      "analyzeCta": "Analisis bab",
+      "analyzing": "Menganalisis…",
+      "detectOk": "Dibuka: {{opened}} · dilunasi: {{paid}}",
+      "detectFailed": "Pusingan analisis gagal — cuba lagi.",
+      "needModel": "Pilih model penulis bersama lalai dahulu (tetapan sembang penulis bersama).",
+      "untitled": "(tanpa tajuk)"
     },
     "quality-critic": {
       "title": "Pengkritik",
