@@ -37,6 +37,7 @@ vi.mock('@/components/model-picker', () => ({
   ModelPicker: ({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) => (
     <button data-testid="stub-model-picker" data-value={value ?? ''} onClick={() => onChange('model-1')}>pick</button>
   ),
+  useUserModels: () => ({ models: [{ user_model_id: 'model-1', alias: 'm1', provider_model_name: 'm1' }] }),
 }));
 
 import { QualityCriticPanel } from '../QualityCriticPanel';

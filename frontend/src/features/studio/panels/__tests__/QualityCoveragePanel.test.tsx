@@ -28,8 +28,9 @@ vi.mock('@/features/composition/components/BookPromiseCoverageSection', () => ({
 
 vi.mock('@/components/model-picker', () => ({
   ModelPicker: ({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) => (
-    <button data-testid="stub-model-picker" data-value={value ?? ''} onClick={() => onChange('model-1')}>pick</button>
+    <button data-testid="stub-model-picker" data-value={value ?? ''} onClick={() => onChange('model-2')}>pick</button>
   ),
+  useUserModels: () => ({ models: [{ user_model_id: 'model-1', alias: 'm1', provider_model_name: 'm1' }] }),
 }));
 
 import { QualityCoveragePanel } from '../QualityCoveragePanel';
@@ -64,9 +65,13 @@ describe('QualityCoveragePanel', () => {
       data: { status: 'found', work: { project_id: 'proj-1' } },
     });
     withHost('b1');
-    expect(screen.getByTestId('stub-coverage-section')).toHaveAttribute('data-model', '');
-    fireEvent.click(screen.getByTestId('stub-model-picker'));
+    // The panel inherits the model cascade (the useUserModels stub's model-1)
+    // instead of starting empty — the empty start silently disabled the tool's
+    // Run button with no hint (#user-report 2026-11-08).
     expect(screen.getByTestId('stub-coverage-section')).toHaveAttribute('data-model', 'model-1');
+    fireEvent.click(screen.getByTestId('stub-model-picker'));
+    // An explicit picker re-selection overrides the inherited cascade value.
+    expect(screen.getByTestId('stub-coverage-section')).toHaveAttribute('data-model', 'model-2');
     expect(screen.getByTestId('stub-coverage-section')).toHaveAttribute('data-project', 'proj-1');
   });
 

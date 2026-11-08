@@ -15,7 +15,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
-import { ModelPicker } from '@/components/model-picker';
+import { ModelPicker, useUserModels } from '@/components/model-picker';
+import { useEffectiveModel } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 import { booksApi } from '@/features/books/api';
 import { addTextSnapshots } from '@/lib/tiptap-utils';
 import { PolishPanel } from '@/features/composition/components/PolishPanel';
@@ -61,6 +62,14 @@ export function QualityHealPanel(props: IDockviewPanelProps) {
   const { accessToken } = useAuth();
   const work = useQualityWork(host.bookId, accessToken);
   const [modelRef, setModelRef] = useState('');
+  // #user-report 2026-11-08 — inherit the model cascade (session ▸ Work ▸
+  // account, resolved server-side) instead of starting EMPTY: the empty state
+  // silently disabled the tool's Run button with no hint. The picker still
+  // allows a re-selection (changes propagate via the shared invalidation).
+  const modelsQ = useUserModels({ capability: 'chat' });
+  const firstChatModel = modelsQ.models?.[0]?.user_model_id ?? '';
+  const cascadeModel = useEffectiveModel('chat') ?? firstChatModel;
+
   const [chapterId, setChapterId] = useState('');
 
   const chaptersQ = useQuery({
@@ -126,7 +135,7 @@ export function QualityHealPanel(props: IDockviewPanelProps) {
         )}
         <ModelPicker
           capability="chat"
-          value={modelRef || null}
+          value={modelRef || cascadeModel || null}
           onChange={(id) => setModelRef(id ?? '')}
           placeholder={t('quality.pickModel', { defaultValue: 'Pick a model to analyze with…' })}
           compact
@@ -137,7 +146,7 @@ export function QualityHealPanel(props: IDockviewPanelProps) {
           projectId={work.projectId}
           chapterId={chapterId}
           token={accessToken}
-          modelRef={modelRef}
+          modelRef={modelRef || cascadeModel}
           onApply={onApply}
         />
       ) : (

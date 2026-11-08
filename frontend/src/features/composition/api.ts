@@ -740,6 +740,7 @@ export const compositionApi = {
           prefilter: body.prefilter ?? true,
           rerank: body.rerank ?? false,   // opt-in (extra cost); default OFF
         }),
+          timeoutMs: 180_000, // an LLM analysis pass is a long job
       },
     );
     return _resolveJob(resp, token, (job) => ({
@@ -762,6 +763,7 @@ export const compositionApi = {
           chapter_id: body.chapterId,
           model_source: body.modelSource ?? 'user_model', model_ref: body.modelRef,
         }),
+          timeoutMs: 180_000, // an LLM analysis pass is a long job
       },
     );
     return _resolveJob(resp, token, (job) => ({
@@ -782,6 +784,7 @@ export const compositionApi = {
         body: JSON.stringify({
           model_source: body.modelSource ?? 'user_model', model_ref: body.modelRef,
         }),
+          timeoutMs: 180_000, // an LLM analysis pass is a long job
       },
     );
     return _resolveJob(resp, token, (job) => ({

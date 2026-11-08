@@ -31,6 +31,7 @@ vi.mock('@/components/model-picker', () => ({
   ModelPicker: ({ onChange }: { onChange: (v: string | null) => void }) => (
     <button data-testid="stub-model" onClick={() => onChange('m1')}>model</button>
   ),
+  useUserModels: () => ({ models: [{ user_model_id: 'model-1', alias: 'm1', provider_model_name: 'm1' }] }),
 }));
 // Stub PolishPanel: expose the onApply seam so the test can fire it with a known draft_version.
 vi.mock('@/features/composition/components/PolishPanel', () => ({
