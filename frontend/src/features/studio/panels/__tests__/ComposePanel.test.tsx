@@ -38,6 +38,15 @@ vi.mock('../../manuscript/unit/ManuscriptUnitProvider', () => ({
 const ctaState = vi.hoisted(() => ({ value: { showStartDrafting: false } }));
 vi.mock('../useDraftHandoffCta', () => ({ useDraftHandoffCta: () => ctaState.value }));
 
+// #facade — the Work-tier model prompt mounts react-query hooks (work resolution + settings
+// mutation); stub them so these tests need no QueryClient. Its own logic is covered by its
+// dedicated tests.
+vi.mock('@/features/composition/hooks/useWork', () => ({
+  useWorkResolution: () => ({ data: { status: 'unavailable' } }),
+  useActiveWorkId: () => ({ data: null }),
+  useSetWorkSettings: () => ({ mutateAsync: async () => undefined }),
+}));
+
 import { ComposePanel } from '../ComposePanel';
 
 const dockProps = { api: { setTitle: vi.fn() } } as unknown as IDockviewPanelProps;

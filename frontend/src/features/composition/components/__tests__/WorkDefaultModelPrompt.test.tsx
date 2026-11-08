@@ -17,7 +17,10 @@ const { useAuthMock, resolutionMock, activeWorkIdMock, setWorkSettings, getDefau
   listUserModels: vi.fn(),
 }));
 
-vi.mock('@/auth', () => ({ useAuth: () => useAuthMock() }));
+vi.mock('@/auth', () => ({
+  useAuth: () => useAuthMock(),
+  useAuthOptional: () => ({ accessToken: useAuthMock() }),
+}));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('@/components/model-picker', () => ({ ModelPicker: () => null }));
 vi.mock('@/features/settings/api', () => ({
