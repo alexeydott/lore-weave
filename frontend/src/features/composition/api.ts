@@ -568,7 +568,7 @@ export const compositionApi = {
    */
   async detectThreads(
     projectId: string,
-    body: { chapter_id: string; model_source: string; model_ref: string },
+    body: { chapter_id: string; model_source: string; model_ref: string; max_output_tokens?: number },
     token: string,
   ): Promise<{ opened: number; paid: number; status: string }> {
     return apiJson(`${BASE}/works/${projectId}/threads/detect`, {
@@ -585,7 +585,7 @@ export const compositionApi = {
    */
   async threadsAssistant(
     projectId: string,
-    body: { chapter_id: string; model_source: string; model_ref: string },
+    body: { chapter_id: string; model_source: string; model_ref: string; max_output_tokens?: number },
     token: string,
   ): Promise<ThreadsAssistantReport> {
     return apiJson(`${BASE}/works/${projectId}/threads/assistant`, {

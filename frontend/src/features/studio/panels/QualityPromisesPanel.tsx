@@ -24,6 +24,9 @@ import { booksApi } from '@/features/books/api';
 import { compositionApi } from '@/features/composition/api';
 import type { ThreadsAssistantReport } from '@/features/composition/types';
 import { chapterDisplayTitle } from '@/features/studio/manuscript/partsTree';
+import { ModelPicker, useUserModels } from '@/components/model-picker';
+import { useEffectiveModel } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
+import { clampOutputBudget } from '@/lib/outputBudget';
 import { ThreadsPanel } from '@/features/composition/components/ThreadsPanel';
 import { useStudioHost } from '../host/StudioHostProvider';
 import { useStudioPanel } from './useStudioPanel';
@@ -60,6 +63,23 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
   const ntEnabled = activeWork?.settings?.narrative_thread_enabled === true;
 
   const [enabling, setEnabling] = useState(false);
+
+  // ── Model cascade for the detect/assistant passes (#user-report 2026-11-08) ──
+  // Panel-local re-selection ▸ the shared cascade (session ▸ Work ▸ account,
+  // resolved server-side) ▸ the Work's default_model_ref ▸ the first chat model.
+  // A fallback BELOW the cascade tier shows a warning (SET-1..8 — no silent
+  // model choice); the ModelPicker allows the re-selection, and its changes
+  // propagate everywhere via the shared model-picker invalidation.
+  const modelsState = useUserModels({ capability: 'chat' });
+  const modelList = modelsState.models ?? [];
+  const inheritedModel = useEffectiveModel('chat');
+  const [pickedModel, setPickedModel] = useState('');
+  const workDefaultRef = (activeWork?.settings?.default_model_ref as string | undefined) || '';
+  const effectiveModelRef =
+    pickedModel || inheritedModel || workDefaultRef || modelList[0]?.user_model_id || '';
+  const selectedModel = modelList.find((m) => m.user_model_id === effectiveModelRef);
+  const modelFallback = !pickedModel && !inheritedModel;
+  const maxOutputTokens = clampOutputBudget(selectedModel?.max_output_tokens);
   const enableTracking = async () => {
     if (!activeWork || !accessToken || enabling) return;
     setEnabling(true);
@@ -90,13 +110,14 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
   }, [chapters, chapterId]);
   const [analyzing, setAnalyzing] = useState(false);
   const analyzeChapter = async () => {
-    if (!activeWork || !accessToken || !chapterId || !defaultModelRef || analyzing) return;
+    if (!activeWork || !accessToken || !chapterId || !effectiveModelRef || analyzing) return;
     setAnalyzing(true);
     try {
       const r = await compositionApi.detectThreads(activeWork.project_id, {
         chapter_id: chapterId,
         model_source: 'user_model',
-        model_ref: defaultModelRef,
+        model_ref: effectiveModelRef,
+        max_output_tokens: maxOutputTokens ?? undefined,
       }, accessToken);
       if (r.status === 'degraded' || r.status === 'empty') {
         toast.error(t('panels.quality-promises.detectFailed'));
@@ -115,14 +136,15 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
   const [report, setReport] = useState<ThreadsAssistantReport | null>(null);
   const [assistantBusy, setAssistantBusy] = useState(false);
   const runAssistant = async () => {
-    if (!activeWork || !accessToken || !chapterId || !defaultModelRef || assistantBusy) return;
+    if (!activeWork || !accessToken || !chapterId || !effectiveModelRef || assistantBusy) return;
     setAssistantBusy(true);
     setReport(null);
     try {
       const r = await compositionApi.threadsAssistant(activeWork.project_id, {
         chapter_id: chapterId,
         model_source: 'user_model',
-        model_ref: defaultModelRef,
+        model_ref: effectiveModelRef,
+        max_output_tokens: maxOutputTokens ?? undefined,
       }, accessToken);
       setReport(r);
       if (r.degraded) toast.error(t('panels.quality-promises.assistantFailed'));
@@ -204,11 +226,21 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
               </option>
             ))}
           </select>
+          {/* #user-report — the model re-selection lives HERE (the cascade:
+              session ▸ Work ▸ account resolves elsewhere; this picker overrides) */}
+          <ModelPicker
+            capability="chat"
+            compact
+            value={effectiveModelRef || null}
+            onChange={(id) => setPickedModel(id ?? '')}
+            ariaLabel={t('panels.quality-promises.modelAria')}
+            placeholder={t('panels.quality-promises.modelPlaceholder')}
+          />
           <button
             type="button"
             onClick={() => void analyzeChapter()}
-            disabled={analyzing || !chapterId || !defaultModelRef}
-            title={!defaultModelRef ? t('panels.quality-promises.needModel') : undefined}
+            disabled={analyzing || !chapterId || !effectiveModelRef}
+            title={!effectiveModelRef ? t('panels.quality-promises.needModel') : undefined}
             data-testid="quality-promises-analyze"
             className="inline-flex shrink-0 items-center gap-1 rounded-md border px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50"
           >
@@ -218,8 +250,8 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
           <button
             type="button"
             onClick={() => void runAssistant()}
-            disabled={assistantBusy || !chapterId || !defaultModelRef}
-            title={!defaultModelRef ? t('panels.quality-promises.needModel') : undefined}
+            disabled={assistantBusy || !chapterId || !effectiveModelRef}
+            title={!effectiveModelRef ? t('panels.quality-promises.needModel') : undefined}
             data-testid="quality-promises-assistant"
             className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground hover:brightness-110 disabled:opacity-50"
           >
@@ -227,6 +259,15 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
             {assistantBusy ? t('panels.quality-promises.assistantRunning') : t('panels.quality-promises.assistantCta')}
           </button>
         </div>
+        {modelFallback && effectiveModelRef && (
+          <p className="mx-3 mb-2 text-[10px] text-amber-500">
+            {t('panels.quality-promises.modelWarn', {
+              model: selectedModel
+                ? (selectedModel.alias || selectedModel.provider_model_name)
+                : t('panels.quality-promises.needModel'),
+            })}
+          </p>
+        )}
         {assistantBusy && (
           <div className="mx-3 mb-3 flex items-center gap-2 rounded-lg border bg-card p-2 text-xs text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5 animate-spin text-primary" />

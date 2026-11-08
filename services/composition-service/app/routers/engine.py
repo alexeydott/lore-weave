@@ -419,12 +419,17 @@ class ThreadsDetectBody(BaseModel):
     chapter_id: UUID
     model_source: Literal["user_model", "platform_model"] = "user_model"
     model_ref: UUID
+    # #user-report — the model's own output budget (user_models.max_output_tokens,
+    # derived from the context window) threaded from the FE; clamped to the
+    # composition ceiling so an oversized value 422s here, not at the provider.
+    max_output_tokens: int | None = Field(default=None, ge=64, le=SCENE_OUTPUT_CEILING)
 
 
 class ThreadsAssistantBody(BaseModel):
     chapter_id: UUID
     model_source: Literal["user_model", "platform_model"] = "user_model"
     model_ref: UUID
+    max_output_tokens: int | None = Field(default=None, ge=64, le=SCENE_OUTPUT_CEILING)
 
 
 class ThreadsAdoptItem(BaseModel):
@@ -520,7 +525,8 @@ async def threads_assistant(
         model_source=body.model_source, model_ref=body.model_ref,
         input={
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            "response_format": {"type": "text"}, "temperature": 0.0, "max_tokens": 4096,
+            "response_format": {"type": "text"}, "temperature": 0.0,
+                "max_tokens": body.max_output_tokens or 4096,
             **no_thinking_fields(),
         },
         job_meta={"usage_purpose": "threads_assistant", "extractor": "threads_assistant"},
@@ -617,6 +623,7 @@ async def threads_detect(
         scene_text=text, opened_at_node=None,
         drafter_source=body.model_source, drafter_ref=str(body.model_ref),
         source_language="auto",
+        max_tokens=body.max_output_tokens,
     )
     return {"opened": result.opened, "paid": result.paid, "status": result.status}
 
