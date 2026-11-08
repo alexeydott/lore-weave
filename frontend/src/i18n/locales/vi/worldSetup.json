@@ -1,0 +1,56 @@
+{
+  "title": "Thiết lập thế giới",
+  "steps": {
+    "0": "Mô tả",
+    "1": "Duyệt kế hoạch",
+    "2": "Dựng",
+    "3": "Quan hệ"
+  },
+  "blocked": {
+    "intro": "Sách này đã có một lượt thiết lập dở dang, dừng ở bước",
+    "resume": "Tiếp tục lượt đó",
+    "cancel": "Hủy để làm lại"
+  },
+  "describeLabel": "Mô tả câu chuyện của bạn: con người, địa điểm, quyền năng và cách họ liên kết. Mọi thứ đáng theo dõi sẽ được dựng từ điều này.",
+  "describePlaceholder": "Dán hoặc viết mô tả thế giới của bạn…",
+  "planning": "Đang lập kế hoạch…",
+  "planCta": "Lập kế hoạch thế giới của tôi",
+  "pickModel": "Hãy chọn mô hình chat trong Cài đặt trước.",
+  "assist": {
+    "cta": "AI: soạn từ chính sách này",
+    "running": "AI đang soạn mô tả từ sách…",
+    "empty": "AI trả về mô tả trống — thử lại hoặc tự viết.",
+    "failed": "Bản nháp AI thất bại — tự viết hoặc thử lại.",
+    "hasText": "Mô tả đã có nội dung — bản nháp AI sẽ thay thế nó.",
+    "hint": "Soạn mô tả từ các chương của sách này"
+  },
+  "planReviewHint": "Đây là những gì tôi sẽ dựng. Bỏ chọn thứ bạn không muốn — chưa có gì được tạo.",
+  "includeAria": "Bao gồm {{name}}",
+  "deepProfile": "hồ sơ sâu",
+  "buildThese": "Dựng {{count}} mục này",
+  "startOver": "Làm lại từ đầu",
+  "buildingProgress": "Đang dựng {{built}}/{{total}}…",
+  "writingDeepProfile": "đang viết hồ sơ sâu…",
+  "itemStatus": {
+    "draft": "nháp",
+    "planning": "đang lập kế hoạch",
+    "plan_ready": "kế hoạch sẵn sàng",
+    "building": "đang dựng",
+    "proposing": "đang đề xuất",
+    "proposed": "đã đề xuất",
+    "built": "đã dựng",
+    "skipped": "đã bỏ qua",
+    "kg_projecting": "đang chiếu đồ thị",
+    "edges_ready": "quan hệ sẵn sàng",
+    "done": "xong"
+  },
+  "cancel": "Hủy",
+  "filedAsDrafts": "Đã ghi {{count}} mục thành bản nháp để bạn duyệt.",
+  "skippedCount": "Đã bỏ qua {{count}}.",
+  "findingRelationships": "Đang tìm quan hệ…",
+  "findRelationships": "Tìm quan hệ của chúng",
+  "notSearchable": "⚠ {{count}} mục đã lưu nhưng KHÔNG thể tra cứu — người viết không thể xem phần thế giới này khi viết bài.",
+  "unresolvedCount": "{{count}} quan hệ trỏ tới thứ chưa có trong thế giới của bạn",
+  "saveRelationships": "Lưu {{count}} quan hệ",
+  "done": "Xong — thế giới của bạn đã được thiết lập. Đã lưu {{count}} quan hệ."
+}

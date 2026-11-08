@@ -1,0 +1,56 @@
+{
+  "title": "Persediaan dunia",
+  "steps": {
+    "0": "Huraikan",
+    "1": "Semak rancangan",
+    "2": "Bina",
+    "3": "Hubungan"
+  },
+  "blocked": {
+    "intro": "Buku ini sudah ada persediaan yang belum siap, berhenti pada langkah",
+    "resume": "Sambungkan larian itu",
+    "cancel": "Batalkan dan mula semula"
+  },
+  "describeLabel": "Huraikan cerita anda: individu, tempat, kuasa dan bagaimana ia berhubung. Semua yang berbaloi dijejak akan dibina daripadanya.",
+  "describePlaceholder": "Tampal atau tulis huraian dunia anda…",
+  "planning": "Sedang merancang…",
+  "planCta": "Rancang dunia saya",
+  "pickModel": "Pilih model sembang dalam Tetapan dahulu.",
+  "assist": {
+    "cta": "AI: draf dari buku ini",
+    "running": "AI sedang mendraf huraian dari buku…",
+    "empty": "AI memulangkan huraian kosong — cuba lagi atau tulis sendiri.",
+    "failed": "Draf AI gagal — tulis sendiri atau cuba lagi.",
+    "hasText": "Huraian sudah ada teks — draf AI akan menggantinya.",
+    "hint": "Draf huraian daripada bab buku ini"
+  },
+  "planReviewHint": "Inilah yang akan saya bina. Nyahcentang yang tidak dikehendaki — belum ada apa-apa dicipta.",
+  "includeAria": "Sertakan {{name}}",
+  "deepProfile": "profil mendalam",
+  "buildThese": "Bina {{count}} ini",
+  "startOver": "Mula semula",
+  "buildingProgress": "Membina {{built}} daripada {{total}}…",
+  "writingDeepProfile": "menulis profil mendalam…",
+  "itemStatus": {
+    "draft": "draf",
+    "planning": "perancangan",
+    "plan_ready": "rancangan sedia",
+    "building": "dibina",
+    "proposing": "dicadangkan",
+    "proposed": "dicadangkan",
+    "built": "dibina",
+    "skipped": "dilangkau",
+    "kg_projecting": "mentransformasi graf",
+    "edges_ready": "hubungan sedia",
+    "done": "selesai"
+  },
+  "cancel": "Batal",
+  "filedAsDrafts": "{{count}} entri disimpan sebagai draf untuk semakan anda.",
+  "skippedCount": "{{count}} dilangkau.",
+  "findingRelationships": "Mencari hubungan…",
+  "findRelationships": "Cari hubungan mereka",
+  "notSearchable": "⚠ {{count}} entri disimpan tetapi TIDAK boleh dicari — penulis tidak dapat merujuk bahagian dunia ini semasa menulis.",
+  "unresolvedCount": "{{count}} hubungan menunjuk kepada sesuatu yang belum wujud dalam dunia anda",
+  "saveRelationships": "Simpan {{count}} hubungan",
+  "done": "Selesai — dunia anda disediakan. {{count}} hubungan disimpan."
+}

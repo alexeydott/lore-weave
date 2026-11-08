@@ -1,0 +1,56 @@
+{
+  "title": "Welteinstellung",
+  "steps": {
+    "0": "Beschreiben",
+    "1": "Plan prüfen",
+    "2": "Bauen",
+    "3": "Beziehungen"
+  },
+  "blocked": {
+    "intro": "Dieses Buch hat bereits einen halb fertigen Setup-Lauf, gestoppt bei Schritt",
+    "resume": "Diesen Lauf fortsetzen",
+    "cancel": "Abbrechen und neu starten"
+  },
+  "describeLabel": "Beschreiben Sie Ihre Geschichte: die Personen, Orte, Kräfte und wie sie zusammenhängen. Alles nennenswerte wird daraus aufgebaut.",
+  "describePlaceholder": "Beschreibung der Welt einfügen oder schreiben…",
+  "planning": "Plane…",
+  "planCta": "Meine Welt planen",
+  "pickModel": "Wählen Sie zuerst ein Chat-Modell in den Einstellungen.",
+  "assist": {
+    "cta": "KI: aus diesem Buch entwerfen",
+    "running": "Die KI entwirft die Beschreibung aus dem Buch…",
+    "empty": "Die KI hat eine leere Beschreibung geliefert — erneut versuchen oder selbst schreiben.",
+    "failed": "Der KI-Entwurf ist fehlgeschlagen — schreiben Sie ihn selbst oder versuchen Sie es erneut.",
+    "hasText": "Die Beschreibung hat bereits Text — der KI-Entwurf würde ihn ersetzen.",
+    "hint": "Die Beschreibung aus den Kapiteln dieses Buchs entwerfen"
+  },
+  "planReviewHint": "Das würde ich aufbauen. Häkchen entfernen, was Sie nicht wollen — noch wurde nichts erstellt.",
+  "includeAria": "{{name}} einschließen",
+  "deepProfile": "tiefes Profil",
+  "buildThese": "Diese {{count}} bauen",
+  "startOver": "Neu anfangen",
+  "buildingProgress": "Baue {{built}} von {{total}}…",
+  "writingDeepProfile": "schreibe ein tiefes Profil…",
+  "itemStatus": {
+    "draft": "Entwurf",
+    "planning": "Planung",
+    "plan_ready": "Plan bereit",
+    "building": "im Bau",
+    "proposing": "im Vorschlag",
+    "proposed": "vorgeschlagen",
+    "built": "gebaut",
+    "skipped": "übersprungen",
+    "kg_projecting": "Grafik-Projektion",
+    "edges_ready": "Beziehungen bereit",
+    "done": "fertig"
+  },
+  "cancel": "Abbrechen",
+  "filedAsDrafts": "{{count}} Einträge als Entwürfe zur Prüfung hinterlegt.",
+  "skippedCount": "{{count}} übersprungen.",
+  "findingRelationships": "Suche Beziehungen…",
+  "findRelationships": "Ihre Beziehungen finden",
+  "notSearchable": "⚠ {{count}} Einträge gespeichert, aber NICHT auffindbar — der Autor kann diesen Teil der Welt beim Schreiben nicht nachschlagen.",
+  "unresolvedCount": "{{count}} Beziehungen zeigen auf etwas, das noch nicht in Ihrer Welt existiert",
+  "saveRelationships": "{{count}} Beziehungen speichern",
+  "done": "Fertig — Ihre Welt ist eingerichtet. {{count}} Beziehungen gespeichert."
+}

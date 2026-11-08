@@ -1,0 +1,56 @@
+{
+  "title": "World Setup",
+  "steps": {
+    "0": "Describe",
+    "1": "Review plan",
+    "2": "Build",
+    "3": "Relationships"
+  },
+  "blocked": {
+    "intro": "This book already has a half-finished setup run, stopped at the",
+    "resume": "Resume that run",
+    "cancel": "Cancel and start over"
+  },
+  "describeLabel": "Describe your story — the people, places, powers and how they connect. Everything worth tracking gets built from this.",
+  "describePlaceholder": "Paste or write your story description…",
+  "planning": "Planning…",
+  "planCta": "Plan my world",
+  "pickModel": "Pick a chat model in Settings first.",
+  "assist": {
+    "cta": "AI: draft from this book",
+    "running": "AI is drafting the description from the book…",
+    "empty": "The AI returned an empty description — try again or write it yourself.",
+    "failed": "The AI draft failed — write the description yourself or try again.",
+    "hasText": "The description already has text — the AI draft would replace it.",
+    "hint": "Draft the description from this book's own chapters"
+  },
+  "planReviewHint": "Here's what I'd build. Untick anything you don't want — nothing has been created yet.",
+  "includeAria": "Include {{name}}",
+  "deepProfile": "deep profile",
+  "buildThese": "Build these {{count}}",
+  "startOver": "Start over",
+  "buildingProgress": "Building {{built}} of {{total}}…",
+  "writingDeepProfile": "writing a deep profile…",
+  "itemStatus": {
+    "draft": "draft",
+    "planning": "planning",
+    "plan_ready": "plan ready",
+    "building": "building",
+    "proposing": "proposing",
+    "proposed": "proposed",
+    "built": "built",
+    "skipped": "skipped",
+    "kg_projecting": "projecting the graph",
+    "edges_ready": "relationships ready",
+    "done": "done"
+  },
+  "cancel": "Cancel",
+  "filedAsDrafts": "{{count}} entries filed as drafts for your review.",
+  "skippedCount": "{{count}} skipped.",
+  "findingRelationships": "Finding relationships…",
+  "findRelationships": "Find their relationships",
+  "notSearchable": "⚠ {{count}} entries saved but NOT searchable — the writer cannot look this part of your world up while drafting.",
+  "unresolvedCount": "{{count}} relationships point at something not in your world yet",
+  "saveRelationships": "Save {{count}} relationships",
+  "done": "Done — your world is set up. {{count}} relationships saved."
+}

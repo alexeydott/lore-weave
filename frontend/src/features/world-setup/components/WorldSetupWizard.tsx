@@ -4,6 +4,9 @@
 // spend, watches per-item progress honestly (including skips), and approves the
 // relationships before anything is written to the graph.
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Sparkles, Loader2 } from 'lucide-react';
+import { worldSetupApi } from '../api';
 
 import { useWorldSetup } from '../hooks/useWorldSetup';
 import type { BuildEdge, WorklistItem } from '../types';
@@ -14,9 +17,13 @@ interface Props {
   /** BYOK chat model (user-model UUID). Resolved by the caller — never a literal name. */
   modelRef: string | null;
   lang?: string;
+  /** #user-report 2026-11-08 — notified when the ИИ-помощник drafts a description
+   *  (the panel may preselect it in the textarea via its own state). */
+  onDescriptionDrafted?: (text: string) => void;
 }
 
 const STEPS = ['Describe', 'Review plan', 'Build', 'Relationships'] as const;
+// Step labels are locale keys; the array keeps the FSM order.
 
 function stepOf(status: string | undefined): number {
   if (!status || status === 'draft' || status === 'planning') return 0;
@@ -25,7 +32,8 @@ function stepOf(status: string | undefined): number {
   return 3;   // proposed | kg_projecting | edges_ready | done
 }
 
-export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props) {
+export function WorldSetupWizard({ bookId, token, modelRef, lang, onDescriptionDrafted }: Props) {
+  const { t, i18n } = useTranslation('worldSetup');
   const {
     run, busy, error, start, approvePlan, projectKg, approveEdges, cancel, reset,
     blockedBy, adoptBlocking, cancelBlocking,
@@ -33,6 +41,28 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
   const [text, setText] = useState('');
   const [dropped, setDropped] = useState<Set<string>>(new Set());
   const [droppedEdges, setDroppedEdges] = useState<Set<string>>(new Set());
+
+  // #user-report 2026-11-08 — the ИИ-помощник: drafts the world description
+  // from the book's OWN prose into the textarea, so the author reviews/edits
+  // instead of writing from scratch. Read-only until «Plan my world».
+  const [assisting, setAssisting] = useState(false);
+  const [assistError, setAssistError] = useState<string | null>(null);
+  const assistFromBook = async () => {
+    if (!bookId || !token || !modelRef || assisting) return;
+    setAssisting(true);
+    setAssistError(null);
+    try {
+      const r = await worldSetupApi.assistDescription(bookId, {
+        model_ref: modelRef, lang: lang || i18n.language,
+      }, token);
+      if (r.description.trim()) setText(r.description);
+      else setAssistError(t('assist.empty'));
+    } catch (e) {
+      setAssistError((e as Error).message || t('assist.failed'));
+    } finally {
+      setAssisting(false);
+    }
+  };
 
   // A fresh plan clears the previous run's trim selections.
   useEffect(() => { setDropped(new Set()); }, [run?.run_id]);
@@ -95,11 +125,11 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
   return (
     <div data-testid="world-setup-wizard" className="flex h-full min-h-0 flex-col gap-3 p-4">
       <header className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold">World Setup</h3>
+        <h3 className="text-sm font-semibold">{t('title')}</h3>
         <ol className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground">
           {STEPS.map((s, i) => (
             <li key={s} className={i === step ? 'font-semibold text-foreground' : undefined}>
-              {i > 0 && <span className="mx-1">›</span>}{s}
+              {i > 0 && <span className="mx-1">›</span>}{t(`steps.${i}`)}
             </li>
           ))}
         </ol>
@@ -123,9 +153,7 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
           className="flex flex-col gap-2 rounded bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300"
         >
           <p>
-            Cuốn sách này đã có một lượt thiết lập đang dở, dừng ở bước
-            {' '}<strong>{STEPS[stepOf(blockedBy.status)]}</strong>{' '}
-            (<code>{blockedBy.status}</code>). Mỗi sách chỉ chạy được một lượt.
+            {t('blocked.intro', { step: t(`steps.${stepOf(blockedBy.status)}`), code: blockedBy.status })}
           </p>
           <div className="flex gap-2">
             <button
@@ -135,7 +163,7 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
               disabled={busy}
               onClick={adoptBlocking}
             >
-              Tiếp tục lượt đó
+              {t('blocked.resume')}
             </button>
             <button
               type="button"
@@ -144,7 +172,7 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
               disabled={busy}
               onClick={() => void cancelBlocking()}
             >
-              Huỷ để làm lại
+              {t('blocked.cancel')}
             </button>
           </div>
         </div>
@@ -154,8 +182,7 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
       {step === 0 && (
         <div className="flex min-h-0 flex-1 flex-col gap-2">
           <label className="text-xs text-muted-foreground" htmlFor="world-setup-text">
-            Describe your story — the people, places, powers and how they connect.
-            Everything worth tracking gets built from this.
+            {t('describeLabel')}
           </label>
           <textarea
             id="world-setup-text"
@@ -163,7 +190,7 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
             className="min-h-0 flex-1 resize-none rounded border bg-background p-2 text-sm"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Paste or write your story description…"
+            placeholder={t('describePlaceholder')}
           />
           <div className="flex items-center gap-2">
             <button
@@ -171,30 +198,46 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
               data-testid="world-setup-start"
               className="rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50"
               disabled={busy || !text.trim() || !modelRef || !token}
-              onClick={() => modelRef && start(text.trim(), modelRef, lang)}
+              onClick={() => modelRef && start(text.trim(), modelRef, lang || i18n.language)}
             >
-              {busy ? 'Planning…' : 'Plan my world'}
+              {busy ? t('planning') : t('planCta')}
             </button>
             {!modelRef && (
-              <span className="text-xs text-muted-foreground">Pick a chat model in Settings first.</span>
+              <span className="text-xs text-muted-foreground">{t('pickModel')}</span>
             )}
           </div>
+          {/* ИИ-помощник (#user-report 2026-11-08): drafts the description from the
+              book's own prose — read-only until «Plan my world». */}
+          <button
+            type="button"
+            data-testid="world-setup-assist"
+            className="inline-flex items-center gap-1.5 self-start rounded-md border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50"
+            disabled={assisting || !modelRef || Boolean(text.trim())}
+            title={text.trim() ? t('assist.hasText') : t('assist.hint')}
+            onClick={() => void assistFromBook()}
+          >
+            {assisting
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Sparkles className="h-3.5 w-3.5" />}
+            {assisting ? t('assist.running') : t('assist.cta')}
+          </button>
+          {assistError && (
+            <p role="alert" className="text-xs text-destructive">{assistError}</p>
+          )}
         </div>
       )}
 
       {/* ── Step 1 [checkpoint 1]: review + trim the plan BEFORE any spend ── */}
       {step === 1 && (
         <div className="flex min-h-0 flex-1 flex-col gap-2">
-          <p className="text-xs text-muted-foreground">
-            Here's what I'd build. Untick anything you don't want — nothing has been created yet.
-          </p>
+          <p className="text-xs text-muted-foreground">{t('planReviewHint')}</p>
           <ul data-testid="world-setup-worklist" className="min-h-0 flex-1 space-y-1 overflow-auto">
             {(run?.worklist ?? []).map((w) => (
               <li key={w.name} className="flex items-start gap-2 rounded border p-2 text-sm">
                 <input
                   type="checkbox"
                   className="mt-1"
-                  aria-label={`Include ${w.name}`}
+                  aria-label={t('includeAria', { name: w.name })}
                   checked={!dropped.has(w.name)}
                   onChange={() => setDropped((d) => toggle(d, w.name))}
                 />
@@ -202,7 +245,7 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
                   <span className="font-medium">{w.name}</span>
                   <span className="ml-2 text-xs text-muted-foreground">{w.kind}</span>
                   {w.depth === 'deep' && (
-                    <span className="ml-2 rounded bg-primary/10 px-1 text-[10px] text-primary">deep profile</span>
+                    <span className="ml-2 rounded bg-primary/10 px-1 text-[10px] text-primary">{t('deepProfile')}</span>
                   )}
                   {w.why && <span className="block text-xs text-muted-foreground">{w.why}</span>}
                 </span>
@@ -217,10 +260,10 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
               disabled={busy || keptWorklist.length === 0}
               onClick={() => approvePlan(keptWorklist)}
             >
-              Build these {keptWorklist.length}
+              {t('buildThese', { count: keptWorklist.length })}
             </button>
             <button type="button" className="rounded border px-3 py-1.5 text-sm" onClick={reset}>
-              Start over
+              {t('startOver')}
             </button>
           </div>
         </div>
@@ -230,20 +273,22 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
       {step === 2 && (
         <div className="flex min-h-0 flex-1 flex-col gap-2">
           <p data-testid="world-setup-progress" className="text-xs text-muted-foreground">
-            Building {built} of {items.length}…
+            {t('buildingProgress', { built, total: items.length })}
           </p>
           <ul className="min-h-0 flex-1 space-y-1 overflow-auto text-sm">
             {items.map((i) => (
               <li key={i.item_id} className="flex items-center gap-2 rounded border p-2">
                 <span className="min-w-0 flex-1 truncate">{i.name}</span>
                 <span className="text-xs text-muted-foreground">
-                  {i.status === 'building' && i.depth === 'deep' ? 'writing a deep profile…' : i.status}
+                  {i.status === 'building' && i.depth === 'deep'
+                    ? t('writingDeepProfile')
+                    : t(`itemStatus.${i.status}`, { defaultValue: i.status })}
                 </span>
               </li>
             ))}
           </ul>
           <button type="button" className="self-start rounded border px-3 py-1.5 text-sm" onClick={cancel} disabled={busy}>
-            Cancel
+            {t('cancel')}
           </button>
         </div>
       )}
@@ -252,8 +297,8 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
       {step === 3 && (
         <div className="flex min-h-0 flex-1 flex-col gap-2">
           <p className="text-xs text-muted-foreground">
-            {built} entr{built === 1 ? 'y' : 'ies'} filed as drafts for your review.
-            {skipped.length > 0 && ` ${skipped.length} skipped.`}
+            {t('filedAsDrafts', { count: built })}
+            {skipped.length > 0 && ` ${t('skippedCount', { count: skipped.length })}`}
           </p>
           {skipped.length > 0 && (
             <ul data-testid="world-setup-skipped" className="space-y-1 text-xs text-muted-foreground">
@@ -283,9 +328,7 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
               className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400"
             >
               <p>
-                ⚠ {notIndexed.total} entr{notIndexed.total === 1 ? 'y' : 'ies'} saved but{' '}
-                <strong>not searchable</strong> — the writer cannot look this part of your
-                world up while drafting.
+                ⚠ {t('notSearchable', { count: notIndexed.total })}
               </p>
               <ul className="mt-1 list-disc space-y-0.5 pl-4">
                 {notIndexed.reasons.map((r) => (
@@ -320,7 +363,7 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
               </ul>
               {unresolved.length > 0 && (
                 <details data-testid="world-setup-unresolved" className="text-xs text-muted-foreground">
-                  <summary>{unresolved.length} relationship(s) point at something not in your world yet</summary>
+                  <summary>{t('unresolvedCount', { count: unresolved.length })}</summary>
                   <ul className="mt-1 space-y-0.5">
                     {unresolved.map((e, i) => (
                       <li key={i}>{e.source_name} → {e.target_name} ({e.type})</li>
@@ -336,13 +379,12 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang = 'vi' }: Props
                   disabled={busy || keptEdges.length === 0}
                   onClick={() => approveEdges(keptEdges)}
                 >
-                  Save {keptEdges.length} relationship{keptEdges.length === 1 ? '' : 's'}
+                  {t('saveRelationships', { count: keptEdges.length })}
                 </button>
               )}
               {run?.status === 'done' && (
                 <p data-testid="world-setup-done" className="text-sm">
-                  Done — your world is set up.{' '}
-                  {String((run.params as { edges_applied?: number })?.edges_applied ?? '')} relationship(s) saved.
+                  {t('done', { count: String((run.params as { edges_applied?: number })?.edges_applied ?? '') })}
                 </p>
               )}
             </>

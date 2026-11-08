@@ -5,10 +5,12 @@
 // per-entity tools for world building. This panel drives the server-side FSM
 // instead, with the human approving the plan and the relationships.
 import type { IDockviewPanelProps } from 'dockview-react';
+import { useTranslation } from 'react-i18next';
 
 import { useUserModels } from '@/components/model-picker';
 import { useAuth } from '@/auth';
 import { WorldSetupWizard } from '@/features/world-setup/components/WorldSetupWizard';
+import { useEffectiveModel } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 
 import { useStudioHost } from '../host/StudioHostProvider';
 import { useStudioPanel } from './useStudioPanel';
@@ -17,14 +19,18 @@ export function WorldSetupPanel(props: IDockviewPanelProps) {
   useStudioPanel('world-setup', props.api, { mcpToolPrefixes: ['composition_glossary_build'] });
   const host = useStudioHost();
   const { accessToken } = useAuth();
+  const { i18n } = useTranslation('studio');
   // BYOK chat model — the run params carry the user_model UUID; provider-registry
-  // resolves the actual model (never a literal name on this side).
+  // resolves the actual model (never a literal name on this side). #user-report
+  // 2026-11-08 — resolve through the model CASCADE (session ▸ Work ▸ account,
+  // server-side) instead of blindly taking the first chat model.
   const models = useUserModels({ capability: 'chat' }).models;
-  const modelRef = models?.[0]?.user_model_id ?? null;
+  const inherited = useEffectiveModel('chat');
+  const modelRef = inherited ?? models?.[0]?.user_model_id ?? null;
 
   return (
     <div data-testid="studio-world-setup-panel" className="h-full min-h-0 overflow-auto">
-      <WorldSetupWizard bookId={host.bookId} token={accessToken} modelRef={modelRef} />
+      <WorldSetupWizard bookId={host.bookId} token={accessToken} modelRef={modelRef} lang={i18n.language} />
     </div>
   );
 }

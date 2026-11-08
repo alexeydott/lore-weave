@@ -1,0 +1,56 @@
+{
+  "title": "世界設定",
+  "steps": {
+    "0": "描述",
+    "1": "審閱計畫",
+    "2": "建構",
+    "3": "關係"
+  },
+  "blocked": {
+    "intro": "本書已有未完成的設定執行，停止於步驟",
+    "resume": "繼續該執行",
+    "cancel": "取消並重新開始"
+  },
+  "describeLabel": "描述你的故事——人物、地點、力量及其聯繫。所有值得追蹤的內容都將由此建構。",
+  "describePlaceholder": "貼上或輸入世界描述…",
+  "planning": "規劃中…",
+  "planCta": "規劃我的世界",
+  "pickModel": "請先在設定中選擇聊天模型。",
+  "assist": {
+    "cta": "AI：根據本書起草",
+    "running": "AI 正在根據本書起草描述…",
+    "empty": "AI 傳回了空描述——請重試或自行撰寫。",
+    "failed": "AI 起草失敗——請自行撰寫或重試。",
+    "hasText": "描述已有文字——AI 草稿會取代它。",
+    "hint": "根據本書章節起草描述"
+  },
+  "planReviewHint": "以下是將建構的內容。取消勾選不需要的項目——尚未建立任何內容。",
+  "includeAria": "包含 {{name}}",
+  "deepProfile": "深度檔案",
+  "buildThese": "建構這 {{count}} 項",
+  "startOver": "重新開始",
+  "buildingProgress": "正在建構 {{built}}/{{total}}…",
+  "writingDeepProfile": "正在撰寫深度檔案…",
+  "itemStatus": {
+    "draft": "草稿",
+    "planning": "規劃中",
+    "plan_ready": "計畫就緒",
+    "building": "建構中",
+    "proposing": "提議中",
+    "proposed": "已提議",
+    "built": "已建構",
+    "skipped": "已略過",
+    "kg_projecting": "正在投影圖譜",
+    "edges_ready": "關係就緒",
+    "done": "完成"
+  },
+  "cancel": "取消",
+  "filedAsDrafts": "已將 {{count}} 個項目儲存為草稿供你審閱。",
+  "skippedCount": "略過 {{count}} 個。",
+  "findingRelationships": "正在尋找關係…",
+  "findRelationships": "尋找它們的關係",
+  "notSearchable": "⚠ {{count}} 個項目已儲存但無法檢索——寫作時無法查詢世界的這一部分。",
+  "unresolvedCount": "{{count}} 個關係指向你世界中尚不存在的事物",
+  "saveRelationships": "儲存 {{count}} 個關係",
+  "done": "完成——世界已設定。已儲存 {{count}} 個關係。"
+}

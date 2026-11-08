@@ -1,0 +1,56 @@
+{
+  "title": "Configuration du monde",
+  "steps": {
+    "0": "Décrire",
+    "1": "Revoir le plan",
+    "2": "Construire",
+    "3": "Relations"
+  },
+  "blocked": {
+    "intro": "Ce livre a déjà une configuration inachevée, arrêtée à l'étape",
+    "resume": "Reprendre cette exécution",
+    "cancel": "Annuler et recommencer"
+  },
+  "describeLabel": "Décrivez votre histoire : les personnages, lieux, pouvoirs et leurs liens. Tout ce qui mérite d'être suivi sera construit à partir de ça.",
+  "describePlaceholder": "Collez ou écrivez la description de votre monde…",
+  "planning": "Planification…",
+  "planCta": "Planifier mon monde",
+  "pickModel": "Choisissez d'abord un modèle de chat dans les réglages.",
+  "assist": {
+    "cta": "IA : rédiger depuis ce livre",
+    "running": "L'IA rédige la description depuis le livre…",
+    "empty": "L'IA a renvoyé une description vide — réessayez ou rédigez-la vous-même.",
+    "failed": "Le brouillon de l'IA a échoué — rédigez-le vous-même ou réessayez.",
+    "hasText": "La description contient déjà du texte — le brouillon de l'IA le remplacerait.",
+    "hint": "Rédiger la description à partir des chapitres de ce livre"
+  },
+  "planReviewHint": "Voici ce que je construirais. Décochez ce que vous ne voulez pas — rien n'a encore été créé.",
+  "includeAria": "Inclure {{name}}",
+  "deepProfile": "profil approfondi",
+  "buildThese": "Construire ces {{count}}",
+  "startOver": "Recommencer",
+  "buildingProgress": "Construction {{built}} sur {{total}}…",
+  "writingDeepProfile": "rédaction d'un profil approfondi…",
+  "itemStatus": {
+    "draft": "brouillon",
+    "planning": "planification",
+    "plan_ready": "plan prêt",
+    "building": "construction",
+    "proposing": "proposition",
+    "proposed": "proposé",
+    "built": "construit",
+    "skipped": "ignoré",
+    "kg_projecting": "projection du graphe",
+    "edges_ready": "relations prêtes",
+    "done": "terminé"
+  },
+  "cancel": "Annuler",
+  "filedAsDrafts": "{{count}} entrées consignées en brouillons pour votre relecture.",
+  "skippedCount": "{{count}} ignorées.",
+  "findingRelationships": "Recherche des relations…",
+  "findRelationships": "Trouver leurs relations",
+  "notSearchable": "⚠ {{count}} entrées enregistrées mais NON recherchables : le rédacteur ne pourra pas consulter cette partie du monde pendant la rédaction.",
+  "unresolvedCount": "{{count}} relations pointent vers quelque chose d'absent de votre monde",
+  "saveRelationships": "Enregistrer {{count}} relations",
+  "done": "Terminé — votre monde est configuré. {{count}} relations enregistrées."
+}

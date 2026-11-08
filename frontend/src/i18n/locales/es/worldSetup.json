@@ -1,0 +1,56 @@
+{
+  "title": "Configuración del mundo",
+  "steps": {
+    "0": "Describir",
+    "1": "Revisar plan",
+    "2": "Construir",
+    "3": "Relaciones"
+  },
+  "blocked": {
+    "intro": "Este libro ya tiene una configuración a medias, detenida en el paso",
+    "resume": "Continuar esa ejecución",
+    "cancel": "Cancelar y empezar de nuevo"
+  },
+  "describeLabel": "Describe tu historia: las personas, lugares, poderes y cómo se conectan. Todo lo que valga la pena seguir se construirá a partir de esto.",
+  "describePlaceholder": "Pega o escribe la descripción de tu mundo…",
+  "planning": "Planificando…",
+  "planCta": "Planificar mi mundo",
+  "pickModel": "Elige antes un modelo de chat en Ajustes.",
+  "assist": {
+    "cta": "IA: redactar desde este libro",
+    "running": "La IA está redactando la descripción desde el libro…",
+    "empty": "La IA devolvió una descripción vacía: inténtalo de nuevo o escríbela tú.",
+    "failed": "El borrador de la IA falló: escríbelo tú o inténtalo de nuevo.",
+    "hasText": "La descripción ya tiene texto: el borrador de la IA lo reemplazaría.",
+    "hint": "Redactar la descripción a partir de los capítulos de este libro"
+  },
+  "planReviewHint": "Esto es lo que construiría. Desmarca lo que no quieras: todavía no se ha creado nada.",
+  "includeAria": "Incluir {{name}}",
+  "deepProfile": "perfil profundo",
+  "buildThese": "Construir estos {{count}}",
+  "startOver": "Empezar de nuevo",
+  "buildingProgress": "Construyendo {{built}} de {{total}}…",
+  "writingDeepProfile": "escribiendo un perfil profundo…",
+  "itemStatus": {
+    "draft": "borrador",
+    "planning": "planificando",
+    "plan_ready": "plan listo",
+    "building": "construyendo",
+    "proposing": "propuesto",
+    "proposed": "propuesto",
+    "built": "construido",
+    "skipped": "omitido",
+    "kg_projecting": "proyectando el grafo",
+    "edges_ready": "relaciones listas",
+    "done": "hecho"
+  },
+  "cancel": "Cancelar",
+  "filedAsDrafts": "{{count}} entradas guardadas como borradores para tu revisión.",
+  "skippedCount": "{{count}} omitidas.",
+  "findingRelationships": "Buscando relaciones…",
+  "findRelationships": "Buscar sus relaciones",
+  "notSearchable": "⚠ {{count}} entradas guardadas pero NO buscables: el escritor no podrá consultar esta parte del mundo mientras redacta.",
+  "unresolvedCount": "{{count}} relaciones apuntan a algo que aún no existe en tu mundo",
+  "saveRelationships": "Guardar {{count}} relaciones",
+  "done": "Hecho: tu mundo está configurado. {{count}} relaciones guardadas."
+}

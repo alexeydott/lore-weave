@@ -1,0 +1,56 @@
+{
+  "title": "ワールド設定",
+  "steps": {
+    "0": "説明",
+    "1": "プラン確認",
+    "2": "構築",
+    "3": "関係性"
+  },
+  "blocked": {
+    "intro": "この本には中断されたセットアップ実行があります。停止ステップ:",
+    "resume": "その実行を再開",
+    "cancel": "キャンセルしてやり直す"
+  },
+  "describeLabel": "物語を説明してください。登場人物、場所、力、そしてそれらの繋がり。追跡する価値のあるすべてがここから構築されます。",
+  "describePlaceholder": "世界の説明を貼り付けまたは入力…",
+  "planning": "計画中…",
+  "planCta": "世界を計画する",
+  "pickModel": "先に設定でチャットモデルを選んでください。",
+  "assist": {
+    "cta": "AI: この本から起草",
+    "running": "AIが本から説明を起草中…",
+    "empty": "AIが空の説明を返しました — 再試行するか自分で書いてください。",
+    "failed": "AIの起草に失敗しました — 自分で書くか再試行してください。",
+    "hasText": "説明に既にテキストがあります — AIの下書きに置き換わります。",
+    "hint": "この本の章から説明を起草する"
+  },
+  "planReviewHint": "構築予定の内容です。不要な項目のチェックを外してください — まだ何も作成されていません。",
+  "includeAria": "{{name}} を含める",
+  "deepProfile": "詳細プロフィール",
+  "buildThese": "この {{count}} 件を構築",
+  "startOver": "最初からやり直す",
+  "buildingProgress": "{{total}} 件中 {{built}} 件を構築中…",
+  "writingDeepProfile": "詳細プロフィールを執筆中…",
+  "itemStatus": {
+    "draft": "下書き",
+    "planning": "計画中",
+    "plan_ready": "計画完了",
+    "building": "構築中",
+    "proposing": "提案中",
+    "proposed": "提案済み",
+    "built": "構築済み",
+    "skipped": "スキップ",
+    "kg_projecting": "グラフ投影中",
+    "edges_ready": "関係性の準備完了",
+    "done": "完了"
+  },
+  "cancel": "キャンセル",
+  "filedAsDrafts": "{{count}} 件のエントリが確認用の下書きとして保存されました。",
+  "skippedCount": "{{count}} 件スキップ。",
+  "findingRelationships": "関係性を探索中…",
+  "findRelationships": "関係性を探す",
+  "notSearchable": "⚠ {{count}} 件保存されましたが検索できません — 執筆中にこの部分の世界を参照できません。",
+  "unresolvedCount": "{{count}} 件の関係性が、まだ世界に存在しないものを指しています",
+  "saveRelationships": "{{count}} 件の関係性を保存",
+  "done": "完了 — 世界の設定が済みました。{{count}} 件の関係性を保存。"
+}

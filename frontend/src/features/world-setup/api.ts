@@ -8,6 +8,24 @@ import type { BuildEdge, BuildRun, CreateRunBody, WorklistItem } from './types';
 const BASE = '/v1/composition/glossary-build';
 
 export const worldSetupApi = {
+  /**
+   * #user-report 2026-11-08 — the world-setup ИИ-помощник: drafts the world
+   * DESCRIPTION from the book's own prose (one LLM pass over the opening
+   * chapters). The draft fills the textarea; «Plan my world» stays the human's
+   * explicit spend. 180s timeout — a long LLM pass.
+   */
+  async assistDescription(
+    bookId: string,
+    body: { model_ref: string; lang: string },
+    token: string,
+  ): Promise<{ description: string; chapters_used: number; empty?: boolean }> {
+    return apiJson(`/v1/composition/books/${bookId}/world-setup/assist-description`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      token,
+      timeoutMs: 180_000,
+    });
+  },
   createRun(body: CreateRunBody, token: string): Promise<BuildRun> {
     return apiJson<BuildRun>(`${BASE}/runs`, {
       method: 'POST', body: JSON.stringify(body), token,

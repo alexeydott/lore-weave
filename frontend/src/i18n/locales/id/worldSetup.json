@@ -1,0 +1,56 @@
+{
+  "title": "Penyiapan dunia",
+  "steps": {
+    "0": "Jelaskan",
+    "1": "Tinjau rencana",
+    "2": "Bangun",
+    "3": "Relasi"
+  },
+  "blocked": {
+    "intro": "Buku ini sudah punya proses penyiapan yang setengah jadi, berhenti di langkah",
+    "resume": "Lanjutkan proses itu",
+    "cancel": "Batalkan dan mulai ulang"
+  },
+  "describeLabel": "Jelaskan cerita Anda: orang-orang, tempat, kekuatan, dan bagaimana mereka terhubung. Semua yang layak dilacak akan dibangun dari ini.",
+  "describePlaceholder": "Tempel atau tulis deskripsi dunia Anda…",
+  "planning": "Merencanakan…",
+  "planCta": "Rencanakan duniaku",
+  "pickModel": "Pilih model obrolan di Pengaturan dulu.",
+  "assist": {
+    "cta": "AI: buat draf dari buku ini",
+    "running": "AI sedang menyusun draf deskripsi dari buku…",
+    "empty": "AI mengembalikan deskripsi kosong — coba lagi atau tulis sendiri.",
+    "failed": "Draf AI gagal — tulis sendiri atau coba lagi.",
+    "hasText": "Deskripsi sudah berisi teks — draf AI akan menggantinya.",
+    "hint": "Susun draf deskripsi dari bab-bab buku ini"
+  },
+  "planReviewHint": "Inilah yang akan saya bangun. Hilangkan centang yang tidak diinginkan — belum ada yang dibuat.",
+  "includeAria": "Sertakan {{name}}",
+  "deepProfile": "profil dalam",
+  "buildThese": "Bangun {{count}} ini",
+  "startOver": "Mulai ulang",
+  "buildingProgress": "Membangun {{built}} dari {{total}}…",
+  "writingDeepProfile": "menulis profil dalam…",
+  "itemStatus": {
+    "draft": "draf",
+    "planning": "perencanaan",
+    "plan_ready": "rencana siap",
+    "building": "membangun",
+    "proposing": "mengusulkan",
+    "proposed": "diusulkan",
+    "built": "dibangun",
+    "skipped": "dilewati",
+    "kg_projecting": "memproyeksikan graf",
+    "edges_ready": "relasi siap",
+    "done": "selesai"
+  },
+  "cancel": "Batal",
+  "filedAsDrafts": "{{count}} entri disimpan sebagai draf untuk ditinjau.",
+  "skippedCount": "{{count}} dilewati.",
+  "findingRelationships": "Mencari relasi…",
+  "findRelationships": "Temukan relasinya",
+  "notSearchable": "⚠ {{count}} entri disimpan tapi TIDAK dapat dicari — penulis tidak bisa melihat bagian dunia ini saat menulis.",
+  "unresolvedCount": "{{count}} relasi menunjuk ke sesuatu yang belum ada di dunia Anda",
+  "saveRelationships": "Simpan {{count}} relasi",
+  "done": "Selesai — dunia Anda siap. {{count}} relasi disimpan."
+}

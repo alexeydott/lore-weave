@@ -2555,3 +2555,85 @@ async def list_job_corrections(
     await _gate_work(works, grant, user_id, project_id, GrantLevel.VIEW)
     rows = await corrections.list_for_job(project_id, job_id)
     return {"corrections": [r.model_dump(mode="json") for r in rows]}
+
+
+class WorldAssistBody(BaseModel):
+    model_source: Literal["user_model", "platform_model"] = "user_model"
+    model_ref: UUID
+    lang: str = "auto"
+    max_chapters: int = Field(default=5, ge=1, le=20)
+
+
+@router.post("/books/{book_id}/world-setup/assist-description")
+async def world_setup_assist_description(
+    book_id: UUID,
+    body: WorldAssistBody,
+    grant: GrantClient = Depends(get_grant_client_dep),
+    user_id: UUID = Depends(get_current_user),
+    bearer: str = Depends(get_bearer_token),
+    llm: LLMClient = Depends(get_llm_client_dep),
+    book: BookClient = Depends(get_book_client_dep),
+) -> dict[str, Any]:
+    """#user-report 2026-11-08 — the world-setup ИИ-помощник: drafts the world
+    DESCRIPTION from the book's own prose, so the author doesn't have to write
+    it from scratch before "Plan my world". READ-ONLY over the first
+    `max_chapters` chapters (their openings carry the cast/places/powers the
+    wizard needs); spends LLM tokens, EDIT-tier on the book. The description is
+    a DRAFT for the textarea — the human reviews/edits before planning."""
+    await authorize_book(grant, book_id, user_id, GrantLevel.EDIT)
+    chapters = await book.list_chapters(book_id, bearer, limit=body.max_chapters)
+    texts: list[str] = []
+    used = 0
+    budget = 24000
+    for ch in chapters:
+        if len(texts) >= body.max_chapters or budget <= 0:
+            break
+        try:
+            draft = await book.get_draft(book_id, ch["chapter_id"], bearer)
+        except Exception:  # noqa: BLE001 — a missing draft is skippable
+            continue
+        from app.clients.book_client import BookClientError  # local: avoid widening imports
+        t = draft.get("text_content") if isinstance(draft, dict) else None
+        if not t:
+            body_json = draft.get("body") if isinstance(draft, dict) else None
+            t = _tiptap_text(body_json) if body_json else ""
+        t = (t or "").strip()
+        if not t:
+            continue
+        texts.append(t[:budget])
+        budget -= len(t)
+        used += 1
+    if not texts:
+        return {"description": "", "chapters_used": 0, "empty": True}
+
+    from loreweave_llm import no_thinking_fields
+
+    lang_line = (
+        "Write the description in the SAME LANGUAGE as the source text."
+        if body.lang in ("", "auto")
+        else f"Write the description in the language with code '{body.lang}'."
+    )
+    system = (
+        "You draft WORLD-SETTING descriptions for fiction authors. Given the opening "
+        "chapters of a novel, write ONE compact description of the world the author can "
+        "feed to a planning pass: the main characters (who they are, what they want), the "
+        "key places and organizations, the powers/magic system and its costs, and how these "
+        "connect. Concrete and specific — names, ranks, relations; no plot summary of "
+        "events, no analysis, no advice. 3-6 short paragraphs. " + lang_line
+    )
+    user = "\n\n---\n\n".join(f"[Глава {i + 1}]\n{t}" for i, t in enumerate(texts))
+
+    job = await llm.submit_and_wait(
+        user_id=str(user_id), operation="chat",
+        model_source=body.model_source, model_ref=str(body.model_ref),
+        input={
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "response_format": {"type": "text"}, "temperature": 0.3, "max_tokens": 4096,
+            **no_thinking_fields(),
+        },
+        job_meta={"usage_purpose": "world_setup_assist", "extractor": "world_setup_assist"},
+    )
+    from app.clients.eval_client import extract_judge_content
+
+    description = (extract_judge_content(job.result) or "").strip()
+    return {"description": description, "chapters_used": used, "empty": not description}

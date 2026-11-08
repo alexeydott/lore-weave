@@ -1,0 +1,56 @@
+{
+  "title": "世界设定",
+  "steps": {
+    "0": "描述",
+    "1": "审阅计划",
+    "2": "构建",
+    "3": "关系"
+  },
+  "blocked": {
+    "intro": "本书已有一个未完成的设置运行，停止于步骤",
+    "resume": "继续该运行",
+    "cancel": "取消并重新开始"
+  },
+  "describeLabel": "描述你的故事——人物、地点、力量及其联系。所有值得追踪的内容都将由此构建。",
+  "describePlaceholder": "粘贴或输入世界描述…",
+  "planning": "规划中…",
+  "planCta": "规划我的世界",
+  "pickModel": "请先在设置中选择聊天模型。",
+  "assist": {
+    "cta": "AI：根据本书起草",
+    "running": "AI 正在根据本书起草描述…",
+    "empty": "AI 返回了空描述——请重试或自行撰写。",
+    "failed": "AI 起草失败——请自行撰写或重试。",
+    "hasText": "描述已有文本——AI 草稿将替换它。",
+    "hint": "根据本书章节起草描述"
+  },
+  "planReviewHint": "以下是将要构建的内容。取消勾选不需要的项——尚未创建任何内容。",
+  "includeAria": "包含 {{name}}",
+  "deepProfile": "深度档案",
+  "buildThese": "构建这 {{count}} 项",
+  "startOver": "重新开始",
+  "buildingProgress": "正在构建 {{built}}/{{total}}…",
+  "writingDeepProfile": "正在撰写深度档案…",
+  "itemStatus": {
+    "draft": "草稿",
+    "planning": "规划中",
+    "plan_ready": "计划就绪",
+    "building": "构建中",
+    "proposing": "提议中",
+    "proposed": "已提议",
+    "built": "已构建",
+    "skipped": "已跳过",
+    "kg_projecting": "正在投影图谱",
+    "edges_ready": "关系就绪",
+    "done": "完成"
+  },
+  "cancel": "取消",
+  "filedAsDrafts": "已将 {{count}} 个条目保存为草稿供你审阅。",
+  "skippedCount": "跳过 {{count}} 个。",
+  "findingRelationships": "正在寻找关系…",
+  "findRelationships": "寻找它们的关系",
+  "notSearchable": "⚠ {{count}} 个条目已保存但无法检索——写作时无法查询世界的这一部分。",
+  "unresolvedCount": "{{count}} 个关系指向你世界中尚不存在的事物",
+  "saveRelationships": "保存 {{count}} 个关系",
+  "done": "完成——世界已设置。已保存 {{count}} 个关系。"
+}

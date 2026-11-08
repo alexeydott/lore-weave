@@ -1,0 +1,56 @@
+{
+  "title": "Dünya kurulumu",
+  "steps": {
+    "0": "Anlat",
+    "1": "Planı incele",
+    "2": "İnşa et",
+    "3": "İlişkiler"
+  },
+  "blocked": {
+    "intro": "Bu kitabın yarıda kalmış bir kurulum geçmişi var, durduğu adım",
+    "resume": "O geçmişi sürdür",
+    "cancel": "İptal et ve yeniden başla"
+  },
+  "describeLabel": "Hikâyenizi anlatın: kişiler, mekânlar, güçler ve nasıl bağlandıkları. Takip edilmeye değer her şey bundan inşa edilecek.",
+  "describePlaceholder": "Dünya açıklamasını yapıştırın veya yazın…",
+  "planning": "Planlanıyor…",
+  "planCta": "Dünyamı planla",
+  "pickModel": "Önce Ayarlar'dan bir sohbet modeli seçin.",
+  "assist": {
+    "cta": "YZ: bu kitaptan taslak çıkar",
+    "running": "YZ kitaptan açıklamayı taslaklıyor…",
+    "empty": "YZ boş bir açıklama döndürdü — tekrar deneyin veya kendiniz yazın.",
+    "failed": "YZ taslağı başarısız oldu — kendiniz yazın veya tekrar deneyin.",
+    "hasText": "Açıklamada zaten metin var — YZ taslağı onu değiştirirdi.",
+    "hint": "Bu kitabın bölümlerinden açıklamayı taslakla"
+  },
+  "planReviewHint": "Neleri inşa edeceğim. İstemediğinizin işaretini kaldırın — henüz hiçbir şey oluşturulmadı.",
+  "includeAria": "{{name}} dahil et",
+  "deepProfile": "derin profil",
+  "buildThese": "Bu {{count}} öğeyi inşa et",
+  "startOver": "Baştan başla",
+  "buildingProgress": "{{total}} öğeden {{built}} inşa ediliyor…",
+  "writingDeepProfile": "derin profil yazılıyor…",
+  "itemStatus": {
+    "draft": "taslak",
+    "planning": "planlanıyor",
+    "plan_ready": "plan hazır",
+    "building": "inşa ediliyor",
+    "proposing": "öneriliyor",
+    "proposed": "önerildi",
+    "built": "inşa edildi",
+    "skipped": "atlandı",
+    "kg_projecting": "graf oluşturuluyor",
+    "edges_ready": "ilişkiler hazır",
+    "done": "tamamlandı"
+  },
+  "cancel": "İptal",
+  "filedAsDrafts": "{{count}} kayıt incelemeniz için taslak olarak alındı.",
+  "skippedCount": "{{count}} atlandı.",
+  "findingRelationships": "İlişkiler aranıyor…",
+  "findRelationships": "İlişkilerini bul",
+  "notSearchable": "⚠ {{count}} kayıt saklandı ama ARANAMAZ — yazar, taslak yazarken dünyanın bu bölümüne bakamayacak.",
+  "unresolvedCount": "{{count}} ilişki, dünyanızda henüz olmayan bir şeyi işaret ediyor",
+  "saveRelationships": "{{count}} ilişkiyi kaydet",
+  "done": "Tamamlandı — dünyanız kuruldu. {{count}} ilişki kaydedildi."
+}

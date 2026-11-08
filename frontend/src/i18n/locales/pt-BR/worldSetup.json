@@ -1,0 +1,56 @@
+{
+  "title": "Configuração do mundo",
+  "steps": {
+    "0": "Descrever",
+    "1": "Revisar plano",
+    "2": "Construir",
+    "3": "Relações"
+  },
+  "blocked": {
+    "intro": "Este livro já tem uma configuração pela metade, parada na etapa",
+    "resume": "Retomar aquela execução",
+    "cancel": "Cancelar e recomeçar"
+  },
+  "describeLabel": "Descreva sua história: as pessoas, lugares, poderes e como se conectam. Tudo que valha a pena rastrear será construído disto.",
+  "describePlaceholder": "Cole ou escreva a descrição do seu mundo…",
+  "planning": "Planejando…",
+  "planCta": "Planejar meu mundo",
+  "pickModel": "Escolha antes um modelo de chat nos Ajustes.",
+  "assist": {
+    "cta": "IA: redigir a partir deste livro",
+    "running": "A IA está redigindo a descrição a partir do livro…",
+    "empty": "A IA devolveu uma descrição vazia — tente novamente ou escreva você.",
+    "failed": "O rascunho da IA falhou — escreva você ou tente novamente.",
+    "hasText": "A descrição já tem texto — o rascunho da IA o substituiria.",
+    "hint": "Redigir a descrição a partir dos capítulos deste livro"
+  },
+  "planReviewHint": "Isto é o que eu construiria. Desmarque o que não quiser — nada foi criado ainda.",
+  "includeAria": "Incluir {{name}}",
+  "deepProfile": "perfil profundo",
+  "buildThese": "Construir estes {{count}}",
+  "startOver": "Recomeçar",
+  "buildingProgress": "Construindo {{built}} de {{total}}…",
+  "writingDeepProfile": "escrevendo um perfil profundo…",
+  "itemStatus": {
+    "draft": "rascunho",
+    "planning": "planejando",
+    "plan_ready": "plano pronto",
+    "building": "construindo",
+    "proposing": "propondo",
+    "proposed": "proposto",
+    "built": "construído",
+    "skipped": "ignorado",
+    "kg_projecting": "projetando o grafo",
+    "edges_ready": "relações prontas",
+    "done": "pronto"
+  },
+  "cancel": "Cancelar",
+  "filedAsDrafts": "{{count}} entradas salvas como rascunhos para sua revisão.",
+  "skippedCount": "{{count}} ignoradas.",
+  "findingRelationships": "Procurando relações…",
+  "findRelationships": "Encontrar suas relações",
+  "notSearchable": "⚠ {{count}} entradas salvas mas NÃO pesquisáveis: o escritor não poderá consultar esta parte do mundo enquanto redige.",
+  "unresolvedCount": "{{count}} relações apontam para algo que ainda não existe no seu mundo",
+  "saveRelationships": "Salvar {{count}} relações",
+  "done": "Pronto — seu mundo está configurado. {{count}} relações salvas."
+}
