@@ -200,7 +200,12 @@
       "assistantCritic": "Notes du critique",
       "assistantChains": "Chaînes de promesses",
       "assistantCanon": "Incohérences de canon",
-      "modelWarn": "Aucun modèle dans la cascade de co-écriture : {{model}} est utilisé. Choisissez un modèle ci-dessus pour le remplacer."
+      "modelWarn": "Aucun modèle dans la cascade de co-écriture : {{model}} est utilisé. Choisissez un modèle ci-dessus pour le remplacer.",
+      "batchCta": "Analyser tous les chapitres",
+      "batchRunning": "Chapitres analysés : {{done}}/{{total}}…",
+      "batchStop": "Arrêter",
+      "batchDone": "Chapitres analysés : {{total}} · promesses ouvertes : {{opened}} · soldées : {{paid}}",
+      "batchStopped": "Arrêté — {{done}} chapitres sur {{total}} analysés."
     },
     "quality-critic": {
       "title": "Critique",

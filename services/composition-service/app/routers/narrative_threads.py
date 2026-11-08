@@ -11,11 +11,13 @@ Read-only; the ledger is written by the generation flow, not here.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field, StringConstraints
 
+from app.db.models import NarrativeThread
 from app.db.repositories.narrative_thread import NarrativeThreadRepo
 from app.db.repositories.works import WorksRepo
 from app.deps import get_grant_client_dep, get_narrative_thread_repo, get_works_repo
@@ -69,3 +71,69 @@ async def list_narrative_threads(
         "threads": [t.model_dump(mode="json") for t in rows],
         "open_count": await threads.count_open(project_id),
     }
+
+
+# ── Edits (#user-report 2026-11-08) — the ledger rows are the author\x27s own
+# notes, so the author edits/retires them like any other note. EDIT-tier
+# (mutating), owner-gated via the same work resolve as the read above.
+
+_THREAD_KIND = Annotated[str, StringConstraints(min_length=3, max_length=40)]
+
+
+class ThreadUpdateBody(BaseModel):
+    summary: Annotated[str, StringConstraints(min_length=3, max_length=500)] | None = None
+    kind: _THREAD_KIND | None = None
+
+
+async def _require_work_edit(
+    works: WorksRepo, grant: GrantClient, user_id: UUID, project_id: UUID,
+) -> None:
+    work = await works.get(project_id)
+    if work is None:
+        raise HTTPException(status_code=404, detail="work not found")
+    try:
+        await authorize_book(grant, work.book_id, user_id, GrantLevel.EDIT)
+    except OwnershipError:
+        raise HTTPException(status_code=404, detail="work not found")
+    except InsufficientGrant:
+        raise HTTPException(status_code=403, detail="insufficient access")
+
+
+@router.patch("/works/{project_id}/narrative-threads/{thread_id}")
+async def update_narrative_thread(
+    project_id: UUID,
+    thread_id: UUID,
+    body: ThreadUpdateBody,
+    user_id: UUID = Depends(get_current_user),
+    works: WorksRepo = Depends(get_works_repo),
+    threads: NarrativeThreadRepo = Depends(get_narrative_thread_repo),
+    grant: GrantClient = Depends(get_grant_client_dep),
+) -> NarrativeThread:
+    """Edit an OPEN promise\x27s summary and/or kind. Paid/dropped rows are frozen
+    history and refuse the edit (the ledger\x27s audit value). OCC-free per the
+    repo\x27s advisory-ledger contract."""
+    await _require_work_edit(works, grant, user_id, project_id)
+    updated = await threads.update_content(
+        project_id, thread_id, summary=body.summary, kind=body.kind,
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="open promise not found")
+    return updated
+
+
+@router.delete("/works/{project_id}/narrative-threads/{thread_id}")
+async def archive_narrative_thread(
+    project_id: UUID,
+    thread_id: UUID,
+    user_id: UUID = Depends(get_current_user),
+    works: WorksRepo = Depends(get_works_repo),
+    threads: NarrativeThreadRepo = Depends(get_narrative_thread_repo),
+    grant: GrantClient = Depends(get_grant_client_dep),
+) -> dict[str, Any]:
+    """Archive (soft-delete) an open promise — the row stays for the audit
+    trail but disappears from the ledger and the re-injection set."""
+    await _require_work_edit(works, grant, user_id, project_id)
+    archived = await threads.archive_thread(project_id, thread_id)
+    if not archived:
+        raise HTTPException(status_code=404, detail="open promise not found")
+    return {"archived": True}

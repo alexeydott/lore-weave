@@ -200,7 +200,12 @@
       "assistantCritic": "Notas do crítico",
       "assistantChains": "Cadeias de promessas",
       "assistantCanon": "Incoerências de cânon",
-      "modelWarn": "Sem modelo na cascada de coautoria: usando {{model}}. Escolha um modelo acima para substituir."
+      "modelWarn": "Sem modelo na cascada de coautoria: usando {{model}}. Escolha um modelo acima para substituir.",
+      "batchCta": "Analisar todos os capítulos",
+      "batchRunning": "Capítulos analisados: {{done}}/{{total}}…",
+      "batchStop": "Parar",
+      "batchDone": "Capítulos analisados: {{total}} · promessas abertas: {{opened}} · quitadas: {{paid}}",
+      "batchStopped": "Parado — {{done}} de {{total}} capítulos analisados."
     },
     "quality-critic": {
       "title": "Crítico",

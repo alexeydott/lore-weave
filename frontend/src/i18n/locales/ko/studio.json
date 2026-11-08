@@ -199,7 +199,12 @@
       "assistantCritic": "비평가 노트",
       "assistantChains": "프로미스 사슬",
       "assistantCanon": "캐논 불일치",
-      "modelWarn": "공동 집필 캐스케이드에 모델이 없습니다 — {{model}} 사용 중. 위에서 모델을 선택해 재정의하세요."
+      "modelWarn": "공동 집필 캐스케이드에 모델이 없습니다 — {{model}} 사용 중. 위에서 모델을 선택해 재정의하세요.",
+      "batchCta": "모든 챕터 분석",
+      "batchRunning": "분석된 챕터: {{done}}/{{total}}…",
+      "batchStop": "중지",
+      "batchDone": "분석한 챕터: {{total}} · 열린 프로미스: {{opened}} · 완료: {{paid}}",
+      "batchStopped": "중지됨 — {{total}}개 중 {{done}}개 챕터 분석."
     },
     "quality-critic": {
       "title": "비평",

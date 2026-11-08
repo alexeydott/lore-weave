@@ -200,7 +200,12 @@
       "assistantCritic": "評審意見",
       "assistantChains": "承諾鏈",
       "assistantCanon": "正典不一致",
-      "modelWarn": "合著串聯中沒有模型 — 正在使用 {{model}}。可在上方選擇以覆寫。"
+      "modelWarn": "合著串聯中沒有模型 — 正在使用 {{model}}。可在上方選擇以覆寫。",
+      "batchCta": "分析所有章節",
+      "batchRunning": "已分析章節：{{done}}/{{total}}…",
+      "batchStop": "停止",
+      "batchDone": "已分析章節：{{total}} · 新開承諾：{{opened}} · 已回收：{{paid}}",
+      "batchStopped": "已停止——共分析 {{done}}/{{total}} 章。"
     },
     "quality-critic": {
       "title": "評論",

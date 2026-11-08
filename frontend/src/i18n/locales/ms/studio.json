@@ -200,7 +200,12 @@
       "assistantCritic": "Nota pengkritik",
       "assistantChains": "Rantai janji",
       "assistantCanon": "Ketidakselarasan kanon",
-      "modelWarn": "Tiada model dalam kaskad penulis bersama: menggunakan {{model}}. Pilih model di atas untuk mengatasi."
+      "modelWarn": "Tiada model dalam kaskad penulis bersama: menggunakan {{model}}. Pilih model di atas untuk mengatasi.",
+      "batchCta": "Analisis semua bab",
+      "batchRunning": "Bab dianalisis: {{done}}/{{total}}…",
+      "batchStop": "Henti",
+      "batchDone": "Bab dianalisis: {{total}} · janji dibuka: {{opened}} · dilunasi: {{paid}}",
+      "batchStopped": "Dihentikan — {{done}} daripada {{total}} bab dianalisis."
     },
     "quality-critic": {
       "title": "Pengkritik",

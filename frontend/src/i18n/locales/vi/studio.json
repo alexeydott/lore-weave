@@ -200,7 +200,12 @@
       "assistantCritic": "Nhận xét của phản biện",
       "assistantChains": "Chuỗi lời hứa",
       "assistantCanon": "Mâu thuẫn chính tắc",
-      "modelWarn": "Không có mô hình trong chuỗi đồng sáng tác — đang dùng {{model}}. Chọn mô hình ở trên để ghi đè."
+      "modelWarn": "Không có mô hình trong chuỗi đồng sáng tác — đang dùng {{model}}. Chọn mô hình ở trên để ghi đè.",
+      "batchCta": "Phân tích tất cả các chương",
+      "batchRunning": "Đã phân tích chương: {{done}}/{{total}}…",
+      "batchStop": "Dừng",
+      "batchDone": "Đã phân tích chương: {{total}} · lời hứa mở: {{opened}} · tất toán: {{paid}}",
+      "batchStopped": "Đã dừng — phân tích {{done}}/{{total}} chương."
     },
     "quality-critic": {
       "title": "Chuyên gia",

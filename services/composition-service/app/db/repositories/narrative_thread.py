@@ -94,6 +94,44 @@ class NarrativeThreadRepo:
             r = await c.fetchrow(query, project_id, thread_id, status, payoff_node)
         return _row(r) if r is not None else None
 
+    async def update_content(
+        self,
+        project_id: UUID,
+        thread_id: UUID,
+        *,
+        summary: str | None = None,
+        kind: str | None = None,
+    ) -> NarrativeThread | None:
+        """Edit an open thread's human-facing content (summary / kind) — the
+        promise-ledger edit the FE panel exposes (#user-report 2026-11-08).
+        Returns the updated row, or None when no ACTIVE open row matched (wrong
+        project / archived / paid rows are frozen history). OCC via version."""
+        query = f"""
+        UPDATE narrative_thread
+        SET summary = COALESCE($3, summary),
+            kind = COALESCE($4, kind),
+            version = version + 1,
+            updated_at = now()
+        WHERE id = $2 AND project_id = $1 AND NOT is_archived
+          AND status IN ('open', 'progressing')
+        RETURNING {_SELECT_COLS}
+        """
+        async with self._pool.acquire() as c:
+            r = await c.fetchrow(query, project_id, thread_id, summary, kind)
+        return _row(r) if r is not None else None
+
+    async def archive_thread(self, project_id: UUID, thread_id: UUID) -> bool:
+        """Archive a thread (soft-delete: hidden from every listing, the row
+        stays for the audit trail). Returns False when no ACTIVE row matched."""
+        query = """
+        UPDATE narrative_thread
+        SET is_archived = true, version = version + 1, updated_at = now()
+        WHERE id = $2 AND project_id = $1 AND NOT is_archived
+        """
+        async with self._pool.acquire() as c:
+            r = await c.execute(query, project_id, thread_id)
+        return r.split()[-1] != "0"
+
     async def list_open(
         self, project_id: UUID, *, limit: int = 100,
     ) -> list[NarrativeThread]:

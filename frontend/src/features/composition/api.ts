@@ -828,6 +828,29 @@ export const compositionApi = {
   // T0.1 — read the narrative-thread ledger (FD-1 S4a). `open` = the unpaid-promise
   // debt (priority-ordered); `all` = the full ledger. `open_count` is the true debt
   // count (not capped by the list LIMIT). Read-only.
+  /**
+   * #user-report 2026-11-08 — edit an OPEN promise's summary/kind. Paid and
+   * dropped rows are frozen history and refuse the edit server-side.
+   */
+  async updateNarrativeThread(
+    projectId: string,
+    threadId: string,
+    body: { summary?: string; kind?: string },
+    token: string,
+  ): Promise<NarrativeThread> {
+    return apiJson<NarrativeThread>(`${BASE}/works/${projectId}/narrative-threads/${threadId}`, {
+      method: 'PATCH', token,
+      body: JSON.stringify(body),
+    });
+  },
+
+  /** Archive (soft-delete) an open promise — reversible only in the DB. */
+  async archiveNarrativeThread(projectId: string, threadId: string, token: string): Promise<void> {
+    await apiJson(`${BASE}/works/${projectId}/narrative-threads/${threadId}`, {
+      method: 'DELETE', token,
+    });
+  },
+
   listNarrativeThreads(
     projectId: string,
     status: 'open' | 'all',

@@ -200,7 +200,12 @@
       "assistantCritic": "Catatan kritikus",
       "assistantChains": "Rantai janji",
       "assistantCanon": "Inkonsistensi kanon",
-      "modelWarn": "Tidak ada model di kaskade co-author: memakai {{model}}. Pilih model di atas untuk menimpa."
+      "modelWarn": "Tidak ada model di kaskade co-author: memakai {{model}}. Pilih model di atas untuk menimpa.",
+      "batchCta": "Analisis semua bab",
+      "batchRunning": "Bab dianalisis: {{done}}/{{total}}…",
+      "batchStop": "Hentikan",
+      "batchDone": "Bab dianalisis: {{total}} · janji dibuka: {{opened}} · dilunasi: {{paid}}",
+      "batchStopped": "Dihentikan — {{done}} dari {{total}} bab dianalisis."
     },
     "quality-critic": {
       "title": "Kritikus",

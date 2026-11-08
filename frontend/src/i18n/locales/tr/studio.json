@@ -200,7 +200,12 @@
       "assistantCritic": "Eleştirmen notları",
       "assistantChains": "Söz zincirleri",
       "assistantCanon": "Kanon çelişkileri",
-      "modelWarn": "Ortak yazar kaskadesinde model yok: {{model}} kullanılıyor. Geçersiz kılmak için yukarıdan bir model seçin."
+      "modelWarn": "Ortak yazar kaskadesinde model yok: {{model}} kullanılıyor. Geçersiz kılmak için yukarıdan bir model seçin.",
+      "batchCta": "Tüm bölümleri analiz et",
+      "batchRunning": "Analiz edilen bölümler: {{done}}/{{total}}…",
+      "batchStop": "Durdur",
+      "batchDone": "Analiz edilen bölümler: {{total}} · açılan sözler: {{opened}} · kapatılan: {{paid}}",
+      "batchStopped": "Durduruldu — {{total}} bölümden {{done}} analiz edildi."
     },
     "quality-critic": {
       "title": "Eleştirmen",

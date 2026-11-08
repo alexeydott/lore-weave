@@ -200,7 +200,12 @@
       "assistantCritic": "评审意见",
       "assistantChains": "承诺链",
       "assistantCanon": "正典不一致",
-      "modelWarn": "合著级联中没有模型 — 正在使用 {{model}}。可在上方选择以覆盖。"
+      "modelWarn": "合著级联中没有模型 — 正在使用 {{model}}。可在上方选择以覆盖。",
+      "batchCta": "分析所有章节",
+      "batchRunning": "已分析章节：{{done}}/{{total}}…",
+      "batchStop": "停止",
+      "batchDone": "已分析章节：{{total}} · 新开承诺：{{opened}} · 已回收：{{paid}}",
+      "batchStopped": "已停止——共分析 {{done}}/{{total}} 章。"
     },
     "quality-critic": {
       "title": "评论家",

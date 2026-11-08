@@ -136,6 +136,50 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
     }
   };
 
+  // Batch: run the detection pass over EVERY chapter sequentially (per-chapter
+  // calls keep the server gate + per-chapter budget; progress shows chapter i/N
+  // and a Stop cuts the remaining queue). One invalidate at the end.
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batch, setBatch] = useState<{ done: number; total: number } | null>(null);
+  const batchStopRef = useRef(false);
+  const runBatch = async () => {
+    if (!activeWork || !accessToken || !chapters?.items?.length || batchBusy || analyzing) return;
+    setBatchBusy(true);
+    batchStopRef.current = false;
+    const total = chapters.items.length;
+    let opened = 0;
+    let paid = 0;
+    let done = 0;
+    try {
+      for (const ch of chapters.items) {
+        if (batchStopRef.current) break;
+        try {
+          const r = await compositionApi.detectThreads(activeWork.project_id, {
+            chapter_id: ch.chapter_id,
+            model_source: 'user_model',
+            model_ref: effectiveModelRef,
+            max_output_tokens: maxOutputTokens ?? undefined,
+          }, accessToken);
+          opened += r.opened;
+          paid += r.paid;
+        } catch {
+          // a failed chapter must not kill the queue — counted at the end
+        }
+        done += 1;
+        setBatch({ done, total });
+      }
+      if (batchStopRef.current) {
+        toast.info(t('panels.quality-promises.batchStopped', { done, total }));
+      } else {
+        toast.success(t('panels.quality-promises.batchDone', { opened, paid, total }));
+      }
+      await queryClient.invalidateQueries({ queryKey: ['composition', 'threads', activeWork.project_id] });
+    } finally {
+      setBatchBusy(false);
+      setBatch(null);
+    }
+  };
+
   // ── ИИ-помощник (#user-report 2026-11-08) — read-only analysis report ──────
   const [report, setReport] = useState<ThreadsAssistantReport | null>(null);
   // The chapter the CURRENT report was built from — guards the persistence
@@ -306,6 +350,34 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
                 : t('panels.quality-promises.needModel'),
             })}
           </p>
+        )}
+        {/* Batch: the detection pass over EVERY chapter — the ledger fills across
+            the whole book in one run; per-chapter calls keep progress and Stop. */}
+        {batchBusy ? (
+          <div className="mx-3 mb-3 flex items-center gap-2 rounded-lg border bg-card p-2 text-xs text-muted-foreground">
+            <Sparkles className="h-3.5 w-3.5 animate-spin text-primary" />
+            {t('panels.quality-promises.batchRunning', { done: batch?.done ?? 0, total: batch?.total ?? 0 })}
+            <button
+              type="button"
+              data-testid="quality-promises-batch-stop"
+              onClick={() => { batchStopRef.current = true; }}
+              className="ml-auto rounded border px-2 py-0.5 text-[10px] font-medium"
+            >
+              {t('panels.quality-promises.batchStop')}
+            </button>
+          </div>
+        ) : (
+          <div className="mx-3 mb-3">
+            <button
+              type="button"
+              data-testid="quality-promises-batch"
+              onClick={() => void runBatch()}
+              disabled={!chapterId || !effectiveModelRef}
+              className="w-full rounded border border-primary/40 px-3 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+            >
+              {t('panels.quality-promises.batchCta')}
+            </button>
+          </div>
         )}
         {assistantBusy && (
           <div className="mx-3 mb-3 flex items-center gap-2 rounded-lg border bg-card p-2 text-xs text-muted-foreground">

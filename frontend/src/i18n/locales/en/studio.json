@@ -200,7 +200,12 @@
       "assistantCritic": "Critic notes",
       "assistantChains": "Promise chains",
       "assistantCanon": "Canon inconsistencies",
-      "modelWarn": "No model from the co-author cascade — falling back to {{model}}. Pick a model above to override."
+      "modelWarn": "No model from the co-author cascade — falling back to {{model}}. Pick a model above to override.",
+      "batchCta": "Analyze all chapters",
+      "batchRunning": "Analyzed chapters: {{done}}/{{total}}…",
+      "batchStop": "Stop",
+      "batchDone": "Analyzed chapters: {{total}} · promises opened: {{opened}} · paid off: {{paid}}",
+      "batchStopped": "Stopped — analyzed {{done}} of {{total}} chapters."
     },
     "quality-critic": {
       "title": "Critic",

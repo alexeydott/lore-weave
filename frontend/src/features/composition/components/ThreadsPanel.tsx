@@ -9,7 +9,11 @@
 // query — a render-time toast would re-fire), matching GroundingPanel.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { Pencil, Trash2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNarrativeThreads } from '../hooks/useNarrativeThreads';
+import { compositionApi } from '../api';
 import type { ThreadStatus } from '../types';
 
 // status → row token (icon + class). open/progressing = unpaid (warn); paid =
@@ -36,6 +40,38 @@ export function ThreadsPanel(
   const [status, setStatus] = useState<'open' | 'all'>('open');
   // Disabled → no query (undefined projectId) + null render below.
   const q = useNarrativeThreads(enabled ? projectId : undefined, token, status);
+  const queryClient = useQueryClient();
+
+  // #user-report 2026-11-08 — inline edit/archive for OPEN rows: the ledger rows
+  // are the author's own notes. Paid/dropped rows are frozen history.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const saveEdit = async (id: string) => {
+    if (!token || busyId) return;
+    setBusyId(id);
+    try {
+      await compositionApi.updateNarrativeThread(projectId, id, { summary: editDraft.trim() }, token);
+      setEditingId(null);
+      await queryClient.invalidateQueries({ queryKey: ['composition', 'threads', projectId] });
+    } catch (e) {
+      toast.error((e as Error).message || t('threadsError', { defaultValue: 'Could not load plot threads.' }));
+    } finally {
+      setBusyId(null);
+    }
+  };
+  const archiveRow = async (id: string) => {
+    if (!token || busyId) return;
+    setBusyId(id);
+    try {
+      await compositionApi.archiveNarrativeThread(projectId, id, token);
+      await queryClient.invalidateQueries({ queryKey: ['composition', 'threads', projectId] });
+    } catch (e) {
+      toast.error((e as Error).message || t('threadsError', { defaultValue: 'Could not load plot threads.' }));
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   if (!enabled) return null;
 
@@ -120,15 +156,72 @@ export function ThreadsPanel(
                   : 'border-neutral-200 dark:border-neutral-700'
               }`}
             >
-              <span className={tok.cls}>
-                <span className="mr-1" aria-hidden>{tok.icon}</span>
-                {th.summary || kind}
-              </span>
-              <span className="shrink-0 text-[11px] text-neutral-400">
-                {th.status === 'paid' && <span className="mr-1 text-emerald-600">{t('threadPaid', { defaultValue: 'paid' })}</span>}
-                {th.status === 'dropped' && <span className="mr-1">{t('threadDropped', { defaultValue: 'dropped' })}</span>}
-                {kind}
-              </span>
+              {editingId === th.id ? (
+                <div className="flex w-full items-center gap-1.5">
+                  <input
+                    className="min-w-0 flex-1 rounded border bg-background px-2 py-1 text-xs"
+                    value={editDraft}
+                    autoFocus
+                    onChange={(e) => setEditDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && editDraft.trim()) void saveEdit(th.id);
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    data-testid={`composition-thread-save-${th.id}`}
+                    disabled={!editDraft.trim()}
+                    onClick={() => void saveEdit(th.id)}
+                    className="shrink-0 rounded bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground disabled:opacity-50"
+                  >
+                    ✓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(null)}
+                    className="shrink-0 rounded border px-2 py-0.5 text-[10px]"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <span className={tok.cls}>
+                    <span className="mr-1" aria-hidden>{tok.icon}</span>
+                    {th.summary || kind}
+                  </span>
+                  <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                    {(th.status === 'open' || th.status === 'progressing') && (
+                      <>
+                        <button
+                          type="button"
+                          data-testid={`composition-thread-edit-${th.id}`}
+                          aria-label={t('threadEditAria', { defaultValue: 'Edit promise' })}
+                          title={t('threadEditAria', { defaultValue: 'Edit promise' })}
+                          className="text-neutral-400 transition-colors hover:text-foreground"
+                          onClick={() => { setEditingId(th.id); setEditDraft(th.summary || ''); }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          data-testid={`composition-thread-archive-${th.id}`}
+                          aria-label={t('threadArchiveAria', { defaultValue: 'Archive promise' })}
+                          title={t('threadArchiveAria', { defaultValue: 'Archive promise' })}
+                          className="text-neutral-400 transition-colors hover:text-red-500"
+                          onClick={() => void archiveRow(th.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </>
+                    )}
+                    {th.status === 'paid' && <span className="text-emerald-600">{t('threadPaid', { defaultValue: 'paid' })}</span>}
+                    {th.status === 'dropped' && <span>{t('threadDropped', { defaultValue: 'dropped' })}</span>}
+                    <span className="text-[11px] text-neutral-400">{kind}</span>
+                  </span>
+                </>
+              )}
             </li>
           );
         })}

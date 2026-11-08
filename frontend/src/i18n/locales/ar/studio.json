@@ -200,7 +200,12 @@
       "assistantCritic": "ملاحظات الناقد",
       "assistantChains": "سلاسل الوعود",
       "assistantCanon": "تناقضات القانون",
-      "modelWarn": "لا نموذج في سلسلة الكتابة المشتركة — يُستخدم {{model}}. اختر نموذجًا أعلاه للتجاوز."
+      "modelWarn": "لا نموذج في سلسلة الكتابة المشتركة — يُستخدم {{model}}. اختر نموذجًا أعلاه للتجاوز.",
+      "batchCta": "تحليل جميع الفصول",
+      "batchRunning": "الفصول المحللة: {{done}}/{{total}}…",
+      "batchStop": "إيقاف",
+      "batchDone": "الفصول المحللة: {{total}} · الوعود المفتوحة: {{opened}} · المسددة: {{paid}}",
+      "batchStopped": "توقف — حُلل {{done}} من {{total}} فصول."
     },
     "quality-critic": {
       "title": "الناقد",

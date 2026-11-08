@@ -199,7 +199,12 @@
       "assistantCritic": "บันทึกนักวิจารณ์",
       "assistantChains": "ห่วงโซ่คำสัญญา",
       "assistantCanon": "ความไม่สอดคล้องของแคนนอน",
-      "modelWarn": "ไม่มีโมเดลใน cascade ของผู้ร่วมเขียน — ใช้ {{model}} อยู่ เลือกโมเดลด้านบนเพื่อแทนที่ได้"
+      "modelWarn": "ไม่มีโมเดลใน cascade ของผู้ร่วมเขียน — ใช้ {{model}} อยู่ เลือกโมเดลด้านบนเพื่อแทนที่ได้",
+      "batchCta": "วิเคราะห์ทุกบท",
+      "batchRunning": "บทที่วิเคราะห์แล้ว: {{done}}/{{total}}…",
+      "batchStop": "หยุด",
+      "batchDone": "บทที่วิเคราะห์แล้ว: {{total}} · คำสัญญาที่เปิด: {{opened}} · ปิดแล้ว: {{paid}}",
+      "batchStopped": "หยุดแล้ว — วิเคราะห์ {{done}} จาก {{total}} บท"
     },
     "quality-critic": {
       "title": "นักวิจารณ์",

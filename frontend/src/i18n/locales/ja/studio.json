@@ -200,7 +200,12 @@
       "assistantCritic": "批評家のメモ",
       "assistantChains": "プロミスの連鎖",
       "assistantCanon": "カノンの不整合",
-      "modelWarn": "共著カスケードにモデルがありません — {{model}} を使用中。上でモデルを選ぶと上書きされます。"
+      "modelWarn": "共著カスケードにモデルがありません — {{model}} を使用中。上でモデルを選ぶと上書きされます。",
+      "batchCta": "全章を分析",
+      "batchRunning": "分析済み章: {{done}}/{{total}}…",
+      "batchStop": "停止",
+      "batchDone": "分析した章: {{total}} · 開かれたプロミス: {{opened}} · 回収: {{paid}}",
+      "batchStopped": "停止 — {{total}} 章中 {{done}} 章を分析。"
     },
     "quality-critic": {
       "title": "批評",

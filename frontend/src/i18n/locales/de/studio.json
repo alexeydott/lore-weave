@@ -200,7 +200,12 @@
       "assistantCritic": "Kritiker-Notizen",
       "assistantChains": "Versprechen-Ketten",
       "assistantCanon": "Kanon-Widersprüche",
-      "modelWarn": "Kein Modell in der Koautoren-Kaskade: {{model}} wird verwendet. Wählen Sie oben ein Modell, um zu überschreiben."
+      "modelWarn": "Kein Modell in der Koautoren-Kaskade: {{model}} wird verwendet. Wählen Sie oben ein Modell, um zu überschreiben.",
+      "batchCta": "Alle Kapitel analysieren",
+      "batchRunning": "Analysierte Kapitel: {{done}}/{{total}}…",
+      "batchStop": "Stoppen",
+      "batchDone": "Analysierte Kapitel: {{total}} · geöffnete Versprechen: {{opened}} · beglichene: {{paid}}",
+      "batchStopped": "Gestoppt — {{done}} von {{total}} Kapiteln analysiert."
     },
     "quality-critic": {
       "title": "Kritiker",
