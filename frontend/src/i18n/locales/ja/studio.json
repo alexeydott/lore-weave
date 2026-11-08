@@ -199,7 +199,8 @@
       "adoptedAll": "台帳に追加したプロミス: {{count}}",
       "assistantCritic": "批評家のメモ",
       "assistantChains": "プロミスの連鎖",
-      "assistantCanon": "カノンの不整合"
+      "assistantCanon": "カノンの不整合",
+      "modelWarn": "共著カスケードにモデルがありません — {{model}} を使用中。上でモデルを選ぶと上書きされます。"
     },
     "quality-critic": {
       "title": "批評",

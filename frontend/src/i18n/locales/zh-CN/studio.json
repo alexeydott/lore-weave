@@ -199,7 +199,8 @@
       "adoptedAll": "已加入台账的承诺：{{count}}",
       "assistantCritic": "评审意见",
       "assistantChains": "承诺链",
-      "assistantCanon": "正典不一致"
+      "assistantCanon": "正典不一致",
+      "modelWarn": "合著级联中没有模型 — 正在使用 {{model}}。可在上方选择以覆盖。"
     },
     "quality-critic": {
       "title": "评论家",

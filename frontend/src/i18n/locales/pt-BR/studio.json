@@ -199,7 +199,8 @@
       "adoptedAll": "Promessas adicionadas ao registro: {{count}}",
       "assistantCritic": "Notas do crítico",
       "assistantChains": "Cadeias de promessas",
-      "assistantCanon": "Incoerências de cânon"
+      "assistantCanon": "Incoerências de cânon",
+      "modelWarn": "Sem modelo na cascada de coautoria: usando {{model}}. Escolha um modelo acima para substituir."
     },
     "quality-critic": {
       "title": "Crítico",

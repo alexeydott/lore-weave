@@ -199,7 +199,8 @@
       "adoptedAll": "已加入臺帳的承諾：{{count}}",
       "assistantCritic": "評審意見",
       "assistantChains": "承諾鏈",
-      "assistantCanon": "正典不一致"
+      "assistantCanon": "正典不一致",
+      "modelWarn": "合著串聯中沒有模型 — 正在使用 {{model}}。可在上方選擇以覆寫。"
     },
     "quality-critic": {
       "title": "評論",

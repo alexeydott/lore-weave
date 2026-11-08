@@ -61,9 +61,14 @@ def _build_messages(scene_text: str, open_threads, source_language: str) -> tupl
     """(system, user). Abstract + multilingual-safe (no English-only example
     phrases — they bias a CJK/VN model; the lesson). The model is GIVEN the open
     threads so it can mark pays AND avoid re-opening them."""
-    lang = "" if source_language in ("", "auto") else (
-        f" Write each `summary` in the language with code '{source_language}'."
-    )
+    if source_language in ("", "auto"):
+        # "auto" = write in the passage's own language: the summary must match
+        # what the reader sees, not the model's English bias (#user-report
+        # 2026-11-08: a ru chapter produced English summaries in the panel).
+        lang = " Write each `summary` in the SAME LANGUAGE as the PASSAGE below."
+    else:
+        lang = f" Write each `summary` in the language with code '{source_language}'."
+
     system = (
         "You track narrative promises in a story. A PROMISE is anything the text "
         "plants that the reader will expect to pay off later: a foreshadowing, an "

@@ -199,7 +199,8 @@
       "adoptedAll": "Versprechen im Register: {{count}}",
       "assistantCritic": "Kritiker-Notizen",
       "assistantChains": "Versprechen-Ketten",
-      "assistantCanon": "Kanon-Widersprüche"
+      "assistantCanon": "Kanon-Widersprüche",
+      "modelWarn": "Kein Modell in der Koautoren-Kaskade: {{model}} wird verwendet. Wählen Sie oben ein Modell, um zu überschreiben."
     },
     "quality-critic": {
       "title": "Kritiker",

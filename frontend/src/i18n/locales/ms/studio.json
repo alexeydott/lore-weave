@@ -179,8 +179,6 @@
       "title": "Janji",
       "desc": "Lejar hutang janji terbuka (set-up yang belum diselesaikan)",
       "guideBody": "Janji adalah lejar hutang naratif anda — setiap petunjuk yang telah dibuat oleh cerita tetapi belum dijelaskan. Sebuah janji bermula di mana anda menanamnya (pengkhianatan yang dibayangkan, pistol yang berisi peluru, parut yang tidak dijelaskan) dan berakhir apabila manuskrip menunaikannya. Selesaikan senarai ini sebelum anda menamatkan buku; apa sahaja yang masih terbuka di penghujung cerita adalah plot yang akan disedari pembaca sebagai sesuatu yang terbiar.",
-      "scan": "Cari pendua",
-      "scanning": "Mengimbas…",
       "enableCta": "Aktifkan penjejakan janji",
       "enabling": "Mengaktifkan…",
       "enableFailed": "Penjejakan janji gagal diaktifkan.",
@@ -201,7 +199,8 @@
       "adoptedAll": "Janji ditambah ke daftar: {{count}}",
       "assistantCritic": "Nota pengkritik",
       "assistantChains": "Rantai janji",
-      "assistantCanon": "Ketidakselarasan kanon"
+      "assistantCanon": "Ketidakselarasan kanon",
+      "modelWarn": "Tiada model dalam kaskad penulis bersama: menggunakan {{model}}. Pilih model di atas untuk mengatasi."
     },
     "quality-critic": {
       "title": "Pengkritik",

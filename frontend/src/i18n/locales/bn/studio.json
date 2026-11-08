@@ -199,7 +199,8 @@
       "adoptedAll": "রেজিস্টারে যোগ হওয়া প্রমিস: {{count}}",
       "assistantCritic": "সমালোচকের নোট",
       "assistantChains": "প্রমিস শৃঙ্খল",
-      "assistantCanon": "ক্যানন অসঙ্গতি"
+      "assistantCanon": "ক্যানন অসঙ্গতি",
+      "modelWarn": "সহ-লেখক ক্যাসকেডে কোনো মডেল নেই — {{model}} ব্যবহৃত হচ্ছে। ওভাররাইড করতে উপরে একটি মডেল বেছে নিন।"
     },
     "quality-critic": {
       "title": "সমালোচক",

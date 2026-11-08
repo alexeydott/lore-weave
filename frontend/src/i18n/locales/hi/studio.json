@@ -199,7 +199,8 @@
       "adoptedAll": "रजिस्टर में जोड़े गए प्रॉमिस: {{count}}",
       "assistantCritic": "आलोचक टिप्पणियाँ",
       "assistantChains": "प्रॉमिस श्रृंखलाएँ",
-      "assistantCanon": "कैनन विसंगतियाँ"
+      "assistantCanon": "कैनन विसंगतियाँ",
+      "modelWarn": "सह-लेखक कैस्केड में कोई मॉडल नहीं — {{model}} उपयोग हो रहा है। बदलने के लिए ऊपर मॉडल चुनें।"
     },
     "quality-critic": {
       "title": "समीक्षक",

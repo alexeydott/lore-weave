@@ -198,7 +198,8 @@
       "adoptedAll": "장부에 추가된 프로미스: {{count}}",
       "assistantCritic": "비평가 노트",
       "assistantChains": "프로미스 사슬",
-      "assistantCanon": "캐논 불일치"
+      "assistantCanon": "캐논 불일치",
+      "modelWarn": "공동 집필 캐스케이드에 모델이 없습니다 — {{model}} 사용 중. 위에서 모델을 선택해 재정의하세요."
     },
     "quality-critic": {
       "title": "비평",

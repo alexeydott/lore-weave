@@ -94,7 +94,7 @@
     "toast_undone": "Penggabungan diundur",
     "unnamed": "(tanpa nama)",
     "scan": "Cari pendua",
-    "scanning": " Mengimbas…",
+    "scanning": "Mengimbas…",
     "toast_scanned": "Kelompok ditemui: {{clusters}}, dicadangkan untuk semakan: {{proposed}}",
     "toast_scan_empty": "Tiada kelompok pendua dalam imbasan ini.",
     "scan_failed": "Imbasan pendua gagal."

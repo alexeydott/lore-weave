@@ -199,7 +199,8 @@
       "adoptedAll": "Promises added to the ledger: {{count}}",
       "assistantCritic": "Critic notes",
       "assistantChains": "Promise chains",
-      "assistantCanon": "Canon inconsistencies"
+      "assistantCanon": "Canon inconsistencies",
+      "modelWarn": "No model from the co-author cascade — falling back to {{model}}. Pick a model above to override."
     },
     "quality-critic": {
       "title": "Critic",

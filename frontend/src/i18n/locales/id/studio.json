@@ -199,7 +199,8 @@
       "adoptedAll": "Janji ditambahkan ke registar: {{count}}",
       "assistantCritic": "Catatan kritikus",
       "assistantChains": "Rantai janji",
-      "assistantCanon": "Inkonsistensi kanon"
+      "assistantCanon": "Inkonsistensi kanon",
+      "modelWarn": "Tidak ada model di kaskade co-author: memakai {{model}}. Pilih model di atas untuk menimpa."
     },
     "quality-critic": {
       "title": "Kritikus",

@@ -199,7 +199,8 @@
       "adoptedAll": "Số lời hứa đã thêm: {{count}}",
       "assistantCritic": "Nhận xét của phản biện",
       "assistantChains": "Chuỗi lời hứa",
-      "assistantCanon": "Mâu thuẫn chính tắc"
+      "assistantCanon": "Mâu thuẫn chính tắc",
+      "modelWarn": "Không có mô hình trong chuỗi đồng sáng tác — đang dùng {{model}}. Chọn mô hình ở trên để ghi đè."
     },
     "quality-critic": {
       "title": "Chuyên gia",

@@ -198,7 +198,8 @@
       "adoptedAll": "คำสัญญาที่เพิ่มเข้าบัญชี: {{count}}",
       "assistantCritic": "บันทึกนักวิจารณ์",
       "assistantChains": "ห่วงโซ่คำสัญญา",
-      "assistantCanon": "ความไม่สอดคล้องของแคนนอน"
+      "assistantCanon": "ความไม่สอดคล้องของแคนนอน",
+      "modelWarn": "ไม่มีโมเดลใน cascade ของผู้ร่วมเขียน — ใช้ {{model}} อยู่ เลือกโมเดลด้านบนเพื่อแทนที่ได้"
     },
     "quality-critic": {
       "title": "นักวิจารณ์",

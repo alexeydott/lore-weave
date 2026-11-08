@@ -199,7 +199,8 @@
       "adoptedAll": "Deftere eklenen sözler: {{count}}",
       "assistantCritic": "Eleştirmen notları",
       "assistantChains": "Söz zincirleri",
-      "assistantCanon": "Kanon çelişkileri"
+      "assistantCanon": "Kanon çelişkileri",
+      "modelWarn": "Ortak yazar kaskadesinde model yok: {{model}} kullanılıyor. Geçersiz kılmak için yukarıdan bir model seçin."
     },
     "quality-critic": {
       "title": "Eleştirmen",

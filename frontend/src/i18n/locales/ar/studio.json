@@ -199,7 +199,8 @@
       "adoptedAll": "الوعود المضافة إلى السجل: {{count}}",
       "assistantCritic": "ملاحظات الناقد",
       "assistantChains": "سلاسل الوعود",
-      "assistantCanon": "تناقضات القانون"
+      "assistantCanon": "تناقضات القانون",
+      "modelWarn": "لا نموذج في سلسلة الكتابة المشتركة — يُستخدم {{model}}. اختر نموذجًا أعلاه للتجاوز."
     },
     "quality-critic": {
       "title": "الناقد",

@@ -199,7 +199,8 @@
       "adoptedAll": "Promesses ajoutées au registre : {{count}}",
       "assistantCritic": "Notes du critique",
       "assistantChains": "Chaînes de promesses",
-      "assistantCanon": "Incohérences de canon"
+      "assistantCanon": "Incohérences de canon",
+      "modelWarn": "Aucun modèle dans la cascade de co-écriture : {{model}} est utilisé. Choisissez un modèle ci-dessus pour le remplacer."
     },
     "quality-critic": {
       "title": "Critique",

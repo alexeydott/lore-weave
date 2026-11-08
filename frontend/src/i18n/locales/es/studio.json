@@ -199,7 +199,8 @@
       "adoptedAll": "Promisas añadidos al registro: {{count}}",
       "assistantCritic": "Notas del crítico",
       "assistantChains": "Cadenas de promisas",
-      "assistantCanon": "Incoherencias de canon"
+      "assistantCanon": "Incoherencias de canon",
+      "modelWarn": "Sin modelo en la cascada de coautoría: se usa {{model}}. Elige un modelo arriba para anularlo."
     },
     "quality-critic": {
       "title": "Crítico",
