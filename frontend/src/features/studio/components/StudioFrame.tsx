@@ -16,6 +16,7 @@ import { usePaletteHotkeys, type PaletteKind } from '../palette/usePaletteHotkey
 import { revealManuscript } from '../palette/reveal';
 import { OPENABLE_STUDIO_PANELS, getStudioPanelDef } from '../panels/catalog';
 import { ManuscriptUnitProvider } from '../manuscript/unit/ManuscriptUnitProvider';
+import { ChatAiSettingsProvider } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 import { useEnsureWork } from '@/features/composition/hooks/useWork';
 import type { JumpResult, ManuscriptNode } from '../manuscript/types';
 import { useStudioOnboarding } from '../onboarding/useStudioOnboarding';
@@ -132,7 +133,13 @@ function StudioFrameInner({ bookId, initialChapterId }: { bookId: string; initia
     }
   }, [host]);
 
+  // #user-report 2026-11-08 — the AI settings cascade (book ▸ account model
+  // resolution) was mounted only inside the chat/compose trees, so every STUDIO
+  // dock panel (Quality tools, promises) read useEffectiveModel as null and fell
+  // below the book tier. Hoisted here with the book scope: the whole dock now
+  // resolves the true cascade like the chat does.
   return (
+    <ChatAiSettingsProvider token={accessToken} bookId={bookId}>
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background">
       <StudioTopBar
         bookId={bookId}
@@ -205,5 +212,6 @@ function StudioFrameInner({ bookId, initialChapterId }: { bookId: string; initia
       />
       <StudioGuidedTour tour={tour} />
     </div>
+    </ChatAiSettingsProvider>
   );
 }
