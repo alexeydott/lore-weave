@@ -33,7 +33,7 @@ function Wrapper({ children }: PropsWithChildren) {
     defaultOptions: { queries: { retry: false } },
   });
   return (
-    <MemoryRouter initialEntries={['/knowledge']}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/knowledge']}>
       <QueryClientProvider client={qc}>{children}</QueryClientProvider>
     </MemoryRouter>
   );

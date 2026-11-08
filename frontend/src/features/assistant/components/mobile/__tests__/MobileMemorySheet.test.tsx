@@ -13,7 +13,7 @@ const ent = (id: string, name: string, code: string): GlossaryEntitySummary =>
 function renderOpen(props: Partial<Parameters<typeof MobileMemorySheet>[0]> = {}) {
   const base = { entities: [], loading: false, error: null, search: '', onSearch: vi.fn() };
   return render(
-    <MemoryRouter initialEntries={['/assistant?sheet=memory']}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/assistant?sheet=memory']}>
       <MobileMemorySheet {...base} {...props} />
     </MemoryRouter>,
   );

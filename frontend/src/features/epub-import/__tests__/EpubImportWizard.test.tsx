@@ -36,7 +36,7 @@ const inspection = {
 };
 
 function renderWizard() {
-  return render(<MemoryRouter><EpubImportWizard open onOpenChange={vi.fn()} bookId="book-1" onImported={vi.fn()} /></MemoryRouter>);
+  return render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><EpubImportWizard open onOpenChange={vi.fn()} bookId="book-1" onImported={vi.fn()} /></MemoryRouter>);
 }
 
 beforeEach(() => {

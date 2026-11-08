@@ -33,7 +33,7 @@ describe('ProjectsTab — thin route wrapper', () => {
 
   it('routes a row INTO the C6 detail shell via navigate()', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ProjectsTab />
       </MemoryRouter>,
     );

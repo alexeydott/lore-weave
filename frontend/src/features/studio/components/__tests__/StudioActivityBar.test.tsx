@@ -7,7 +7,7 @@ import { StudioActivityBar } from '../StudioActivityBar';
 const setup = (over: Partial<Parameters<typeof StudioActivityBar>[0]> = {}) => {
   const onSelect = vi.fn();
   render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <StudioActivityBar bookId="b1" activeView="manuscript" sidebarCollapsed={false} onSelect={onSelect} {...over} />
     </MemoryRouter>,
   );

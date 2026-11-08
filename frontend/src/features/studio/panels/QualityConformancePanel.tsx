@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/auth';
 import { ModelPicker, useUserModels } from '@/components/model-picker';
-import { useEffectiveModel } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
+import { useEffectiveModelSelection } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 import { booksApi } from '@/features/books/api';
 import { ConformanceTraceView } from '@/features/composition/motif/components/ConformanceTraceView';
 import { useStudioHost } from '../host/StudioHostProvider';
@@ -34,7 +34,11 @@ export function QualityConformancePanel(props: IDockviewPanelProps) {
   // allows a re-selection (changes propagate via the shared invalidation).
   const modelsQ = useUserModels({ capability: 'chat' });
   const firstChatModel = modelsQ.models?.[0]?.user_model_id ?? '';
-  const cascadeModel = useEffectiveModel('chat') ?? firstChatModel;
+  const cascadeSelection = useEffectiveModelSelection('chat');
+  const effectiveModel = modelRef
+    ? { model_source: 'user_model' as const, model_ref: modelRef }
+    : cascadeSelection ?? (firstChatModel ? { model_source: 'user_model' as const, model_ref: firstChatModel } : null);
+  const effectiveModelRef = effectiveModel?.model_ref ?? '';
 
   const [chapterId, setChapterId] = useState('');
 
@@ -73,7 +77,7 @@ export function QualityConformancePanel(props: IDockviewPanelProps) {
         )}
         <ModelPicker
           capability="chat"
-          value={modelRef || cascadeModel || null}
+          value={effectiveModelRef || null}
           onChange={(id) => setModelRef(id ?? '')}
           placeholder={t('quality.pickModelRerun', { defaultValue: 'Pick a model to re-run with…' })}
           compact
@@ -85,7 +89,7 @@ export function QualityConformancePanel(props: IDockviewPanelProps) {
             projectId={work.projectId}
             chapterId={chapterId}
             token={accessToken}
-            modelRef={modelRef || cascadeModel || null}
+            modelRef={effectiveModelRef || null}
             onOpenScene={(sceneId, chId) => {
               // §2#6 loop-connect — publish the selection + open the scene surface (the SceneBrowser pattern).
               if (sceneId) {

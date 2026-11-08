@@ -57,7 +57,7 @@ import { AssistantHomeStrip } from '../AssistantHomeStrip';
 
 function renderStrip() {
   return render(
-    <MemoryRouter initialEntries={['/assistant']}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/assistant']}>
       <AssistantHomeStrip />
     </MemoryRouter>,
   );

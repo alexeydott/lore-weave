@@ -21,7 +21,7 @@ import { PushSettingsSheet } from '../PushSettingsSheet';
 
 function renderSheet() {
   return render(
-    <MemoryRouter initialEntries={['/you?sheet=notifications']}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/you?sheet=notifications']}>
       <PushSettingsSheet />
     </MemoryRouter>,
   );

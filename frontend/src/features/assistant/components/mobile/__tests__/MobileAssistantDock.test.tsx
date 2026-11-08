@@ -89,7 +89,7 @@ import { MobileAssistantDock } from '../MobileAssistantDock';
 
 function renderDock() {
   return render(
-    <MemoryRouter initialEntries={['/assistant']}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/assistant']}>
       <MobileAssistantDock />
     </MemoryRouter>,
   );

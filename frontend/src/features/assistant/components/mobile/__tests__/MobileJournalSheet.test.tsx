@@ -26,7 +26,7 @@ const entry = (over: Partial<DiaryEntry>): DiaryEntry => ({
 // The sheet only renders its content when ?sheet=journal is active.
 function renderOpen(props: Parameters<typeof MobileJournalSheet>[0]) {
   return render(
-    <MemoryRouter initialEntries={['/assistant?sheet=journal']}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/assistant?sheet=journal']}>
       <MobileJournalSheet {...props} />
     </MemoryRouter>,
   );

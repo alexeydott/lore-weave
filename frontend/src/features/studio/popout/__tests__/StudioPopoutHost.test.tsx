@@ -30,7 +30,7 @@ function ChatRelayProbe() {
 
 function renderAt(query: string) {
   return render(
-    <MemoryRouter initialEntries={[`/studio/popout${query}`]}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[`/studio/popout${query}`]}>
       <StudioPopoutHost />
     </MemoryRouter>,
   );

@@ -30,7 +30,7 @@ beforeEach(() => {
 
 function renderYou() {
   return render(
-    <MemoryRouter initialEntries={['/you']}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/you']}>
       <YouPage />
     </MemoryRouter>,
   );

@@ -13,6 +13,7 @@ interface Props {
   chapterId: string;
   token: string | null;
   modelRef: string;
+  modelSource?: 'user_model' | 'platform_model';
   // The healed text PLUS the draft_version Polish read it at (E1 stale guard): a chapter-scoped
   // apply uses it as the OCC If-Match, so a chapter changed since Polish ran gets a 412 instead of
   // silently reverting the newer edits. The legacy editor caller can ignore the 2nd arg (it applies
@@ -20,9 +21,9 @@ interface Props {
   onApply: (healedText: string, draftVersion: number | null) => void;
 }
 
-export function PolishPanel({ projectId, chapterId, token, modelRef, onApply }: Props) {
+export function PolishPanel({ projectId, chapterId, token, modelRef, modelSource = 'user_model', onApply }: Props) {
   const { t } = useTranslation('composition');
-  const p = usePolishProposals(projectId, chapterId, token, modelRef);
+  const p = usePolishProposals(projectId, chapterId, token, modelRef, modelSource);
   // `?? []` rather than a required field: a backend that predates this key sends nothing, and
   // an OLD server must degrade to the old behaviour rather than crashing the panel. It cannot
   // degrade to a false "clean" claim either — with no key there are no unplaced findings to

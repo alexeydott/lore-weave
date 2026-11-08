@@ -63,7 +63,7 @@ function Probe() {
 
 function renderShell() {
   return render(
-    <MemoryRouter initialEntries={['/probe']}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/probe']}>
       <Routes>
         <Route element={<AppShell variant="dashboard" />}>
           <Route path="/probe" element={<Probe />} />

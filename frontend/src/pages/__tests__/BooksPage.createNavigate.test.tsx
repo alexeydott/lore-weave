@@ -28,7 +28,7 @@ import { BooksPage } from '../BooksPage';
 
 function renderBooksPage() {
   return render(
-    <MemoryRouter initialEntries={['/books']}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/books']}>
       <Routes>
         <Route path="/books" element={<BooksPage />} />
         <Route path="/books/:bookId/studio" element={<div data-testid="studio-landed" />} />

@@ -32,24 +32,24 @@ describe('registry studio panels mount (E2E-P1-G deterministic)', () => {
     }
   });
 
-  it('ExtensionsPanel mounts and renders its Skills tab', () => {
+  it('ExtensionsPanel mounts and renders its Skills tab', async () => {
     const Extensions = STUDIO_PANEL_COMPONENTS['extensions'];
     render(<Extensions {...fakeProps()} />);
-    expect(screen.getByTestId('studio-extensions-panel')).toBeTruthy();
+    expect(await screen.findByTestId('studio-extensions-panel')).toBeTruthy();
     expect(screen.getByTestId('ext-tab-skills')).toBeTruthy();
     expect(screen.getByTestId('extensions-skills-view')).toBeTruthy();
   });
 
-  it('ProposalsPanel mounts and renders the proposals view', () => {
+  it('ProposalsPanel mounts and renders the proposals view', async () => {
     const Proposals = STUDIO_PANEL_COMPONENTS['proposals'];
     render(<Proposals {...fakeProps()} />);
-    expect(screen.getByTestId('studio-proposals-panel')).toBeTruthy();
+    expect(await screen.findByTestId('studio-proposals-panel')).toBeTruthy();
     expect(screen.getByTestId('extensions-proposals-view')).toBeTruthy();
   });
 
-  it('SkillEditorPanel mounts (no skillId → prompt state)', () => {
+  it('SkillEditorPanel mounts (no skillId → prompt state)', async () => {
     const Editor = STUDIO_PANEL_COMPONENTS['skill-editor'];
     render(<Editor {...fakeProps()} />);
-    expect(screen.getByTestId('studio-skill-editor-panel')).toBeTruthy();
+    expect(await screen.findByTestId('studio-skill-editor-panel')).toBeTruthy();
   });
 });

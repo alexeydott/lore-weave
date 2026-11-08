@@ -18,6 +18,7 @@ export function usePolishProposals(
   chapterId: string | null,
   token: string | null,
   modelRef: string,
+  modelSource: 'user_model' | 'platform_model' = 'user_model',
 ) {
   const [proposals, setProposals] = useState<SelfHealProposal[]>([]);
   const [sourceText, setSourceText] = useState('');
@@ -39,7 +40,7 @@ export function usePolishProposals(
       try {
         const r = await compositionApi.proposeSelfHeal(
           projectId,
-          { chapterId, modelRef, rerank },
+          { chapterId, modelRef, modelSource, rerank },
           token,
         );
         const props = r.proposals ?? [];
@@ -58,7 +59,7 @@ export function usePolishProposals(
         setLoading(false);
       }
     },
-    [projectId, chapterId, token, modelRef, rerank],
+    [projectId, chapterId, token, modelRef, modelSource, rerank],
   );
 
   const toggle = useCallback((id: string) => {

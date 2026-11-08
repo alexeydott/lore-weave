@@ -12,6 +12,7 @@ export function useQualityReport(
   chapterId: string | null,
   token: string | null,
   modelRef: string,
+  modelSource: 'user_model' | 'platform_model' = 'user_model',
 ) {
   const [report, setReport] = useState<QualityReport | null>(null);
   const [loading, setLoading] = useState(false);
@@ -23,7 +24,7 @@ export function useQualityReport(
     setLoading(true);
     setError(null);
     try {
-      const r = await compositionApi.qualityReport(projectId, { chapterId, modelRef }, token);
+      const r = await compositionApi.qualityReport(projectId, { chapterId, modelRef, modelSource }, token);
       setReport(r.report ?? null);
       setRan(true);
     } catch (e) {
@@ -31,7 +32,7 @@ export function useQualityReport(
     } finally {
       setLoading(false);
     }
-  }, [projectId, chapterId, token, modelRef]);
+  }, [projectId, chapterId, token, modelRef, modelSource]);
 
   return { report, loading, error, ran, run };
 }

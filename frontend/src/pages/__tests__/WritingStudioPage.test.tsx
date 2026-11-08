@@ -87,7 +87,7 @@ const withClient = (ui: React.ReactNode) => (
 );
 
 const renderPage = (initialEntries: string[] = ['/']) => render(
-  withClient(<MemoryRouter initialEntries={initialEntries}><WritingStudioPage /></MemoryRouter>),
+  withClient(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={initialEntries}><WritingStudioPage /></MemoryRouter>),
 );
 
 beforeEach(() => { localStorage.clear(); dockMounts.n = 0; route.bookId = 'b1'; focusManuscriptUnit.mockClear(); });
@@ -108,7 +108,7 @@ describe('WritingStudioPage', () => {
     expect(dockMounts.n).toBe(1);
     // Simulate /books/b1/studio → /books/b2/studio without a full reload.
     route.bookId = 'b2';
-    rerender(withClient(<MemoryRouter><WritingStudioPage /></MemoryRouter>));
+    rerender(withClient(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><WritingStudioPage /></MemoryRouter>));
     // The keyed StudioFrame remounts → dock re-created for the new book (guards review-impl #1/#2).
     expect(dockMounts.n).toBe(2);
   });

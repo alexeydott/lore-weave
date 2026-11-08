@@ -15,6 +15,7 @@ interface Props {
   chapterId: string;
   token: string | null;
   modelRef: string;
+  modelSource?: 'user_model' | 'platform_model';
   // The current self-heal proposals (if the author has run Polish) — used to mark which critic
   // violations already have a proposed fix. Optional: the report stands alone without them.
   proposals?: SelfHealProposal[];
@@ -36,9 +37,9 @@ function _hasProposedFix(span: string, proposals: SelfHealProposal[]): boolean {
   });
 }
 
-export function QualityReportSection({ projectId, chapterId, token, modelRef, proposals = [] }: Props) {
+export function QualityReportSection({ projectId, chapterId, token, modelRef, modelSource = 'user_model', proposals = [] }: Props) {
   const { t } = useTranslation('composition');
-  const q = useQualityReport(projectId, chapterId, token, modelRef);
+  const q = useQualityReport(projectId, chapterId, token, modelRef, modelSource);
   const critic = q.report?.critic;
   const threads = q.report?.threads;
 

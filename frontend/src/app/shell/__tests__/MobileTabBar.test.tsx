@@ -21,7 +21,7 @@ function resolveKey(obj: unknown, key: string): unknown {
 
 function renderAt(path: string) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[path]}>
       <MobileTabBar />
     </MemoryRouter>,
   );

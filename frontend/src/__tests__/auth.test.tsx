@@ -27,7 +27,7 @@ describe('AuthProvider', () => {
 
   it('starts with no token when localStorage is empty', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider><TestConsumer /></AuthProvider>
       </MemoryRouter>,
     );
@@ -37,7 +37,7 @@ describe('AuthProvider', () => {
   // M4 (F1) — the "Reconnecting…" chip appears only while a silent refresh is in flight.
   it('shows a Reconnecting chip on lw-auth-refreshing active:true and hides it on false', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider><TestConsumer /></AuthProvider>
       </MemoryRouter>,
     );
@@ -51,7 +51,7 @@ describe('AuthProvider', () => {
   it('reads token from localStorage on mount', () => {
     localStorage.setItem('lw_auth', JSON.stringify({ accessToken: 'saved-tok', refreshToken: 'saved-ref' }));
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider><TestConsumer /></AuthProvider>
       </MemoryRouter>,
     );
@@ -60,7 +60,7 @@ describe('AuthProvider', () => {
 
   it('setTokens saves to state and localStorage', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider><TestConsumer /></AuthProvider>
       </MemoryRouter>,
     );
@@ -76,7 +76,7 @@ describe('AuthProvider', () => {
   it('logoutLocal clears tokens and localStorage', async () => {
     localStorage.setItem('lw_auth', JSON.stringify({ accessToken: 'tok', refreshToken: 'ref' }));
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider><TestConsumer /></AuthProvider>
       </MemoryRouter>,
     );
@@ -96,7 +96,7 @@ describe('RequireAuth', () => {
   it('renders children when authenticated', () => {
     localStorage.setItem('lw_auth', JSON.stringify({ accessToken: 'valid', refreshToken: 'r' }));
     render(
-      <MemoryRouter initialEntries={['/protected']}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/protected']}>
         <AuthProvider>
           <Routes>
             <Route path="/protected" element={<RequireAuth><div>secret</div></RequireAuth>} />
@@ -110,7 +110,7 @@ describe('RequireAuth', () => {
 
   it('redirects to /login when not authenticated', () => {
     render(
-      <MemoryRouter initialEntries={['/protected']}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/protected']}>
         <AuthProvider>
           <Routes>
             <Route path="/protected" element={<RequireAuth><div>secret</div></RequireAuth>} />

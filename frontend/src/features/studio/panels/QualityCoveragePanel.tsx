@@ -10,7 +10,7 @@ import type { IDockviewPanelProps } from 'dockview-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/auth';
 import { ModelPicker, useUserModels } from '@/components/model-picker';
-import { useEffectiveModel } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
+import { useEffectiveModelSelection } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 import { BookPromiseCoverageSection } from '@/features/composition/components/BookPromiseCoverageSection';
 import { useStudioHost } from '../host/StudioHostProvider';
 import { useStudioPanel } from './useStudioPanel';
@@ -32,8 +32,12 @@ export function QualityCoveragePanel(props: IDockviewPanelProps) {
   // allows a re-selection (changes propagate via the shared invalidation).
   const modelsQ = useUserModels({ capability: 'chat' });
   const firstChatModel = modelsQ.models?.[0]?.user_model_id ?? '';
-  const cascadeModel = useEffectiveModel('chat') ?? firstChatModel;
-
+  const cascadeSelection = useEffectiveModelSelection('chat');
+  const effectiveModel = modelRef
+    ? { model_source: 'user_model' as const, model_ref: modelRef }
+    : cascadeSelection ?? (firstChatModel ? { model_source: 'user_model' as const, model_ref: firstChatModel } : null);
+  const effectiveModelRef = effectiveModel?.model_ref ?? '';
+  const effectiveModelSource = effectiveModel?.model_source === 'platform_model' ? 'platform_model' : 'user_model';
 
   if (work.kind !== 'ready') return <QualityWorkGate state={work} testIdPrefix="quality-coverage" bookId={host.bookId} token={accessToken} />;
 
@@ -41,12 +45,12 @@ export function QualityCoveragePanel(props: IDockviewPanelProps) {
     <div data-testid="studio-quality-coverage-panel" className="flex h-full min-h-0 flex-col gap-2 overflow-auto p-3 text-sm">
       <ModelPicker
         capability="chat"
-        value={modelRef || cascadeModel || null}
+        value={effectiveModelRef || null}
         onChange={(id) => setModelRef(id ?? '')}
         placeholder={t('quality.pickModel', { defaultValue: 'Pick a model to analyze with…' })}
         compact
       />
-      <BookPromiseCoverageSection projectId={work.projectId} token={accessToken} modelRef={modelRef || cascadeModel} />
+      <BookPromiseCoverageSection projectId={work.projectId} token={accessToken} modelRef={effectiveModelRef} modelSource={effectiveModelSource} />
     </div>
   );
 }

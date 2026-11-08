@@ -13,7 +13,7 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode,
 } from 'react';
 import { aiSettingsApi } from '../api';
-import type { EffectiveSettings, ModelRole } from '../types';
+import type { EffectiveSettings, ModelRef, ModelRole } from '../types';
 
 type ChatAiSettings = {
   effective: EffectiveSettings | null;
@@ -69,7 +69,11 @@ export function useChatAiSettingsOptional(): ChatAiSettings | null {
  *  there is no provider / nothing resolved. Studio tools use this as the inherit
  *  base (spec §8): `localOverride ?? useEffectiveModel(role) ?? list[0]`. */
 export function useEffectiveModel(role: ModelRole): string | null {
+  return useEffectiveModelSelection(role)?.model_ref ?? null;
+}
+
+/** The full selected model for callers whose API distinguishes user/platform models. */
+export function useEffectiveModelSelection(role: ModelRole): ModelRef | null {
   const ctx = useContext(Ctx);
-  const m = ctx?.effective?.models?.[role];
-  return m?.effective_value?.model_ref ?? null;
+  return ctx?.effective?.models?.[role]?.effective_value ?? null;
 }

@@ -31,7 +31,7 @@ vi.mock('../detail/JobActivityTimeline', () => ({ JobActivityTimeline: () => <di
 
 function renderMonitor(hideBack?: boolean) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <JobMonitor service="knowledge" jobId="j1" hideBack={hideBack} />
     </MemoryRouter>,
   );

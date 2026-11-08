@@ -28,7 +28,7 @@ import { ContextInspectorPage } from '../ContextInspectorPage';
 describe('ContextInspectorPage — ?session= deep link', () => {
   it('forwards the ?session query param to the view as initialSessionId', () => {
     render(
-      <MemoryRouter initialEntries={['/context-inspector?session=abc-123']}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/context-inspector?session=abc-123']}>
         <ContextInspectorPage />
       </MemoryRouter>,
     );
@@ -38,7 +38,7 @@ describe('ContextInspectorPage — ?session= deep link', () => {
   it('passes null when no ?session param is present (falls back to most-recent)', () => {
     seen.initialSessionId = undefined;
     render(
-      <MemoryRouter initialEntries={['/context-inspector']}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/context-inspector']}>
         <ContextInspectorPage />
       </MemoryRouter>,
     );

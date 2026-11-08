@@ -20,7 +20,7 @@ function renderRow(j: Job, onOpenDetail?: (service: string, jobId: string) => vo
   const qc = new QueryClient();
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <JobRow job={j} onOpenDetail={onOpenDetail} />
       </MemoryRouter>
     </QueryClientProvider>,

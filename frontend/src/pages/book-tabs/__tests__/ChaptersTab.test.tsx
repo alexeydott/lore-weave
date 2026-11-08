@@ -38,7 +38,7 @@ const CHAPTER = {
 function renderTab() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <QueryClientProvider client={qc}>
         <ChaptersTab bookId="b1" />
       </QueryClientProvider>

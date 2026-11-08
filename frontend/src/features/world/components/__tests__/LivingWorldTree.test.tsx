@@ -50,7 +50,7 @@ const books: WorldBookRef[] = [{ bookId: 'bookA', title: '万古神帝' }];
 
 function renderTree() {
   return render(
-    <MemoryRouter initialEntries={['/worlds/w1']}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/worlds/w1']}>
       <Routes>
         <Route path="/worlds/:worldId" element={<LivingWorldTree worldId="w1" />} />
       </Routes>
@@ -160,7 +160,7 @@ describe('LivingWorldTree', () => {
     hookState.isError = true;
     hookState.error = new Error('boom');
     rerender(
-      <MemoryRouter initialEntries={['/worlds/w1']}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/worlds/w1']}>
         <Routes>
           <Route path="/worlds/:worldId" element={<LivingWorldTree worldId="w1" />} />
         </Routes>

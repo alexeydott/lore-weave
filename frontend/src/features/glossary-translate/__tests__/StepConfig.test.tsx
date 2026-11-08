@@ -33,7 +33,7 @@ function baseProps() {
 describe('StepConfig empty-state link (DOCK-7)', () => {
   it('outside the studio, renders a normal <Link> to /settings/providers', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <StepConfig {...baseProps()} />
       </MemoryRouter>,
     );
@@ -45,7 +45,7 @@ describe('StepConfig empty-state link (DOCK-7)', () => {
   it('inside the studio, renders a button that opens the settings panel instead of navigating', () => {
     // openPanel is captured via the real StudioHostProvider — assert through its effect.
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <StudioHostProvider bookId="b1">
           <StepConfig {...baseProps()} />
         </StudioHostProvider>

@@ -30,7 +30,7 @@ function report(over: Partial<Report> = {}): Report {
 
 function renderReport() {
   return render(
-    <MemoryRouter><CampaignReport campaignId="c1" bookId="b1" /></MemoryRouter>,
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><CampaignReport campaignId="c1" bookId="b1" /></MemoryRouter>,
   );
 }
 

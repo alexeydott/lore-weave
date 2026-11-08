@@ -12,6 +12,7 @@ export function useBookPromiseCoverage(
   projectId: string | null,
   token: string | null,
   modelRef: string,
+  modelSource: 'user_model' | 'platform_model' = 'user_model',
 ) {
   const [coverage, setCoverage] = useState<PromiseCoverage | null>(null);
   const [chapters, setChapters] = useState<number | null>(null);
@@ -24,7 +25,7 @@ export function useBookPromiseCoverage(
     setLoading(true);
     setError(null);
     try {
-      const r = await compositionApi.promiseCoverage(projectId, { modelRef }, token);
+      const r = await compositionApi.promiseCoverage(projectId, { modelRef, modelSource }, token);
       setCoverage(r.coverage ?? null);
       setChapters(r.chapters ?? null);
       setRan(true);
@@ -33,7 +34,7 @@ export function useBookPromiseCoverage(
     } finally {
       setLoading(false);
     }
-  }, [projectId, token, modelRef]);
+  }, [projectId, token, modelRef, modelSource]);
 
   return { coverage, chapters, loading, error, ran, run };
 }

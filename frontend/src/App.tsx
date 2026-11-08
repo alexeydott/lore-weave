@@ -9,62 +9,63 @@ import { FullBleedLayout } from '@/layouts/FullBleedLayout';
 import { EditorLayout } from '@/layouts/EditorLayout';
 import { ChatLayout } from '@/layouts/ChatLayout';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
-import { BooksPage } from '@/pages/BooksPage';
-import { TrashPage } from '@/pages/TrashPage';
-import { ChatPage } from '@/pages/ChatPage';
-import { AssistantPage } from '@/features/assistant/components/AssistantPage';
-import { RoleplayPage } from '@/features/roleplay/pages/RoleplayPage';
-import { BookDetailPage } from '@/pages/BookDetailPage';
-import { ChapterEditorPage } from '@/pages/ChapterEditorPage';
-import { WritingStudioPage } from '@/pages/WritingStudioPage';
-import { PopoutHost } from '@/features/composition/components/workspace/PopoutHost';
-import { StudioPopoutHost } from '@/features/studio/popout/StudioPopoutHost';
-import { ChapterComparePage } from '@/pages/ChapterComparePage';
-import { WikiEditorPage } from '@/pages/WikiEditorPage';
-import { ReaderPage } from '@/pages/ReaderPage';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { useAuth } from '@/auth';
 import { SidebarProvider } from '@/providers/SidebarProvider';
-import { LoginPage } from '@/pages/auth/LoginPage';
-import { RegisterPage } from '@/pages/auth/RegisterPage';
-import { ForgotPage } from '@/pages/auth/ForgotPage';
-import { ResetPage } from '@/pages/auth/ResetPage';
-import { VerifyPage } from '@/pages/auth/VerifyPage';
-import { HomePage } from '@/pages/HomePage';
-import { UsagePage } from '@/pages/UsagePage';
-import { KnowledgePage } from '@/pages/KnowledgePage';
-import { ExtensionsPage } from '@/features/extensions/pages/ExtensionsPage';
-import { ProjectDetailShell } from '@/pages/ProjectDetailShell';
-import { WorldsPage } from '@/features/world/pages/WorldsPage';
-import { WorldWorkspacePage } from '@/features/world/pages/WorldWorkspacePage';
-import { CampaignsPage } from '@/features/campaigns/pages/CampaignsPage';
-import { CreateCampaignWizardPage } from '@/features/campaigns/pages/CreateCampaignWizardPage';
-import { CampaignDetailPage } from '@/features/campaigns/pages/CampaignDetailPage';
-import { StandardsPage } from '@/features/standards/pages/StandardsPage';
-import { JobsPage } from '@/features/jobs/pages/JobsPage';
-import { ContextInspectorPage } from '@/features/chat/inspector/ContextInspectorPage';
-import { JobDetailPage } from '@/features/jobs/pages/JobDetailPage';
-import { SettingsPage } from '@/pages/SettingsPage';
-import { BrowsePage } from '@/pages/BrowsePage';
-import { PublicBookDetailPage } from '@/pages/PublicBookDetailPage';
-import { SharedBookPage } from '@/pages/SharedBookPage';
-import { ChapterTranslationsPage } from '@/pages/ChapterTranslationsPage';
-import TranslationReviewPage from '@/pages/TranslationReviewPage';
-import ReadingHistoryPage from '@/pages/ReadingHistoryPage';
-import { LeaderboardPage } from '@/pages/LeaderboardPage';
-import { ProfilePage } from '@/pages/ProfilePage';
-import { NotificationsPage } from '@/pages/NotificationsPage';
-import { RawSearchPage } from '@/pages/RawSearchPage';
-import { OnboardingPage } from '@/features/onboarding/pages/OnboardingPage';
-import { OAuthConsentPage } from '@/pages/OAuthConsentPage';
 import { PlatformHomePage } from '@/features/home/components/PlatformHomePage';
 import { ActivityPage } from '@/features/home/components/ActivityPage';
 import { YouPage } from '@/features/home/components/YouPage';
 import { UpdatePrompt } from '@/pwa/UpdatePrompt';
 import { MobileNav } from '@/app/shell/MobileNav';
 import { GlobalOperationProgress } from '@/components/shared/GlobalOperationProgress';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { applyAccountLanguage } from '@/lib/uiLanguage';
+
+const BooksPage = lazy(() => import('@/pages/BooksPage').then((module) => ({ default: module.BooksPage })));
+const TrashPage = lazy(() => import('@/pages/TrashPage').then((module) => ({ default: module.TrashPage })));
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then((module) => ({ default: module.LoginPage })));
+const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage').then((module) => ({ default: module.RegisterPage })));
+const ForgotPage = lazy(() => import('@/pages/auth/ForgotPage').then((module) => ({ default: module.ForgotPage })));
+const ResetPage = lazy(() => import('@/pages/auth/ResetPage').then((module) => ({ default: module.ResetPage })));
+const VerifyPage = lazy(() => import('@/pages/auth/VerifyPage').then((module) => ({ default: module.VerifyPage })));
+const HomePage = lazy(() => import('@/pages/HomePage').then((module) => ({ default: module.HomePage })));
+const WorldsPage = lazy(() => import('@/features/world/pages/WorldsPage').then((module) => ({ default: module.WorldsPage })));
+const CampaignsPage = lazy(() => import('@/features/campaigns/pages/CampaignsPage').then((module) => ({ default: module.CampaignsPage })));
+const JobsPage = lazy(() => import('@/features/jobs/pages/JobsPage').then((module) => ({ default: module.JobsPage })));
+const JobDetailPage = lazy(() => import('@/features/jobs/pages/JobDetailPage').then((module) => ({ default: module.JobDetailPage })));
+const BrowsePage = lazy(() => import('@/pages/BrowsePage').then((module) => ({ default: module.BrowsePage })));
+const PublicBookDetailPage = lazy(() => import('@/pages/PublicBookDetailPage').then((module) => ({ default: module.PublicBookDetailPage })));
+const SharedBookPage = lazy(() => import('@/pages/SharedBookPage').then((module) => ({ default: module.SharedBookPage })));
+const ReadingHistoryPage = lazy(() => import('@/pages/ReadingHistoryPage'));
+const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then((module) => ({ default: module.LeaderboardPage })));
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((module) => ({ default: module.ProfilePage })));
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((module) => ({ default: module.NotificationsPage })));
+const RawSearchPage = lazy(() => import('@/pages/RawSearchPage').then((module) => ({ default: module.RawSearchPage })));
+const OnboardingPage = lazy(() => import('@/features/onboarding/pages/OnboardingPage').then((module) => ({ default: module.OnboardingPage })));
+const OAuthConsentPage = lazy(() => import('@/pages/OAuthConsentPage').then((module) => ({ default: module.OAuthConsentPage })));
+const ChatPage = lazy(() => import('@/pages/ChatPage').then((module) => ({ default: module.ChatPage })));
+const AssistantPage = lazy(() => import('@/features/assistant/components/AssistantPage').then((module) => ({ default: module.AssistantPage })));
+const RoleplayPage = lazy(() => import('@/features/roleplay/pages/RoleplayPage').then((module) => ({ default: module.RoleplayPage })));
+const BookDetailPage = lazy(() => import('@/pages/BookDetailPage').then((module) => ({ default: module.BookDetailPage })));
+const ChapterEditorPage = lazy(() => import('@/pages/ChapterEditorPage').then((module) => ({ default: module.ChapterEditorPage })));
+const WritingStudioPage = lazy(() => import('@/pages/WritingStudioPage').then((module) => ({ default: module.WritingStudioPage })));
+const PopoutHost = lazy(() => import('@/features/composition/components/workspace/PopoutHost').then((module) => ({ default: module.PopoutHost })));
+const StudioPopoutHost = lazy(() => import('@/features/studio/popout/StudioPopoutHost').then((module) => ({ default: module.StudioPopoutHost })));
+const ChapterComparePage = lazy(() => import('@/pages/ChapterComparePage').then((module) => ({ default: module.ChapterComparePage })));
+const WikiEditorPage = lazy(() => import('@/pages/WikiEditorPage').then((module) => ({ default: module.WikiEditorPage })));
+const ReaderPage = lazy(() => import('@/pages/ReaderPage').then((module) => ({ default: module.ReaderPage })));
+const UsagePage = lazy(() => import('@/pages/UsagePage').then((module) => ({ default: module.UsagePage })));
+const KnowledgePage = lazy(() => import('@/pages/KnowledgePage').then((module) => ({ default: module.KnowledgePage })));
+const ExtensionsPage = lazy(() => import('@/features/extensions/pages/ExtensionsPage').then((module) => ({ default: module.ExtensionsPage })));
+const ProjectDetailShell = lazy(() => import('@/pages/ProjectDetailShell').then((module) => ({ default: module.ProjectDetailShell })));
+const WorldWorkspacePage = lazy(() => import('@/features/world/pages/WorldWorkspacePage').then((module) => ({ default: module.WorldWorkspacePage })));
+const CreateCampaignWizardPage = lazy(() => import('@/features/campaigns/pages/CreateCampaignWizardPage').then((module) => ({ default: module.CreateCampaignWizardPage })));
+const CampaignDetailPage = lazy(() => import('@/features/campaigns/pages/CampaignDetailPage').then((module) => ({ default: module.CampaignDetailPage })));
+const StandardsPage = lazy(() => import('@/features/standards/pages/StandardsPage').then((module) => ({ default: module.StandardsPage })));
+const ContextInspectorPage = lazy(() => import('@/features/chat/inspector/ContextInspectorPage').then((module) => ({ default: module.ContextInspectorPage })));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((module) => ({ default: module.SettingsPage })));
+const ChapterTranslationsPage = lazy(() => import('@/pages/ChapterTranslationsPage').then((module) => ({ default: module.ChapterTranslationsPage })));
+const TranslationReviewPage = lazy(() => import('@/pages/TranslationReviewPage'));
 
 function AuthenticatedThemeProvider({ children }: { children: React.ReactNode }) {
   const { accessToken } = useAuth();
@@ -94,12 +95,13 @@ export function App() {
     <UiLanguageSync />
     <AuthenticatedThemeProvider>
     <SidebarProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Toaster position="bottom-right" richColors closeButton />
         <GlobalOperationProgress />
         <UpdatePrompt />
         {/* The always-visible mobile bottom navigator (fixed; every app screen). */}
         <MobileNav />
+        <Suspense fallback={<div role="status" aria-label="Loading page" />}>
         <Routes>
           {/* ── Public routes (no auth required) ── */}
 
@@ -255,6 +257,7 @@ export function App() {
             <Route path="*" element={<PlaceholderPage title="404" description="Page not found." />} />
           </Route>
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </SidebarProvider>
     </AuthenticatedThemeProvider>

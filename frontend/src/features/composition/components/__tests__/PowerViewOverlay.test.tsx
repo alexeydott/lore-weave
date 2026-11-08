@@ -29,7 +29,7 @@ function renderOverlay(onClose = vi.fn(), onViewCast = vi.fn()) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <PowerViewOverlay work={work as never} bookId="b" chapterId="c" token="t" onClose={onClose} onViewCast={onViewCast} />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -102,7 +102,7 @@ describe('PowerViewOverlay (T5.5)', () => {
     expect(document.activeElement).toBe(trigger);
     const { unmount } = render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <MemoryRouter>
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <PowerViewOverlay work={work as never} bookId="b" chapterId="c" token="t" onClose={vi.fn()} onViewCast={vi.fn()} />
         </MemoryRouter>
       </QueryClientProvider>,

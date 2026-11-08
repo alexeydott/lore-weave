@@ -26,7 +26,7 @@ const ATTRS = {
 
 function renderChip(bookId?: string) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <CitationProvider bookId={bookId}>
         <CitationChip attrs={ATTRS}>[1]</CitationChip>
       </CitationProvider>
@@ -52,7 +52,7 @@ describe('CitationChip (wiki-llm M7a)', () => {
 
   it('shows a relevance % for an in-range score and hides a misleading out-of-range one', () => {
     const { unmount } = render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <CitationProvider bookId="b">
           <CitationChip attrs={{ ...ATTRS, score: 0.9 }}>[1]</CitationChip>
         </CitationProvider>
@@ -63,7 +63,7 @@ describe('CitationChip (wiki-llm M7a)', () => {
     unmount();
 
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <CitationProvider bookId="b">
           <CitationChip attrs={{ ...ATTRS, score: 1.5 }}>[1]</CitationChip>
         </CitationProvider>
@@ -83,7 +83,7 @@ describe('CitationChip (wiki-llm M7a)', () => {
 
   it('InlineRenderer renders a body citation as a SUPERSCRIPT chip (citation + superscript marks)', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <CitationProvider bookId="b">
           <InlineRenderer
             content={[
@@ -105,7 +105,7 @@ describe('CitationChip (wiki-llm M7a)', () => {
 
   it('InlineRenderer renders a References citation FULL-SIZE with the label intact (citation-only mark)', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <CitationProvider bookId="b">
           <InlineRenderer
             content={[
