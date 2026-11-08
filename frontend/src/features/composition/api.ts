@@ -612,6 +612,8 @@ export const compositionApi = {
   async generateAuto(projectId: string, params: AutoGenerateParams, token: string): Promise<AutoGeneration> {
     const resp = await apiJson<AutoGeneration>(`${BASE}/works/${projectId}/generate`, {
       method: 'POST', token,
+      // inline mode (worker off) runs a long LLM pass in this request
+      timeoutMs: 180_000,
       body: JSON.stringify({
         mode: 'auto',
         outline_node_id: params.outlineNodeId,

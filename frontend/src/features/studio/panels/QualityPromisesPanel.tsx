@@ -13,7 +13,7 @@
 // «Проанализировать главу» runs the detection over a chosen ALREADY-WRITTEN
 // chapter (POST /works/{id}/threads/detect, EDIT-tier — spends the co-author
 // model's tokens).
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
@@ -109,6 +109,10 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
     if (!chapterId && chapters?.items?.length) setChapterId(chapters.items[0].chapter_id);
   }, [chapters, chapterId]);
   const [analyzing, setAnalyzing] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  // The report belongs to a specific chapter — persisted per book+chapter so a
+  // panel close/reopen (or a chapter switch) doesn't lose it (#user-report 2026-11-08).
+  const reportForRef = useRef<string | null>(null);
   const analyzeChapter = async () => {
     if (!activeWork || !accessToken || !chapterId || !effectiveModelRef || analyzing) return;
     setAnalyzing(true);
@@ -134,11 +138,23 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
 
   // ── ИИ-помощник (#user-report 2026-11-08) — read-only analysis report ──────
   const [report, setReport] = useState<ThreadsAssistantReport | null>(null);
+  // The chapter the CURRENT report was built from — guards the persistence
+  // effect against the chapter-switch race (old report × new chapterId).
+  const [reportChapter, setReportChapter] = useState<string | null>(null);
   const [assistantBusy, setAssistantBusy] = useState(false);
+  // Honest progress: the pass is ONE long LLM job (reasoning models: 40-90s+),
+  // so the indicator shows elapsed seconds rather than a fake step number.
+  useEffect(() => {
+    if (!assistantBusy) { setElapsed(0); return; }
+    const t0 = Date.now();
+    const timer = window.setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, [assistantBusy]);
   const runAssistant = async () => {
     if (!activeWork || !accessToken || !chapterId || !effectiveModelRef || assistantBusy) return;
     setAssistantBusy(true);
     setReport(null);
+    setReportChapter(null);
     try {
       const r = await compositionApi.threadsAssistant(activeWork.project_id, {
         chapter_id: chapterId,
@@ -147,6 +163,7 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
         max_output_tokens: maxOutputTokens ?? undefined,
       }, accessToken);
       setReport(r);
+      setReportChapter(chapterId);
       if (r.degraded) toast.error(t('panels.quality-promises.assistantFailed'));
     } catch (e) {
       toast.error((e as Error).message || t('panels.quality-promises.assistantFailed'));
@@ -154,6 +171,28 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
       setAssistantBusy(false);
     }
   };
+  // Persist the finished report per book+chapter: survives panel close/reopen
+  // and chapter switching. Adopt updates flow through the same effect.
+  useEffect(() => {
+    if (!chapterId || !report || reportChapter !== chapterId) return;
+    try { localStorage.setItem(
+      `lw_promises_report:${host.bookId}:${chapterId}`,
+      JSON.stringify({ report, chapter: chapterId, savedAt: Date.now() }),
+    ); } catch { /* quota/private mode — report stays in-memory only */ }
+  }, [chapterId, report, reportChapter, host.bookId]);
+  // On chapter switch: restore THIS chapter's saved report, else clear.
+  useEffect(() => {
+    if (!chapterId) return;
+    try {
+      const raw = localStorage.getItem(`lw_promises_report:${host.bookId}:${chapterId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { report?: ThreadsAssistantReport };
+        if (parsed.report) { setReport(parsed.report); setReportChapter(chapterId); return; }
+      }
+    } catch { /* private mode / quota — in-memory only */ }
+    setReport(null);
+    setReportChapter(null);
+  }, [chapterId, host.bookId]);
   const [adopting, setAdopting] = useState<string | null>(null);
   const adoptPromise = async (p: { kind: string; summary: string }) => {
     if (!activeWork || !accessToken || adopting) return;
@@ -272,6 +311,9 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
           <div className="mx-3 mb-3 flex items-center gap-2 rounded-lg border bg-card p-2 text-xs text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5 animate-spin text-primary" />
             {t('panels.quality-promises.assistantRunning')}
+            {/* Honest progress: the pass is one long LLM job — show elapsed seconds
+                (reasoning models commonly take 40-90s+). */}
+            {elapsed > 0 && <span className="tabular-nums">· {elapsed} с</span>}
           </div>
         )}
         {report && (
