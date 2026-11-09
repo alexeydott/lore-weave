@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "Báo cáo một phần — không đánh giá toàn chương.",
-    "chapter": "Chỉ phân tích cửa sổ đầu: {{analyzed}} trên {{total}}.",
-    "canon": "Số dòng thiết lập được chọn: {{selected}} trên {{total}}."
+    "chapter": "Cửa sổ đã xử lý: {{analyzed}} / {{total}}.",
+    "canon": "Số dòng thiết lập được chọn: {{selected}} trên {{total}}.",
+    "complete": "Đầy đủ: {{windows}} cửa sổ chương; toàn bộ {{canon}} mục chính sử đã xử lý; tổng hợp thành công.",
+    "synthesisPending": "Chưa hoàn tất tổng hợp cuối."
   },
-  "qualityThreadsSelection": "Chỉ hiển thị các mạch truyện được chọn — không phải kiểm tra toàn diện. Tối đa {{maxPromises}} lời hứa; mỗi cụm từ giới hạn {{maxPhraseChars}} ký tự."
+  "qualityThreadsSelection": "Trích xuất chọn lọc theo cửa sổ, không toàn diện. Không có giới hạn gộp chung: {{maxPromises}} lời hứa mỗi cửa sổ, {{maxPhraseChars}} ký tự mỗi câu.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "Dừng chờ (phân tích tiếp tục)"
 }

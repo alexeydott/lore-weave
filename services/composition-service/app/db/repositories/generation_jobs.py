@@ -727,6 +727,25 @@ class GenerationJobsRepo:
                 )
                 return job, version
 
+    async def heartbeat(self, job_id: UUID) -> None:
+        # A slow individual LLM call must not be stolen by the idle-job sweeper.
+        async with self._pool.acquire() as c:
+            await c.execute(
+                "UPDATE generation_job SET updated_at = now() WHERE id = $1 AND status = $2",
+                job_id, "running",
+            )
+
+    async def update_progress(self, job_id: UUID, progress: dict[str, Any]) -> None:
+        # Running-only heartbeat: progress cannot resurrect a cancelled/terminal row.
+        async with self._pool.acquire() as c:
+            await c.execute(
+                """UPDATE generation_job
+                   SET result = COALESCE(result, jsonb_build_object()) || $2::jsonb,
+                       updated_at = now()
+                   WHERE id = $1 AND status = $3""",
+                job_id, json.dumps({"progress": progress}), "running",
+            )
+
     async def update_status(
         self,
         job_id: UUID,
@@ -739,6 +758,7 @@ class GenerationJobsRepo:
         target_revision_id: UUID | None = None,
         cost_usd: Decimal | None = None,
         conn: asyncpg.Connection | None = None,
+        only_if_active: bool = False,
     ) -> GenerationJob | None:
         """Transition a job's status and optionally stamp result/critic/refs.
 
@@ -756,12 +776,12 @@ class GenerationJobsRepo:
             target_revision_id = COALESCE($7, target_revision_id),
             cost_usd = COALESCE($8, cost_usd),
             updated_at = now()
-        WHERE id = $1
+        WHERE id = $1 AND (NOT $9::boolean OR status = ANY($10::text[]))
         RETURNING {_SELECT_COLS}
         """
         args = (
             job_id, status, _jsonb(result), _jsonb(critic), llm_job_id,
-            target_chapter_id, target_revision_id, cost_usd,
+            target_chapter_id, target_revision_id, cost_usd, only_if_active, ["pending", "running"],
         )
         async def _do(c: asyncpg.Connection) -> GenerationJob | None:
             row = await c.fetchrow(query, *args)

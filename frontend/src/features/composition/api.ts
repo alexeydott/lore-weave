@@ -756,11 +756,12 @@ export const compositionApi = {
     projectId: string,
     body: { chapterId: string; modelRef: string; modelSource?: 'user_model' | 'platform_model' },
     token: string,
+    options: QualityRunOptions = {},
   ): Promise<QualityReportResponse> {
     const resp = await apiJson<QualityReportResponse>(
       `${BASE}/works/${projectId}/quality-report`,
       {
-        method: 'POST', token,
+        method: 'POST', token, signal: options.signal,
         body: JSON.stringify({
           chapter_id: body.chapterId,
           model_source: body.modelSource ?? 'user_model', model_ref: body.modelRef,
@@ -768,9 +769,32 @@ export const compositionApi = {
           timeoutMs: 180_000, // an LLM analysis pass is a long job
       },
     );
-    return _resolveJob(resp, token, (job) => ({
-      job_id: job.id, status: job.status, ...(job.result as Record<string, unknown>),
-    }) as QualityReportResponse);
+    if (!resp.job_id || !['pending', 'running'].includes(resp.status)) return resp;
+    // Quality covers every chapter window and canon batch, not a short generation.
+    // The backend worker deadline governs this wait, with a transport grace period.
+    const deadline = Date.now() + ((resp as QualityReportResponse & { wait_timeout_secs?: number }).wait_timeout_secs ?? 3600) * 1000 + 60_000;
+    while (true) {
+      options.signal?.throwIfAborted();
+      const job = await apiJson<GenerationJob & { progress?: QualityProgress }>(`${BASE}/jobs/${resp.job_id}`, { token, signal: options.signal });
+      options.signal?.throwIfAborted();
+      const progress = (job.result as { progress?: { stage: string; scope?: QualityScope } } | null)?.progress;
+      if (progress) {
+        const scope = progress.scope;
+        const completed = (scope?.critic_units_completed ?? 0) + (scope?.audit_units_completed ?? 0) + (scope?.narrative_units_completed ?? 0) + (scope?.synthesis_completed ? 1 : 0);
+        const total = (scope?.critic_units_total ?? 0) + (scope?.audit_units_total ?? 0) + (scope?.narrative_units_total ?? 0) + 1;
+        options.onProgress?.({ stage: progress.stage, completed, total });
+      }
+      if (job.status === 'completed') return { job_id: job.id, status: job.status, ...(job.result as Record<string, unknown>) } as QualityReportResponse;
+      if (job.status === 'failed' || job.status === 'cancelled') throw new Error((job.result as { error?: string } | null)?.error || 'quality analysis failed');
+      if (Date.now() >= deadline) throw new Error('quality analysis wait deadline exceeded');
+      await new Promise<void>((resolve, reject) => {
+        const signal = options.signal;
+        const abort = () => { clearTimeout(timer); signal?.removeEventListener('abort', abort); reject(new DOMException('Stopped waiting', 'AbortError')); };
+        const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, JOB_POLL_INTERVAL_MS);
+        signal?.addEventListener('abort', abort, { once: true });
+        if (signal?.aborted) abort();
+      });
+    }
   },
   // Q3 Book-level promise coverage — does the finished book pay off what the outline
   // promised? Read-only, book-scoped (no chapter). 202+poll or inline, same resolve path.
@@ -929,6 +953,21 @@ export interface SelfHealProposalResponse {
 
 // ── Q1+Q2 Quality Report (read-only diagnostics) ───────────────────────
 export interface QualityScope {
+  mode?: 'direct' | 'windowed';
+  complete?: boolean;
+  chapter_windows_total?: number;
+  chapter_windows_completed?: number;
+  canon_entries_total?: number;
+  canon_batches_total?: number;
+  canon_batches_completed?: number;
+  canon_batches_analyzed?: number;
+  critic_units_total?: number;
+  critic_units_completed?: number;
+  narrative_units_total?: number;
+  narrative_units_completed?: number;
+  audit_units_total?: number;
+  audit_units_completed?: number;
+  synthesis_completed?: boolean;
   partial: boolean;
   chapter_partial?: boolean;
   windows_total?: number;
@@ -954,8 +993,12 @@ export interface QualityCritic {
 // (that was a false positive on serialized fiction); the book-level coverage owns abandoned.
 export interface QualityThreadSelection {
   exhaustive: boolean;
-  max_promises: number;
-  max_phrase_chars: number;
+  max_promises?: number | null;
+  per_call_max_promises?: number;
+  aggregate_cap?: number | null;
+  max_phrase_chars?: number;
+  windows_total?: number;
+  windows_completed?: number;
 }
 export interface QualityThreads {
   selection?: QualityThreadSelection;
@@ -971,7 +1014,26 @@ export interface QualityReport {
   critic: QualityCritic;
   threads: QualityThreads;
 }
+export interface QualityProgress {
+  stage: string;
+  completed: number;
+  total: number;
+}
+export interface QualityRunOptions {
+  signal?: AbortSignal;
+  onProgress?: (progress: QualityProgress) => void;
+}
+
+/** Old reports without an explicit completion certificate are never reusable. */
+export function isQualityComplete(report: Pick<QualityReport, 'scope' | 'critic'> & Partial<Pick<QualityReport, 'threads'>>): boolean {
+  const scope = report.scope;
+  return scope?.complete === true && scope.synthesis_completed === true
+    && !scope.partial && !report.critic.error && !report.threads?.error
+    && !report.critic.scope?.partial && !report.threads?.scope?.partial;
+}
+
 export interface QualityReportResponse {
+  wait_timeout_secs?: number;
   job_id: string;
   status: string;
   report: QualityReport;

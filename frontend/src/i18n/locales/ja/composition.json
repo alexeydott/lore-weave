@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "部分レポート — 章全体の評価ではありません。",
-    "chapter": "最初の区間のみ分析：{{total}}中{{analyzed}}。",
-    "canon": "選択した設定行：{{total}}中{{selected}}。"
+    "chapter": "処理した章ウィンドウ：{{analyzed}} / {{total}}。",
+    "canon": "選択した設定行：{{total}}中{{selected}}。",
+    "complete": "完全：章ウィンドウ {{windows}} 件、全 {{canon}} 件の設定を処理、統合に成功。",
+    "synthesisPending": "最終統合が未完了です。"
   },
-  "qualityThreadsSelection": "選択された伏線のみで、網羅的な監査ではありません。最大 {{maxPromises}} 件の約束を表示し、各フレーズは {{maxPhraseChars}} 文字以内です。"
+  "qualityThreadsSelection": "ウィンドウごとの選択的抽出で、網羅的ではありません。統合結果全体の上限はなく、各ウィンドウ最大 {{maxPromises}} 件、各表現 {{maxPhraseChars}} 文字です。",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "待機を終了（分析は継続）"
 }

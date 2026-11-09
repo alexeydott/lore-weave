@@ -33,7 +33,8 @@ vi.mock('@/features/books/api', () => ({
 }));
 
 const qualityReport = vi.fn();
-vi.mock('@/features/composition/api', () => ({
+vi.mock('@/features/composition/api', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/features/composition/api')>(),
   compositionApi: { qualityReport: (...args: unknown[]) => qualityReport(...args) },
 }));
 
@@ -139,7 +140,7 @@ describe('QualityCriticPanel', () => {
     const page2 = { chapter_id: 'ch2', title: 'Chapter Two', sort_order: 2, draft_updated_at: '2026-11-08T00:01:00Z', draft_revision_count: 1 };
     listChaptersPage.mockResolvedValueOnce({ items: [page1], total: 2, next_cursor: 'c2' })
       .mockResolvedValueOnce({ items: [page2], total: null, next_cursor: null });
-    const cleanReport = { report: { critic: {
+    const cleanReport = { report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: {
       coherence: 4, voice_match: 4, pacing: 4, canon_consistency: 4, violations: [],
     } } };
     qualityReport.mockResolvedValue(cleanReport);
@@ -161,10 +162,10 @@ describe('QualityCriticPanel', () => {
     useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
     const chapter = { chapter_id: 'ch1', title: 'Chapter One', sort_order: 1, draft_updated_at: '2026-11-08T00:00:00Z', draft_revision_count: 1 };
     listChaptersPage.mockResolvedValue({ items: [chapter], total: 1, next_cursor: null });
-    qualityReport.mockResolvedValueOnce({ report: { critic: {
+    qualityReport.mockResolvedValueOnce({ report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: {
       coherence: null, voice_match: null, pacing: null, canon_consistency: null,
       violations: [], error: 'critic_unavailable',
-    } } }).mockResolvedValueOnce({ report: { critic: {
+    } } }).mockResolvedValueOnce({ report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: {
       coherence: 4, voice_match: 4, pacing: 4, canon_consistency: 4, violations: [],
     } } });
     withHost('b1');
@@ -186,7 +187,7 @@ describe('QualityCriticPanel', () => {
     listChaptersPage.mockResolvedValue({ items: chapters, total: 2, next_cursor: null });
     let resolveFirst!: (value: unknown) => void;
     qualityReport.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
-      .mockResolvedValueOnce({ report: { critic: {
+      .mockResolvedValueOnce({ report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: {
         coherence: 4, voice_match: 4, pacing: 4, canon_consistency: 4, violations: [],
       } } });
     useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
@@ -196,7 +197,7 @@ describe('QualityCriticPanel', () => {
     fireEvent.click(screen.getByTestId('quality-critic-batch'));
     await waitFor(() => expect(qualityReport).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByTestId('quality-critic-batch-stop'));
-    await act(async () => resolveFirst({ report: { critic: {
+    await act(async () => resolveFirst({ report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: {
       coherence: 4, voice_match: 4, pacing: 4, canon_consistency: 4, violations: [],
     } } }));
     await waitFor(() => expect(screen.getByTestId('quality-critic-batch-entry-ch1')).toBeInTheDocument());
@@ -212,7 +213,7 @@ describe('QualityCriticPanel', () => {
     useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
     const chapter = { chapter_id: 'ch1', title: 'Chapter One', sort_order: 1, draft_updated_at: '2026-11-08T00:00:00Z', draft_revision_count: 1 };
     listChaptersPage.mockResolvedValue({ items: [chapter], total: 1, next_cursor: null });
-    qualityReport.mockResolvedValue({ report: { critic: {
+    qualityReport.mockResolvedValue({ report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: {
       coherence: 4, voice_match: 4, pacing: 4, canon_consistency: 4, violations: [],
     } } });
     withHost('b1');

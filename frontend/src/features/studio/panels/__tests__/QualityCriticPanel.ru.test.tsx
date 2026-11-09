@@ -40,7 +40,8 @@ vi.mock('@/features/books/api', () => ({
 }));
 
 const qualityReport = vi.fn();
-vi.mock('@/features/composition/api', () => ({
+vi.mock('@/features/composition/api', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/features/composition/api')>(),
   compositionApi: { qualityReport: (...args: unknown[]) => qualityReport(...args) },
 }));
 
@@ -95,7 +96,7 @@ describe('Russian Quality critic UI', () => {
   it('renders batch controls and composition score dimensions in Russian', async () => {
     effectiveModel.mockReturnValue({ model_source: 'user_model', model_ref: 'model-1' });
     useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
-    qualityReport.mockResolvedValue({ report: { critic: { coherence: 4, voice_match: 3, pacing: 2, canon_consistency: 5, violations: [] } } });
+    qualityReport.mockResolvedValue({ report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: { coherence: 4, voice_match: 3, pacing: 2, canon_consistency: 5, violations: [] } } });
     withHost('b1');
     await screen.findByRole('option', { name: 'Chapter One' });
     expect(screen.getByText('Критический разбор всей книги')).toBeInTheDocument();

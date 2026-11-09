@@ -38,10 +38,6 @@ from app.engine.promise_audit import (
     extract_tracked_promises_ex,
     score_promise_coverage,
 )
-from app.packer.profile import BookProfile
-from app.llm_budget import max_tokens_for
-from loreweave_context import allocate_context
-from loreweave_context.tokens import estimate_tokens, split_to_token_budget
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +139,8 @@ async def build_quality_report(
     max_tokens_critic: int | None = None, max_tokens_promise: int | None = None,
     trace_id: str | None = None,
     cancel_check: Callable[[], Awaitable[bool]] | None = None,
+    canon_grounding: dict[str, Any] | None = None,
+    progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
     """Run the two chapter-level advisory judges concurrently and shape one report:
     `{critic, threads}`. `critic` = the 4-dim craft/continuity judge (+ violations);
@@ -154,85 +152,15 @@ async def build_quality_report(
     dimension as an established-facts block. Both judges are degrade-safe: this
     never raises for an LLM/parse failure — the failing half returns its empty
     shape with an `error` marker and the report still comes back."""
-    profile = BookProfile(source_language=source_language)
-    # Unknown windows use a conservative planning bound, never an unlimited prompt.
-    resolver = getattr(llm, "resolve_context_length", None)
-    try:
-        window = await resolver(model_source, model_ref) if resolver else None
-    except Exception:  # advisory metadata lookup; cancellation still propagates
-        logger.warning("quality_report context resolution unavailable", exc_info=True)
-        window = None
-    if not isinstance(window, int) or window <= 0:
-        window = None
-    effective_window = window or 16384
-    max_tokens_critic = max_tokens_critic or max_tokens_for(
-        "judge_prose", target=4, language=source_language, context_length=window)
-    max_tokens_promise = max_tokens_promise or max_tokens_for(
-        "quality_report_audit", context_length=window)
-    # Reserve output, script-aware input, prompt overhead and provider safety margin.
-    output_cap = max(1, effective_window // 3)
-    max_tokens_critic = min(max_tokens_critic, output_cap)
-    max_tokens_promise = min(max_tokens_promise, output_cap)
-    allocation = allocate_context(
-        effective_window, grounding_default=24000,
-        output_reserve=max(max_tokens_critic, max_tokens_promise), min_grounding=0)
-    input_budget = allocation.grounding - 2048
-    if input_budget < 256:
-        return {"critic": _empty_critic("critic_context_limit"),
-                "threads": _empty_threads("audit_context_limit"),
-                "scope": {"partial": True, "reason": "context_limit"}}
-    canon_budget = min(3000, input_budget // 4)
-    canon_text = (canon or "").strip()
-    # Preserve complete selected lines where possible. Relevance is deliberately
-    # deterministic: canon mentioning words from this chapter is selected first.
-    words = set(chapter.casefold().split())
-    lines = canon_text.splitlines()
-    ranked = sorted(enumerate(lines), key=lambda pair: (
-        -len(words.intersection(pair[1].casefold().split())), pair[0]))
-    selected = []
-    remaining = canon_budget
-    for index, line in ranked:
-        cost = estimate_tokens(line + "\n")
-        if cost <= remaining:
-            selected.append((index, line))
-            remaining -= cost
-    selected_canon = "\n".join(line for _, line in sorted(selected))
-    canon_omitted = len(selected) < len(lines)
-    present_facts = [selected_canon] if selected_canon else []
-    chapter_budget = input_budget - estimate_tokens(selected_canon)
-    windows = split_to_token_budget(chapter, chapter_budget) or [""]
-    # A report has exactly two baseline judge calls. A long chapter is an explicitly
-    # partial bounded window, NOT an averaged pseudo-holistic chapter score.
-    chapter = windows[0]
-    scope = {"partial": len(windows) > 1 or canon_omitted,
-             "chapter_partial": len(windows) > 1,
-             "windows_total": len(windows), "windows_analyzed": 1,
-             "canon_partial": canon_omitted,
-             "canon_lines_total": len(lines), "canon_lines_selected": len(selected),
-             "context_window": window, "input_token_budget": chapter_budget}
+    from app.engine.quality_analysis import analyze_quality
 
-    critic, threads = await asyncio.gather(
-        _degrade_safe(
-            judge_prose(
-                llm, user_id=user_id, model_source=model_source, model_ref=model_ref,
-                passage=chapter, active_rules=[], present_facts=present_facts,
-                profile=profile, max_tokens=max_tokens_critic, trace_id=trace_id,
-                cancel_check=cancel_check,
-            ),
-            _empty_critic(), "critic",
-        ),
-        _degrade_safe(
-            _chapter_threads(
-                llm, user_id=user_id, model_source=model_source, model_ref=model_ref,
-                chapter=chapter, source_language=source_language,
-                max_tokens=max_tokens_promise, trace_id=trace_id, cancel_check=cancel_check,
-            ),
-            _empty_threads(), "threads",
-        ),
+    return await analyze_quality(
+        llm, user_id=user_id, model_source=model_source, model_ref=model_ref,
+        chapter=chapter, source_language=source_language, canon=canon,
+        max_tokens_critic=max_tokens_critic, max_tokens_promise=max_tokens_promise,
+        trace_id=trace_id, cancel_check=cancel_check,
+        canon_grounding=canon_grounding, progress_callback=progress_callback,
     )
-    critic["scope"] = scope
-    threads["scope"] = scope
-    return {"critic": critic, "threads": threads, "scope": scope}
 
 
 def _empty_coverage(err: str = "coverage_error") -> dict[str, Any]:

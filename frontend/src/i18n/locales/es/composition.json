@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "Informe parcial: no evalúa todo el capítulo.",
-    "chapter": "Solo se analizó la primera ventana: {{analyzed}} de {{total}}.",
-    "canon": "Líneas del canon seleccionadas: {{selected}} de {{total}}."
+    "chapter": "Ventanas procesadas: {{analyzed}} de {{total}}.",
+    "canon": "Líneas del canon seleccionadas: {{selected}} de {{total}}.",
+    "complete": "Completo: {{windows}} ventanas; las {{canon}} entradas del canon procesadas; síntesis correcta.",
+    "synthesisPending": "Síntesis final incompleta."
   },
-  "qualityThreadsSelection": "Solo hilos seleccionados: no es una auditoría exhaustiva. Hasta {{maxPromises}} promesas; cada frase se limita a {{maxPhraseChars}} caracteres."
+  "qualityThreadsSelection": "Extracción selectiva por ventana, no exhaustiva. Sin límite global: {{maxPromises}} promesas por ventana, {{maxPhraseChars}} caracteres por frase.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "Dejar de esperar (el análisis continúa)"
 }

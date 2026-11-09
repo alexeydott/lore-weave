@@ -48,7 +48,7 @@ def convention_for(genre_tags: Sequence[str] | None, source_language: str = "aut
 _CANON_ATTRS = ("role", "personality", "relationships", "description")
 
 
-def cast_from_state(entities: Sequence[Mapping]) -> list[dict[str, str]]:
+def cast_from_state(entities: Sequence[Mapping], *, preserve_facts: bool = False) -> list[dict]:
     """Flatten a KAL ``state@as_of`` response into the cast shape ``render_canon`` reads.
 
     This is the adapter that makes the bible TEMPORAL. `roster` could only ever supply
@@ -92,11 +92,16 @@ def cast_from_state(entities: Sequence[Mapping]) -> list[dict[str, str]]:
         # whose name is blank. What moved is WHERE the decision happens — after the caller has
         # had its chance to fill the name, not before.
         row["entity_id"] = str(ent.get("entity_id") or "")
+        # Preserve every source attribute for complete Quality analysis; the terse
+        # authoring bible continues using its existing selected attributes.
+        if preserve_facts:
+            row["source_facts"] = [dict(f) for f in facts if isinstance(f, Mapping)]
         out.append(row)
     return out
 
 
-def render_canon(cast: Sequence[Mapping], *, convention: str = "") -> str:
+def render_canon(cast: Sequence[Mapping], *, convention: str = "",
+                 full_facts: bool = False) -> str:
     """Build a self-heal STORY BIBLE from the designed cast (the same attributes persisted
     to the glossary: `name` + `role`/`personality`/`relationships`/`description`) plus an
     optional genre/address `convention`. Empty cast + empty convention → "" (heal stays
@@ -110,6 +115,16 @@ def render_canon(cast: Sequence[Mapping], *, convention: str = "") -> str:
     for c in cast:
         name = str(c.get("name", "")).strip()
         if not name:
+            entity_id = str(c.get("entity_id") or "").strip()
+            if not entity_id:
+                continue
+            name = f"[source entity {entity_id}; human name unavailable]"
+        if full_facts and isinstance(c.get("source_facts"), list):
+            import json
+            facts = c["source_facts"]
+            lines.append(f"- {name} [source entity {c.get("entity_id", "")}]")
+            for fact in facts:
+                lines.append("  - " + json.dumps(fact, ensure_ascii=False, sort_keys=True))
             continue
         role = str(c.get("role", "")).strip()
         head = f"- {name}" + (f" ({role})" if role else "") + ":"

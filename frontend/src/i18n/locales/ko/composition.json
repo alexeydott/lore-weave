@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "부분 보고서 — 전체 장의 평가가 아닙니다.",
-    "chapter": "첫 구간만 분석: {{total}}개 중 {{analyzed}}개.",
-    "canon": "선택된 설정 행: {{total}}개 중 {{selected}}개."
+    "chapter": "처리한 장 구간: {{analyzed}} / {{total}}.",
+    "canon": "선택된 설정 행: {{total}}개 중 {{selected}}개.",
+    "complete": "전체: 장 구간 {{windows}}개, 설정 항목 {{canon}}개 모두 처리, 종합 성공.",
+    "synthesisPending": "최종 종합이 완료되지 않았습니다."
   },
-  "qualityThreadsSelection": "선택된 서사 실마리만 표시하며 전체 감사가 아닙니다. 최대 {{maxPromises}}개의 약속을 표시하고 각 문구는 {{maxPhraseChars}}자로 제한됩니다."
+  "qualityThreadsSelection": "구간별 선택적 추출이며 전체 목록이 아닙니다. 병합 결과에 전역 제한은 없습니다. 구간당 {{maxPromises}}개, 문구당 {{maxPhraseChars}}자입니다.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "대기 중지 (분석은 계속)"
 }

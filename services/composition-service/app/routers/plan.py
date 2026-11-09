@@ -287,17 +287,21 @@ async def quality_report_endpoint(
 
     profile = from_settings(work.settings)
     canon = body.canon
+    canon_grounding = {"grounding": "override", "as_of": None,
+                       "cast_size": 0, "complete": True}
     if not canon:
-        # ONE home for the bible (engine/canon_bible.py). AS OF the chapter being reported
-        # on (T7) — a report that grades chapter 12 against end-of-book canon manufactures
-        # "inconsistencies" the author never wrote.
-        canon = (await canon_for_chapter(
+        bible = await canon_for_chapter(
             kal=kal, book=book, book_id=work.book_id, chapter_id=body.chapter_id,
             user_id=user_id, bearer=bearer, source_language=profile.source_language,
-        )).text
+            require_complete=True,
+        )
+        canon = bible.text
+        canon_grounding = {"grounding": bible.grounding, "as_of": bible.as_of,
+                           "cast_size": bible.cast_size, "complete": bible.complete}
 
     qr_input = {
         "worker_op": "quality_report", "chapter_text": text, "canon": canon,
+        "canon_grounding": canon_grounding,
         "chapter_id": str(body.chapter_id), "draft_version": draft.get("draft_version"),
         "book_id": str(work.book_id), "project_id": str(project_id),
         "model_source": str(body.model_source), "model_ref": str(body.model_ref),

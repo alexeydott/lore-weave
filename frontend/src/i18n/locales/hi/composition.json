@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "आंशिक रिपोर्ट — पूरे अध्याय का आकलन नहीं।",
-    "chapter": "केवल पहली विंडो का विश्लेषण: {{total}} में से {{analyzed}}।",
-    "canon": "चुनी गई स्थापित तथ्यों की पंक्तियाँ: {{total}} में से {{selected}}।"
+    "chapter": "संसाधित खंड: {{analyzed}} / {{total}}।",
+    "canon": "चुनी गई स्थापित तथ्यों की पंक्तियाँ: {{total}} में से {{selected}}।",
+    "complete": "पूर्ण: {{windows}} अध्याय खंड; सभी {{canon}} कैनन प्रविष्टियाँ संसाधित; संश्लेषण सफल।",
+    "synthesisPending": "अंतिम संश्लेषण पूरा नहीं हुआ।"
   },
-  "qualityThreadsSelection": "केवल चुने हुए कथासूत्र — यह संपूर्ण जाँच नहीं है। अधिकतम {{maxPromises}} वादे; प्रत्येक वाक्यांश {{maxPhraseChars}} अक्षरों तक सीमित है।"
+  "qualityThreadsSelection": "प्रति खंड चयनात्मक निष्कर्षण, संपूर्ण नहीं। संयुक्त परिणामों की कोई समग्र सीमा नहीं: प्रति खंड {{maxPromises}} वादे, प्रति वाक्यांश {{maxPhraseChars}} अक्षर।",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "प्रतीक्षा रोकें (विश्लेषण जारी रहेगा)"
 }

@@ -764,7 +764,7 @@ async def test_run_job_dispatches_quality_report(monkeypatch):
     repo = _FakeRepo(job)
     monkeypatch.setattr(jc, "GenerationJobsRepo", lambda pool: repo)
 
-    async def _rqr(llm, *, user_id, input, cancel_check=None):
+    async def _rqr(llm, *, user_id, input, cancel_check=None, progress_callback=None):
         return {"report": {"critic": {"coherence": 4}, "promises": {"dropped": []}}}
 
     monkeypatch.setattr(jc, "run_quality_report", _rqr)
@@ -778,7 +778,7 @@ async def test_run_quality_report_serializes(monkeypatch):
     from app.worker.operations import run_quality_report
 
     async def _fake_report(llm, *, user_id, model_source, model_ref, chapter, source_language,
-                           canon, cancel_check=None):
+                           canon, cancel_check=None, canon_grounding=None, progress_callback=None):
         return {"critic": {"coherence": 5, "violations": []},
                 "threads": {"raised": ["the debt"], "raised_count": 1}}
 
@@ -824,3 +824,177 @@ async def test_run_promise_coverage_serializes(monkeypatch):
                "source_language": "vi"})
     assert out["coverage"]["abandon_rate"] == 0.5
     assert out["chapters"] == 12
+
+
+async def test_quality_passes_grounding_and_progress(monkeypatch):
+    from app.worker.operations import run_quality_report
+    import app.engine.quality_report as engine
+    seen = {}
+    events = []
+
+    async def build(llm, **kwargs):
+        seen.update(kwargs)
+        await kwargs["progress_callback"]({"stage": "analyzing", "scope": {"complete": False}})
+        return {"scope": {"complete": True}}
+
+    async def progress(event):
+        events.append(event)
+
+    monkeypatch.setattr(engine, "build_quality_report", build)
+    grounding = {"grounding": "as_of", "as_of": 12, "cast_size": 4, "complete": True}
+    result = await run_quality_report(object(), user_id="u", input={
+        "model_source": "s", "model_ref": "m", "chapter_text": "prose",
+        "canon": "canon", "canon_grounding": grounding,
+        "chapter_id": "c", "draft_version": 7,
+    }, progress_callback=progress)
+    assert seen["canon_grounding"] == grounding
+    assert events[0]["stage"] == "analyzing"
+    assert result["draft_version"] == 7
+    assert result["report"]["scope"]["complete"] is True
+
+
+@pytest.mark.parametrize("cancel", [False, True])
+async def test_quality_whole_job_deadline_and_cancel_drain_tasks(monkeypatch, cancel):
+    import asyncio
+    import app.engine.quality_report as engine
+    from app.config import settings
+    from app.worker.operations import run_quality_report, QualityReportCancelled
+    stopped = asyncio.Event()
+
+    async def build(*args, **kwargs):
+        try:
+            await asyncio.Event().wait()
+        finally:
+            stopped.set()
+
+    async def check():
+        return cancel
+
+    monkeypatch.setattr(engine, "build_quality_report", build)
+    monkeypatch.setattr(settings, "quality_report_deadline_secs", 0.02)
+    error = QualityReportCancelled if cancel else ValueError
+    with pytest.raises(error, match="cancelled" if cancel else "DEADLINE_EXCEEDED"):
+        await run_quality_report(object(), user_id="u", input={
+            "model_source": "s", "model_ref": "m", "chapter_text": "prose",
+        }, cancel_check=check)
+    assert stopped.is_set()
+
+
+async def test_quality_progress_and_terminal_writes_are_active_only():
+    from app.db.repositories.generation_jobs import GenerationJobsRepo
+    calls = []
+
+    class Connection:
+        async def execute(self, query, *args):
+            calls.append((query, args))
+        async def fetchrow(self, query, *args):
+            calls.append((query, args))
+            return None
+        def transaction(self):
+            return Context(self)
+
+    class Context:
+        def __init__(self, value):
+            self.value = value
+        async def __aenter__(self):
+            return self.value
+        async def __aexit__(self, *args):
+            pass
+
+    class Pool:
+        def acquire(self):
+            return Context(Connection())
+
+    repo = GenerationJobsRepo(Pool())
+    jid = uuid4()
+    await repo.update_progress(jid, {"stage": "planned"})
+    assert "status = " + chr(36) + "3" in calls[-1][0]
+    assert calls[-1][1][-1] == "running"
+    await repo.update_status(jid, "completed", result={}, only_if_active=True)
+    query, args = calls[-1]
+    assert "NOT " + chr(36) + "9::boolean OR status = ANY(" + chr(36) + "10::text[])" in query
+    assert args[8:] == (True, ["pending", "running"])
+
+
+@pytest.mark.parametrize("terminal", ["cancelled", "completed", "failed", None])
+async def test_quality_startup_lost_cas_never_dispatches(monkeypatch, terminal):
+    job = _job(operation="quality_report")
+
+    class Repo(_FakeRepo):
+        async def update_status(self, jid, status, **kw):
+            assert status == "running"
+            assert kw == {"only_if_active": True}
+            self._job = SimpleNamespace(status=terminal) if terminal else None
+            return None
+
+    repo = Repo(job)
+    monkeypatch.setattr(jc, "GenerationJobsRepo", lambda pool: repo)
+
+    async def dispatch(*args, **kwargs):
+        pytest.fail("Quality operation dispatched after losing startup CAS")
+
+    monkeypatch.setattr(jc, "_run_operation", dispatch)
+    outcome = await jc.run_job(object(), object(), job_id=str(job.id), user_id=str(job.user_id))
+    assert outcome == (f"already_{terminal}" if terminal else "not_found")
+
+
+@pytest.mark.parametrize("persisted_cancel", [False, True])
+async def test_quality_child_cancellation_requires_persisted_cancel(monkeypatch, persisted_cancel):
+    import asyncio
+    from app.engine import quality_report
+    from app.worker.operations import QualityReportCancelled, run_quality_report
+
+    child_done = asyncio.Event()
+
+    async def build(*args, **kwargs):
+        child_done.set()
+        raise asyncio.CancelledError()
+
+    checks = 0
+
+    async def check():
+        nonlocal checks
+        checks += 1
+        if checks == 1:
+            # Park the watcher so only the child can finish FIRST_COMPLETED.
+            await asyncio.Event().wait()
+        return persisted_cancel
+
+    monkeypatch.setattr(quality_report, "build_quality_report", build)
+    expected = QualityReportCancelled if persisted_cancel else asyncio.CancelledError
+    with pytest.raises(expected):
+        await run_quality_report(object(), user_id="u", input={
+            "model_source": "user_model", "model_ref": "m", "chapter_text": "x",
+        }, cancel_check=check)
+    assert child_done.is_set()
+    assert checks == 2
+
+
+async def test_quality_outer_shutdown_stays_cancelled_even_if_persisted_cancel(monkeypatch):
+    import asyncio
+    from app.engine import quality_report
+    from app.worker.operations import run_quality_report
+
+    entered = asyncio.Event()
+    drained = asyncio.Event()
+
+    async def build(*args, **kwargs):
+        entered.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            drained.set()
+
+    async def check():
+        await asyncio.Event().wait()
+        return True
+
+    monkeypatch.setattr(quality_report, "build_quality_report", build)
+    task = asyncio.create_task(run_quality_report(object(), user_id="u", input={
+        "model_source": "user_model", "model_ref": "m", "chapter_text": "x",
+    }, cancel_check=check))
+    await entered.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert drained.is_set()

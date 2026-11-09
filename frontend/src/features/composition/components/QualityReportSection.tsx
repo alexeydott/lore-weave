@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 
 import { QualityReason, QualityScopeWarning } from "./QualityReportStatus";
 import { useQualityReport } from '../hooks/useQualityReport';
-import type { QualityCritic, SelfHealProposal } from '../api';
+import { isQualityComplete, type QualityCritic, type SelfHealProposal } from '../api';
 
 interface Props {
   projectId: string;
@@ -70,6 +70,11 @@ export function QualityReportSection({ projectId, chapterId, token, modelRef, mo
         })}
       </p>
 
+      {q.loading && <div data-testid="quality-progress" role="status" className="text-[11px] text-neutral-500">
+        {q.progress ? t("qualityProgress", { completed: q.progress.completed, total: q.progress.total }) : t("qualityLoading")}
+        <button type="button" data-testid="quality-stop-waiting" onClick={q.cancel} className="ml-2 underline">{t("qualityStopWaiting")}</button>
+      </div>}
+      {q.stopped && <div data-testid="quality-stopped" role="status" className="text-[11px] text-amber-600">{t("qualityStopWaiting")}</div>}
       {q.error && <div data-testid="quality-error" className="text-[11px] text-amber-600">{q.error}</div>}
 
       <QualityScopeWarning scope={q.report?.scope ?? critic?.scope ?? threads?.scope} />
@@ -109,8 +114,8 @@ export function QualityReportSection({ projectId, chapterId, token, modelRef, mo
       {threads?.selection?.exhaustive === false && (
         <div data-testid="quality-threads-selection" role="status" className="text-[11px] text-amber-600">
           {t("qualityThreadsSelection", {
-            maxPromises: threads.selection.max_promises,
-            maxPhraseChars: threads.selection.max_phrase_chars,
+            maxPromises: threads.selection.per_call_max_promises ?? threads.selection.max_promises ?? 12,
+            maxPhraseChars: threads.selection.max_phrase_chars ?? 80,
           })}
         </div>
       )}
@@ -137,7 +142,7 @@ export function QualityReportSection({ projectId, chapterId, token, modelRef, mo
               </ul>
             </>
           ) : (
-            q.ran && threads.selection?.exhaustive !== false && !(q.report?.scope?.partial || critic?.scope?.partial || threads.scope?.partial) && <span className="text-[11px] text-neutral-400">{t('qualityNoThreads', { defaultValue: 'No new threads raised in this chapter.' })}</span>
+            q.ran && q.report && isQualityComplete(q.report) && threads.selection?.exhaustive === true && <span className="text-[11px] text-neutral-400">{t('qualityNoThreads', { defaultValue: 'No new threads raised in this chapter.' })}</span>
           )}
           {threads.resolved.length > 0 && (
             <span className="text-[10px] text-emerald-600">

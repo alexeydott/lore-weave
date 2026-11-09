@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "Kısmi rapor — tüm bölümün değerlendirmesi değildir.",
-    "chapter": "Yalnızca ilk pencere incelendi: {{analyzed}} / {{total}}.",
-    "canon": "Seçilen kanon satırları: {{selected}} / {{total}}."
+    "chapter": "İşlenen pencereler: {{analyzed}} / {{total}}.",
+    "canon": "Seçilen kanon satırları: {{selected}} / {{total}}.",
+    "complete": "Tamamlandı: {{windows}} bölüm penceresi; tüm {{canon}} kanon kaydı işlendi; sentez başarılı.",
+    "synthesisPending": "Son sentez tamamlanmadı."
   },
-  "qualityThreadsSelection": "Yalnızca seçili olay örgüsü izleri — kapsamlı bir denetim değildir. En fazla {{maxPromises}} vaat; her ifade {{maxPhraseChars}} karakterle sınırlıdır."
+  "qualityThreadsSelection": "Pencere başına seçici çıkarım, kapsamlı değil. Genel birleşim sınırı yok: pencere başına {{maxPromises}} vaat, ifade başına {{maxPhraseChars}} karakter.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "Beklemeyi bırak (analiz sürer)"
 }

@@ -5,6 +5,7 @@ required secret/DSN is missing (CLAUDE.md: no hardcoded secrets).
 Mirrors knowledge-service's config shape; single DB (loreweave_composition).
 """
 
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -31,6 +32,8 @@ class Settings(BaseSettings):
     # Default False → today's inline behavior verbatim (zero contract change until
     # the FE adopts the 202 + poll). The worker consumer + its sweep run only when on.
     composition_worker_enabled: bool = False
+    # Deploy-time ceiling for the entire multi-call Quality analysis, not one HTTP call.
+    quality_report_deadline_secs: float = Field(default=3600, gt=0)
     composition_job_sweep_secs: int = 60
     composition_job_sweep_timeout_secs: int = 900
 

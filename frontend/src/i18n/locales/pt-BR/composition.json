@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "Relatório parcial — não avalia o capítulo inteiro.",
-    "chapter": "Somente a primeira janela analisada: {{analyzed}} de {{total}}.",
-    "canon": "Linhas do cânone selecionadas: {{selected}} de {{total}}."
+    "chapter": "Janelas processadas: {{analyzed}} de {{total}}.",
+    "canon": "Linhas do cânone selecionadas: {{selected}} de {{total}}.",
+    "complete": "Completo: {{windows}} janelas; todas as {{canon}} entradas do cânone processadas; síntese concluída.",
+    "synthesisPending": "Síntese final incompleta."
   },
-  "qualityThreadsSelection": "Apenas fios narrativos selecionados — não é uma auditoria exaustiva. Até {{maxPromises}} promessas; cada frase é limitada a {{maxPhraseChars}} caracteres."
+  "qualityThreadsSelection": "Extração seletiva por janela, não exaustiva. Sem limite global: {{maxPromises}} promessas por janela, {{maxPhraseChars}} caracteres por frase.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "Parar de esperar (a análise continua)"
 }

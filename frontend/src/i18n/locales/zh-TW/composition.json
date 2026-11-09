@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "部分報告，不代表整章評估。",
-    "chapter": "僅分析第一個視窗：{{analyzed}} / {{total}}。",
-    "canon": "已選設定行：{{selected}} / {{total}}。"
+    "chapter": "已處理章節視窗：{{analyzed}} / {{total}}。",
+    "canon": "已選設定行：{{selected}} / {{total}}。",
+    "complete": "完整：{{windows}} 個章節視窗；已處理全部 {{canon}} 條正典；綜合成功。",
+    "synthesisPending": "最終綜合未完成。"
   },
-  "qualityThreadsSelection": "僅顯示選定的劇情線索，並非全面審查。最多 {{maxPromises}} 個敘事承諾，每條表述最多 {{maxPhraseChars}} 個字元。"
+  "qualityThreadsSelection": "按視窗選擇性擷取，並非窮盡。合併結果無全域上限：每視窗最多 {{maxPromises}} 個承諾，每條 {{maxPhraseChars}} 字元。",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "停止等待（分析繼續）"
 }

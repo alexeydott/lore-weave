@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "รายงานบางส่วน — ไม่ใช่การประเมินทั้งบท",
-    "chapter": "วิเคราะห์เฉพาะช่วงแรก: {{analyzed}} จาก {{total}}",
-    "canon": "บรรทัดข้อมูลโลกที่เลือก: {{selected}} จาก {{total}}"
+    "chapter": "ช่วงที่ประมวลผล: {{analyzed}} / {{total}}",
+    "canon": "บรรทัดข้อมูลโลกที่เลือก: {{selected}} จาก {{total}}",
+    "complete": "ครบ: {{windows}} ช่วงบท ประมวลผลแคนนอนครบ {{canon}} รายการ สังเคราะห์สำเร็จ",
+    "synthesisPending": "การสังเคราะห์ขั้นสุดท้ายยังไม่เสร็จ"
   },
-  "qualityThreadsSelection": "แสดงเฉพาะปมเรื่องที่เลือก ไม่ใช่การตรวจสอบทั้งหมด สูงสุด {{maxPromises}} คำสัญญา โดยแต่ละวลีจำกัดที่ {{maxPhraseChars}} อักขระ"
+  "qualityThreadsSelection": "สกัดแบบคัดเลือกต่อช่วง ไม่ครบถ้วน ผลรวมไม่มีเพดานรวม: {{maxPromises}} คำสัญญาต่อช่วง {{maxPhraseChars}} อักขระต่อวลี",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "หยุดรอ (การวิเคราะห์ยังดำเนินต่อ)"
 }

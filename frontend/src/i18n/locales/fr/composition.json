@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "Rapport partiel — pas une évaluation du chapitre entier.",
-    "chapter": "Seule la première fenêtre est analysée : {{analyzed}} sur {{total}}.",
-    "canon": "Lignes du canon sélectionnées : {{selected}} sur {{total}}."
+    "chapter": "Fenêtres traitées : {{analyzed}} sur {{total}}.",
+    "canon": "Lignes du canon sélectionnées : {{selected}} sur {{total}}.",
+    "complete": "Complet : {{windows}} fenêtres ; les {{canon}} entrées du canon traitées ; synthèse réussie.",
+    "synthesisPending": "Synthèse finale non terminée."
   },
-  "qualityThreadsSelection": "Fils sélectionnés uniquement — cet audit n’est pas exhaustif. Jusqu’à {{maxPromises}} promesses ; chaque formulation est limitée à {{maxPhraseChars}} caractères."
+  "qualityThreadsSelection": "Extraction sélective par fenêtre, non exhaustive. Aucun plafond global : {{maxPromises}} promesses par fenêtre, {{maxPhraseChars}} caractères par formulation.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "Arrêter l’attente (l’analyse continue)"
 }

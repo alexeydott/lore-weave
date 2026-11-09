@@ -19,7 +19,8 @@ vi.mock('@/features/books/api', () => ({ booksApi: {
   listChapters: vi.fn().mockResolvedValue({ items: [], total: 0 }),
   listChaptersPage: vi.fn().mockResolvedValue({ items: [], total: 0, next_cursor: null }),
 } }));
-vi.mock('@/features/composition/api', () => ({ compositionApi: {
+vi.mock('@/features/composition/api', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/features/composition/api')>(), compositionApi: {
   resolveWork: vi.fn(async (bookId: string) => ({
     status: 'found', candidates: [],
     work: { project_id: `project-${bookId}`, book_id: bookId,

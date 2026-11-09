@@ -12,6 +12,7 @@ consumer crash) — the runtime backstop since a Redis stream gives no post-ACK 
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -37,6 +38,7 @@ from app.worker.operations import (
     run_plan_forge_refine,
     run_promise_coverage,
     run_quality_report,
+    QualityReportCancelled,
     run_selection_edit,
     run_self_heal_propose,
     run_stitch,
@@ -244,30 +246,52 @@ async def run_job(
         # A terminal-failed/cancelled job re-triggered (sweeper/dup) — leave it.
         return f"already_{job.status}"
 
-    await repo.update_status(UUID(job_id), "running")
+    if _worker_op(job) == "quality_report":
+        started = await repo.update_status(UUID(job_id), "running", only_if_active=True)
+        if started is None:
+            # Cancellation/completion may win after the initial read. Never revive
+            # that terminal row or dispatch its analysis.
+            current = await repo.get(UUID(job_id))
+            return f"already_{current.status}" if current is not None else "not_found"
+    else:
+        await repo.update_status(UUID(job_id), "running")
+
+    last_heartbeat = time.monotonic()
 
     async def cancel_check() -> bool:
+        nonlocal last_heartbeat
         # bug #34 — immediate-cancel: abort the in-flight LLM call the moment the
         # cancel endpoint CAS-sets generation_job.status='cancelled'. Fail-soft: any
         # DB/read error returns False so a transient blip never spuriously cancels a
         # healthy job (the engine LLM calls just continue).
         try:
             row = await repo.get(UUID(job_id))
+            if _worker_op(job) == "quality_report" and time.monotonic() - last_heartbeat >= 30:
+                await repo.heartbeat(UUID(job_id))
+                last_heartbeat = time.monotonic()
         except Exception:  # noqa: BLE001 — read failure must not cancel a live job
             return False
         return row is not None and row.status == "cancelled"
 
     try:
         result = await _run_operation(pool, llm, job, cancel_check=cancel_check)
+    except QualityReportCancelled:
+        return "cancelled"
     except _BUSINESS_ERRORS as exc:
         logger.info("composition job %s (%s) failed: %s", job_id, job.operation, exc)
+        if _worker_op(job) == "quality_report" and await cancel_check():
+            return "cancelled"
         await repo.update_status(
             UUID(job_id), "failed",
             result={"error": str(exc)},
+            **({"only_if_active": True} if _worker_op(job) == "quality_report" else {}),
         )
         await _finalize_plan_forge_job(pool, job, {"error": str(exc)}, "failed")
         await _finalize_plan_pass_job(pool, job, {"error": str(exc)}, "failed")
         return "failed"
+
+    if _worker_op(job) == "quality_report" and await cancel_check():
+        return "cancelled"
 
     # W5 (D-MOTIF-CONFORMANCE-ENGINE-WIRING): an op may return a critic-merge patch
     # under `_critic` (currently `generate`'s motif_conformance dim). Pop it OUT of the
@@ -276,6 +300,7 @@ async def run_job(
     critic_patch = result.pop("_critic", None) if isinstance(result, dict) else None
     await repo.update_status(
         UUID(job_id), "completed", result=result, critic=critic_patch,
+        **({"only_if_active": True} if _worker_op(job) == "quality_report" else {}),
     )
     await _finalize_plan_forge_job(pool, job, result, "completed")
     await _finalize_plan_pass_job(pool, job, result, "completed")
@@ -338,12 +363,14 @@ async def _run_operation(
         return await run_self_heal_propose(
             llm, user_id=str(job.created_by), input=inp, cancel_check=cancel_check)
     if op == "quality_report":
-        # No pool/knowledge — the endpoint persisted the chapter text + canon; this runs the
-        # two advisory judges (critic + promise audit) and returns a read-only report.
-        inp = dict(job.input or {})
-        inp.setdefault("user_id", str(job.created_by))
+        repo = GenerationJobsRepo(pool)
+
+        async def progress(event: dict) -> None:
+            await repo.update_progress(job.id, event)
+
         return await run_quality_report(
-            llm, user_id=str(job.created_by), input=inp, cancel_check=cancel_check)
+            llm, user_id=str(job.created_by), input=dict(job.input or {}),
+            cancel_check=cancel_check, progress_callback=progress)
     if op == "promise_coverage":
         # No pool/knowledge — the endpoint rendered the outline plan + assembled the book prose;
         # this scores the book against the spec's tracked-promise set (read-only coverage).

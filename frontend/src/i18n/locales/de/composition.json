@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "Teilbericht — keine Bewertung des gesamten Kapitels.",
-    "chapter": "Nur erstes Fenster analysiert: {{analyzed}} von {{total}}.",
-    "canon": "Ausgewählte Kanonzeilen: {{selected}} von {{total}}."
+    "chapter": "Fenster verarbeitet: {{analyzed}} von {{total}}.",
+    "canon": "Ausgewählte Kanonzeilen: {{selected}} von {{total}}.",
+    "complete": "Vollständig: {{windows}} Fenster; alle {{canon}} Kanoneinträge verarbeitet; Synthese erfolgreich.",
+    "synthesisPending": "Synthese nicht abgeschlossen."
   },
-  "qualityThreadsSelection": "Nur ausgewählte Handlungsfäden — keine vollständige Prüfung. Bis zu {{maxPromises}} Versprechen; jede Formulierung ist auf {{maxPhraseChars}} Zeichen begrenzt."
+  "qualityThreadsSelection": "Selektive Extraktion pro Fenster, nicht vollständig. Kein globales Limit: {{maxPromises}} Versprechen pro Fenster, {{maxPhraseChars}} Zeichen pro Formulierung.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "Warten beenden (Analyse läuft weiter)"
 }

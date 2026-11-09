@@ -229,7 +229,7 @@ async def test_no_verifier_configured_FALLS_BACK_to_the_critic():
 
 #: Call sites that legitimately do NOT resolve the role, each with the reason it cannot matter.
 _VERIFIER_EXEMPT = {
-    "app/engine/quality_report.py":
+    "app/engine/quality_analysis.py":
         "passes active_rules=[], so `map_rule_tokens` can attribute nothing and the verifier "
         "branch (`if crit['violations']`) is unreachable — there is no verdict to audit",
 }

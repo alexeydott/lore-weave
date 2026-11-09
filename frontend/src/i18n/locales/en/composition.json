@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "Partial report — not a whole-chapter assessment.",
-    "chapter": "Only the first window analyzed: {{analyzed}} of {{total}}.",
-    "canon": "Canon lines selected: {{selected}} of {{total}}."
+    "chapter": "Chapter windows processed: {{analyzed}} of {{total}}.",
+    "canon": "Canon lines selected: {{selected}} of {{total}}.",
+    "complete": "Complete: {{windows}} chapter windows; all {{canon}} canon entries processed; synthesis succeeded.",
+    "synthesisPending": "Final synthesis did not complete."
   },
-  "qualityThreadsSelection": "Selected threads only — not an exhaustive audit. Up to {{maxPromises}} promises; each phrase is limited to {{maxPhraseChars}} characters."
+  "qualityThreadsSelection": "Selective per-window extraction, not exhaustive. No global merged limit: up to {{maxPromises}} promises per window, {{maxPhraseChars}} characters per phrase.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "Stop waiting (analysis continues)"
 }

@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "部分报告，不代表整章评估。",
-    "chapter": "仅分析第一个窗口：{{analyzed}} / {{total}}。",
-    "canon": "已选设定行：{{selected}} / {{total}}。"
+    "chapter": "已处理章节窗口：{{analyzed}} / {{total}}。",
+    "canon": "已选设定行：{{selected}} / {{total}}。",
+    "complete": "完整：{{windows}} 个章节窗口；已处理全部 {{canon}} 条正典；综合成功。",
+    "synthesisPending": "最终综合未完成。"
   },
-  "qualityThreadsSelection": "仅显示选定的剧情线索，并非全面审查。最多 {{maxPromises}} 个叙事承诺，每条表述最多 {{maxPhraseChars}} 个字符。"
+  "qualityThreadsSelection": "按窗口选择性提取，并非穷尽。合并结果无全局上限：每窗口最多 {{maxPromises}} 个承诺，每条 {{maxPhraseChars}} 字符。",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "停止等待（分析继续）"
 }

@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "تقرير جزئي — ليس تقييماً للفصل بأكمله.",
-    "chapter": "تم تحليل النافذة الأولى فقط: {{analyzed}} من {{total}}.",
-    "canon": "أسطر العالم المختارة: {{selected}} من {{total}}."
+    "chapter": "النوافذ المعالجة: {{analyzed}} من {{total}}.",
+    "canon": "أسطر العالم المختارة: {{selected}} من {{total}}.",
+    "complete": "مكتمل: {{windows}} نافذة؛ عولجت جميع سجلات المرجع وعددها {{canon}}؛ نجح التوليف.",
+    "synthesisPending": "لم يكتمل التوليف النهائي."
   },
-  "qualityThreadsSelection": "تُعرض خيوط مختارة فقط — هذا ليس تدقيقًا شاملًا. حتى {{maxPromises}} وعدًا؛ كل عبارة محدودة بـ {{maxPhraseChars}} حرفًا."
+  "qualityThreadsSelection": "استخراج انتقائي لكل نافذة وليس شاملاً. لا حد عام للنتائج المدمجة: {{maxPromises}} وعداً لكل نافذة و{{maxPhraseChars}} حرفاً لكل عبارة.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "إيقاف الانتظار (يستمر التحليل)"
 }

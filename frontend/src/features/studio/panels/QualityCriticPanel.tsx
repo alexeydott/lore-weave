@@ -11,7 +11,7 @@ import { useAuth } from '@/auth';
 import { ModelPicker, useUserModels } from '@/components/model-picker';
 import { useEffectiveModelSelection } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 import { booksApi, type Chapter } from '@/features/books/api';
-import { compositionApi, type QualityCritic, type QualityReportResponse } from '@/features/composition/api';
+import { compositionApi, isQualityComplete, type QualityCritic, type QualityReportResponse } from '@/features/composition/api';
 import { QualityReason, QualityScopeWarning } from "@/features/composition/components/QualityReportStatus";
 import { QualityReportSection } from '@/features/composition/components/QualityReportSection';
 import { useStudioHost } from '../host/StudioHostProvider';
@@ -93,8 +93,7 @@ function sameDraft(entry: BatchEntry | undefined, chapter: Chapter): boolean {
     && hasDraftVersion
     && !entry.failed
     && !!entry.report
-    && !entry.report.critic.error
-    && !(entry.report.scope?.partial || entry.report.critic.scope?.partial)
+    && isQualityComplete(entry.report)
     && entry.draftUpdatedAt === (chapter.draft_updated_at ?? null)
     && entry.draftRevisionCount === (chapter.draft_revision_count ?? null);
 }
@@ -237,7 +236,7 @@ export function QualityCriticPanel(props: IDockviewPanelProps) {
         draftUpdatedAt: chapter.draft_updated_at ?? null,
         draftRevisionCount: chapter.draft_revision_count ?? null,
         report: critic ? { critic, scope: response.report.scope ?? critic.scope } : null,
-        failed: !critic || !!critic.error,
+        failed: !critic || !!critic.error || !!response.report.threads?.error,
         error: critic?.error || (!critic ? 'Quality report returned no critic result' : undefined),
       };
     } catch (error) {

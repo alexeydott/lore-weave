@@ -90,3 +90,21 @@ describe('Russian quality report', () => {
     expect(screen.getByRole('button', { name: 'Переанализировать' })).toBeInTheDocument();
   });
 });
+
+
+describe('exact engine completion scope', () => {
+  it('renders real window and canon totals without proposed alias fields', () => {
+    const report = structuredClone(fullReport);
+    report.scope = { mode: 'windowed', complete: true, partial: false, chapter_partial: false, canon_partial: false,
+      windows_total: 7, windows_analyzed: 7, canon_batches_total: 4, canon_batches_analyzed: 4,
+      canon_lines_total: 93, canon_lines_selected: 93, critic_units_total: 28, critic_units_completed: 28,
+      audit_units_total: 7, audit_units_completed: 7, narrative_units_total: 7, narrative_units_completed: 7,
+      synthesis_completed: true };
+    state.value = base({ report, ran: true });
+    render(<I18nextProvider i18n={ru}><QualityReportSection projectId="p" chapterId="c" token="t" modelRef="m" /></I18nextProvider>);
+    expect(screen.getByTestId('quality-complete')).toHaveTextContent('7');
+    expect(screen.getByTestId('quality-complete')).toHaveTextContent('93');
+    expect(screen.getByTestId('quality-complete')).not.toHaveTextContent('undefined');
+    expect(screen.queryByTestId('quality-partial')).not.toBeInTheDocument();
+  });
+});

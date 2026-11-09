@@ -321,6 +321,29 @@ def narrowed_by_request(computed: int, requested: int | None) -> int:
     return min(computed, requested)
 
 
+def quality_input_budget(context_window: int | None, output_reserve: int) -> int:
+    """Quality planner allowance after output and conservative framing reserves."""
+    from loreweave_context import allocate_context
+
+    window = context_window
+    if isinstance(window, bool) or not isinstance(window, int) or window <= 0:
+        window = 16384
+    allocation = allocate_context(
+        window, grounding_default=window, output_reserve=output_reserve,
+        min_grounding=0,
+    )
+    # Registry admission may count EVERY character as a token once the entire
+    # decoded request reaches 20% non-ASCII. Use a character allowance (not the
+    # SDK's per-script token estimate), including 8192 characters for all prompt,
+    # schema and role strings. The allocation's 25% reserve also exceeds the
+    # registry's 15% context safety margin.
+    framing = min(8192, max(2048, window // 8))
+    # Keep admission safe even if the shared allocator's reserve policy changes.
+    # This allowance is in worst-case decoded characters, not SDK token units.
+    admission = window - output_reserve - int(window * .15)
+    return min(allocation.grounding, admission) - framing
+
+
 def max_tokens_for(code: str, **kw) -> int:
     """The `max_tokens` value for the wire. Convenience over `budget_for(...)` for the many
     call sites that only need the integer."""

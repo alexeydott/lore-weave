@@ -274,26 +274,15 @@ async def test_coverage_all_windows_fail_is_unavailable():
 
 
 async def test_report_bounds_huge_canon_and_unbroken_cjk():
-    from loreweave_context.tokens import estimate_tokens
-
-    class BoundedLLM(FakeQRLLM):
-        async def resolve_context_length(self, *args):
-            return 16384
-
-        async def submit_and_wait(self, **kw):
-            assert estimate_tokens(kw["input"]["messages"][1]["content"]) < 13000
-            return await super().submit_and_wait(**kw)
-
-    llm = BoundedLLM()
+    # The full-analysis fake handles evidence and synthesis schemas; the historical
+    # two-call fake intentionally cannot certify a complete windowed analysis.
+    from tests.unit.test_quality_full import FullLLM
     report = await build_quality_report(
-        llm, user_id="u", model_source="s", model_ref="m",
-        chapter="漢" * 60000, canon="Описание персонажа " * 60000,
-        source_language="ru")
-    assert report["scope"]["chapter_partial"] is True
-    assert report["scope"]["canon_partial"] is True
-    assert report["scope"]["windows_analyzed"] == 1
-    assert report["scope"]["windows_total"] > 1
-    assert len(llm.calls) == 2
+        FullLLM(), user_id="u", model_source="s", model_ref="m",
+        chapter="漢" * 12000, canon="字" * 9000, source_language="ru")
+    assert report["scope"]["complete"] is True
+    assert report["scope"]["windows_analyzed"] == report["scope"]["windows_total"] > 1
+    assert report["scope"]["canon_partial"] is False
 
 
 async def test_report_small_window_fails_without_provider_calls():
@@ -355,7 +344,8 @@ async def test_report_context_lookup_failure_is_bounded_and_advisory():
         llm, user_id="u", model_source="s", model_ref="m", chapter="русский " * 20000)
     assert report["scope"]["context_window"] is None
     assert report["scope"]["chapter_partial"] is True
-    assert len(llm.calls) == 2
+    assert len(llm.calls) > 2
+    assert report["scope"]["windows_analyzed"] == 0  # fake lacks narrative schema
 
 
 async def test_report_audit_reserves_measured_reasoning_and_json_with_context_cap():

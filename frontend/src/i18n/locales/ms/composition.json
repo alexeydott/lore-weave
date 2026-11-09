@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "Laporan separa — bukan penilaian seluruh bab.",
-    "chapter": "Hanya tetingkap pertama dianalisis: {{analyzed}} daripada {{total}}.",
-    "canon": "Baris kanon dipilih: {{selected}} daripada {{total}}."
+    "chapter": "Tetingkap diproses: {{analyzed}} daripada {{total}}.",
+    "canon": "Baris kanon dipilih: {{selected}} daripada {{total}}.",
+    "complete": "Lengkap: {{windows}} tetingkap bab; semua {{canon}} entri kanon diproses; sintesis berjaya.",
+    "synthesisPending": "Sintesis akhir belum selesai."
   },
-  "qualityThreadsSelection": "Hanya jalur cerita terpilih — bukan audit menyeluruh. Sehingga {{maxPromises}} janji; setiap frasa dihadkan kepada {{maxPhraseChars}} aksara."
+  "qualityThreadsSelection": "Pengekstrakan terpilih setiap tetingkap, bukan menyeluruh. Tiada had gabungan global: {{maxPromises}} janji setiap tetingkap, {{maxPhraseChars}} aksara setiap frasa.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "Henti menunggu (analisis diteruskan)"
 }

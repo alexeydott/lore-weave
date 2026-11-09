@@ -204,29 +204,60 @@ async def run_self_heal_propose(
     }
 
 
+class QualityReportCancelled(ValueError):
+    pass
+
+
 async def run_quality_report(
     llm: LLMClient, *, user_id: str, input: dict[str, Any],
     cancel_check: Callable[[], Awaitable[bool]] | None = None,
+    progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
-    """Run the read-only Quality Report over the persisted chapter text + canon (both
-    resolved at the endpoint). Surfaces the planner's advisory judges — the 4-dim critic
-    (coherence/voice/pacing/canon) + the chapter's narrative THREADS (raised/resolved,
-    reframed from the promise audit — the misleading per-chapter "dropped" is gone) — to
-    the author. Diagnostic only: NOT applyable edits, so there is nothing to write back."""
+    import asyncio
+    from app.config import settings
     from app.engine.quality_report import build_quality_report
 
-    report = await build_quality_report(
-        llm, user_id=user_id,
-        model_source=input["model_source"], model_ref=input["model_ref"],
-        chapter=input["chapter_text"], source_language=input.get("source_language", "auto"),
-        canon=input.get("canon") or None,
-        cancel_check=cancel_check,
-    )
-    return {
-        "report": report,
-        "chapter_id": input.get("chapter_id"),
-        "draft_version": input.get("draft_version"),
-    }
+    async def compute():
+        return await build_quality_report(
+            llm, user_id=user_id,
+            model_source=input["model_source"], model_ref=input["model_ref"],
+            chapter=input["chapter_text"], source_language=input.get("source_language", "auto"),
+            canon=input.get("canon") or None, canon_grounding=input.get("canon_grounding"),
+            cancel_check=cancel_check, progress_callback=progress_callback,
+        )
+
+    async def watch_cancel():
+        while True:
+            if await cancel_check():
+                return
+            await asyncio.sleep(0.5)
+
+    tasks = [asyncio.create_task(compute())]
+    if cancel_check is not None:
+        tasks.append(asyncio.create_task(watch_cancel()))
+    try:
+        async with asyncio.timeout(settings.quality_report_deadline_secs):
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            if len(tasks) > 1 and tasks[1] in done:
+                raise QualityReportCancelled("Quality analysis cancelled")
+            try:
+                report = await tasks[0]
+            except asyncio.CancelledError:
+                # An engine can observe persisted cancellation before the watcher.
+                # Do not translate cancellation of this worker during shutdown.
+                owner = asyncio.current_task()
+                if (owner is not None and not owner.cancelling()
+                        and cancel_check is not None and await cancel_check()):
+                    raise QualityReportCancelled("Quality analysis cancelled") from None
+                raise
+    except TimeoutError as exc:
+        raise ValueError("QUALITY_REPORT_DEADLINE_EXCEEDED") from exc
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+    return {"report": report, "chapter_id": input.get("chapter_id"),
+            "draft_version": input.get("draft_version")}
 
 
 async def run_promise_coverage(

@@ -1822,8 +1822,12 @@
   },
   "qualityScope": {
     "partial": "Laporan parsial — bukan penilaian seluruh bab.",
-    "chapter": "Hanya jendela pertama dianalisis: {{analyzed}} dari {{total}}.",
-    "canon": "Baris kanon dipilih: {{selected}} dari {{total}}."
+    "chapter": "Jendela diproses: {{analyzed}} dari {{total}}.",
+    "canon": "Baris kanon dipilih: {{selected}} dari {{total}}.",
+    "complete": "Lengkap: {{windows}} jendela bab; semua {{canon}} entri kanon diproses; sintesis berhasil.",
+    "synthesisPending": "Sintesis akhir belum selesai."
   },
-  "qualityThreadsSelection": "Hanya alur terpilih — bukan audit menyeluruh. Maksimal {{maxPromises}} janji; setiap frasa dibatasi hingga {{maxPhraseChars}} karakter."
+  "qualityThreadsSelection": "Ekstraksi selektif per jendela, tidak menyeluruh. Tanpa batas gabungan global: {{maxPromises}} janji per jendela, {{maxPhraseChars}} karakter per frasa.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "Berhenti menunggu (analisis berlanjut)"
 }
