@@ -76,6 +76,9 @@ async def test_report_both_ok():
     assert rep["threads"]["resolved"] == ["the sealed grimoire"]
     assert rep["threads"]["raised_count"] == 2 and rep["threads"]["resolved_count"] == 1
     assert "dropped" not in rep["threads"]  # the false-positive verdict is gone
+    assert rep["threads"]["selection"] == {
+        "exhaustive": False, "max_promises": 12, "max_phrase_chars": 80}
+    assert any("not an exhaustive inventory" in prompt for prompt in llm.calls)
     # both judges ran (2 concurrent calls)
     assert len(llm.calls) == 2
 
@@ -268,3 +271,124 @@ async def test_coverage_all_windows_fail_is_unavailable():
         premise="", plan_text="plan", book_text=book, window_chars=50)
     assert cov["error"] == "coverage_unavailable"
     assert cov["tracked_count"] == 1 and cov["paid_count"] == 0
+
+
+async def test_report_bounds_huge_canon_and_unbroken_cjk():
+    from loreweave_context.tokens import estimate_tokens
+
+    class BoundedLLM(FakeQRLLM):
+        async def resolve_context_length(self, *args):
+            return 16384
+
+        async def submit_and_wait(self, **kw):
+            assert estimate_tokens(kw["input"]["messages"][1]["content"]) < 13000
+            return await super().submit_and_wait(**kw)
+
+    llm = BoundedLLM()
+    report = await build_quality_report(
+        llm, user_id="u", model_source="s", model_ref="m",
+        chapter="漢" * 60000, canon="Описание персонажа " * 60000,
+        source_language="ru")
+    assert report["scope"]["chapter_partial"] is True
+    assert report["scope"]["canon_partial"] is True
+    assert report["scope"]["windows_analyzed"] == 1
+    assert report["scope"]["windows_total"] > 1
+    assert len(llm.calls) == 2
+
+
+async def test_report_small_window_fails_without_provider_calls():
+    class SmallLLM(FakeQRLLM):
+        async def resolve_context_length(self, *args):
+            return 1024
+
+    llm = SmallLLM()
+    report = await build_quality_report(
+        llm, user_id="u", model_source="s", model_ref="m", chapter="текст")
+    assert report["critic"]["error"] == "critic_context_limit"
+    assert report["threads"]["error"] == "audit_context_limit"
+    assert not llm.calls
+
+
+async def test_report_reasoning_length_does_not_sink_thread_success():
+    class ReasoningLLM(FakeQRLLM):
+        async def submit_and_wait(self, **kw):
+            if kw["job_meta"]["extractor"] == "judge_prose":
+                return SimpleNamespace(status="completed", finish_reason="length",
+                                       result={"messages": [{"content": ""}]})
+            return await super().submit_and_wait(**kw)
+
+    report = await build_quality_report(
+        ReasoningLLM(), user_id="u", model_source="s", model_ref="m", chapter="text")
+    assert report["critic"]["error"] == "critic_reasoning_exhausted"
+    assert "error" not in report["threads"]
+
+
+async def test_report_worker_inline_parity_and_cancellation():
+    import asyncio
+    import pytest
+    from app.worker.operations import run_quality_report
+
+    args = {"model_source": "s", "model_ref": "m", "chapter_text": "Проза " * 100,
+            "source_language": "ru", "canon": "Факт", "chapter_id": "chapter"}
+    inline = await build_quality_report(
+        FakeQRLLM(), user_id="u", model_source="s", model_ref="m",
+        chapter=args["chapter_text"], source_language="ru", canon="Факт")
+    worker = await run_quality_report(FakeQRLLM(), user_id="u", input=args)
+    assert worker["report"] == inline
+    assert worker["chapter_id"] == "chapter"
+
+    class CancelledLLM(FakeQRLLM):
+        async def submit_and_wait(self, **kw):
+            raise asyncio.CancelledError()
+
+    with pytest.raises(asyncio.CancelledError):
+        await run_quality_report(CancelledLLM(), user_id="u", input=args)
+
+
+async def test_report_context_lookup_failure_is_bounded_and_advisory():
+    class UnknownLLM(FakeQRLLM):
+        async def resolve_context_length(self, *args):
+            raise RuntimeError("registry unavailable")
+
+    llm = UnknownLLM()
+    report = await build_quality_report(
+        llm, user_id="u", model_source="s", model_ref="m", chapter="русский " * 20000)
+    assert report["scope"]["context_window"] is None
+    assert report["scope"]["chapter_partial"] is True
+    assert len(llm.calls) == 2
+
+
+async def test_report_audit_reserves_measured_reasoning_and_json_with_context_cap():
+    from app.llm_budget import max_tokens_for
+
+    class ReasoningAuditLLM(FakeQRLLM):
+        def __init__(self, window):
+            super().__init__()
+            self.window = window
+            self.audit_budget = None
+
+        async def resolve_context_length(self, *args):
+            return self.window
+
+        async def submit_and_wait(self, **kw):
+            if kw["job_meta"]["extractor"] == "promise_audit":
+                self.audit_budget = kw["input"]["max_tokens"]
+                # Observed provider spends 4095 before emitting any visible JSON.
+                if self.audit_budget < 4095 + 512:
+                    return SimpleNamespace(status="completed", finish_reason="length",
+                                           result={"messages": [{"content": ""}]})
+            return await super().submit_and_wait(**kw)
+
+    full = ReasoningAuditLLM(260000)
+    report = await build_quality_report(
+        full, user_id="u", model_source="s", model_ref="m", chapter="Short chapter")
+    assert full.audit_budget == 8192
+    assert "error" not in report["threads"]
+    assert report["threads"]["raised_count"] == 2
+    assert max_tokens_for("audit_promises") == 4096  # unrelated audits unchanged
+
+    small = ReasoningAuditLLM(12000)
+    partial = await build_quality_report(
+        small, user_id="u", model_source="s", model_ref="m", chapter="Short chapter")
+    assert small.audit_budget == 4000  # never override the resolved context cap
+    assert partial["threads"]["error"] == "audit_reasoning_exhausted"

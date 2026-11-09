@@ -1808,5 +1808,22 @@
     "preview_back": "Voltar",
     "preview_more": "…e mais {{n}}",
     "preview_blank": "linha em branco será excluída"
-  }
+  },
+  "threadEditAria": "Editar promessa",
+  "threadArchiveAria": "Arquivar promessa",
+  "qualityReasons": {
+    "context_limit": "Limite de contexto do modelo excedido.",
+    "network": "Erro de rede do provedor.",
+    "unavailable": "Provedor indisponível.",
+    "reasoning_exhausted": "O raciocínio esgotou o orçamento da resposta.",
+    "truncated": "Resposta truncada.",
+    "invalid_response": "Resposta inválida do modelo.",
+    "manualRetry": "Tente novamente na próxima execução manual."
+  },
+  "qualityScope": {
+    "partial": "Relatório parcial — não avalia o capítulo inteiro.",
+    "chapter": "Somente a primeira janela analisada: {{analyzed}} de {{total}}.",
+    "canon": "Linhas do cânone selecionadas: {{selected}} de {{total}}."
+  },
+  "qualityThreadsSelection": "Apenas fios narrativos selecionados — não é uma auditoria exaustiva. Até {{maxPromises}} promessas; cada frase é limitada a {{maxPhraseChars}} caracteres."
 }

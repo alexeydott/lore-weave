@@ -1084,7 +1084,20 @@
     "editRule": "Regla de edición",
     "healApplied": "Se han aplicado las correcciones seleccionadas al capítulo.",
     "healApplyError": "No se pudieron aplicar las correcciones. Inténtalo de nuevo.",
-    "healStale": "Este capítulo ha cambiado desde que se ejecutó el Pulido; vuelve a ejecutar el Pulido y luego aplica los cambios."
+    "healStale": "Este capítulo ha cambiado desde que se ejecutó el Pulido; vuelve a ejecutar el Pulido y luego aplica los cambios.",
+    "criticBatchTitle": "Crítica de todo el libro",
+    "criticBatchSelected": "Capítulo seleccionado",
+    "criticBatchAll": "Todos los capítulos",
+    "criticBatchSelectedCta": "Analizar el capítulo seleccionado",
+    "criticBatchCta": "Analizar todos los capítulos",
+    "criticBatchDone": "Todos los capítulos analizados",
+    "criticBatchRunning": "Analizados: {{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "Deteniendo tras este capítulo…",
+    "criticBatchStop": "Detener tras este capítulo",
+    "criticBatchRemaining": "Restantes: {{count}}",
+    "criticBatchFailed": "falló — se reintentará",
+    "criticBatchClear": "Borrar resultados",
+    "chaptersLoadError": "No se pudo cargar la lista de capítulos."
   },
   "sidebar": {
     "collapse": "Contraer",

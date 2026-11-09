@@ -1808,5 +1808,22 @@
     "preview_back": "返回",
     "preview_more": "…還有 {{n}} 處",
     "preview_blank": "將刪除一個空行"
-  }
+  },
+  "threadEditAria": "編輯承諾",
+  "threadArchiveAria": "封存承諾",
+  "qualityReasons": {
+    "context_limit": "超出模型上下文限制。",
+    "network": "供應商網路錯誤。",
+    "unavailable": "供應商無法使用。",
+    "reasoning_exhausted": "推理耗盡了回應預算。",
+    "truncated": "回應遭截斷。",
+    "invalid_response": "模型回應無效。",
+    "manualRetry": "請在下次手動執行時重試。"
+  },
+  "qualityScope": {
+    "partial": "部分報告，不代表整章評估。",
+    "chapter": "僅分析第一個視窗：{{analyzed}} / {{total}}。",
+    "canon": "已選設定行：{{selected}} / {{total}}。"
+  },
+  "qualityThreadsSelection": "僅顯示選定的劇情線索，並非全面審查。最多 {{maxPromises}} 個敘事承諾，每條表述最多 {{maxPhraseChars}} 個字元。"
 }

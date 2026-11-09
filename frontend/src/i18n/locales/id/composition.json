@@ -1808,5 +1808,22 @@
     "preview_back": "Kembali",
     "preview_more": "…dan {{n}} lagi",
     "preview_blank": "baris kosong akan dihapus"
-  }
+  },
+  "threadEditAria": "Edit janji",
+  "threadArchiveAria": "Arsipkan janji",
+  "qualityReasons": {
+    "context_limit": "Batas konteks model terlampaui.",
+    "network": "Kesalahan jaringan penyedia.",
+    "unavailable": "Penyedia tidak tersedia.",
+    "reasoning_exhausted": "Penalaran menghabiskan anggaran respons.",
+    "truncated": "Respons terpotong.",
+    "invalid_response": "Respons model tidak valid.",
+    "manualRetry": "Coba lagi pada proses manual berikutnya."
+  },
+  "qualityScope": {
+    "partial": "Laporan parsial — bukan penilaian seluruh bab.",
+    "chapter": "Hanya jendela pertama dianalisis: {{analyzed}} dari {{total}}.",
+    "canon": "Baris kanon dipilih: {{selected}} dari {{total}}."
+  },
+  "qualityThreadsSelection": "Hanya alur terpilih — bukan audit menyeluruh. Maksimal {{maxPromises}} janji; setiap frasa dibatasi hingga {{maxPhraseChars}} karakter."
 }

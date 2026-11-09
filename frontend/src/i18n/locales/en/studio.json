@@ -1084,7 +1084,20 @@
     "editRule": "Edit rule",
     "healApplied": "Applied the selected fixes to the chapter.",
     "healApplyError": "Could not apply the fixes. Try again.",
-    "healStale": "This chapter changed since Polish ran — re-run Polish, then apply."
+    "healStale": "This chapter changed since Polish ran — re-run Polish, then apply.",
+    "criticBatchTitle": "Whole-book critic pass",
+    "criticBatchSelected": "Selected chapter",
+    "criticBatchAll": "All chapters",
+    "criticBatchSelectedCta": "Analyze selected chapter",
+    "criticBatchCta": "Analyze all chapters",
+    "criticBatchDone": "All chapters analyzed",
+    "criticBatchRunning": "Analyzed {{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "Stopping after this chapter…",
+    "criticBatchStop": "Stop after this chapter",
+    "criticBatchRemaining": "Remaining: {{count}}",
+    "criticBatchFailed": "failed — will retry",
+    "criticBatchClear": "Clear results",
+    "chaptersLoadError": "Could not load the chapter list."
   },
   "sidebar": {
     "collapse": "Collapse",

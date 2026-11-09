@@ -94,6 +94,6 @@ describe('QualityReportSection', () => {
       report: { ...fullReport, critic: { coherence: null, voice_match: null, pacing: null, canon_consistency: null, violations: [], error: 'critic_unavailable' } },
     });
     render_();
-    expect(screen.getByTestId('quality-critic').textContent).toContain('qualityCriticNa');
+    expect(screen.getByTestId('quality-critic').textContent).toContain('qualityReasons.unavailable');
   });
 });

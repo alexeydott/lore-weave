@@ -90,7 +90,8 @@ PROFILES: dict[str, CallProfile] = {
     # scene's cast, which is smaller than the gone-set judge_canon can face.
     "judge_plan_conflict": CallProfile(OutputKind.VERDICT, 1024, 768,
                                        why="one verdict + a short why per cast member"),
-    "judge_prose": CallProfile(OutputKind.VERDICT, 1536, 1536, why="the critic's scored findings"),
+    "judge_prose": CallProfile(OutputKind.VERDICT, 8192, 1536, truncation_fatal=True,
+                              why="scored JSON plus provider reasoning; suppression is advisory"),
     # Its own key, not a reuse of `judge_prose`, for the reason `judge_plan_conflict` states
     # beside it: this judge answers a DIFFERENT question over a DIFFERENT input. `judge_prose`
     # scores four dimensions and hunts violations across a whole chapter; this one audits ONE
@@ -152,6 +153,12 @@ PROFILES: dict[str, CallProfile] = {
     "detect_and_update_threads": CallProfile(OutputKind.STRUCTURED, 4096, 1024,
                                              why="narrative threads opened/advanced/closed"),
     "audit_promises": CallProfile(OutputKind.STRUCTURED, 4096, 1500, why="promise audit rows"),
+    # Quality reports measured 4095 hidden reasoning tokens despite suppression.
+    # Keep the ordinary audit policy unchanged; this interactive report reserves
+    # another 4096 for reasoning before its structured promise lists can finish.
+    "quality_report_audit": CallProfile(
+        OutputKind.STRUCTURED, 8192, 4096,
+        why="chapter audit: 4096 structured output plus 4096 measured reasoning reserve"),
     # L1 of the planning pipeline: one beat-role row per chapter. The count is known BEFORE
     # the call (it is `len(chapters)`), which is what makes this a real `target` rather than
     # an invented one — contrast `audit_promises`, whose length IS the output.

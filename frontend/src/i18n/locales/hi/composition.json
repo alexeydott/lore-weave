@@ -1808,5 +1808,22 @@
     "preview_back": "वापस",
     "preview_more": "…और {{n}}",
     "preview_blank": "खाली पंक्ति हटाई जाएगी"
-  }
+  },
+  "threadEditAria": "वादा संपादित करें",
+  "threadArchiveAria": "वादा संग्रहित करें",
+  "qualityReasons": {
+    "context_limit": "मॉडल की संदर्भ सीमा पार हुई।",
+    "network": "प्रदाता नेटवर्क त्रुटि।",
+    "unavailable": "प्रदाता अनुपलब्ध है।",
+    "reasoning_exhausted": "तर्क में उत्तर का बजट समाप्त हुआ।",
+    "truncated": "उत्तर काट दिया गया।",
+    "invalid_response": "मॉडल का उत्तर अमान्य है।",
+    "manualRetry": "अगली मैन्युअल शुरुआत पर फिर प्रयास करें।"
+  },
+  "qualityScope": {
+    "partial": "आंशिक रिपोर्ट — पूरे अध्याय का आकलन नहीं।",
+    "chapter": "केवल पहली विंडो का विश्लेषण: {{total}} में से {{analyzed}}।",
+    "canon": "चुनी गई स्थापित तथ्यों की पंक्तियाँ: {{total}} में से {{selected}}।"
+  },
+  "qualityThreadsSelection": "केवल चुने हुए कथासूत्र — यह संपूर्ण जाँच नहीं है। अधिकतम {{maxPromises}} वादे; प्रत्येक वाक्यांश {{maxPhraseChars}} अक्षरों तक सीमित है।"
 }

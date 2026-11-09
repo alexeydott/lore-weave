@@ -1084,7 +1084,20 @@
     "editRule": "قاعدة التحرير",
     "healApplied": "تم تطبيق الإصلاحات المختارة على الفصل.",
     "healApplyError": "تعذر تطبيق الإصلاحات. حاول مرة أخرى.",
-    "healStale": "تغير هذا الفصل منذ إجراء عملية التحسين — أعد تشغيل التحسين، ثم قم بالتطبيق."
+    "healStale": "تغير هذا الفصل منذ إجراء عملية التحسين — أعد تشغيل التحسين، ثم قم بالتطبيق.",
+    "criticBatchTitle": "نقد الكتاب بالكامل",
+    "criticBatchSelected": "الفصل المحدد",
+    "criticBatchAll": "جميع الفصول",
+    "criticBatchSelectedCta": "تحليل الفصل المحدد",
+    "criticBatchCta": "تحليل جميع الفصول",
+    "criticBatchDone": "تم تحليل جميع الفصول",
+    "criticBatchRunning": "تم تحليل {{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "جارٍ التوقف بعد هذا الفصل…",
+    "criticBatchStop": "التوقف بعد هذا الفصل",
+    "criticBatchRemaining": "المتبقي: {{count}}",
+    "criticBatchFailed": "فشل — ستتم إعادة المحاولة",
+    "criticBatchClear": "مسح النتائج",
+    "chaptersLoadError": "تعذر تحميل قائمة الفصول."
   },
   "sidebar": {
     "collapse": "طي",

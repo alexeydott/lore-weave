@@ -1084,7 +1084,20 @@
     "editRule": "संपादन नियम",
     "healApplied": "अध्याय पर चयनित सुधार लागू कर दिए गए हैं।",
     "healApplyError": "सुधार लागू नहीं किए जा सके। पुनः प्रयास करें।",
-    "healStale": "पॉलिश (Polish) चलाने के बाद इस अध्याय में बदलाव हुआ है — पहले पॉलिश फिर से चलाएं, फिर लागू करें।"
+    "healStale": "पॉलिश (Polish) चलाने के बाद इस अध्याय में बदलाव हुआ है — पहले पॉलिश फिर से चलाएं, फिर लागू करें।",
+    "criticBatchTitle": "पूरी पुस्तक की समीक्षा",
+    "criticBatchSelected": "चयनित अध्याय",
+    "criticBatchAll": "सभी अध्याय",
+    "criticBatchSelectedCta": "चयनित अध्याय का विश्लेषण करें",
+    "criticBatchCta": "सभी अध्यायों का विश्लेषण करें",
+    "criticBatchDone": "सभी अध्यायों का विश्लेषण हो गया",
+    "criticBatchRunning": "विश्लेषित: {{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "इस अध्याय के बाद रोक रहे हैं…",
+    "criticBatchStop": "इस अध्याय के बाद रोकें",
+    "criticBatchRemaining": "शेष: {{count}}",
+    "criticBatchFailed": "विफल — फिर प्रयास होगा",
+    "criticBatchClear": "परिणाम साफ़ करें",
+    "chaptersLoadError": "अध्यायों की सूची लोड नहीं हो सकी।"
   },
   "sidebar": {
     "collapse": "कोलाप्स करें",

@@ -4,6 +4,7 @@
 // the resulting report. This is DIAGNOSTIC: unlike the self-heal proposals there is no
 // acceptance set and no apply — the author reads it and decides. The view only renders + calls run.
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { compositionApi, type QualityReport } from '../api';
 
@@ -14,6 +15,7 @@ export function useQualityReport(
   modelRef: string,
   modelSource: 'user_model' | 'platform_model' = 'user_model',
 ) {
+  const { t } = useTranslation('composition');
   const [report, setReport] = useState<QualityReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,12 +29,12 @@ export function useQualityReport(
       const r = await compositionApi.qualityReport(projectId, { chapterId, modelRef, modelSource }, token);
       setReport(r.report ?? null);
       setRan(true);
-    } catch (e) {
-      setError((e as Error).message || 'Quality analysis failed');
+    } catch {
+      setError(t('qualityCriticNa', { defaultValue: 'Critic unavailable.' }));
     } finally {
       setLoading(false);
     }
-  }, [projectId, chapterId, token, modelRef, modelSource]);
+  }, [projectId, chapterId, token, modelRef, modelSource, t]);
 
   return { report, loading, error, ran, run };
 }

@@ -39,6 +39,9 @@ from app.engine.promise_audit import (
     score_promise_coverage,
 )
 from app.packer.profile import BookProfile
+from app.llm_budget import max_tokens_for
+from loreweave_context import allocate_context
+from loreweave_context.tokens import estimate_tokens, split_to_token_budget
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +108,7 @@ async def _chapter_threads(
     a = await audit_promises(
         llm, user_id=user_id, model_source=model_source, model_ref=model_ref,
         arc_text=chapter, source_language=source_language, max_tokens=max_tokens,
-        trace_id=trace_id, cancel_check=cancel_check)
+        trace_id=trace_id, cancel_check=cancel_check, bounded=True)
     out = {
         "raised": a.get("introduced", []),
         "resolved": a.get("resolved", []),
@@ -114,6 +117,8 @@ async def _chapter_threads(
     }
     if a.get("error"):
         out["error"] = a["error"]
+    if a.get("selection"):
+        out["selection"] = a["selection"]
     return out
 
 
@@ -135,7 +140,7 @@ async def _degrade_safe(coro: Awaitable[dict[str, Any]], fallback: dict[str, Any
 async def build_quality_report(
     llm: LLMClient, *, user_id: str, model_source: str, model_ref: str,
     chapter: str, source_language: str = "auto", canon: str | None = None,
-    max_tokens_critic: int = 1536, max_tokens_promise: int = 1500,
+    max_tokens_critic: int | None = None, max_tokens_promise: int | None = None,
     trace_id: str | None = None,
     cancel_check: Callable[[], Awaitable[bool]] | None = None,
 ) -> dict[str, Any]:
@@ -150,9 +155,61 @@ async def build_quality_report(
     never raises for an LLM/parse failure — the failing half returns its empty
     shape with an `error` marker and the report still comes back."""
     profile = BookProfile(source_language=source_language)
-    # canon is a rendered multi-line bible; hand it to the critic as a single
-    # established-fact so `canon_consistency` has grounding (no structured rules here).
-    present_facts = [canon.strip()] if canon and canon.strip() else []
+    # Unknown windows use a conservative planning bound, never an unlimited prompt.
+    resolver = getattr(llm, "resolve_context_length", None)
+    try:
+        window = await resolver(model_source, model_ref) if resolver else None
+    except Exception:  # advisory metadata lookup; cancellation still propagates
+        logger.warning("quality_report context resolution unavailable", exc_info=True)
+        window = None
+    if not isinstance(window, int) or window <= 0:
+        window = None
+    effective_window = window or 16384
+    max_tokens_critic = max_tokens_critic or max_tokens_for(
+        "judge_prose", target=4, language=source_language, context_length=window)
+    max_tokens_promise = max_tokens_promise or max_tokens_for(
+        "quality_report_audit", context_length=window)
+    # Reserve output, script-aware input, prompt overhead and provider safety margin.
+    output_cap = max(1, effective_window // 3)
+    max_tokens_critic = min(max_tokens_critic, output_cap)
+    max_tokens_promise = min(max_tokens_promise, output_cap)
+    allocation = allocate_context(
+        effective_window, grounding_default=24000,
+        output_reserve=max(max_tokens_critic, max_tokens_promise), min_grounding=0)
+    input_budget = allocation.grounding - 2048
+    if input_budget < 256:
+        return {"critic": _empty_critic("critic_context_limit"),
+                "threads": _empty_threads("audit_context_limit"),
+                "scope": {"partial": True, "reason": "context_limit"}}
+    canon_budget = min(3000, input_budget // 4)
+    canon_text = (canon or "").strip()
+    # Preserve complete selected lines where possible. Relevance is deliberately
+    # deterministic: canon mentioning words from this chapter is selected first.
+    words = set(chapter.casefold().split())
+    lines = canon_text.splitlines()
+    ranked = sorted(enumerate(lines), key=lambda pair: (
+        -len(words.intersection(pair[1].casefold().split())), pair[0]))
+    selected = []
+    remaining = canon_budget
+    for index, line in ranked:
+        cost = estimate_tokens(line + "\n")
+        if cost <= remaining:
+            selected.append((index, line))
+            remaining -= cost
+    selected_canon = "\n".join(line for _, line in sorted(selected))
+    canon_omitted = len(selected) < len(lines)
+    present_facts = [selected_canon] if selected_canon else []
+    chapter_budget = input_budget - estimate_tokens(selected_canon)
+    windows = split_to_token_budget(chapter, chapter_budget) or [""]
+    # A report has exactly two baseline judge calls. A long chapter is an explicitly
+    # partial bounded window, NOT an averaged pseudo-holistic chapter score.
+    chapter = windows[0]
+    scope = {"partial": len(windows) > 1 or canon_omitted,
+             "chapter_partial": len(windows) > 1,
+             "windows_total": len(windows), "windows_analyzed": 1,
+             "canon_partial": canon_omitted,
+             "canon_lines_total": len(lines), "canon_lines_selected": len(selected),
+             "context_window": window, "input_token_budget": chapter_budget}
 
     critic, threads = await asyncio.gather(
         _degrade_safe(
@@ -173,7 +230,9 @@ async def build_quality_report(
             _empty_threads(), "threads",
         ),
     )
-    return {"critic": critic, "threads": threads}
+    critic["scope"] = scope
+    threads["scope"] = scope
+    return {"critic": critic, "threads": threads, "scope": scope}
 
 
 def _empty_coverage(err: str = "coverage_error") -> dict[str, Any]:

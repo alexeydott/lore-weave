@@ -12,6 +12,7 @@ import { ModelPicker, useUserModels } from '@/components/model-picker';
 import { useEffectiveModelSelection } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 import { booksApi, type Chapter } from '@/features/books/api';
 import { compositionApi, type QualityCritic, type QualityReportResponse } from '@/features/composition/api';
+import { QualityReason, QualityScopeWarning } from "@/features/composition/components/QualityReportStatus";
 import { QualityReportSection } from '@/features/composition/components/QualityReportSection';
 import { useStudioHost } from '../host/StudioHostProvider';
 import { useStudioPanel } from './useStudioPanel';
@@ -28,7 +29,7 @@ type BatchEntry = {
   sortOrder: number;
   draftUpdatedAt: string | null;
   draftRevisionCount: number | null;
-  report: Pick<QualityReportResponse['report'], 'critic'> | null;
+  report: Pick<QualityReportResponse['report'], 'critic' | 'scope'> | null;
   failed?: boolean;
   error?: string;
 };
@@ -93,6 +94,7 @@ function sameDraft(entry: BatchEntry | undefined, chapter: Chapter): boolean {
     && !entry.failed
     && !!entry.report
     && !entry.report.critic.error
+    && !(entry.report.scope?.partial || entry.report.critic.scope?.partial)
     && entry.draftUpdatedAt === (chapter.draft_updated_at ?? null)
     && entry.draftRevisionCount === (chapter.draft_revision_count ?? null);
 }
@@ -109,6 +111,7 @@ const DIMS: (keyof Pick<QualityCritic, 'coherence' | 'voice_match' | 'pacing' | 
 export function QualityCriticPanel(props: IDockviewPanelProps) {
   useStudioPanel('quality-critic', props.api);
   const { t } = useTranslation('studio');
+  const { t: tc } = useTranslation('composition');
   const host = useStudioHost();
   const { accessToken } = useAuth();
   // `unavailable` (composition-service is DOWN) must NOT render as "no co-writer session yet" —
@@ -233,7 +236,7 @@ export function QualityCriticPanel(props: IDockviewPanelProps) {
         sortOrder: chapter.sort_order,
         draftUpdatedAt: chapter.draft_updated_at ?? null,
         draftRevisionCount: chapter.draft_revision_count ?? null,
-        report: critic ? { critic } : null,
+        report: critic ? { critic, scope: response.report.scope ?? critic.scope } : null,
         failed: !critic || !!critic.error,
         error: critic?.error || (!critic ? 'Quality report returned no critic result' : undefined),
       };
@@ -286,7 +289,7 @@ export function QualityCriticPanel(props: IDockviewPanelProps) {
       }
     } catch (error) {
       if (mounted.current && activeBatchKey.current === batchKey) {
-        setBatchError((error as Error).message || 'Quality batch analysis failed');
+        setBatchError(t('quality.criticBatchFailed'));
       }
     } finally {
       batchRunning.current = false;
@@ -434,20 +437,21 @@ export function QualityCriticPanel(props: IDockviewPanelProps) {
                       {entry.title}
                     </button>
                     {entry.failed || critic?.error
-                      ? <span className="text-[10px] text-rose-500" title={entry.error || critic?.error}>
-                          {t('quality.criticBatchFailed', { defaultValue: 'failed — will retry' })}
+                      ? <span className="text-[10px] text-rose-500">
+                          {tc('qualityReasons.manualRetry')}
                         </span>
                       : critic && (
                         <span className="flex flex-wrap gap-1">
                           {DIMS.map((dimension) => (
                             <span key={dimension} className="rounded bg-neutral-100 px-1 py-px text-[9px] text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-                              {t(`qualityDim_${dimension}`, { defaultValue: dimension.replace('_', ' ') })}: {critic[dimension] ?? '—'}/5
+                              {tc(dimension)}: {critic[dimension] ?? '—'}/5
                             </span>
                           ))}
                         </span>
                       )}
                   </div>
-                  {entry.failed && entry.error && <p className="mt-1 text-[10px] text-rose-500">{entry.error}</p>}
+                  {(entry.failed || critic?.error) && <QualityReason error={critic?.error ?? entry.error ?? 'critic_unavailable'} />}
+                  <QualityScopeWarning scope={entry.report?.scope ?? critic?.scope} />
                   {critic && critic.violations.length > 0 && (
                     <ul className="mt-1 flex flex-col gap-0.5">
                       {critic.violations.map((violation, index) => (

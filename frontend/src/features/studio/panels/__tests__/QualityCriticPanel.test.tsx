@@ -171,7 +171,7 @@ describe('QualityCriticPanel', () => {
     await waitFor(() => expect(screen.getByRole('option', { name: 'Chapter One' })).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId('quality-critic-batch'));
-    await waitFor(() => expect(screen.getByTestId('quality-critic-batch-entry-ch1').querySelector('[title="critic_unavailable"]')).not.toBeNull());
+    await waitFor(() => expect(screen.getByTestId('quality-critic-batch-entry-ch1')).toHaveTextContent('qualityReasons.unavailable'));
     fireEvent.click(screen.getByTestId('quality-critic-batch'));
     await waitFor(() => expect(screen.getByTestId('quality-critic-batch-entry-ch1')).toHaveTextContent('coherence: 4/5'));
     expect(qualityReport).toHaveBeenCalledTimes(2);

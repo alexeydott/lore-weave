@@ -316,8 +316,8 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
             compact
             value={effectiveModelRef || null}
             onChange={(id) => setPickedModel(id ?? '')}
-            ariaLabel={t('panels.quality-promises.modelAria')}
-            placeholder={t('panels.quality-promises.modelPlaceholder')}
+            ariaLabel={t('quality.pickModel')}
+            placeholder={t('quality.pickModel')}
           />
           <button
             type="button"

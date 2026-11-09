@@ -1808,5 +1808,22 @@
     "preview_back": "Quay lại",
     "preview_more": "…và {{n}} nữa",
     "preview_blank": "dòng trống sẽ bị xóa"
-  }
+  },
+  "threadEditAria": "Sửa lời hứa",
+  "threadArchiveAria": "Lưu trữ lời hứa",
+  "qualityReasons": {
+    "context_limit": "Vượt giới hạn ngữ cảnh mô hình.",
+    "network": "Lỗi mạng nhà cung cấp.",
+    "unavailable": "Nhà cung cấp không khả dụng.",
+    "reasoning_exhausted": "Suy luận đã dùng hết ngân sách phản hồi.",
+    "truncated": "Phản hồi bị cắt ngắn.",
+    "invalid_response": "Phản hồi mô hình không hợp lệ.",
+    "manualRetry": "Thử lại ở lần chạy thủ công tiếp theo."
+  },
+  "qualityScope": {
+    "partial": "Báo cáo một phần — không đánh giá toàn chương.",
+    "chapter": "Chỉ phân tích cửa sổ đầu: {{analyzed}} trên {{total}}.",
+    "canon": "Số dòng thiết lập được chọn: {{selected}} trên {{total}}."
+  },
+  "qualityThreadsSelection": "Chỉ hiển thị các mạch truyện được chọn — không phải kiểm tra toàn diện. Tối đa {{maxPromises}} lời hứa; mỗi cụm từ giới hạn {{maxPhraseChars}} ký tự."
 }

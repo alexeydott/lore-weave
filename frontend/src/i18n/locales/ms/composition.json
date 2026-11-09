@@ -1808,5 +1808,22 @@
     "preview_back": "Kembali",
     "preview_more": "…dan {{n}} lagi",
     "preview_blank": "baris kosong akan dipadam"
-  }
+  },
+  "threadEditAria": "Sunting janji",
+  "threadArchiveAria": "Arkibkan janji",
+  "qualityReasons": {
+    "context_limit": "Had konteks model dilepasi.",
+    "network": "Ralat rangkaian penyedia.",
+    "unavailable": "Penyedia tidak tersedia.",
+    "reasoning_exhausted": "Penaakulan menghabiskan bajet respons.",
+    "truncated": "Respons terpotong.",
+    "invalid_response": "Respons model tidak sah.",
+    "manualRetry": "Cuba lagi pada pelaksanaan manual seterusnya."
+  },
+  "qualityScope": {
+    "partial": "Laporan separa — bukan penilaian seluruh bab.",
+    "chapter": "Hanya tetingkap pertama dianalisis: {{analyzed}} daripada {{total}}.",
+    "canon": "Baris kanon dipilih: {{selected}} daripada {{total}}."
+  },
+  "qualityThreadsSelection": "Hanya jalur cerita terpilih — bukan audit menyeluruh. Sehingga {{maxPromises}} janji; setiap frasa dihadkan kepada {{maxPhraseChars}} aksara."
 }

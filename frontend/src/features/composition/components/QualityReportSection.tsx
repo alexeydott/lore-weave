@@ -7,6 +7,7 @@
 // (D-QUALITY-CRITIC-HEAL-LINK) so the author doesn't double-count the same issue.
 import { useTranslation } from 'react-i18next';
 
+import { QualityReason, QualityScopeWarning } from "./QualityReportStatus";
 import { useQualityReport } from '../hooks/useQualityReport';
 import type { QualityCritic, SelfHealProposal } from '../api';
 
@@ -71,14 +72,16 @@ export function QualityReportSection({ projectId, chapterId, token, modelRef, mo
 
       {q.error && <div data-testid="quality-error" className="text-[11px] text-amber-600">{q.error}</div>}
 
+      <QualityScopeWarning scope={q.report?.scope ?? critic?.scope ?? threads?.scope} />
+
       {critic && (
         <div className="flex flex-wrap gap-2" data-testid="quality-critic">
           {critic.error ? (
-            <span className="text-[11px] text-neutral-400">{t('qualityCriticNa', { defaultValue: 'Critic unavailable.' })}</span>
+            <QualityReason error={critic.error} />
           ) : (
             DIMS.map((d) => (
               <span key={d} className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-                {t(`qualityDim_${d}`, { defaultValue: d.replace('_', ' ') })}: {critic[d] ?? '—'}/5
+                {t(d)}: {critic[d] ?? '—'}/5
               </span>
             ))
           )}
@@ -103,9 +106,18 @@ export function QualityReportSection({ projectId, chapterId, token, modelRef, mo
         </ul>
       )}
 
+      {threads?.selection?.exhaustive === false && (
+        <div data-testid="quality-threads-selection" role="status" className="text-[11px] text-amber-600">
+          {t("qualityThreadsSelection", {
+            maxPromises: threads.selection.max_promises,
+            maxPhraseChars: threads.selection.max_phrase_chars,
+          })}
+        </div>
+      )}
+
       {threads?.error && (
         <span data-testid="quality-threads-na" className="text-[11px] text-neutral-400">
-          {t('qualityThreadsNa', { defaultValue: 'Thread audit unavailable.' })}
+          <QualityReason error={threads.error} />
         </span>
       )}
 
@@ -125,7 +137,7 @@ export function QualityReportSection({ projectId, chapterId, token, modelRef, mo
               </ul>
             </>
           ) : (
-            q.ran && <span className="text-[11px] text-neutral-400">{t('qualityNoThreads', { defaultValue: 'No new threads raised in this chapter.' })}</span>
+            q.ran && threads.selection?.exhaustive !== false && !(q.report?.scope?.partial || critic?.scope?.partial || threads.scope?.partial) && <span className="text-[11px] text-neutral-400">{t('qualityNoThreads', { defaultValue: 'No new threads raised in this chapter.' })}</span>
           )}
           {threads.resolved.length > 0 && (
             <span className="text-[10px] text-emerald-600">

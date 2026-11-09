@@ -69,9 +69,10 @@ def test_parse_audit_filters_non_string_and_blank_entries():
         "introduced": ["real promise", "", 42, None, "  "],
         "resolved": "not-a-list", "dropped": [" the vow "],
     }))
-    assert a["introduced"] == ["real promise"]      # blanks/non-str dropped
+    assert a["error"] == "audit_invalid_response"
+    assert a["introduced"] == []      # blanks/non-str dropped
     assert a["resolved"] == []                       # non-list → empty
-    assert a["dropped"] == ["the vow"]               # stripped
+    assert a["dropped"] == []               # stripped
 
 
 def test_build_audit_messages_delimits_prose_with_forged_delimiter():
@@ -113,7 +114,75 @@ async def test_audit_non_completed_returns_empty():
     llm = FakeLLM(content="{}", status="failed")
     a = await promise_audit.audit_promises(
         llm, user_id="u", model_source="user_model", model_ref="judge", arc_text="arc")
-    assert a["error"] == "audit_failed"
+    assert a["error"] == "audit_unavailable"
+
+
+async def test_quality_audit_bounds_prompt_schema_and_marks_selection():
+    llm = FakeLLM(content=json.dumps({"introduced": ["the vow"], "resolved": [], "dropped": []}))
+    result = await promise_audit.audit_promises(
+        llm, user_id="u", model_source="user_model", model_ref="j", arc_text="arc",
+        bounded=True, max_tokens=8192)
+    schema = llm.last_input["response_format"]["json_schema"]["schema"]
+    for key in ("introduced", "resolved", "dropped"):
+        assert schema["properties"][key]["maxItems"] == 12
+        assert schema["properties"][key]["items"]["maxLength"] == 80
+    prompt = llm.last_input["messages"][0]["content"]
+    assert "every promise INTRODUCED" not in prompt
+    assert "at most 12" in prompt and "at most 80 characters" in prompt
+    assert "not an exhaustive inventory" in prompt
+    assert "chapter or excerpt" in prompt
+    assert "You audit a complete story" not in prompt
+    assert "never merely for a missing payoff" in prompt
+    assert "Leave still-open promises unclassified" in prompt
+    assert result["selection"]["exhaustive"] is False
+    assert llm.last_input["max_tokens"] == 8192 and llm.calls == 1
+
+
+async def test_quality_audit_rejects_ignored_bounds_without_slicing():
+    for promises in ([str(i) for i in range(13)], ["x" * 81]):
+        llm = FakeLLM(content=json.dumps({"introduced": promises, "resolved": [], "dropped": []}))
+        result = await promise_audit.audit_promises(
+            llm, user_id="u", model_source="user_model", model_ref="j", arc_text="arc", bounded=True)
+        assert result["error"] == "audit_invalid_response"
+        assert result["introduced"] == []
+
+
+async def test_quality_audit_rejects_duplicates_foreign_and_overlapping_verdicts():
+    cases = [
+        {"introduced": ["a", "a"], "resolved": [], "dropped": []},
+        {"introduced": ["a"], "resolved": ["a", "a"], "dropped": []},
+        {"introduced": ["a"], "resolved": [], "dropped": ["a", "a"]},
+        {"introduced": ["a"], "resolved": ["foreign"], "dropped": []},
+        {"introduced": ["a"], "resolved": [], "dropped": ["foreign"]},
+        {"introduced": ["a"], "resolved": ["a"], "dropped": ["a"]},
+        {"introduced": ["a", " a "], "resolved": [], "dropped": []},
+    ]
+    for payload in cases:
+        result = await promise_audit.audit_promises(
+            FakeLLM(content=json.dumps(payload)), user_id="u", model_source="user_model",
+            model_ref="j", arc_text="arc", bounded=True)
+        assert result["error"] == "audit_invalid_response", payload
+        assert result["introduced"] == []
+
+
+async def test_quality_audit_accepts_disjoint_subsets_and_unclassified_open_promises():
+    payload = {"introduced": ["paid", "abandoned", "still open"],
+               "resolved": ["paid"], "dropped": ["abandoned"]}
+    result = await promise_audit.audit_promises(
+        FakeLLM(content=json.dumps(payload)), user_id="u", model_source="user_model",
+        model_ref="j", arc_text="arc", bounded=True)
+    assert "error" not in result
+    assert result["introduced_count"] == 3
+    assert result["resolved_count"] == result["dropped_count"] == 1
+
+
+async def test_exhaustive_eval_retains_unbounded_inventory():
+    promises = ["x" * 81] * 13
+    llm = FakeLLM(content=json.dumps({"introduced": promises, "resolved": [], "dropped": []}))
+    result = await promise_audit.audit_promises(
+        llm, user_id="u", model_source="user_model", model_ref="j", arc_text="arc")
+    assert result["introduced_count"] == 13 and "selection" not in result
+    assert "every promise INTRODUCED" in llm.last_input["messages"][0]["content"]
 
 
 # ── internal endpoint ──

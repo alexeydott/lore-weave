@@ -1808,5 +1808,22 @@
     "preview_back": "رجوع",
     "preview_more": "…و{{n}} أخرى",
     "preview_blank": "سيُحذف سطر فارغ"
-  }
+  },
+  "threadEditAria": "تعديل الوعد",
+  "threadArchiveAria": "أرشفة الوعد",
+  "qualityReasons": {
+    "context_limit": "تم تجاوز حد سياق النموذج.",
+    "network": "خطأ في شبكة المزود.",
+    "unavailable": "المزود غير متاح.",
+    "reasoning_exhausted": "استنفد الاستدلال ميزانية الرد.",
+    "truncated": "تم اقتطاع الرد.",
+    "invalid_response": "رد النموذج غير صالح.",
+    "manualRetry": "أعد المحاولة في التشغيل اليدوي التالي."
+  },
+  "qualityScope": {
+    "partial": "تقرير جزئي — ليس تقييماً للفصل بأكمله.",
+    "chapter": "تم تحليل النافذة الأولى فقط: {{analyzed}} من {{total}}.",
+    "canon": "أسطر العالم المختارة: {{selected}} من {{total}}."
+  },
+  "qualityThreadsSelection": "تُعرض خيوط مختارة فقط — هذا ليس تدقيقًا شاملًا. حتى {{maxPromises}} وعدًا؛ كل عبارة محدودة بـ {{maxPhraseChars}} حرفًا."
 }

@@ -1084,7 +1084,20 @@
     "editRule": "Peraturan suntingan",
     "healApplied": "Telah menerapkan pembetulan yang dipilih ke dalam 章.",
     "healApplyError": "Tidak dapat menerapkan pembetulan. Sila cuba lagi.",
-    "healStale": "章 ini telah berubah sejak proses Polish dijalankan — jalankan semula Polish, kemudian terapkan."
+    "healStale": "章 ini telah berubah sejak proses Polish dijalankan — jalankan semula Polish, kemudian terapkan.",
+    "criticBatchTitle": "Kritikan seluruh buku",
+    "criticBatchSelected": "Bab dipilih",
+    "criticBatchAll": "Semua bab",
+    "criticBatchSelectedCta": "Analisis bab dipilih",
+    "criticBatchCta": "Analisis semua bab",
+    "criticBatchDone": "Semua bab telah dianalisis",
+    "criticBatchRunning": "Dianalisis: {{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "Berhenti selepas bab ini…",
+    "criticBatchStop": "Berhenti selepas bab ini",
+    "criticBatchRemaining": "Baki: {{count}}",
+    "criticBatchFailed": "gagal — akan dicuba semula",
+    "criticBatchClear": "Kosongkan hasil",
+    "chaptersLoadError": "Senarai bab tidak dapat dimuatkan."
   },
   "sidebar": {
     "collapse": "Kecilkan",

@@ -1808,5 +1808,22 @@
     "preview_back": "返回",
     "preview_more": "…还有 {{n}} 处",
     "preview_blank": "将删除一个空行"
-  }
+  },
+  "threadEditAria": "编辑承诺",
+  "threadArchiveAria": "归档承诺",
+  "qualityReasons": {
+    "context_limit": "超出模型上下文限制。",
+    "network": "提供商网络错误。",
+    "unavailable": "提供商不可用。",
+    "reasoning_exhausted": "推理耗尽了响应预算。",
+    "truncated": "响应被截断。",
+    "invalid_response": "模型响应无效。",
+    "manualRetry": "请在下次手动运行时重试。"
+  },
+  "qualityScope": {
+    "partial": "部分报告，不代表整章评估。",
+    "chapter": "仅分析第一个窗口：{{analyzed}} / {{total}}。",
+    "canon": "已选设定行：{{selected}} / {{total}}。"
+  },
+  "qualityThreadsSelection": "仅显示选定的剧情线索，并非全面审查。最多 {{maxPromises}} 个叙事承诺，每条表述最多 {{maxPhraseChars}} 个字符。"
 }

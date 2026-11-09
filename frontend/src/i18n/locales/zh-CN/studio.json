@@ -1084,7 +1084,20 @@
     "editRule": "编辑规则",
     "healApplied": "已将选中的修正应用到本章。",
     "healApplyError": "无法应用修正，请重试。",
-    "healStale": "自润色运行以来，本章内容已发生变化 —— 请重新运行润色，然后应用。"
+    "healStale": "自润色运行以来，本章内容已发生变化 —— 请重新运行润色，然后应用。",
+    "criticBatchTitle": "全书评析",
+    "criticBatchSelected": "所选章节",
+    "criticBatchAll": "所有章节",
+    "criticBatchSelectedCta": "分析所选章节",
+    "criticBatchCta": "分析所有章节",
+    "criticBatchDone": "已分析所有章节",
+    "criticBatchRunning": "已分析：{{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "将在本章结束后停止…",
+    "criticBatchStop": "在本章结束后停止",
+    "criticBatchRemaining": "剩余：{{count}}",
+    "criticBatchFailed": "失败 — 将重试",
+    "criticBatchClear": "清除结果",
+    "chaptersLoadError": "无法加载章节列表。"
   },
   "sidebar": {
     "collapse": "折叠",

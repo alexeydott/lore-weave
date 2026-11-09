@@ -1083,7 +1083,20 @@
     "editRule": "편집 규칙",
     "healApplied": "선택한 수정 사항을 장에 적용했습니다.",
     "healApplyError": "수정 사항을 적용할 수 없습니다. 다시 시도하세요.",
-    "healStale": "교정 실행 후 이 장이 변경되었습니다. 교정을 다시 실행한 다음 적용하세요."
+    "healStale": "교정 실행 후 이 장이 변경되었습니다. 교정을 다시 실행한 다음 적용하세요.",
+    "criticBatchTitle": "책 전체 비평",
+    "criticBatchSelected": "선택한 장",
+    "criticBatchAll": "모든 장",
+    "criticBatchSelectedCta": "선택한 장 분석",
+    "criticBatchCta": "모든 장 분석",
+    "criticBatchDone": "모든 장 분석 완료",
+    "criticBatchRunning": "분석 완료: {{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "이 장 이후 중지 중…",
+    "criticBatchStop": "이 장 이후 중지",
+    "criticBatchRemaining": "남은 장: {{count}}",
+    "criticBatchFailed": "실패 — 재시도 예정",
+    "criticBatchClear": "결과 지우기",
+    "chaptersLoadError": "장 목록을 불러올 수 없습니다."
   },
   "sidebar": {
     "collapse": "접기",

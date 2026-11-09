@@ -1084,7 +1084,20 @@
     "editRule": "Quy tắc chỉnh sửa",
     "healApplied": "Đã áp dụng các bản sửa lỗi đã chọn vào chương này.",
     "healApplyError": "Không thể áp dụng các bản sửa lỗi. Vui lòng thử lại.",
-    "healStale": "Chương này đã thay đổi kể từ khi chạy lệnh Trau chuốt — hãy chạy lại lệnh Trau chuốt, sau đó mới áp dụng."
+    "healStale": "Chương này đã thay đổi kể từ khi chạy lệnh Trau chuốt — hãy chạy lại lệnh Trau chuốt, sau đó mới áp dụng.",
+    "criticBatchTitle": "Phê bình toàn bộ sách",
+    "criticBatchSelected": "Chương đã chọn",
+    "criticBatchAll": "Tất cả các chương",
+    "criticBatchSelectedCta": "Phân tích chương đã chọn",
+    "criticBatchCta": "Phân tích tất cả các chương",
+    "criticBatchDone": "Đã phân tích tất cả các chương",
+    "criticBatchRunning": "Đã phân tích: {{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "Đang dừng sau chương này…",
+    "criticBatchStop": "Dừng sau chương này",
+    "criticBatchRemaining": "Còn lại: {{count}}",
+    "criticBatchFailed": "thất bại — sẽ thử lại",
+    "criticBatchClear": "Xóa kết quả",
+    "chaptersLoadError": "Không thể tải danh sách chương."
   },
   "sidebar": {
     "collapse": "Thu gọn",

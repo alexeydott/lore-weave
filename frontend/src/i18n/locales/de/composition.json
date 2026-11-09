@@ -1808,5 +1808,22 @@
     "preview_back": "Zurück",
     "preview_more": "…und {{n}} weitere",
     "preview_blank": "Leerzeile wird gelöscht"
-  }
+  },
+  "threadEditAria": "Versprechen bearbeiten",
+  "threadArchiveAria": "Versprechen archivieren",
+  "qualityReasons": {
+    "context_limit": "Kontextlimit des Modells überschritten.",
+    "network": "Netzwerkfehler beim Anbieter.",
+    "unavailable": "Anbieter nicht verfügbar.",
+    "reasoning_exhausted": "Antwortbudget durch Denkprozess aufgebraucht.",
+    "truncated": "Antwort abgeschnitten.",
+    "invalid_response": "Ungültige Modellantwort.",
+    "manualRetry": "Erneut beim nächsten manuellen Start versuchen."
+  },
+  "qualityScope": {
+    "partial": "Teilbericht — keine Bewertung des gesamten Kapitels.",
+    "chapter": "Nur erstes Fenster analysiert: {{analyzed}} von {{total}}.",
+    "canon": "Ausgewählte Kanonzeilen: {{selected}} von {{total}}."
+  },
+  "qualityThreadsSelection": "Nur ausgewählte Handlungsfäden — keine vollständige Prüfung. Bis zu {{maxPromises}} Versprechen; jede Formulierung ist auf {{maxPhraseChars}} Zeichen begrenzt."
 }

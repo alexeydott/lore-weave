@@ -1084,7 +1084,20 @@
     "editRule": "編輯規則",
     "healApplied": "已將選取的修正套用到本章。",
     "healApplyError": "無法套用修正，請再試一次。",
-    "healStale": "自上次執行「潤色」後，本章內容已有變動 — 請重新執行「潤色」後再套用。"
+    "healStale": "自上次執行「潤色」後，本章內容已有變動 — 請重新執行「潤色」後再套用。",
+    "criticBatchTitle": "全書評析",
+    "criticBatchSelected": "所選章節",
+    "criticBatchAll": "所有章節",
+    "criticBatchSelectedCta": "分析所選章節",
+    "criticBatchCta": "分析所有章節",
+    "criticBatchDone": "已分析所有章節",
+    "criticBatchRunning": "已分析：{{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "將在本章結束後停止…",
+    "criticBatchStop": "在本章結束後停止",
+    "criticBatchRemaining": "剩餘：{{count}}",
+    "criticBatchFailed": "失敗 — 將重試",
+    "criticBatchClear": "清除結果",
+    "chaptersLoadError": "無法載入章節清單。"
   },
   "sidebar": {
     "collapse": "收合",

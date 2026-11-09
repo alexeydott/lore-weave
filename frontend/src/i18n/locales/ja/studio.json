@@ -1084,7 +1084,20 @@
     "editRule": "編集ルール",
     "healApplied": "選択した修正を章に適用しました。",
     "healApplyError": "修正を適用できませんでした。もう一度お試しください。",
-    "healStale": "校正実行後にこの章が変更されました。再度校正を実行してから適用してください。"
+    "healStale": "校正実行後にこの章が変更されました。再度校正を実行してから適用してください。",
+    "criticBatchTitle": "本全体の批評",
+    "criticBatchSelected": "選択した章",
+    "criticBatchAll": "すべての章",
+    "criticBatchSelectedCta": "選択した章を分析",
+    "criticBatchCta": "すべての章を分析",
+    "criticBatchDone": "すべての章を分析済み",
+    "criticBatchRunning": "分析済み：{{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "この章の後に停止中…",
+    "criticBatchStop": "この章の後に停止",
+    "criticBatchRemaining": "残り：{{count}}",
+    "criticBatchFailed": "失敗 — 再試行します",
+    "criticBatchClear": "結果を消去",
+    "chaptersLoadError": "章の一覧を読み込めませんでした。"
   },
   "sidebar": {
     "collapse": "折りたたむ",

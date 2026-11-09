@@ -1808,5 +1808,22 @@
     "preview_back": "Retour",
     "preview_more": "…et {{n}} de plus",
     "preview_blank": "une ligne vide sera supprimée"
-  }
+  },
+  "threadEditAria": "Modifier la promesse",
+  "threadArchiveAria": "Archiver la promesse",
+  "qualityReasons": {
+    "context_limit": "Limite de contexte du modèle dépassée.",
+    "network": "Erreur réseau du fournisseur.",
+    "unavailable": "Fournisseur indisponible.",
+    "reasoning_exhausted": "Le raisonnement a épuisé le budget de réponse.",
+    "truncated": "Réponse tronquée.",
+    "invalid_response": "Réponse du modèle invalide.",
+    "manualRetry": "Réessayer au prochain lancement manuel."
+  },
+  "qualityScope": {
+    "partial": "Rapport partiel — pas une évaluation du chapitre entier.",
+    "chapter": "Seule la première fenêtre est analysée : {{analyzed}} sur {{total}}.",
+    "canon": "Lignes du canon sélectionnées : {{selected}} sur {{total}}."
+  },
+  "qualityThreadsSelection": "Fils sélectionnés uniquement — cet audit n’est pas exhaustif. Jusqu’à {{maxPromises}} promesses ; chaque formulation est limitée à {{maxPhraseChars}} caractères."
 }

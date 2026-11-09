@@ -1808,5 +1808,22 @@
     "preview_back": "Geri",
     "preview_more": "…ve {{n}} tane daha",
     "preview_blank": "boş satır silinecek"
-  }
+  },
+  "threadEditAria": "Vaadi düzenle",
+  "threadArchiveAria": "Vaadi arşivle",
+  "qualityReasons": {
+    "context_limit": "Model bağlam sınırı aşıldı.",
+    "network": "Sağlayıcı ağ hatası.",
+    "unavailable": "Sağlayıcı kullanılamıyor.",
+    "reasoning_exhausted": "Akıl yürütme yanıt bütçesini tüketti.",
+    "truncated": "Yanıt kesildi.",
+    "invalid_response": "Geçersiz model yanıtı.",
+    "manualRetry": "Sonraki manuel çalıştırmada yeniden deneyin."
+  },
+  "qualityScope": {
+    "partial": "Kısmi rapor — tüm bölümün değerlendirmesi değildir.",
+    "chapter": "Yalnızca ilk pencere incelendi: {{analyzed}} / {{total}}.",
+    "canon": "Seçilen kanon satırları: {{selected}} / {{total}}."
+  },
+  "qualityThreadsSelection": "Yalnızca seçili olay örgüsü izleri — kapsamlı bir denetim değildir. En fazla {{maxPromises}} vaat; her ifade {{maxPhraseChars}} karakterle sınırlıdır."
 }

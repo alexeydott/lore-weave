@@ -1084,7 +1084,20 @@
     "editRule": "Bearbeitungsregel",
     "healApplied": "Die ausgewählten Korrekturen wurden auf das Kapitel angewendet.",
     "healApplyError": "Korrekturen konnten nicht angewendet werden. Versuche es erneut.",
-    "healStale": "Dieses Kapitel hat sich seit dem letzten Polieren geändert – führe das Polieren erneut aus und wende es dann an."
+    "healStale": "Dieses Kapitel hat sich seit dem letzten Polieren geändert – führe das Polieren erneut aus und wende es dann an.",
+    "criticBatchTitle": "Kritik des gesamten Buchs",
+    "criticBatchSelected": "Ausgewähltes Kapitel",
+    "criticBatchAll": "Alle Kapitel",
+    "criticBatchSelectedCta": "Ausgewähltes Kapitel analysieren",
+    "criticBatchCta": "Alle Kapitel analysieren",
+    "criticBatchDone": "Alle Kapitel analysiert",
+    "criticBatchRunning": "Analysiert: {{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "Wird nach diesem Kapitel angehalten…",
+    "criticBatchStop": "Nach diesem Kapitel anhalten",
+    "criticBatchRemaining": "Verbleibend: {{count}}",
+    "criticBatchFailed": "fehlgeschlagen — erneuter Versuch folgt",
+    "criticBatchClear": "Ergebnisse löschen",
+    "chaptersLoadError": "Kapitelliste konnte nicht geladen werden."
   },
   "sidebar": {
     "collapse": "Einklappen",

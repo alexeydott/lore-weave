@@ -928,7 +928,20 @@ export interface SelfHealProposalResponse {
 }
 
 // ── Q1+Q2 Quality Report (read-only diagnostics) ───────────────────────
+export interface QualityScope {
+  partial: boolean;
+  chapter_partial?: boolean;
+  windows_total?: number;
+  windows_analyzed?: number;
+  canon_partial?: boolean;
+  canon_lines_total?: number;
+  canon_lines_selected?: number;
+  context_window?: number | null;
+  input_token_budget?: number;
+  reason?: string;
+}
 export interface QualityCritic {
+  scope?: QualityScope;
   coherence: number | null;
   voice_match: number | null;
   pacing: number | null;
@@ -939,7 +952,14 @@ export interface QualityCritic {
 // Per-chapter narrative threads (reframed from the promise audit — D-QUALITY-DROPPED-FP):
 // the threads the chapter RAISES + any RESOLVED within it. No misleading per-chapter "dropped"
 // (that was a false positive on serialized fiction); the book-level coverage owns abandoned.
+export interface QualityThreadSelection {
+  exhaustive: boolean;
+  max_promises: number;
+  max_phrase_chars: number;
+}
 export interface QualityThreads {
+  selection?: QualityThreadSelection;
+  scope?: QualityScope;
   raised: string[];
   resolved: string[];
   raised_count: number;
@@ -947,6 +967,7 @@ export interface QualityThreads {
   error?: string;
 }
 export interface QualityReport {
+  scope?: QualityScope;
   critic: QualityCritic;
   threads: QualityThreads;
 }

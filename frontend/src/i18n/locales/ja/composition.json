@@ -1808,5 +1808,22 @@
     "preview_back": "戻る",
     "preview_more": "…ほか {{n}} 件",
     "preview_blank": "空行を削除します"
-  }
+  },
+  "threadEditAria": "約束を編集",
+  "threadArchiveAria": "約束をアーカイブ",
+  "qualityReasons": {
+    "context_limit": "モデルのコンテキスト上限を超えました。",
+    "network": "プロバイダーのネットワークエラー。",
+    "unavailable": "プロバイダーを利用できません。",
+    "reasoning_exhausted": "推論で応答予算を使い切りました。",
+    "truncated": "応答が途中で切れました。",
+    "invalid_response": "モデルの応答が無効です。",
+    "manualRetry": "次回の手動実行で再試行してください。"
+  },
+  "qualityScope": {
+    "partial": "部分レポート — 章全体の評価ではありません。",
+    "chapter": "最初の区間のみ分析：{{total}}中{{analyzed}}。",
+    "canon": "選択した設定行：{{total}}中{{selected}}。"
+  },
+  "qualityThreadsSelection": "選択された伏線のみで、網羅的な監査ではありません。最大 {{maxPromises}} 件の約束を表示し、各フレーズは {{maxPhraseChars}} 文字以内です。"
 }

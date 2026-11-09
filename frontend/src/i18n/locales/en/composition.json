@@ -1808,5 +1808,22 @@
     "preview_back": "Back",
     "preview_more": "…and {{n}} more",
     "preview_blank": "blank line will be deleted"
-  }
+  },
+  "threadEditAria": "Edit promise",
+  "threadArchiveAria": "Archive promise",
+  "qualityReasons": {
+    "context_limit": "Model context limit exceeded.",
+    "network": "Provider network error.",
+    "unavailable": "Provider unavailable.",
+    "reasoning_exhausted": "Reasoning exhausted the response budget.",
+    "truncated": "Response truncated.",
+    "invalid_response": "Invalid model response.",
+    "manualRetry": "Retry on the next manual run."
+  },
+  "qualityScope": {
+    "partial": "Partial report — not a whole-chapter assessment.",
+    "chapter": "Only the first window analyzed: {{analyzed}} of {{total}}.",
+    "canon": "Canon lines selected: {{selected}} of {{total}}."
+  },
+  "qualityThreadsSelection": "Selected threads only — not an exhaustive audit. Up to {{maxPromises}} promises; each phrase is limited to {{maxPhraseChars}} characters."
 }

@@ -1013,6 +1013,9 @@ func (a *openaiAdapter) Invoke(ctx context.Context, endpointBaseURL, secret, mod
 	if v, ok := input["temperature"]; ok {
 		payload["temperature"] = v
 	}
+	// Match Stream: suppression and structured-output controls must reach HTTP.
+	forwardOptionalChatFields(input, payload)
+	stripDefaultOpenAIUnsupportedFields(payload, modelName, endpointBaseURL)
 	out, err := postJSON(ctx, a.client, base+"/v1/chat/completions",
 		map[string]string{"Authorization": "Bearer " + secret},
 		payload,

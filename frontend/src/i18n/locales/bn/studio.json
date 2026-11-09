@@ -1084,7 +1084,20 @@
     "editRule": "সম্পাদনা নিয়ম",
     "healApplied": "অধ্যায়ে নির্বাচিত সংশোধনগুলো প্রয়োগ করা হয়েছে।",
     "healApplyError": "সংশোধনগুলো প্রয়োগ করা সম্ভব হয়নি। আবার চেষ্টা করুন।",
-    "healStale": "Polish চালানোর পর এই অধ্যায়টি পরিবর্তিত হয়েছে — পুনরায় Polish চালান, তারপর প্রয়োগ করুন।"
+    "healStale": "Polish চালানোর পর এই অধ্যায়টি পরিবর্তিত হয়েছে — পুনরায় Polish চালান, তারপর প্রয়োগ করুন।",
+    "criticBatchTitle": "পুরো বইয়ের সমালোচনা",
+    "criticBatchSelected": "নির্বাচিত অধ্যায়",
+    "criticBatchAll": "সব অধ্যায়",
+    "criticBatchSelectedCta": "নির্বাচিত অধ্যায় বিশ্লেষণ করুন",
+    "criticBatchCta": "সব অধ্যায় বিশ্লেষণ করুন",
+    "criticBatchDone": "সব অধ্যায় বিশ্লেষিত",
+    "criticBatchRunning": "বিশ্লেষিত: {{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "এই অধ্যায়ের পরে থামছে…",
+    "criticBatchStop": "এই অধ্যায়ের পরে থামুন",
+    "criticBatchRemaining": "বাকি: {{count}}",
+    "criticBatchFailed": "ব্যর্থ — আবার চেষ্টা করা হবে",
+    "criticBatchClear": "ফলাফল মুছুন",
+    "chaptersLoadError": "অধ্যায়ের তালিকা লোড করা যায়নি।"
   },
   "sidebar": {
     "collapse": "সংকুচিত করুন",

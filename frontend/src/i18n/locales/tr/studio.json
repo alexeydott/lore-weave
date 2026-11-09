@@ -1084,7 +1084,20 @@
     "editRule": "Düzenleme kuralı",
     "healApplied": "Seçilen düzeltmeler bölüme uygulandı.",
     "healApplyError": "Düzeltmeler uygulanamadı. Tekrar deneyin.",
-    "healStale": "Bu bölüm Parlatma işlemi yapıldıktan sonra değişti — önce Parlatmayı tekrar çalıştırın, sonra uygulayın."
+    "healStale": "Bu bölüm Parlatma işlemi yapıldıktan sonra değişti — önce Parlatmayı tekrar çalıştırın, sonra uygulayın.",
+    "criticBatchTitle": "Kitabın tamamını eleştir",
+    "criticBatchSelected": "Seçili bölüm",
+    "criticBatchAll": "Tüm bölümler",
+    "criticBatchSelectedCta": "Seçili bölümü analiz et",
+    "criticBatchCta": "Tüm bölümleri analiz et",
+    "criticBatchDone": "Tüm bölümler analiz edildi",
+    "criticBatchRunning": "Analiz edilen: {{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "Bu bölümden sonra durduruluyor…",
+    "criticBatchStop": "Bu bölümden sonra durdur",
+    "criticBatchRemaining": "Kalan: {{count}}",
+    "criticBatchFailed": "başarısız — yeniden denenecek",
+    "criticBatchClear": "Sonuçları temizle",
+    "chaptersLoadError": "Bölüm listesi yüklenemedi."
   },
   "sidebar": {
     "collapse": "Daralt",

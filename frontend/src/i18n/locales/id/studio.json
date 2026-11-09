@@ -1084,7 +1084,20 @@
     "editRule": "Aturan pengeditan",
     "healApplied": "Telah menerapkan perbaikan yang dipilih ke dalam 章.",
     "healApplyError": "Tidak dapat menerapkan perbaikan. Coba lagi.",
-    "healStale": "章 ini telah berubah sejak proses Polish dijalankan — jalankan ulang Polish, lalu terapkan."
+    "healStale": "章 ini telah berubah sejak proses Polish dijalankan — jalankan ulang Polish, lalu terapkan.",
+    "criticBatchTitle": "Kritik seluruh buku",
+    "criticBatchSelected": "Bab terpilih",
+    "criticBatchAll": "Semua bab",
+    "criticBatchSelectedCta": "Analisis bab terpilih",
+    "criticBatchCta": "Analisis semua bab",
+    "criticBatchDone": "Semua bab telah dianalisis",
+    "criticBatchRunning": "Dianalisis: {{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "Berhenti setelah bab ini…",
+    "criticBatchStop": "Berhenti setelah bab ini",
+    "criticBatchRemaining": "Tersisa: {{count}}",
+    "criticBatchFailed": "gagal — akan dicoba lagi",
+    "criticBatchClear": "Hapus hasil",
+    "chaptersLoadError": "Daftar bab tidak dapat dimuat."
   },
   "sidebar": {
     "collapse": "Sembunyikan",

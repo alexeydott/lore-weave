@@ -1808,5 +1808,22 @@
     "preview_back": "ย้อนกลับ",
     "preview_more": "…และอีก {{n}}",
     "preview_blank": "บรรทัดว่างจะถูกลบ"
-  }
+  },
+  "threadEditAria": "แก้ไขคำสัญญา",
+  "threadArchiveAria": "เก็บคำสัญญาเข้าคลัง",
+  "qualityReasons": {
+    "context_limit": "เกินขีดจำกัดบริบทของโมเดล",
+    "network": "เครือข่ายผู้ให้บริการผิดพลาด",
+    "unavailable": "ผู้ให้บริการไม่พร้อมใช้งาน",
+    "reasoning_exhausted": "การให้เหตุผลใช้โควตาคำตอบจนหมด",
+    "truncated": "คำตอบถูกตัด",
+    "invalid_response": "คำตอบของโมเดลไม่ถูกต้อง",
+    "manualRetry": "ลองใหม่เมื่อเริ่มด้วยตนเองครั้งถัดไป"
+  },
+  "qualityScope": {
+    "partial": "รายงานบางส่วน — ไม่ใช่การประเมินทั้งบท",
+    "chapter": "วิเคราะห์เฉพาะช่วงแรก: {{analyzed}} จาก {{total}}",
+    "canon": "บรรทัดข้อมูลโลกที่เลือก: {{selected}} จาก {{total}}"
+  },
+  "qualityThreadsSelection": "แสดงเฉพาะปมเรื่องที่เลือก ไม่ใช่การตรวจสอบทั้งหมด สูงสุด {{maxPromises}} คำสัญญา โดยแต่ละวลีจำกัดที่ {{maxPhraseChars}} อักขระ"
 }

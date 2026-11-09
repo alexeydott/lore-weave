@@ -1083,7 +1083,20 @@
     "editRule": "กฎการแก้ไข",
     "healApplied": "ใช้การแก้ไขที่เลือกแล้วกับบทนี้",
     "healApplyError": "ไม่สามารถใช้การแก้ไขได้ โปรดลองอีกครั้ง",
-    "healStale": "บทนี้มีการเปลี่ยนแปลงหลังจากใช้ฟังก์ชันขัดเกลา — โปรดรันฟังก์ชันขัดเกลาอีกครั้งแล้วจึงกดใช้"
+    "healStale": "บทนี้มีการเปลี่ยนแปลงหลังจากใช้ฟังก์ชันขัดเกลา — โปรดรันฟังก์ชันขัดเกลาอีกครั้งแล้วจึงกดใช้",
+    "criticBatchTitle": "วิจารณ์ทั้งเล่ม",
+    "criticBatchSelected": "บทที่เลือก",
+    "criticBatchAll": "ทุกบท",
+    "criticBatchSelectedCta": "วิเคราะห์บทที่เลือก",
+    "criticBatchCta": "วิเคราะห์ทุกบท",
+    "criticBatchDone": "วิเคราะห์ครบทุกบทแล้ว",
+    "criticBatchRunning": "วิเคราะห์แล้ว: {{done}}/{{total}} · {{current}}",
+    "criticBatchStopping": "กำลังหยุดหลังบทนี้…",
+    "criticBatchStop": "หยุดหลังบทนี้",
+    "criticBatchRemaining": "เหลือ: {{count}}",
+    "criticBatchFailed": "ล้มเหลว — จะลองอีกครั้ง",
+    "criticBatchClear": "ล้างผลลัพธ์",
+    "chaptersLoadError": "ไม่สามารถโหลดรายการบทได้"
   },
   "sidebar": {
     "collapse": "ย่อ",
