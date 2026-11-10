@@ -19,7 +19,7 @@ import { QualityWorkGate } from './QualityNoWorkState';
 import { useQualityWork } from './useQualityWork';
 import { chapterDisplayTitle } from '../manuscript/partsTree';
 
-const CHAPTER_PICKER_LIMIT = 500;
+const CHAPTER_PAGE_SIZE = 100;
 
 export function QualityConformancePanel(props: IDockviewPanelProps) {
   useStudioPanel('quality-conformance', props.api);
@@ -37,14 +37,28 @@ export function QualityConformancePanel(props: IDockviewPanelProps) {
   const cascadeSelection = useEffectiveModelSelection('chat');
   const effectiveModel = modelRef
     ? { model_source: 'user_model' as const, model_ref: modelRef }
-    : cascadeSelection ?? (firstChatModel ? { model_source: 'user_model' as const, model_ref: firstChatModel } : null);
+    : (cascadeSelection?.model_source === 'user_model' || cascadeSelection?.model_source === 'platform_model' ? cascadeSelection : null) ?? (firstChatModel ? { model_source: 'user_model' as const, model_ref: firstChatModel } : null);
   const effectiveModelRef = effectiveModel?.model_ref ?? '';
 
-  const [chapterId, setChapterId] = useState('');
+  const scope = JSON.stringify([host.bookId, work.kind === 'ready' ? work.projectId : null, accessToken]);
+  const [selection, setSelection] = useState({ scope, chapterId: '' });
+  const chapterId = selection.scope === scope ? selection.chapterId : '';
 
   const chaptersQ = useQuery({
-    queryKey: ['studio', 'quality-conformance', 'chapters', host.bookId],
-    queryFn: () => booksApi.listChapters(accessToken!, host.bookId, { sort: 'sort_order', limit: CHAPTER_PICKER_LIMIT }),
+    queryKey: ['studio', 'quality-conformance', 'chapters', host.bookId, accessToken],
+    queryFn: async () => {
+      const items: Awaited<ReturnType<typeof booksApi.listChaptersPage>>['items'] = [];
+      const cursors = new Set<string>();
+      let cursor: string | null = null;
+      do {
+        const page = await booksApi.listChaptersPage(accessToken!, host.bookId, { cursor, sort: 'sort_order', limit: CHAPTER_PAGE_SIZE });
+        items.push(...page.items);
+        cursor = page.next_cursor;
+        if (cursor && cursors.has(cursor)) throw new Error('Chapter pagination returned a repeated cursor');
+        if (cursor) cursors.add(cursor);
+      } while (cursor);
+      return { items };
+    },
     enabled: !!accessToken,
   });
 
@@ -60,7 +74,7 @@ export function QualityConformancePanel(props: IDockviewPanelProps) {
           aria-label={t('quality.pickChapter', { defaultValue: 'Pick a chapter' })}
           className="min-w-[10rem] rounded border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
           value={chapterId}
-          onChange={(e) => setChapterId(e.target.value)}
+          onChange={(e) => setSelection({ scope, chapterId: e.target.value })}
         >
           <option value="">{t('quality.pickChapter', { defaultValue: 'Pick a chapter' })}</option>
           {chapters.map((c) => (
@@ -69,12 +83,6 @@ export function QualityConformancePanel(props: IDockviewPanelProps) {
             </option>
           ))}
         </select>
-        {/* no silent cap — a book past the picker limit shows the count so later chapters aren't hidden */}
-        {typeof chaptersQ.data?.total === 'number' && chaptersQ.data.total > chapters.length && (
-          <span data-testid="quality-conformance-chapters-truncated" className="text-[10px] text-neutral-400">
-            {t('quality.chaptersTruncated', { defaultValue: 'showing first {{shown}} of {{total}} chapters', shown: chapters.length, total: chaptersQ.data.total })}
-          </span>
-        )}
         <ModelPicker
           capability="chat"
           value={effectiveModelRef || null}
@@ -83,13 +91,18 @@ export function QualityConformancePanel(props: IDockviewPanelProps) {
           compact
         />
       </div>
+      {chaptersQ.isLoading && <p role='status'>{t('composition:motif.conf.chaptersLoading')}</p>}
+      {chaptersQ.isError && <div role='alert'>{t('composition:motif.conf.chaptersError')} <button onClick={() => chaptersQ.refetch()}>{t('composition:motif.action.retry')}</button></div>}
+      {chaptersQ.isSuccess && chapters.length === 0 && <p>{t('composition:motif.conf.noChapters')}</p>}
       {chapterId ? (
         <div className="min-h-0 flex-1">
           <ConformanceTraceView
+            bookId={host.bookId}
             projectId={work.projectId}
             chapterId={chapterId}
             token={accessToken}
             modelRef={effectiveModelRef || null}
+            modelSource={effectiveModel?.model_source === 'platform_model' ? 'platform_model' : 'user_model'}
             onOpenScene={(sceneId, chId) => {
               // §2#6 loop-connect — publish the selection + open the scene surface (the SceneBrowser pattern).
               if (sceneId) {

@@ -11,7 +11,7 @@ vi.mock('@/auth', () => ({ useAuth: () => ({ accessToken: 'tok' }) }));
 const invalidateQueries = vi.fn();
 vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries }) }));
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string, o?: { defaultValue?: string }) => o?.defaultValue ?? k }),
+  useTranslation: () => ({ t: (k: string, o?: { defaultValue?: string; number?: number }) => k === 'panels.scene-inspector.links.untitledScene' ? `Scene ${o?.number}` : o?.defaultValue ?? k }),
 }));
 const patchNode = vi.fn();
 const createNode = vi.fn();
@@ -89,6 +89,19 @@ describe('SceneRail (#12 M-C)', () => {
     unitState.scenes = [];
     rerender(<SceneRail />);
     expect(screen.queryByTestId('scene-rail-row-s1')).toBeNull();
+  });
+
+  it('labels unnamed scenes by position and preserves their prose jump', () => {
+    unitState.scenes = [scene('s1'), scene('s2', { title: '   ' })];
+    render(<SceneRail />);
+    const jump = screen.getByTestId('scene-rail-jump-s2');
+    expect(jump).toHaveTextContent('Scene 2');
+    expect(jump).toHaveAccessibleName('Scene 2');
+    expect(screen.getByTestId('scene-rail-jump-s1')).toHaveTextContent('Scene s1');
+    expect(jumpToScene).not.toHaveBeenCalled();
+    fireEvent.click(jump);
+    expect(jumpToScene).toHaveBeenCalledTimes(1);
+    expect(jumpToScene).toHaveBeenCalledWith('s2');
   });
 
   it('the bus scene slice highlights its row', () => {

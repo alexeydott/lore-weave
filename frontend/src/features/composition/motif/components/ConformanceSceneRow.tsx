@@ -25,11 +25,11 @@ const TONE_CLASS = {
 // caller passes nothing and the button does not render. An affordance that cannot complete should
 // not be drawn — that was the original lesson, and making the prop optional is what enforces it.
 export function ConformanceSceneRow(
-  { scene, onRegenerate, onOpenScene }:
-  { scene: SceneConformance; onRegenerate?: (nodeId: string) => void; onOpenScene?: (sceneId: string) => void },
+  { scene, sceneLabel, onRegenerate, onOpenScene, editor }:
+  { sceneLabel?: string; editor?: import('react').ReactNode; scene: SceneConformance; onRegenerate?: (nodeId: string) => void; onOpenScene?: (sceneId: string) => void },
 ) {
   const { t } = useTranslation('composition');
-  const v = scene.conformance;
+  const v = !scene.check_status || scene.check_status === 'checked' ? scene.conformance : null;
   // a verdict is "judged" only when BOTH binary flags are real booleans (the judge
   // can degrade to null on an LLM error — surfaced as "couldn't check", never a tone).
   const judged = !!v && typeof v.beat_realized === 'boolean' && typeof v.tension_band_match === 'boolean';
@@ -43,6 +43,7 @@ export function ConformanceSceneRow(
       {/* planned */}
       <div className="sm:col-span-4">
         <div className="text-[10px] font-medium uppercase text-neutral-400">{t('motif.conf.planned', { defaultValue: 'Planned' })}</div>
+        <div className="font-medium">{sceneLabel || scene.title?.trim() || t('untitledScene')}</div>
         {/* §2#6 loop-connect — jump to this scene in the inspector to fix a missed/drifted beat. */}
         {onOpenScene ? (
           <button
@@ -52,13 +53,14 @@ export function ConformanceSceneRow(
             className="text-left text-neutral-700 underline decoration-dotted hover:text-amber-700 dark:text-neutral-200 dark:hover:text-amber-300"
             title={t('motif.conf.openScene', { defaultValue: 'Open this scene in the inspector' })}
           >
-            {beatLabel}
+            {scene.planned.motif_id == null ? t('motif.action.bind', { defaultValue: 'Bind motif' }) : beatLabel}
           </button>
         ) : (
           <div className="text-neutral-700 dark:text-neutral-200">{beatLabel}</div>
         )}
         {scene.planned.tension != null && <div className="text-neutral-500">T{scene.planned.tension}</div>}
       </div>
+      {editor && <div className="sm:col-span-12">{editor}</div>}
       {/* realized — presence only (the trace never carries prose) */}
       <div className="sm:col-span-4">
         <div className="text-[10px] font-medium uppercase text-neutral-400">{t('motif.conf.realized', { defaultValue: 'Realized' })}</div>
@@ -77,7 +79,9 @@ export function ConformanceSceneRow(
           </div>
         ) : (
           <div data-testid={`conformance-unchecked-${scene.outline_node_id}`} className="text-neutral-400">
-            {v?.error
+            {scene.check_status && scene.check_status !== 'checked'
+              ? t('motif.conf.status.' + scene.check_status)
+              : v?.error
               ? t('motif.conf.couldNotCheck', { defaultValue: "Couldn't check" })
               : t('motif.conf.notChecked', { defaultValue: 'Not checked yet' })}
           </div>

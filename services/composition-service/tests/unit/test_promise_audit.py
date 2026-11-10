@@ -222,6 +222,82 @@ def test_promise_audit_endpoint_happy(monkeypatch):
     app.dependency_overrides.clear()
 
 
+async def test_book_coverage_draft_failures_survive_inline_and_worker_input(monkeypatch):
+    from app.routers import plan
+    from app.worker.operations import run_promise_coverage
+
+    project_id, book_id, user_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    chapter_ids = [uuid.uuid4(), uuid.uuid4()]
+    monkeypatch.setattr(plan, "_require_work", AsyncMock(return_value=SimpleNamespace(
+        book_id=book_id, settings={})))
+    monkeypatch.setattr(plan.settings, "composition_worker_enabled", False)
+    book = SimpleNamespace(
+        list_chapters=AsyncMock(return_value=[{"chapter_id": str(c)} for c in chapter_ids]),
+        get_draft=AsyncMock(side_effect=[
+            {"body": {"type": "doc", "content": [{"type": "paragraph", "content": [
+                {"type": "text", "text": "The vow was fulfilled."}]}]}},
+            plan.BookClientError(503, "UNAVAILABLE"),
+        ]),
+    )
+    outline = SimpleNamespace(list_tree=AsyncMock(return_value=[]))
+    llm = SimpleNamespace(resolve_context_length=AsyncMock())
+    captured = {}
+
+    async def run(llm, *, user_id, input):
+        captured.update(input)
+        assert input["failed_chapters"] == 1
+        return await run_promise_coverage(llm, user_id=user_id, input=input)
+
+    monkeypatch.setattr("app.worker.operations.run_promise_coverage", run)
+    result = await plan.promise_coverage_endpoint(
+        project_id, plan.PromiseCoverageRequest(model_source="user_model", model_ref="judge"),
+        user_id=user_id, bearer="authorized", works=object(), book=book,
+        outline=outline, llm=llm, grant=object())
+    assert captured["failed_chapters"] == 1
+    assert captured["chapters"] == result["chapters"] == 1
+    assert captured["book_text"] == "The vow was fulfilled."
+    assert result["coverage"]["error"] == "coverage_unavailable"
+    assert result["coverage"]["failed_chapters"] == 1
+    assert result["coverage"]["coverage"] == []
+    llm.resolve_context_length.assert_not_awaited()
+    # The persisted worker payload must produce the same result as inline execution.
+    assert await run_promise_coverage(llm, user_id=str(user_id), input=captured) == result
+
+
+async def test_book_coverage_all_drafts_failed_is_not_empty_book(monkeypatch):
+    from app.routers import plan
+
+    monkeypatch.setattr(plan, "_require_work", AsyncMock(return_value=SimpleNamespace(
+        book_id=uuid.uuid4(), settings={})))
+    monkeypatch.setattr(plan.settings, "composition_worker_enabled", False)
+    book = SimpleNamespace(
+        list_chapters=AsyncMock(return_value=[{"chapter_id": str(uuid.uuid4())}]),
+        get_draft=AsyncMock(side_effect=plan.BookClientError(503, "UNAVAILABLE")),
+    )
+    llm = SimpleNamespace(resolve_context_length=AsyncMock())
+    result = await plan.promise_coverage_endpoint(
+        uuid.uuid4(), plan.PromiseCoverageRequest(model_source="user_model", model_ref="judge"),
+        user_id=uuid.uuid4(), bearer="authorized", works=object(), book=book,
+        outline=SimpleNamespace(list_tree=AsyncMock(return_value=[])), llm=llm, grant=object())
+    assert result["chapters"] == 0
+    assert result["coverage"]["failed_chapters"] == 1
+    assert result["coverage"]["error"] == "coverage_unavailable"
+    llm.resolve_context_length.assert_not_awaited()
+
+
+async def test_book_coverage_legacy_complete_job_still_scores(monkeypatch):
+    from app.worker.operations import run_promise_coverage
+
+    expected = {"coverage": [], "tracked_count": 0}
+    score = AsyncMock(return_value=expected)
+    monkeypatch.setattr("app.engine.quality_report.build_promise_coverage", score)
+    llm = SimpleNamespace(resolve_context_length=AsyncMock(return_value=32768))
+    result = await run_promise_coverage(llm, user_id="u", input={
+        "model_source": "user_model", "model_ref": "judge", "book_text": "prose", "chapters": 2})
+    assert result == {"coverage": expected, "chapters": 2}
+    score.assert_awaited_once()
+
+
 # ── EVAL v2 — fixed-promise-set coverage ──
 
 def test_parse_coverage_counts_and_rates_with_stable_denominator():

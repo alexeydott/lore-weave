@@ -205,7 +205,8 @@
       "batchRunning": "Capítulos analisados: {{done}}/{{total}}…",
       "batchStop": "Parar",
       "batchDone": "Capítulos analisados: {{total}} · promessas abertas: {{opened}} · quitadas: {{paid}}",
-      "batchStopped": "Parado — {{done}} de {{total}} capítulos analisados."
+      "batchStopped": "Parado — {{done}} de {{total}} capítulos analisados.",
+      "batchFailed": "{{done}} de {{total}} capítulos analisados; {{failed}} falharam. Resultados incompletos."
     },
     "quality-critic": {
       "title": "Crítico",
@@ -462,6 +463,10 @@
         "motifs": "Motivos"
       },
       "links": {
+        "loading": "Carregando links de cenas…",
+        "loadError": "Não foi possível carregar os links de cenas.",
+        "unavailable": "Cena indisponível",
+        "untitledScene": "Cena {{number}}",
         "empty": "Nenhum link causal ainda.",
         "setup": "setup→payoff",
         "custom": "personalizado",
@@ -1097,7 +1102,13 @@
     "criticBatchRemaining": "Restantes: {{count}}",
     "criticBatchFailed": "falhou — nova tentativa prevista",
     "criticBatchClear": "Limpar resultados",
-    "chaptersLoadError": "Não foi possível carregar a lista de capítulos."
+    "chaptersLoadError": "Não foi possível carregar a lista de capítulos.",
+    "criticBatchEstimate": "Máximo estimado de chamadas ao modelo: {{calls}} para {{count}} capítulos.",
+    "criticBatchConfirm": "Confirmar análise do livro inteiro",
+    "criticBatchEstimateFailed": "Não foi possível estimar esta análise. Nenhuma execução foi iniciada.",
+    "criticBatchProgress": "{{completed}} concluídos, {{failed}} com falha, {{total}} no total.",
+    "criticBatchDetached": "Espera interrompida. A execução continua no servidor.",
+    "criticBatchEstimateCost": "Custo máximo estimado: ${{cost}}. Nenhuma execução foi iniciada."
   },
   "sidebar": {
     "collapse": "Recolher",
@@ -1721,6 +1732,35 @@
     }
   },
   "planHub": {
+    "drawer": {
+      "noCanon": "Nenhuma regra do cânone está vinculada aqui.",
+      "chapter": "Capítulo",
+      "scene": "Cena",
+      "arc": "Arco",
+      "saga": "Saga",
+      "unknown": "Nó",
+      "anchor": "Vínculo",
+      "notAnchored": "— sem vínculo —",
+      "currentAnchor": "(vínculo atual)",
+      "anchorFirst": "Vincule primeiro este nó a um capítulo",
+      "anchorError": "Não foi possível ler os capítulos; a alteração do vínculo está indisponível.",
+      "noAnchor": "Nenhum capítulo do manuscrito vinculado; escolha um acima.",
+      "openEditor": "Abrir no editor",
+      "expand": "Expandir",
+      "collapse": "Recolher",
+      "expandScenes": "Expandir cenas",
+      "collapseScenes": "Recolher cenas",
+      "expandArc": "Expandir arco",
+      "expandLane": "Expandir faixa",
+      "collapseLane": "Recolher faixa",
+      "referencesNote": "Referências inversas exigem composition_find_references, ainda não disponível. O elenco acima pertence a este nó.",
+      "criticNote": "A crítica é executada por livro; veja Qualidade → Crítica.",
+      "noPlan": "Este nó ainda não tem plano.",
+      "arcMissing": "Arco não encontrado na estrutura.",
+      "selectNode": "Selecione um nó para ver seu plano.",
+      "total": "{{count}} no total",
+      "truncated": "A lista foi truncada"
+    },
     "undo": "Desfazer",
     "empty": {
       "title": "Nenhum plano para este livro ainda",
@@ -1970,5 +2010,45 @@
     "loading_more": "Carregando…",
     "restore": "Restaurar"
   },
-  "campaigns": "Campanhas (extração e tradução em lote)"
+  "campaigns": "Campanhas (extração e tradução em lote)",
+  "referenceShelf": {
+    "title": "Estante de fontes",
+    "entity": "Entidade do glossário",
+    "chooseEntity": "Escolher uma entidade",
+    "noEntities": "Não há entidades do glossário disponíveis para este livro.",
+    "signIn": "Entre para carregar as fontes.",
+    "loading": "Carregando fontes…",
+    "loadFailed": "Não foi possível carregar as fontes.",
+    "empty": "Nenhuma fonte encontrada.",
+    "partial": "Não foi possível carregar algumas fontes.",
+    "capped": "Exibindo {{shown}} de {{count}} fontes.",
+    "showMore": "Mostrar mais",
+    "limitReached": "Limite de exibição de fontes atingido.",
+    "question": "Pergunte sobre estas fontes",
+    "questionPlaceholder": "O que você gostaria de saber?",
+    "ask": "Perguntar ao assistente de IA",
+    "asking": "Consultando o assistente de IA…",
+    "paid": "Esta solicitação opcional usa tokens do modelo e pode gerar cobranças. Ela não altera seu livro.",
+    "model": "Modelo",
+    "inheritedModel": "Usa o modelo de chat deste livro e, na ausência dele, o padrão da sua conta; escolha um modelo para substituir essa seleção.",
+    "assistantFailed": "O assistente de IA não conseguiu responder.",
+    "retry": "Tentar carregar as fontes novamente",
+    "planOnly": "Somente referências de planejamento; menções no manuscrito e no grafo de conhecimento não estão incluídas.",
+    "indirectThreads": "Fios narrativos abertos nos nós em que esta entidade aparece; não são menções diretas à entidade.",
+    "prompts": {
+      "consistency": "Verificar consistência",
+      "summary": "Resumir o que se sabe",
+      "gaps": "O que está faltando?"
+    },
+    "groups": {
+      "outline_pov": "Ponto de vista do capítulo",
+      "outline_present": "Personagens do capítulo",
+      "scene_pov": "Ponto de vista da cena",
+      "scene_present": "Personagens da cena",
+      "structure_roster": "Elenco do arco e da saga",
+      "motif_application": "Aplicações de motivos",
+      "canon_rule": "Regras do cânone",
+      "narrative_thread": "Fios narrativos relacionados"
+    }
+  }
 }

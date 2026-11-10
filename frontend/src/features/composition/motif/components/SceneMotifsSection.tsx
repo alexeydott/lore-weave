@@ -8,8 +8,8 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { MotifSuggestion } from '../api';
-import { MotifBindingCard } from './MotifBindingCard';
-import { useMotifBindings } from '../hooks/useMotifBindings';
+import { rankingSummary, rankingUnavailable, type RankingReason } from '../ranking';
+import { SceneMotifEditor } from './SceneMotifEditor';
 import { useMotifBinding } from '../hooks/useMotifBinding';
 import { useMotifCandidates } from '../hooks/useMotifCandidates';
 import { useMotifSuggestions } from '../hooks/useMotifSuggestions';
@@ -36,12 +36,13 @@ function SuggestRow(
     <li data-testid="motif-suggest-row" className="flex items-center gap-1.5 rounded bg-neutral-50 px-1.5 py-1 text-[11px] dark:bg-neutral-800/50">
       <span className="min-w-0 flex-1 truncate">
         <span className="font-medium">{s.motif.name}</span>
+        {s.motif.text_fallback && <span>{t('motif.editor.fallback', { language: s.motif.text_language || s.motif.original_language })}</span>}
         {degraded ? (
           <span className="ml-1 text-neutral-400">·</span>
         ) : (
           <>
             <span className="ml-1 text-neutral-400">{Math.round(s.score * 100)}%</span>
-            <span className="ml-1 text-neutral-400">{Object.keys(s.match_reason ?? {}).filter((k) => k !== 'degraded' && k !== 'section').join(' · ')}</span>
+            <span className="ml-1 text-neutral-400">{rankingSummary(t, s.match_reason as RankingReason)}</span>
           </>
         )}
       </span>
@@ -76,7 +77,7 @@ function renderMotifSuggestions(
   const library = rows.filter((s) => (s.match_reason as { section?: string } | null)?.section !== 'mine');
   const group = (
     items: MotifSuggestion[], testid: string, label: string,
-    degradeTestid: string, degradeText: string,
+    degradeTestid: string,
   ) => {
     if (items.length === 0) return null;
     const degraded = items.some((s) => (s.match_reason as { degraded?: boolean } | null)?.degraded);
@@ -85,7 +86,7 @@ function renderMotifSuggestions(
         <p className="px-0.5 pt-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{label}</p>
         {degraded && (
           <p data-testid={degradeTestid} className="my-0.5 rounded bg-amber-50 px-2 py-0.5 text-[10px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-            {degradeText}
+            {[...new Set(items.filter((s) => s.match_reason?.degraded).map((s) => rankingUnavailable(t, s.match_reason as RankingReason)))].join(' ')}
           </p>
         )}
         <ul className="space-y-1">
@@ -101,12 +102,10 @@ function renderMotifSuggestions(
       {group(
         mine, 'motif-suggest-section-mine', t('motif.suggest.sectionMine', { defaultValue: 'Your motifs' }),
         'motif-suggest-degraded-mine',
-        t('motif.suggest.degradedMine', { defaultValue: "Your motifs aren't ranked by fit — set up an embedding model in your settings to rank them semantically." }),
       )}
       {group(
         library, 'motif-suggest-section-library', t('motif.suggest.sectionLibrary', { defaultValue: 'From the library' }),
         'motif-suggest-degraded',
-        t('motif.suggest.degradedLibrary', { defaultValue: "Not ranked by fit — the shared library's embedding model isn't configured, so these are genre fallbacks, not scored matches." }),
       )}
     </div>
   );
@@ -126,31 +125,20 @@ export function SceneMotifsSection({ projectId, bookId, chapterId, sceneId, rost
 function SceneMotifsInner({ projectId, bookId, chapterId, sceneId, roster = [], token }: Props & { projectId: string }) {
   const { t } = useTranslation('composition');
   const [suggestOpen, setSuggestOpen] = useState(false);
+  const [editorRequest, setEditorRequest] = useState<{ id: number; motifId?: string }>();
 
-  const bindingsQ = useMotifBindings(projectId, chapterId, token);
   const binding = useMotifBinding({ projectId, bookId: bookId ?? '', nodeId: sceneId, token });
   const candidates = useMotifCandidates(token);
   const suggestions = useMotifSuggestions(projectId, sceneId, token, suggestOpen);
 
-  const bound = bindingsQ.data?.bindings?.[sceneId] ?? null;
-  const succession = bindingsQ.data?.succession?.[sceneId] ?? null;
+
 
   return (
     <div className="flex flex-col gap-1.5">
-      <MotifBindingCard
-        sceneId={sceneId}
-        bound={bound}
-        candidates={candidates.data ?? []}
-        overuse={null}
-        succession={succession}
-        roster={roster}
-        swapping={binding.swap.isPending || binding.clearMotif.isPending}
-        onSwap={(motifId) => binding.swap.mutate(motifId)}
-        onClear={() => binding.clearMotif.mutate()}
-        onRebindRole={(roleKey, entityId) => binding.rebindRole.mutate({ roleKey, entityId })}
-        onChain={(hint) => binding.chainIt.mutate(hint)}
-        onCommitAndGenerate={(sid) => binding.commitAndGenerate(sid)}
-      />
+      {candidates.isLoading && <p data-testid="motif-candidates-loading">{t('motif.binding.candidatesLoading')}</p>}
+      {candidates.isError && <p role="alert" data-testid="motif-candidates-error">{t('motif.binding.candidatesError')}<button onClick={() => candidates.refetch()}>{t('motif.suggest.retry')}</button></p>}
+      {candidates.isSuccess && candidates.data.length === 0 && <p data-testid="motif-candidates-empty">{t('motif.binding.candidatesEmpty')}</p>}
+      {bookId && chapterId && <SceneMotifEditor projectId={projectId} bookId={bookId} chapterId={chapterId} sceneId={sceneId} token={token} request={editorRequest} />}
 
       {/* The ONE suggest button this wave owns — ranked candidates + a "why this motif". */}
       <div>
@@ -184,9 +172,12 @@ function SceneMotifsInner({ projectId, bookId, chapterId, sceneId, roster = [], 
                 scores aren't comparable across spaces, so we never merge them into one order.
                 A candidate with no `section` (older BE) falls into the library group. Each
                 section carries its OWN degrade note (different causes — see the helper). */}
+            {suggestions.data?.some((s) => s.match_reason?.degraded) && (
+              <button type="button" onClick={() => suggestions.refetch()}>{t('motif.suggest.retry')}</button>
+            )}
             {renderMotifSuggestions(suggestions.data ?? [], {
               t, swapping: binding.swap.isPending,
-              onBind: (id) => binding.swap.mutate(id, { onSuccess: () => setSuggestOpen(false) }),
+              onBind: (motifId) => { setSuggestOpen(false); setEditorRequest({ id: Date.now(), motifId }); },
             })}
           </div>
         )}

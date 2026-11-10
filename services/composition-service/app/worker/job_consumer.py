@@ -240,6 +240,11 @@ async def run_job(
     if job is None:
         logger.warning("composition job %s not found — dropping", job_id)
         return "not_found"
+    if (job.input or {}).get("batch_parent_id"):
+        return "parent_owned_child"
+    if _worker_op(job) == "quality_report_batch":
+        from app.worker.quality_batch import run_quality_batch
+        return await run_quality_batch(pool, llm, UUID(job_id))
     if job.status == "completed":
         return "already_completed"
     if job.status in ("failed", "cancelled"):

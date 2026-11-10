@@ -314,6 +314,7 @@ The complete design lives in [`docs/03_planning/LLM_MMO_RPG/`](docs/03_planning/
 
 ## Documentation
 
+- [Writing Studio pipeline guide](docs/STUDIO_PIPELINES_GUIDE.md) — existing-manuscript preparation, scene motifs, all eight Quality tools, costs, and safe application boundaries
 - [Architecture & Services](docs/ARCHITECTURE.md) — all 47 services, tech stack, infrastructure, ports
 - [Data Architecture](docs/DATA_ARCHITECTURE.md) — SSOT layers, the 22 databases, event flows
 - [Frontend Feature Index](docs/FEATURE_INDEX.md) — every UI feature → route → backing service

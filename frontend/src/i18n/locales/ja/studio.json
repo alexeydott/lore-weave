@@ -205,7 +205,8 @@
       "batchRunning": "分析済み章: {{done}}/{{total}}…",
       "batchStop": "停止",
       "batchDone": "分析した章: {{total}} · 開かれたプロミス: {{opened}} · 回収: {{paid}}",
-      "batchStopped": "停止 — {{total}} 章中 {{done}} 章を分析。"
+      "batchStopped": "停止 — {{total}} 章中 {{done}} 章を分析。",
+      "batchFailed": "{{total}} 章中 {{done}} 章を分析、{{failed}} 章が失敗しました。結果は不完全です。"
     },
     "quality-critic": {
       "title": "批評",
@@ -462,6 +463,10 @@
         "motifs": "モチーフ"
       },
       "links": {
+        "loading": "シーンのリンクを読み込み中…",
+        "loadError": "シーンのリンクを読み込めませんでした。",
+        "unavailable": "シーンを利用できません",
+        "untitledScene": "シーン{{number}}",
         "empty": "因果関係のリンクはまだありません。",
         "setup": "セットアップ→ペイオフ",
         "custom": "カスタム",
@@ -1097,7 +1102,13 @@
     "criticBatchRemaining": "残り：{{count}}",
     "criticBatchFailed": "失敗 — 再試行します",
     "criticBatchClear": "結果を消去",
-    "chaptersLoadError": "章の一覧を読み込めませんでした。"
+    "chaptersLoadError": "章の一覧を読み込めませんでした。",
+    "criticBatchEstimate": "モデル呼び出し回数の推定上限：{{count}}章で{{calls}}回。",
+    "criticBatchConfirm": "本全体の分析を確認",
+    "criticBatchEstimateFailed": "この分析を見積もれませんでした。実行は開始されていません。",
+    "criticBatchProgress": "完了{{completed}}件、失敗{{failed}}件、合計{{total}}件。",
+    "criticBatchDetached": "待機を終了しました。サーバーでの実行は続きます。",
+    "criticBatchEstimateCost": "推定費用上限：${{cost}}。実行はまだ開始されていません。"
   },
   "sidebar": {
     "collapse": "折りたたむ",
@@ -1708,6 +1719,35 @@
     }
   },
   "planHub": {
+    "drawer": {
+      "noCanon": "ここに紐付いた正史ルールはありません。",
+      "chapter": "章",
+      "scene": "シーン",
+      "arc": "アーク",
+      "saga": "サーガ",
+      "unknown": "ノード",
+      "anchor": "紐付け",
+      "notAnchored": "— 未紐付け —",
+      "currentAnchor": "（現在の紐付け）",
+      "anchorFirst": "先に章に紐付けてください",
+      "anchorError": "章一覧を読み込めないため紐付けを変更できません。",
+      "noAnchor": "原稿の章に紐付いていません。上で章を選択してください。",
+      "openEditor": "エディターで開く",
+      "expand": "展開",
+      "collapse": "折りたたむ",
+      "expandScenes": "シーンを展開",
+      "collapseScenes": "シーンを折りたたむ",
+      "expandArc": "アークを展開",
+      "expandLane": "レーンを展開",
+      "collapseLane": "レーンを折りたたむ",
+      "referencesNote": "逆参照には未実装の composition_find_references が必要です。上の登場人物はこのノードのものです。",
+      "criticNote": "批評は書籍単位です。「品質 → 批評」を参照してください。",
+      "noPlan": "このノードにはまだ計画がありません。",
+      "arcMissing": "構造内にアークが見つかりません。",
+      "selectNode": "ノードを選択して計画を表示します。",
+      "total": "合計 {{count}} 件",
+      "truncated": "一覧は省略されています"
+    },
     "undo": "元に戻す",
     "empty": {
       "title": "この本のプランはまだ作成されていません",
@@ -1970,5 +2010,45 @@
     "loading_more": "読み込み中…",
     "restore": "復元"
   },
-  "campaigns": "キャンペーン（一括抽出・翻訳）"
+  "campaigns": "キャンペーン（一括抽出・翻訳）",
+  "referenceShelf": {
+    "title": "参照資料棚",
+    "entity": "用語集のエンティティ",
+    "chooseEntity": "エンティティを選択",
+    "noEntities": "この本には利用できる用語集のエンティティがありません。",
+    "signIn": "資料を読み込むにはログインしてください。",
+    "loading": "資料を読み込み中…",
+    "loadFailed": "資料を読み込めませんでした。",
+    "empty": "資料が見つかりません。",
+    "partial": "一部の資料を読み込めませんでした。",
+    "capped": "{{count}}件中{{shown}}件の資料を表示しています。",
+    "showMore": "さらに表示",
+    "limitReached": "資料の表示上限に達しました。",
+    "question": "これらの資料について質問する",
+    "questionPlaceholder": "何を知りたいですか？",
+    "ask": "AIアシスタントに質問",
+    "asking": "AIアシスタントに問い合わせ中…",
+    "paid": "この任意のリクエストはモデルのトークンを消費し、料金が発生する場合があります。本の内容は変更しません。",
+    "model": "モデル",
+    "inheritedModel": "この本のチャットモデルを優先し、次にアカウントの既定モデルを使用します。別のモデルを選ぶと上書きできます。",
+    "assistantFailed": "AIアシスタントは回答できませんでした。",
+    "retry": "資料の読み込みを再試行",
+    "planOnly": "構成計画内の参照のみです。原稿やナレッジグラフ内の言及は含まれません。",
+    "indirectThreads": "このエンティティが登場するノードで開始された物語の筋です。エンティティへの直接の言及ではありません。",
+    "prompts": {
+      "consistency": "整合性を確認",
+      "summary": "既知の情報を要約",
+      "gaps": "不足している情報は？"
+    },
+    "groups": {
+      "outline_pov": "章の視点",
+      "outline_present": "章の登場人物",
+      "scene_pov": "シーンの視点",
+      "scene_present": "シーンの登場人物",
+      "structure_roster": "アークとサーガの登場人物一覧",
+      "motif_application": "モチーフの適用",
+      "canon_rule": "正史のルール",
+      "narrative_thread": "関連する物語の筋"
+    }
+  }
 }

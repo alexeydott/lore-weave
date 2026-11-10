@@ -1,11 +1,15 @@
 import { useTranslation } from 'react-i18next';
 import type { QualityScope } from '../api';
 
-const REASONS = ['context_limit', 'network', 'unavailable', 'reasoning_exhausted', 'truncated', 'invalid_response'] as const;
+const REASONS = ['context_limit', 'network', 'unavailable', 'reasoning_exhausted', 'truncated', 'invalid_response', 'incomplete', 'synthesis_failed', 'synthesis_invalid_response', 'audit_only'] as const;
+export type QualityFailureReason = typeof REASONS[number] | 'unknown';
+export function qualityFailureReason(error: string): QualityFailureReason {
+  return REASONS.find((code) => error === code || error === `critic_${code}` || error === `audit_${code}` || error === `narrative_${code}`) ?? 'unknown';
+}
 
 export function QualityReason({ error }: { error: string }) {
   const { t } = useTranslation('composition');
-  const reason = REASONS.find((code) => error === `critic_${code}` || error === `audit_${code}`) ?? 'unavailable';
+  const reason = qualityFailureReason(error);
   return <span data-testid="quality-reason" className="text-[11px] text-amber-600">{t(`qualityReasons.${reason}`)} {t('qualityReasons.manualRetry')}</span>;
 }
 

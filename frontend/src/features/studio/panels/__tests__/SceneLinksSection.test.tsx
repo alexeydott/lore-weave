@@ -5,19 +5,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OutlineNode, SceneLink } from '@/features/composition/types';
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string, o?: { defaultValue?: string }) => o?.defaultValue ?? k }),
+  useTranslation: () => ({ t: (k: string, o?: { defaultValue?: string; number?: number }) => o?.defaultValue ?? (k.endsWith('untitledScene') ? `Scene ${o?.number}` : k.split('.').pop()) }),
 }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 import { toast } from 'sonner';
 
 const links = { current: [] as SceneLink[] };
 const nodes = { current: [] as OutlineNode[] };
+const state = { pending: false, error: false };
 const createMutate = vi.fn();
 const deleteMutate = vi.fn();
 const restoreMutate = vi.fn();
 vi.mock('@/features/composition/hooks/useOutline', () => ({
-  useSceneLinks: () => ({ data: links.current }),
-  useOutline: () => ({ data: nodes.current }),
+  useSceneLinks: () => ({ data: links.current, isPending: state.pending, isError: state.error }),
+  useOutline: () => ({ data: nodes.current, isPending: state.pending, isError: state.error }),
   useOutlineMutations: () => ({
     createSceneLink: { mutate: createMutate, isPending: false },
     deleteSceneLink: { mutate: deleteMutate },
@@ -35,6 +36,7 @@ const link = (id: string, from: string, to: string, kind = 'setup_payoff', label
   ({ id, from_node_id: from, to_node_id: to, kind: kind as SceneLink['kind'], label } as SceneLink);
 
 beforeEach(() => {
+  state.pending = false; state.error = false;
   links.current = []; nodes.current = []; createMutate.mockReset(); deleteMutate.mockReset(); restoreMutate.mockReset();
   vi.mocked(toast.success).mockReset(); vi.mocked(toast.error).mockReset();
 });
@@ -67,12 +69,41 @@ describe('SceneLinksSection (22-C3 Links)', () => {
     expect(screen.getByText(/No causal links yet/)).toBeInTheDocument();
   });
 
-  it('an empty-title endpoint renders a short-id, never a blank label', () => {
+  it('an empty-title endpoint renders a human scene number, never an ID', () => {
     // review fix: titleOf uses `||` so title==='' degrades to a short-id (like the picker).
     nodes.current = [node('s1', 'Here'), node('deadbeef-0000-0000', '')];
     links.current = [link('l1', 's1', 'deadbeef-0000-0000')];
     render(<SceneLinksSection projectId="p" token="t" sceneId="s1" />);
-    expect(screen.getByTestId('scene-links-row').textContent).toContain('deadbeef…');
+    expect(screen.getByTestId('scene-links-row').textContent).toContain('Scene 1');
+  });
+
+  it('distinguishes unavailable endpoints from untitled scenes', () => {
+    links.current = [link('l1', 's1', 'missing-uuid')];
+    render(<SceneLinksSection projectId="p" token="t" sceneId="s1" />);
+    expect(screen.getByTestId('scene-links-row')).toHaveTextContent('unavailable');
+    expect(screen.getByTestId('scene-links-row')).not.toHaveTextContent('missing-uuid');
+  });
+
+  it.each(['pending', 'error'] as const)('does not claim an empty list while %s', (status) => {
+    state[status] = true;
+    render(<SceneLinksSection projectId="p" token="t" sceneId="s1" />);
+    expect(screen.queryByText('No causal links yet.')).not.toBeInTheDocument();
+    expect(screen.getAllByText(status === 'pending' ? 'loading' : 'loadError').length).toBeGreaterThan(0);
+  });
+
+  it('uses chapter context and identical picker labels for whitespace titles', () => {
+    nodes.current = [{ ...node('chapter', 'Arrival'), kind: 'chapter' },
+      { ...node('s2', '   '), parent_id: 'chapter' }];
+    render(<SceneLinksSection projectId="p" token="t" sceneId="s1" />);
+    expect(screen.getByRole('option', { name: 'Arrival — Scene 1' })).toBeInTheDocument();
+  });
+
+  it('clears draft target when the scene changes', () => {
+    nodes.current = [node('s2', 'There')];
+    const { rerender } = render(<SceneLinksSection projectId="p" token="t" sceneId="s1" />);
+    fireEvent.change(screen.getByTestId('scene-links-target'), { target: { value: 's2' } });
+    rerender(<SceneLinksSection projectId="p" token="t" sceneId="s3" />);
+    expect(screen.getByTestId('scene-links-target')).toHaveValue('');
   });
 
   it('a scene already linked with a DIFFERENT kind is still offered (BE uniqueness is by kind)', () => {

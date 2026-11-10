@@ -135,7 +135,7 @@ export type ArcSuggestSummary = {
 export type ArcSuggestCandidate = {
   arc_template: ArcSuggestSummary;
   score: number;
-  match_reason: string | null;
+  match_reason: import('./ranking').RankingReason | string | null;
 };
 
 export type ArcSuggestResult = {

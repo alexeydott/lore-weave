@@ -581,20 +581,34 @@ class KnowledgeClient:
         content hash, NOT the glossary entity_id — passing the glossary id 409s
         ("entity not found"). Listing here ALSO returns entities from earlier
         builds, so a relation pointing at previously-created lore resolves too.
+        Paginated to completion; limit is the page size, not a total cap.
         [] on any failure (the caller reports unresolved edges rather than
         writing wrong ones)."""
+        # Registered entities_router: project-scoped plain browse, NOT /me/entities.
         url = f"{self._base_url}/v1/knowledge/entities"
+        page_size = max(1, min(limit, 200))
+        entities: list[dict[str, Any]] = []
         try:
-            resp = await self._http.get(
-                url, params={"project_id": str(project_id), "limit": limit},
-                headers=self._bearer_headers(bearer),
-            )
-            if resp.status_code != 200:
-                logger.warning("knowledge list entities → %d", resp.status_code)
-                return []
-            body = resp.json()
-            return body.get("entities") or body.get("items") or []
-        except (httpx.HTTPError, ValueError, AttributeError) as exc:
+            while True:
+                resp = await self._http.get(
+                    url, params={"project_id": str(project_id), "limit": page_size,
+                                 "offset": len(entities)},
+                    headers=self._bearer_headers(bearer),
+                )
+                if resp.status_code != 200:
+                    logger.warning("knowledge list entities → %d", resp.status_code)
+                    return []
+                body = resp.json()
+                page = body["entities"]
+                total = body["total"]
+                if not isinstance(page, list) or not isinstance(total, int):
+                    return []
+                if not page:
+                    return entities if len(entities) >= total else []
+                entities.extend(page)
+                if len(entities) >= total:
+                    return entities
+        except (httpx.HTTPError, ValueError, AttributeError, KeyError, TypeError) as exc:
             logger.warning("knowledge list entities unavailable: %s", exc)
             return []
 

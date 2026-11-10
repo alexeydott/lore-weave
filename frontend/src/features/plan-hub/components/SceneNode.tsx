@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 // Plan Hub v2 (24 H4) — the scene card (render-only custom RF node). Compact by design: a scene
 // branches under its chapter, so it stays smaller/quieter than a chapter card. Its badge row is the
 // same ordered precedence as the chapter's but denser and WITHOUT the pacing sparkline — tension
@@ -13,12 +14,13 @@ import { chapterCardClass, normStatus, statusDotClass } from './flowPresentation
 import { normalizeSource } from '../types';
 
 function SceneNodeInner({ data }: NodeProps<PlanNodeData>) {
+  const { t } = useTranslation('studio');
   const { node, content, overlay, selected, isHere, onOpenRef, resolveEntity , matched } = data;
   // PH26 — a scene's cast is the whole point of the chips: `present_entity_ids` is a SCENE field.
   const badges = orderNodeBadges({
     overlay, nodeId: node.id, showTension: false, content, resolveEntity,
   });
-  const title = content?.title || `Sc ${node.storyOrder ?? '—'}`;
+  const title = content?.title || `${t('planHub.drawer.scene')} ${node.storyOrder ?? '—'}`;
   // MERGED coordinator — same status/authorship coding as the lane scene chip (see ChapterNode).
   const status = normStatus(content?.status ?? 'outline');
   const machine = normalizeSource(content?.source) === 'mined';

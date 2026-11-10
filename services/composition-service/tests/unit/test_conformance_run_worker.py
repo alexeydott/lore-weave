@@ -167,8 +167,8 @@ async def test_arc_job_without_model_ref_is_pacing_only_no_tagging(patched):
 
 # ── terminal business-error guards (clean job-failed, no redeliver) ───────────────
 
-async def test_chapter_scope_is_terminal_valueerror(patched):
-    with pytest.raises(ValueError, match="scope='arc' only"):
+async def test_chapter_scope_rejects_mismatched_book(patched):
+    with pytest.raises(ValueError, match="work/book"):
         await _run(patched, {"scope": "chapter", "chapter_id": str(uuid.uuid4())})
 
 
@@ -203,7 +203,7 @@ async def test_confirm_effect_spec_carries_deep_inputs(monkeypatch):
     monkeypatch.setattr(actions, "_precheck_or_402", _noop)
 
     work = SimpleNamespace(book_id=BOOK)
-    payload = {"scope": "arc", "chapter_id": None, "arc_id": str(AID),
+    payload = {"book_id": str(BOOK), "scope": "arc", "chapter_id": None, "arc_id": str(AID),
                "model_ref": "m1", "model_source": "user_model", "estimate_usd": 0.0}
     out = await actions._execute_conformance_run(
         payload, uuid.UUID(P), work, uuid.uuid4(), token="t.t.t", claims=None)
@@ -211,6 +211,86 @@ async def test_confirm_effect_spec_carries_deep_inputs(monkeypatch):
     assert out["outcome"] == "action_accepted" and seen["operation"] == "conformance_run"
     assert seen["spec"]["arc_id"] == str(AID)
     assert seen["spec"]["model_ref"] == "m1" and seen["spec"]["model_source"] == "user_model"
+
+
+@pytest.mark.parametrize("guard", [None, "book", "chapter", 403, 404, 500, "scenes", "model"])
+async def test_chapter_confirm_guards_then_enqueues(monkeypatch, guard):
+    from unittest.mock import AsyncMock, Mock
+
+    from fastapi import HTTPException
+    from app.clients.book_client import BookClientError
+    from app.routers import actions
+
+    chapter, project, user, job = uuid.uuid4(), uuid.UUID(P), uuid.UUID(U), uuid.uuid4()
+    pool, claims = object(), object()
+    payload = {
+        "book_id": str(BOOK), "scope": "chapter", "chapter_id": str(chapter),
+        "model_ref": "judge", "model_source": "user_model", "estimate_usd": 0.25,
+    }
+    book, outline = AsyncMock(), AsyncMock()
+    outline.scenes_for_chapter.return_value = [SimpleNamespace(id=uuid.uuid4())]
+    if guard == "book":
+        payload["book_id"] = str(uuid.uuid4())
+    elif guard == "chapter":
+        payload["chapter_id"] = "invalid"
+    elif isinstance(guard, int):
+        book.get_draft.side_effect = BookClientError(guard, "test")
+    elif guard == "scenes":
+        outline.scenes_for_chapter.return_value = []
+    elif guard == "model":
+        payload["model_ref"] = None
+
+    # Patch the dependency homes, not missing router globals: removing the imports
+    # must fail on the real chapter guard before any claim/billing/enqueue occurs.
+    monkeypatch.setattr("app.clients.book_client.get_book_client", Mock(return_value=book))
+    monkeypatch.setattr("app.db.pool.get_pool", Mock(return_value=pool))
+    outline_factory = Mock(return_value=outline)
+    monkeypatch.setattr(actions, "OutlineRepo", outline_factory)
+    bearer = Mock(return_value="service-bearer")
+    monkeypatch.setattr(actions, "mint_service_bearer", bearer)
+    effects = Mock()
+    claim, precheck, enqueue = AsyncMock(), AsyncMock(), AsyncMock(return_value=job)
+    for name, mock in [("claim", claim), ("precheck", precheck), ("enqueue", enqueue)]:
+        effects.attach_mock(mock, name)
+    monkeypatch.setattr(actions, "_claim_or_replay", claim)
+    monkeypatch.setattr(actions, "_precheck_or_402", precheck)
+    monkeypatch.setattr(actions, "_enqueue_motif_job", enqueue)
+
+    async def confirm():
+        return await actions._execute_conformance_run(
+            payload, project, SimpleNamespace(book_id=BOOK), user,
+            token="t.t.t", claims=claims)
+
+    if guard is not None:
+        expected = {
+            "book": (403, "action_error"), "chapter": (400, "action_error"),
+            403: (403, "action_error"), 404: (403, "action_error"),
+            500: (503, "BOOK_SERVICE_UNAVAILABLE"),
+            "scenes": (422, "NO_PLANNED_SCENES"), "model": (422, "MODEL_REF_REQUIRED"),
+        }
+        with pytest.raises(HTTPException) as exc:
+            await confirm()
+        assert (exc.value.status_code, exc.value.detail["code"]) == expected[guard]
+        claim.assert_not_awaited()
+        precheck.assert_not_awaited()
+        enqueue.assert_not_awaited()
+        return
+
+    out = await confirm()
+    bearer.assert_called_once_with(user, actions.settings.jwt_secret)
+    book.get_draft.assert_awaited_once_with(BOOK, chapter, "service-bearer")
+    outline_factory.assert_called_once_with(pool)
+    outline.scenes_for_chapter.assert_awaited_once_with(project, chapter)
+    claim.assert_awaited_once_with("t.t.t", claims)
+    precheck.assert_awaited_once_with(
+        owner_user_id=user, job_id=actions._billing_job_id("t.t.t"), estimate_usd=0.25)
+    enqueue.assert_awaited_once_with(
+        envelope_user=user, project_id=project, operation="conformance_run",
+        spec={"book_id": str(BOOK), "scope": "chapter", "chapter_id": str(chapter),
+              "arc_id": None, "model_ref": "judge", "model_source": "user_model"})
+    assert [call[0] for call in effects.mock_calls] == ["claim", "precheck", "enqueue"]
+    assert out == {"outcome": "action_accepted", "descriptor": "composition.conformance_run",
+                   "job_id": job, "poll": "composition_get_mine_job"}
 
 
 # ── MCP arg model accepts the deep fields (ForbidExtra still rejects unknowns) ────
@@ -223,3 +303,66 @@ def test_conformance_run_args_accept_deep_fields():
     assert a.arc_id == str(AID) and a.model_ref == "m1"
     with pytest.raises(Exception):  # ForbidExtra
         _ConformanceRunArgs(project_id=P, scope="arc", bogus="x")
+
+
+@pytest.mark.parametrize("unheaded", [False, True])
+@pytest.mark.parametrize("change", [None, "prose", "plan"])
+async def test_chapter_run_computes_saved_manuscript_verdict(monkeypatch, change, unheaded):
+    from unittest.mock import AsyncMock
+    from app.engine.prose_doc import text_to_tiptap_doc
+    from app.routers import conformance
+    from app.engine import motif_conformance
+    chapter, scene, motif_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    node = SimpleNamespace(id=scene, title="Encounter", beat_role="climax", tension=80)
+    app = SimpleNamespace(motif_id=motif_id, motif_version=1, annotations={"beat_key": "meet"}, role_bindings={})
+    work = SimpleNamespace(book_id=BOOK, settings={"source_language": "vi"})
+    works, outline, motifs, reader, book = [AsyncMock() for _ in range(5)]
+    works.get.return_value = work
+    outline.scenes_for_chapter.return_value = [node]
+    motifs.get_visible.return_value = SimpleNamespace(name="Meeting", summary="meet", beats=[], roles=[], tension_target=4)
+    reader.apps_by_nodes.return_value = {scene: app}
+    reader.latest_completed_by_nodes.return_value = {}
+    prefix = "" if unheaded else "### Encounter\n\n"
+    book.get_draft.return_value = {"body": text_to_tiptap_doc(prefix + "They meet.", [{"id": str(scene), "title": "Encounter"}])}
+    for target, value in [("app.db.repositories.works.WorksRepo", works),
+                          ("app.db.repositories.outline.OutlineRepo", outline),
+                          ("app.db.repositories.motif_repo.MotifRepo", motifs),
+                          ("app.clients.book_client.get_book_client", book)]:
+        monkeypatch.setattr(target, lambda *a, _value=value: _value)
+    monkeypatch.setattr(conformance, "ConformanceTraceReader", lambda pool: reader)
+    judge = AsyncMock(return_value={"beat_realized": True, "tension_band_match": False, "reason": "test"})
+    monkeypatch.setattr(motif_conformance, "judge_motif_conformance", judge)
+    out = await mcr.run_conformance_run(object(), object(), object(), user_id=U, project_id=P,
+        input={"scope": "chapter", "book_id": str(BOOK), "chapter_id": str(chapter),
+               "model_ref": "judge", "model_source": "platform_model"})
+    assert out["chapter_id"] == str(chapter)
+    assert out["scenes"][0]["conformance"]["beat_realized"] is True
+    assert out["scenes"][0]["check_status"] == "checked"
+    assert judge.await_args.kwargs["passage"] == "They meet."
+    assert judge.await_args.kwargs["profile"].source_language == "vi"
+    outline.scenes_for_chapter.assert_awaited_once_with(uuid.UUID(P), chapter)
+    assert judge.await_args.kwargs["model_source"] == "platform_model"
+    from hashlib import sha256
+    assert out["scenes"][0]["source_sha256"] == sha256(b"They meet.").hexdigest()
+
+    reader.latest_chapter_run.return_value = {
+        "job_id": "checked-job", "computed_at": "2026-11-09T00:00:00Z", "result": out,
+    }
+    if change == "prose":
+        book.get_draft.return_value = {"body": text_to_tiptap_doc(
+            prefix + "They leave.", [{"id": str(scene), "title": "Encounter"}])}
+    elif change == "plan":
+        node.tension = 20
+    monkeypatch.setattr(conformance, "authorize_book", AsyncMock())
+    from fastapi.security import HTTPAuthorizationCredentials
+    trace = await conformance.read_conformance(
+        uuid.UUID(P), scope="chapter", chapter_id=chapter, user_id=uuid.UUID(U),
+        works=works, outline=outline, reader=reader, grant=object(),
+        credentials=HTTPAuthorizationCredentials(scheme="Bearer", credentials="test"))
+    assert trace["last_run"]["job_id"] == "checked-job"
+    if change:
+        assert trace["scenes"][0]["conformance"] is None
+        assert trace["scenes"][0]["check_status"] == "stale"
+    else:
+        assert trace["scenes"][0]["conformance"]["beat_realized"] is True
+        assert trace["scenes"][0]["check_status"] == "checked"

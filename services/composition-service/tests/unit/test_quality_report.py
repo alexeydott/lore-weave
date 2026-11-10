@@ -10,6 +10,28 @@ from types import SimpleNamespace
 
 from app.engine.quality_report import build_promise_coverage, build_quality_report
 
+async def test_partial_coverage_window_cannot_certify_complete_book(monkeypatch):
+    from app.engine import quality_report
+
+    responses = iter([
+        {"coverage": [{"promise": "debt", "verdict": "paid"}]},
+        {"error": "coverage_unavailable", "coverage": []},
+    ])
+
+    async def score(*args, **kwargs):
+        return next(responses)
+
+    monkeypatch.setattr(quality_report, "score_promise_coverage", score)
+    result = await quality_report._score_windowed(
+        None, user_id="u", model_source="user_model", model_ref="m",
+        promises=["debt"], windows=["paid here", "unread window"],
+        source_language="en", trace_id=None, cancel_check=None)
+    assert result["error"] == "coverage_unavailable"
+    assert result["failed_windows"] == 1
+    assert result["total_windows"] == 2
+    assert result["coverage"] == [{"promise": "debt", "verdict": "paid"}]
+
+
 # async tests are collected via pytest.ini asyncio auto-mode.
 
 

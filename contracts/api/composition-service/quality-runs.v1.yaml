@@ -1,0 +1,150 @@
+openapi: 3.1.0
+info:
+  title: Durable ALL chapters quality runs
+  version: 1.0.0
+paths:
+  /v1/composition/works/{project_id}/quality-runs:
+    parameters:
+      - $ref: '#/components/parameters/Project'
+    get:
+      summary: VIEW grant; creator-scoped persisted runs, exact model scope, newest first
+      parameters:
+        - {name: model_source, in: query, required: true, schema: {type: string}}
+        - {name: model_ref, in: query, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Persisted runs, including terminal history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [runs]
+                properties:
+                  runs: {type: array, items: {$ref: '#/components/schemas/QualityRun'}}
+    post:
+      summary: EDIT grant; atomically reuse equivalent active run or idempotent replay
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SubmitRequest'}
+      responses:
+        '202':
+          description: Durable run (also returned on replay)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/QualityRun'}
+        '409': {description: QUALITY_RUN_BUDGET_EXCEEDED; no job created}
+        '503': {description: Worker, context or pricing unavailable; fails closed}
+  /v1/composition/works/{project_id}/quality-runs/estimate:
+    parameters:
+      - $ref: '#/components/parameters/Project'
+    post:
+      summary: EDIT grant; exhaustive snapshot preflight, no paid analysis or job creation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ModelRequest'}
+      responses:
+        '200':
+          description: Conservative call and USD ceilings, dynamically priced by provider registry
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, estimated_calls_max, estimated_usd_max, chapters]
+                properties:
+                  total: {type: integer}
+                  estimated_calls_max: {type: integer}
+                  estimated_usd_max: {type: number}
+                  chapters:
+                    type: array
+                    items:
+                      allOf:
+                        - {$ref: '#/components/schemas/ChapterIdentity'}
+                        - type: object
+                          properties:
+                            estimated_calls_max: {type: integer}
+  /v1/composition/works/{project_id}/quality-runs/{run_id}:
+    parameters:
+      - $ref: '#/components/parameters/Project'
+      - $ref: '#/components/parameters/Run'
+    get:
+      summary: VIEW grant; creator-scoped remount/reattach read, foreign IDs return 404
+      responses:
+        '200':
+          description: Current durable state
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/QualityRun'}
+  /v1/composition/works/{project_id}/quality-runs/{run_id}/stop:
+    parameters:
+      - $ref: '#/components/parameters/Project'
+      - $ref: '#/components/parameters/Run'
+    post:
+      summary: EDIT grant; durable stop-after-current, no cancellation of current paid chapter
+      responses:
+        '200':
+          description: State with stop_requested; completed current child result remains readable
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/QualityRun'}
+components:
+  parameters:
+    Project: {name: project_id, in: path, required: true, schema: {type: string, format: uuid}}
+    Run: {name: run_id, in: path, required: true, schema: {type: string, format: uuid}}
+  schemas:
+    ModelRequest:
+      type: object
+      required: [model_source, model_ref]
+      properties:
+        model_source: {type: string, minLength: 1, maxLength: 50}
+        model_ref: {type: string, minLength: 1, maxLength: 200}
+    SubmitRequest:
+      allOf:
+        - {$ref: '#/components/schemas/ModelRequest'}
+        - type: object
+          required: [idempotency_key, max_estimated_calls, max_estimated_usd]
+          properties:
+            idempotency_key: {type: string, minLength: 1, maxLength: 200}
+            max_estimated_calls: {type: integer, minimum: 1}
+            max_estimated_usd: {type: number, minimum: 0}
+    ChapterIdentity:
+      type: object
+      required: [chapter_id, title, draft_version, draft_sha256]
+      properties:
+        chapter_id: {type: string, format: uuid}
+        title: {type: string}
+        draft_version: {}
+        draft_sha256: {type: string}
+    Chapter:
+      allOf:
+        - {$ref: '#/components/schemas/ChapterIdentity'}
+        - type: object
+          required: [job_id, status, result, error]
+          properties:
+            job_id: {type: string, format: uuid}
+            status: {enum: [pending, running, completed, failed, skipped]}
+            result: {type: [object, 'null'], additionalProperties: true}
+            error: {type: [string, 'null']}
+    QualityRun:
+      type: object
+      required: [id, project_id, book_id, model_source, model_ref, status, stop_requested, total, completed, failed, current_chapter_id, chapters, estimated_calls_max, estimated_usd_max, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        project_id: {type: string, format: uuid}
+        book_id: {type: string, format: uuid}
+        model_source: {type: string}
+        model_ref: {type: string}
+        status: {enum: [pending, running, completed, failed, cancelled]}
+        stop_requested: {type: boolean}
+        total: {type: integer}
+        completed: {type: integer}
+        failed: {type: integer}
+        current_chapter_id: {type: [string, 'null']}
+        chapters: {type: array, items: {$ref: '#/components/schemas/Chapter'}}
+        estimated_calls_max: {type: integer}
+        estimated_usd_max: {type: number}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}

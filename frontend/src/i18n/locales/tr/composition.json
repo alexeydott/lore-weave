@@ -274,6 +274,10 @@
     "deleteFailed": "Mekan kaldırılamadı.",
     "backdropNoChapter": "Bir arka plan ayarlamak için bir章 açın."
   },
+  "groundingNoResults": "Bu sahne için grafikten bağlam alınamadı. Grafik yine de mevcut olabilir; sahnenin konumu, eşleşen içerik veya bilgi hizmetindeki bir hata bağlam alımını sınırlayabilir.",
+  "groundingNoProject": "Bu esere henüz bir bilgi projesi bağlanmamış. Bu eser için temellendirme kullanılamıyor.",
+  "groundingLoadFailed": "Temellendirme yüklenemedi. Bilgi grafiğini değiştirmeden önce yeniden deneyin.",
+  "groundingRetry": "Temellendirmeyi yeniden dene",
   "grounding": "Temellendirme",
   "canon": "Kanun",
   "progress": "İlerleme",
@@ -371,7 +375,12 @@
     "saveContent": "İçeriği kaydet (yeniden yerleştirir)",
     "saveMetadata": "Detayları kaydet",
     "saving": "Kaydediliyor…",
-    "sourceUrl": "Kaynak URL (isteğe bağlı)"
+    "sourceUrl": "Kaynak URL (isteğe bağlı)",
+    "loading": "Referanslar yükleniyor…",
+    "listError": "Referanslar yüklenemedi. Yeniden deneyin.",
+    "inheritedEmbed": "Devralınan gömme modelini kullan",
+    "modelsLoading": "Gömme modelleri yükleniyor…",
+    "modelsError": "Gömme modelleri yüklenemedi. Yeniden deneyin."
   },
   "progressPanel": {
     "loading": "İlerleme yükleniyor…",
@@ -826,7 +835,10 @@
       "noWork": "Motifleri sahnelerle ilişkilendirmek için bu kitap için bir plan oluşturun.",
       "committedTitle": "Sahne motiflerini bağla",
       "loadError": "Sahne motifleri yüklenemedi.",
-      "sectionTitle": "Sahne motifleri"
+      "sectionTitle": "Sahne motifleri",
+      "candidatesLoading": "Motifler yükleniyor…",
+      "candidatesError": "Motifler yüklenemedi.",
+      "candidatesEmpty": "Motif kitaplığına motif ekleyin veya içe aktarın, ardından birini bağlamak için buraya dönün."
     },
     "swap": {
       "title": "Motifi değiştir",
@@ -852,12 +864,26 @@
         "bad": "Vuruş kaçırıldı"
       },
       "rerunNeedsModel": "Uyumluluğu yeniden çalıştırmak için bir model seçin",
-      "bindCta": "Bir motifi bir sahneye bağla →",
+      "bindCta": "Bağlanacak sahneyi seç →",
       "couldNotCheck": "Kontrol edilemedi",
       "notChecked": "Henüz kontrol edilmedi",
       "notWritten": "Henüz yazılmadı",
       "openScene": "Bu sahneyi denetleyicide aç",
-      "written": "Yazıldı"
+      "written": "Yazıldı",
+      "noChapter": "Bölüm seçin",
+      "chaptersLoading": "Bölümler yükleniyor…",
+      "chaptersError": "Bölümler yüklenemedi.",
+      "noChapters": "Henüz bölüm yok.",
+      "actionError": "İşlem başarısız. Tekrar deneyin.",
+      "running": "Çalışıyor…",
+      "snapshot": "Son kontrol: {{time}}",
+      "status": {
+        "unavailable": "Kontrol edilemedi",
+        "no_bound_motif": "Önce bir motif bağlayın",
+        "motif_unavailable": "Motif kullanılamıyor",
+        "no_manuscript_prose": "Önce taslak metni yazın",
+        "stale": "Güncel değil — yeniden kontrol edin"
+      }
     },
     "arc": {
       "mobileNotice": "Zaman çizelgesi ızgarası daha büyük bir ekranda mevcuttur — burada liste olarak düzenleyebilirsiniz.",
@@ -960,7 +986,8 @@
         "error": "Ark önerileri sıralanamadı.",
         "empty": "Henüz uygun bir ark şablonu bulunamadı — bir tane oluşturun veya analiz etmek için bir hikâye içe aktarın.",
         "mine": "seninki",
-        "span": "{{count}} bölüm"
+        "span": "{{count}} bölüm",
+        "sectionMine": "Anlatı yaylarınız"
       },
       "decompile": {
         "open": "Bölümleri arklar halinde gruplandır",
@@ -1092,10 +1119,14 @@
       "retry": "Tekrar dene",
       "empty": "Bu sahneye uygun henüz bir motif bulunamadı — kütüphanenize daha fazla ekleyin.",
       "bind": "Bağla",
-      "degradedMine": "Motifleriniz uyumluluk sırasına göre sıralanmıyor — bunları anlamsal olarak sıralamak için ayarlarınızdan bir gömme (embedding) modeli kurun.",
-      "degradedLibrary": "Uyumluluk sırasına göre sıralanmadı — ortak kütüphanenin gömme (embedding) modeli yapılandırılmadığı için bunlar puanlanmış eşleşmeler değil, tür bazlı yedek seçeneklerdir.",
+      "degradedMine": "Özel önerileriniz için anlamsal sıralama kullanılamıyor: bu kitap veya hesap için geçerli bir gömme modeli seçilmemiş.",
+      "degradedLibrary": "Ortak kütüphane için anlamsal sıralama kullanılamıyor: kütüphanenin ayrı platform gömme yapılandırması tamamlanmamış. Kitap veya hesap model ayarlarınız bundan bağımsızdır.",
       "sectionMine": "Motifleriniz",
-      "sectionLibrary": "Kütüphaneden"
+      "sectionLibrary": "Kütüphaneden",
+      "rankingUnavailable": "Sıralama kullanılamıyor — bu öneriler uygunluğa göre sıralanmamıştır.",
+      "providerUnavailable": "Sıralama geçici olarak kullanılamıyor — daha sonra yeniden deneyin.",
+      "emptyQuery": "Önerileri uygunluğa göre sıralamak için bir çıkış fikri veya sahne metni ekleyin.",
+      "semanticMatch": "Anlamsal eşleşme"
     },
     "language": {
       "writtenIn": "Yazıldığı dil",
@@ -1176,29 +1207,28 @@
       "violation": "{{label}}: {{n}} sıralama hatası"
     },
     "editor": {
-      "add": "ekle",
-      "beatIntent": "niyet",
-      "beatLabel": "vuruş",
-      "beats": "Vuruşlar",
-      "conflict": "Bu motif başka bir yerde değiştirildi — düzenlemeye başlamadan önce en güncel halini almak için yeniden açın.",
-      "deceived": "aldatılan kişi (virgülle ayırın)",
-      "effects": "Etkiler",
-      "emotion": "Duygu",
-      "examples": "Örnekler (yazar tarafından yazılmış)",
-      "gap": "boşluk",
-      "genres": "Türler (virgülle ayırın)",
-      "kind": "Tür",
-      "knows": "bilen kişi (virgülle ayırın)",
-      "name": "İsim",
-      "preconditions": "Ön Koşullar",
-      "roleConstraints": "kısıtlamalar",
-      "roleLabel": "etiket",
-      "roles": "Roller",
-      "saveError": "Kaydedilemedi.",
+      "open": "Motifi düzenle",
+      "title": "Sahne motifi",
+      "description": "Kaydet seçilene kadar değişiklikler taslakta kalır.",
+      "search": "Ad veya kodla ara",
+      "motif": "Motif",
+      "freeform": "Serbest (motif yok)",
+      "preview": "Motif önizlemesi",
+      "unresolved": "Atanmamış",
+      "save": "Kaydet",
       "saving": "Kaydediliyor…",
-      "scheme": "Bilgi asimetrisi",
-      "summary": "Özet (erişim için gömülü)",
-      "tension": "Gerilim (1–5)"
+      "cancel": "İptal",
+      "loadError": "Motif verileri yüklenemedi.",
+      "saveError": "Kaydetme başarısız. Taslak korundu; tekrar kaydedin.",
+      "partialError": "Bazı değişiklikler kaydedildi. Bitirmek için tekrar kaydedin; İptal kaydedilenleri geri almaz.",
+      "discardTitle": "Kaydedilmemiş değişiklikler silinsin mi?",
+      "discardDescription": "Kaydedilmemiş taslak silinir. Kaydedilen değişiklikler burada geri alınamaz.",
+      "stay": "Düzenlemeye devam",
+      "discard": "Taslağı sil",
+      "fallback": "Çeviri yok; {{language}} gösteriliyor.",
+      "contextRequired": "Onaylanmış bir sahne seçin.",
+      "current": "Geçerli",
+      "dirty": "Kaydedilmemiş değişiklikler"
     },
     "kind": {
       "arcs": "Ark şablonları",
@@ -1765,6 +1795,13 @@
   "canonConflictCurrent": "Mevcut (v{{v}}): {{text}}",
   "coverageExtractionFailed": "Taslağınızdaki vaatler okunamadı (model çağrısı başarısız oldu veya yarıda kesildi). Tekrar deneyin veya farklı bir model seçin.",
   "coverageScoreFailed": "Vaatler okundu ancak kitapla karşılaştırılırken puanlama başarısız oldu. Tekrar deneyin.",
+  "coverageCorpusIncomplete": "Kitabın tamamı değerlendirilemiyor: {{count}} bölümün taslağı okunamadı. Kitabın tamamı için herhangi bir sonuç üretilmedi. Tekrar deneyin.",
+  "coverageCorpusIncomplete_zero": "Kitabın tamamı değerlendirilemiyor: {{count}} bölümün taslağı okunamadı. Kitabın tamamı için herhangi bir sonuç üretilmedi. Tekrar deneyin.",
+  "coverageCorpusIncomplete_one": "Kitabın tamamı değerlendirilemiyor: {{count}} bölümün taslağı okunamadı. Kitabın tamamı için herhangi bir sonuç üretilmedi. Tekrar deneyin.",
+  "coverageCorpusIncomplete_two": "Kitabın tamamı değerlendirilemiyor: {{count}} bölümün taslağı okunamadı. Kitabın tamamı için herhangi bir sonuç üretilmedi. Tekrar deneyin.",
+  "coverageCorpusIncomplete_few": "Kitabın tamamı değerlendirilemiyor: {{count}} bölümün taslağı okunamadı. Kitabın tamamı için herhangi bir sonuç üretilmedi. Tekrar deneyin.",
+  "coverageCorpusIncomplete_many": "Kitabın tamamı değerlendirilemiyor: {{count}} bölümün taslağı okunamadı. Kitabın tamamı için herhangi bir sonuç üretilmedi. Tekrar deneyin.",
+  "coverageCorpusIncomplete_other": "Kitabın tamamı değerlendirilemiyor: {{count}} bölümün taslağı okunamadı. Kitabın tamamı için herhangi bir sonuç üretilmedi. Tekrar deneyin.",
   "lengthAskedDelivered": "~{{target}} kelime istendi, {{actual}} kelime iletildi ({{pct}}%).",
   "lengthOverCeiling": "Bu istek, tek bir çağrının güvenilir bir şekilde teslim edebileceğinden daha fazla kelime içeriyor — tam uzunluğu elde etmek için sahneyi pasajlara bölün.",
   "techEdit": {
@@ -1818,7 +1855,12 @@
     "reasoning_exhausted": "Akıl yürütme yanıt bütçesini tüketti.",
     "truncated": "Yanıt kesildi.",
     "invalid_response": "Geçersiz model yanıtı.",
-    "manualRetry": "Sonraki manuel çalıştırmada yeniden deneyin."
+    "manualRetry": "Sonraki manuel çalıştırmada yeniden deneyin.",
+    "unknown": "Kalite analizi bilinmeyen bir nedenle başarısız oldu.",
+    "incomplete": "Tüm analiz pencereleri tamamlanmadı.",
+    "synthesis_failed": "Analiz tamamlandı ancak rapor sentezi başarısız oldu.",
+    "synthesis_invalid_response": "Analiz tamamlandı ancak sentez geçersiz bir yanıt döndürdü.",
+    "audit_only": "Yalnızca anlatı kolları denetimi tamamlandı; eleştirmen puanları kullanılamıyor."
   },
   "qualityScope": {
     "partial": "Kısmi rapor — tüm bölümün değerlendirmesi değildir.",

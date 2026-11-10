@@ -205,7 +205,8 @@
       "batchRunning": "Analyzed chapters: {{done}}/{{total}}…",
       "batchStop": "Stop",
       "batchDone": "Analyzed chapters: {{total}} · promises opened: {{opened}} · paid off: {{paid}}",
-      "batchStopped": "Stopped — analyzed {{done}} of {{total}} chapters."
+      "batchStopped": "Stopped — analyzed {{done}} of {{total}} chapters.",
+      "batchFailed": "Analyzed {{done}} of {{total}} chapters; {{failed}} failed. Results are incomplete."
     },
     "quality-critic": {
       "title": "Critic",
@@ -462,6 +463,10 @@
         "motifs": "Motifs"
       },
       "links": {
+        "loading": "Loading scene links…",
+        "loadError": "Could not load scene links.",
+        "unavailable": "Scene unavailable",
+        "untitledScene": "Scene {{number}}",
         "empty": "No causal links yet.",
         "setup": "setup→payoff",
         "custom": "custom",
@@ -1097,7 +1102,13 @@
     "criticBatchRemaining": "Remaining: {{count}}",
     "criticBatchFailed": "failed — will retry",
     "criticBatchClear": "Clear results",
-    "chaptersLoadError": "Could not load the chapter list."
+    "chaptersLoadError": "Could not load the chapter list.",
+    "criticBatchEstimate": "Estimated maximum model calls: {{calls}} across {{count}} chapters.",
+    "criticBatchConfirm": "Confirm whole-book analysis",
+    "criticBatchEstimateFailed": "Could not estimate this analysis. No run was started.",
+    "criticBatchProgress": "{{completed}} complete, {{failed}} failed, {{total}} total.",
+    "criticBatchDetached": "Stopped waiting. The server run continues.",
+    "criticBatchEstimateCost": "Estimated upper cost: ${{cost}}. No run has started."
   },
   "sidebar": {
     "collapse": "Collapse",
@@ -1721,6 +1732,35 @@
     }
   },
   "planHub": {
+    "drawer": {
+      "noCanon": "No canon rule is anchored here.",
+      "chapter": "Chapter",
+      "scene": "Scene",
+      "arc": "Arc",
+      "saga": "Saga",
+      "unknown": "Node",
+      "anchor": "Anchor",
+      "notAnchored": "— not anchored —",
+      "currentAnchor": "(current anchor)",
+      "anchorFirst": "Anchor this node to a chapter first",
+      "anchorError": "The chapter list could not be read — re-anchoring is unavailable.",
+      "noAnchor": "This node points at no manuscript chapter — pick one above to anchor it.",
+      "openEditor": "Open in Editor",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "expandScenes": "Expand scenes",
+      "collapseScenes": "Collapse scenes",
+      "expandArc": "Expand arc",
+      "expandLane": "Expand lane",
+      "collapseLane": "Collapse lane",
+      "referencesNote": "Back-references require composition_find_references, which is not built yet. The cast above is this node’s own roster.",
+      "criticNote": "Critic runs are book-scoped — see Quality → Critic.",
+      "noPlan": "This node has no plan yet.",
+      "arcMissing": "Arc not found in the shell.",
+      "selectNode": "Select a node to see its plan.",
+      "total": "{{count}} in total",
+      "truncated": "The list is truncated"
+    },
     "undo": "Undo",
     "empty": {
       "title": "No plan for this book yet",
@@ -1970,5 +2010,45 @@
     "loading_more": "Loading…",
     "restore": "Restore"
   },
-  "campaigns": "Campaigns (batch extraction & translation)"
+  "campaigns": "Campaigns (batch extraction & translation)",
+  "referenceShelf": {
+    "title": "Source shelf",
+    "entity": "Glossary entity",
+    "chooseEntity": "Choose an entity",
+    "noEntities": "No glossary entities are available for this book.",
+    "signIn": "Sign in to load sources.",
+    "loading": "Loading sources…",
+    "loadFailed": "Sources could not be loaded.",
+    "empty": "No sources found.",
+    "partial": "Some sources could not be loaded.",
+    "capped": "Showing {{shown}} of {{count}} sources.",
+    "showMore": "Show more",
+    "limitReached": "Source display limit reached.",
+    "question": "Ask about these sources",
+    "questionPlaceholder": "What would you like to know?",
+    "ask": "Ask AI helper",
+    "asking": "Asking AI helper…",
+    "paid": "This optional request uses model tokens and may incur charges. It does not edit your book.",
+    "model": "Model",
+    "inheritedModel": "Using this book’s chat model, then your account default; choose a model to override.",
+    "assistantFailed": "The AI helper could not answer.",
+    "retry": "Retry loading sources",
+    "planOnly": "Planning references only; manuscript and knowledge-graph mentions are not included.",
+    "indirectThreads": "Threads opened at nodes where this entity appears; not direct entity mentions.",
+    "prompts": {
+      "consistency": "Check consistency",
+      "summary": "Summarize what is known",
+      "gaps": "What is missing?"
+    },
+    "groups": {
+      "outline_pov": "Chapter point of view",
+      "outline_present": "Chapter cast",
+      "scene_pov": "Scene point of view",
+      "scene_present": "Scene cast",
+      "structure_roster": "Arc and saga roster",
+      "motif_application": "Motif applications",
+      "canon_rule": "Canon rules",
+      "narrative_thread": "Related narrative threads"
+    }
+  }
 }

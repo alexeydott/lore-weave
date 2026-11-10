@@ -90,7 +90,7 @@ class LLMClient:
                 )
                 try:
                     job = await self._sdk.wait_terminal(
-                        submit.job_id, user_id=user_id, transient_retry_budget=1,
+                        submit.job_id, user_id=user_id, transient_retry_budget=min(1, transient_retry_budget),
                         cancel_check=cancel_check,
                     )
                 except LLMTransientRetryNeededError as exc:

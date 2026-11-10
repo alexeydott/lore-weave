@@ -205,7 +205,8 @@
       "batchRunning": "已分析章節：{{done}}/{{total}}…",
       "batchStop": "停止",
       "batchDone": "已分析章節：{{total}} · 新開承諾：{{opened}} · 已回收：{{paid}}",
-      "batchStopped": "已停止——共分析 {{done}}/{{total}} 章。"
+      "batchStopped": "已停止——共分析 {{done}}/{{total}} 章。",
+      "batchFailed": "已分析 {{done}}/{{total}} 章；{{failed}} 章失敗。結果不完整。"
     },
     "quality-critic": {
       "title": "評論",
@@ -462,6 +463,10 @@
         "motifs": "主題元素"
       },
       "links": {
+        "loading": "正在載入場景連結…",
+        "loadError": "無法載入場景連結。",
+        "unavailable": "場景無法使用",
+        "untitledScene": "場景 {{number}}",
         "empty": "尚無因果連結。",
         "setup": "鋪陳→伏筆",
         "custom": "自定義",
@@ -1097,7 +1102,13 @@
     "criticBatchRemaining": "剩餘：{{count}}",
     "criticBatchFailed": "失敗 — 將重試",
     "criticBatchClear": "清除結果",
-    "chaptersLoadError": "無法載入章節清單。"
+    "chaptersLoadError": "無法載入章節清單。",
+    "criticBatchEstimate": "預估最多呼叫模型 {{calls}} 次，涵蓋 {{count}} 章。",
+    "criticBatchConfirm": "確認分析整本書",
+    "criticBatchEstimateFailed": "無法估算此次分析，尚未啟動執行。",
+    "criticBatchProgress": "已完成 {{completed}}，失敗 {{failed}}，共 {{total}}。",
+    "criticBatchDetached": "已停止等待，伺服器上的執行仍在繼續。",
+    "criticBatchEstimateCost": "預估費用上限：${{cost}}。尚未啟動執行。"
   },
   "sidebar": {
     "collapse": "收合",
@@ -1708,6 +1719,35 @@
     }
   },
   "planHub": {
+    "drawer": {
+      "noCanon": "此處未綁定正典規則。",
+      "chapter": "章",
+      "scene": "場景",
+      "arc": "故事弧",
+      "saga": "系列",
+      "unknown": "節點",
+      "anchor": "綁定",
+      "notAnchored": "— 未綁定 —",
+      "currentAnchor": "（目前綁定）",
+      "anchorFirst": "請先將此節點綁定至章節",
+      "anchorError": "無法讀取章節清單，暫時無法更改綁定。",
+      "noAnchor": "此節點尚未綁定手稿章節，請在上方選擇。",
+      "openEditor": "在編輯器中開啟",
+      "expand": "展開",
+      "collapse": "收合",
+      "expandScenes": "展開場景",
+      "collapseScenes": "收合場景",
+      "expandArc": "展開故事弧",
+      "expandLane": "展開泳道",
+      "collapseLane": "收合泳道",
+      "referencesNote": "反向參照需要尚未實作的 composition_find_references 工具。上方角色清單僅屬於此節點。",
+      "criticNote": "評論以整本書執行，請查看「品質 → 評論」。",
+      "noPlan": "此節點尚無計畫。",
+      "arcMissing": "在結構中找不到故事弧。",
+      "selectNode": "選擇節點以查看其計畫。",
+      "total": "共 {{count}} 項",
+      "truncated": "清單已截斷"
+    },
     "undo": "復原",
     "empty": {
       "title": "此書籍尚未建立計畫",
@@ -1970,5 +2010,45 @@
     "loading_more": "載入中…",
     "restore": "還原"
   },
-  "campaigns": "專案 (批次擷取與翻譯)"
+  "campaigns": "專案 (批次擷取與翻譯)",
+  "referenceShelf": {
+    "title": "來源書架",
+    "entity": "術語表實體",
+    "chooseEntity": "選擇實體",
+    "noEntities": "本書尚無可用的術語表實體。",
+    "signIn": "請登入以載入來源。",
+    "loading": "正在載入來源…",
+    "loadFailed": "無法載入來源。",
+    "empty": "找不到來源。",
+    "partial": "部分來源無法載入。",
+    "capped": "目前顯示 {{count}} 個來源中的 {{shown}} 個。",
+    "showMore": "顯示更多",
+    "limitReached": "已達來源顯示上限。",
+    "question": "針對這些來源提問",
+    "questionPlaceholder": "你想瞭解什麼？",
+    "ask": "詢問 AI 助手",
+    "asking": "正在詢問 AI 助手…",
+    "paid": "此選用請求會消耗模型詞元，並可能產生費用。它不會修改你的書。",
+    "model": "模型",
+    "inheritedModel": "優先使用本書的聊天模型，其次使用帳戶預設模型；選擇其他模型即可覆寫此設定。",
+    "assistantFailed": "AI 助手無法回答。",
+    "retry": "重新載入來源",
+    "planOnly": "僅包含規劃中的參照，不含文稿與知識圖譜中的提及。",
+    "indirectThreads": "在此實體出現的節點上開啟的敘事線索，並非對實體的直接提及。",
+    "prompts": {
+      "consistency": "檢查一致性",
+      "summary": "摘要已知資訊",
+      "gaps": "缺少什麼？"
+    },
+    "groups": {
+      "outline_pov": "章節視角",
+      "outline_present": "章節角色",
+      "scene_pov": "場景視角",
+      "scene_present": "場景角色",
+      "structure_roster": "故事弧與長篇系列角色名冊",
+      "motif_application": "母題應用",
+      "canon_rule": "正史規則",
+      "narrative_thread": "相關敘事線索"
+    }
+  }
 }

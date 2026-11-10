@@ -205,7 +205,8 @@
       "batchRunning": "Đã phân tích chương: {{done}}/{{total}}…",
       "batchStop": "Dừng",
       "batchDone": "Đã phân tích chương: {{total}} · lời hứa mở: {{opened}} · tất toán: {{paid}}",
-      "batchStopped": "Đã dừng — phân tích {{done}}/{{total}} chương."
+      "batchStopped": "Đã dừng — phân tích {{done}}/{{total}} chương.",
+      "batchFailed": "Đã phân tích {{done}}/{{total}} chương; {{failed}} chương thất bại. Kết quả chưa đầy đủ."
     },
     "quality-critic": {
       "title": "Chuyên gia",
@@ -462,6 +463,10 @@
         "motifs": "Mô-típ"
       },
       "links": {
+        "loading": "Đang tải liên kết cảnh…",
+        "loadError": "Không thể tải liên kết cảnh.",
+        "unavailable": "Cảnh không khả dụng",
+        "untitledScene": "Cảnh {{number}}",
         "empty": "Chưa có liên kết nhân quả nào.",
         "setup": "thiết lập→kết quả",
         "custom": "tùy chỉnh",
@@ -1097,7 +1102,13 @@
     "criticBatchRemaining": "Còn lại: {{count}}",
     "criticBatchFailed": "thất bại — sẽ thử lại",
     "criticBatchClear": "Xóa kết quả",
-    "chaptersLoadError": "Không thể tải danh sách chương."
+    "chaptersLoadError": "Không thể tải danh sách chương.",
+    "criticBatchEstimate": "Số lượt gọi mô hình tối đa ước tính: {{calls}} cho {{count}} chương.",
+    "criticBatchConfirm": "Xác nhận phân tích toàn bộ sách",
+    "criticBatchEstimateFailed": "Không thể ước tính lần phân tích này. Chưa bắt đầu chạy.",
+    "criticBatchProgress": "{{completed}} hoàn tất, {{failed}} thất bại, tổng cộng {{total}}.",
+    "criticBatchDetached": "Đã ngừng chờ. Tiến trình trên máy chủ vẫn tiếp tục.",
+    "criticBatchEstimateCost": "Chi phí tối đa ước tính: ${{cost}}. Chưa bắt đầu chạy."
   },
   "sidebar": {
     "collapse": "Thu gọn",
@@ -1721,6 +1732,35 @@
     }
   },
   "planHub": {
+    "drawer": {
+      "noCanon": "Chưa có quy tắc chính sử liên kết tại đây.",
+      "chapter": "Chương",
+      "scene": "Cảnh",
+      "arc": "Tuyến truyện",
+      "saga": "Trường thiên",
+      "unknown": "Nút",
+      "anchor": "Liên kết",
+      "notAnchored": "— chưa liên kết —",
+      "currentAnchor": "(liên kết hiện tại)",
+      "anchorFirst": "Hãy liên kết nút với một chương trước",
+      "anchorError": "Không đọc được danh sách chương nên không thể đổi liên kết.",
+      "noAnchor": "Nút chưa liên kết với chương bản thảo; hãy chọn ở trên.",
+      "openEditor": "Mở trong trình biên tập",
+      "expand": "Mở rộng",
+      "collapse": "Thu gọn",
+      "expandScenes": "Mở rộng các cảnh",
+      "collapseScenes": "Thu gọn các cảnh",
+      "expandArc": "Mở rộng tuyến truyện",
+      "expandLane": "Mở rộng làn",
+      "collapseLane": "Thu gọn làn",
+      "referencesNote": "Tham chiếu ngược cần công cụ composition_find_references chưa được triển khai. Danh sách nhân vật ở trên thuộc nút này.",
+      "criticNote": "Phê bình chạy theo sách; xem Chất lượng → Phê bình.",
+      "noPlan": "Nút này chưa có kế hoạch.",
+      "arcMissing": "Không tìm thấy tuyến truyện trong cấu trúc.",
+      "selectNode": "Chọn nút để xem kế hoạch.",
+      "total": "Tổng cộng {{count}}",
+      "truncated": "Danh sách đã bị rút gọn"
+    },
     "undo": "Hoàn tác",
     "empty": {
       "title": "Chưa có kế hoạch cho cuốn sách này",
@@ -1970,5 +2010,45 @@
     "loading_more": "Đang tải…",
     "restore": "Khôi phục"
   },
-  "campaigns": "Chiến dịch (trích xuất & dịch thuật hàng loạt)"
+  "campaigns": "Chiến dịch (trích xuất & dịch thuật hàng loạt)",
+  "referenceShelf": {
+    "title": "Kệ nguồn tham khảo",
+    "entity": "Thực thể trong bảng thuật ngữ",
+    "chooseEntity": "Chọn thực thể",
+    "noEntities": "Sách này chưa có thực thể nào trong bảng thuật ngữ.",
+    "signIn": "Đăng nhập để tải nguồn.",
+    "loading": "Đang tải nguồn…",
+    "loadFailed": "Không thể tải nguồn.",
+    "empty": "Không tìm thấy nguồn.",
+    "partial": "Không thể tải một số nguồn.",
+    "capped": "Đang hiển thị {{shown}} trong {{count}} nguồn.",
+    "showMore": "Xem thêm",
+    "limitReached": "Đã đạt giới hạn hiển thị nguồn.",
+    "question": "Hỏi về các nguồn này",
+    "questionPlaceholder": "Bạn muốn biết điều gì?",
+    "ask": "Hỏi trợ lý AI",
+    "asking": "Đang hỏi trợ lý AI…",
+    "paid": "Yêu cầu tùy chọn này sử dụng token mô hình và có thể phát sinh phí. Yêu cầu không chỉnh sửa sách của bạn.",
+    "model": "Mô hình",
+    "inheritedModel": "Dùng mô hình trò chuyện của sách, sau đó là mô hình mặc định của tài khoản; chọn mô hình khác để thay thế.",
+    "assistantFailed": "Trợ lý AI không thể trả lời.",
+    "retry": "Thử tải lại nguồn",
+    "planOnly": "Chỉ gồm tham chiếu trong kế hoạch; không bao gồm các lượt nhắc trong bản thảo và đồ thị tri thức.",
+    "indirectThreads": "Các tuyến truyện được mở tại nút có thực thể này xuất hiện; không phải lượt nhắc trực tiếp đến thực thể.",
+    "prompts": {
+      "consistency": "Kiểm tra tính nhất quán",
+      "summary": "Tóm tắt những gì đã biết",
+      "gaps": "Còn thiếu gì?"
+    },
+    "groups": {
+      "outline_pov": "Điểm nhìn chương",
+      "outline_present": "Nhân vật trong chương",
+      "scene_pov": "Điểm nhìn cảnh",
+      "scene_present": "Nhân vật trong cảnh",
+      "structure_roster": "Danh sách nhân vật của tuyến và saga",
+      "motif_application": "Áp dụng mô-típ",
+      "canon_rule": "Quy tắc chính sử",
+      "narrative_thread": "Tuyến truyện liên quan"
+    }
+  }
 }

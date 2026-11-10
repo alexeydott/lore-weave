@@ -205,7 +205,8 @@
       "batchRunning": "已分析章节：{{done}}/{{total}}…",
       "batchStop": "停止",
       "batchDone": "已分析章节：{{total}} · 新开承诺：{{opened}} · 已回收：{{paid}}",
-      "batchStopped": "已停止——共分析 {{done}}/{{total}} 章。"
+      "batchStopped": "已停止——共分析 {{done}}/{{total}} 章。",
+      "batchFailed": "已分析 {{done}}/{{total}} 章；{{failed}} 章失败。结果不完整。"
     },
     "quality-critic": {
       "title": "评论家",
@@ -462,6 +463,10 @@
         "motifs": "主题元素"
       },
       "links": {
+        "loading": "正在加载场景链接…",
+        "loadError": "无法加载场景链接。",
+        "unavailable": "场景不可用",
+        "untitledScene": "场景 {{number}}",
         "empty": "尚无因果关联。",
         "setup": "铺垫→高潮",
         "custom": "自定义",
@@ -1097,7 +1102,13 @@
     "criticBatchRemaining": "剩余：{{count}}",
     "criticBatchFailed": "失败 — 将重试",
     "criticBatchClear": "清除结果",
-    "chaptersLoadError": "无法加载章节列表。"
+    "chaptersLoadError": "无法加载章节列表。",
+    "criticBatchEstimate": "预计最多调用模型 {{calls}} 次，覆盖 {{count}} 章。",
+    "criticBatchConfirm": "确认分析整本书",
+    "criticBatchEstimateFailed": "无法估算此次分析，尚未启动运行。",
+    "criticBatchProgress": "已完成 {{completed}}，失败 {{failed}}，共 {{total}}。",
+    "criticBatchDetached": "已停止等待，服务器上的运行仍在继续。",
+    "criticBatchEstimateCost": "预计费用上限：${{cost}}。尚未启动运行。"
   },
   "sidebar": {
     "collapse": "折叠",
@@ -1708,6 +1719,35 @@
     }
   },
   "planHub": {
+    "drawer": {
+      "noCanon": "此处未绑定正典规则。",
+      "chapter": "章",
+      "scene": "场景",
+      "arc": "故事弧",
+      "saga": "系列",
+      "unknown": "节点",
+      "anchor": "绑定",
+      "notAnchored": "— 未绑定 —",
+      "currentAnchor": "（当前绑定）",
+      "anchorFirst": "请先将此节点绑定到章节",
+      "anchorError": "无法读取章节列表，暂时无法更改绑定。",
+      "noAnchor": "此节点尚未绑定手稿章节，请在上方选择。",
+      "openEditor": "在编辑器中打开",
+      "expand": "展开",
+      "collapse": "折叠",
+      "expandScenes": "展开场景",
+      "collapseScenes": "折叠场景",
+      "expandArc": "展开故事弧",
+      "expandLane": "展开泳道",
+      "collapseLane": "折叠泳道",
+      "referencesNote": "反向引用需要尚未实现的 composition_find_references 工具。上方角色列表仅属于此节点。",
+      "criticNote": "评论按整本书运行，请查看「质量 → 评论」。",
+      "noPlan": "此节点尚无计划。",
+      "arcMissing": "在结构中未找到故事弧。",
+      "selectNode": "选择节点以查看其计划。",
+      "total": "共 {{count}} 项",
+      "truncated": "列表已截断"
+    },
     "undo": "撤销",
     "empty": {
       "title": "该书籍尚未制定计划",
@@ -1970,5 +2010,45 @@
     "loading_more": "加载中…",
     "restore": "还原"
   },
-  "campaigns": "任务 (批量提取与翻译)"
+  "campaigns": "任务 (批量提取与翻译)",
+  "referenceShelf": {
+    "title": "来源书架",
+    "entity": "术语表实体",
+    "chooseEntity": "选择实体",
+    "noEntities": "本书暂无可用的术语表实体。",
+    "signIn": "请登录以加载来源。",
+    "loading": "正在加载来源…",
+    "loadFailed": "无法加载来源。",
+    "empty": "未找到来源。",
+    "partial": "部分来源无法加载。",
+    "capped": "正在显示 {{count}} 个来源中的 {{shown}} 个。",
+    "showMore": "显示更多",
+    "limitReached": "已达到来源显示上限。",
+    "question": "就这些来源提问",
+    "questionPlaceholder": "你想了解什么？",
+    "ask": "询问 AI 助手",
+    "asking": "正在询问 AI 助手…",
+    "paid": "此可选请求会消耗模型令牌，并可能产生费用。它不会修改你的书。",
+    "model": "模型",
+    "inheritedModel": "优先使用本书的聊天模型，其次使用账户默认模型；选择其他模型可覆盖此设置。",
+    "assistantFailed": "AI 助手无法回答。",
+    "retry": "重新加载来源",
+    "planOnly": "仅包含规划中的引用，不含正文和知识图谱中的提及。",
+    "indirectThreads": "在此实体出现的节点上开启的叙事线索，并非对实体的直接提及。",
+    "prompts": {
+      "consistency": "检查一致性",
+      "summary": "总结已知信息",
+      "gaps": "缺少什么？"
+    },
+    "groups": {
+      "outline_pov": "章节视角",
+      "outline_present": "章节角色",
+      "scene_pov": "场景视角",
+      "scene_present": "场景角色",
+      "structure_roster": "故事弧与长篇系列角色名册",
+      "motif_application": "母题应用",
+      "canon_rule": "正史规则",
+      "narrative_thread": "相关叙事线索"
+    }
+  }
 }

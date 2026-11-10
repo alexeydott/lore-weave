@@ -89,16 +89,23 @@ def client(monkeypatch):
     # (resolve the Work's book, then gate) before acting.
     class _StubGrant:
         async def resolve_grant(self, book_id, user_id):
-            return GrantLevel.OWNER
+            assert (book_id, user_id) == (B, U)
+            return state.grant_level
         async def resolve_access(self, book_id, user_id):
             return GrantLevel.OWNER, "active"
 
     work = SimpleNamespace(project_id=P, created_by=U, book_id=B, settings={})
-    state = SimpleNamespace(node=None, kal=FakeKal([]))
+    state = SimpleNamespace(
+        node=None, kal=FakeKal([]), work=work, grant_level=GrantLevel.OWNER,
+        motif=SimpleNamespace(id=M, roles=[{"key": "seeker"}, {"key": "pov"}]),
+    )
+    visible = AsyncMock(side_effect=lambda caller, motif_id: state.motif)
+    monkeypatch.setattr("app.routers.plan.MotifRepo", lambda pool: SimpleNamespace(get_visible=visible))
+    state.visible = visible
 
     class _Works:
         async def get(self, p):
-            return work
+            return state.work
     class _Outline:
         async def get_node(self, node_id, *, conn=None):
             return state.node
@@ -186,6 +193,83 @@ def test_rebind_foreign_entity_not_in_cast_is_404(client, monkeypatch):
     r = c.patch(f"/v1/composition/works/{P}/outline/{N}/motif/role",
                 json={"role_key": "seeker", "entity_id": str(EID)})
     assert r.status_code == 404 and apps.set_calls == []
+
+
+@pytest.mark.parametrize("entity_id", [str(EID), None])
+def test_rebind_initial_declared_role_with_empty_bindings(client, monkeypatch, entity_id):
+    # NV-6: the old binding-membership guard returns 404 instead of 200 here.
+    c, state = client
+    state.node = SimpleNamespace(project_id=P, kind="scene")
+    state.kal = FakeKal([{"entity_id": str(EID), "name": "Lin"}])
+    apps = FakeApps(bound=_bound_app({}))
+    monkeypatch.setattr("app.routers.plan.MotifApplicationRepo", lambda pool: apps)
+    r = c.patch(f"/v1/composition/works/{P}/outline/{N}/motif/role",
+                json={"role_key": "pov", "entity_id": entity_id})
+    assert r.status_code == 200, r.text
+    assert r.json()["rebound"] is True
+    assert r.json()["entity_id"] == entity_id
+    assert apps.set_calls == [("pov", EID if entity_id else None)]
+    state.visible.assert_awaited_once_with(U, M)
+
+
+def test_rebind_stale_undeclared_binding_is_rejected(client, monkeypatch):
+    c, state = client
+    state.node = SimpleNamespace(project_id=P, kind="scene")
+    apps = FakeApps(bound=_bound_app({"ghost": None}))
+    monkeypatch.setattr("app.routers.plan.MotifApplicationRepo", lambda pool: apps)
+    r = c.patch(f"/v1/composition/works/{P}/outline/{N}/motif/role",
+                json={"role_key": "ghost", "entity_id": None})
+    assert r.status_code == 404
+    assert apps.set_calls == []
+
+
+def test_rebind_inaccessible_motif_is_rejected(client, monkeypatch):
+    c, state = client
+    state.node = SimpleNamespace(project_id=P, kind="scene")
+    state.motif = None
+    apps = FakeApps(bound=_bound_app({"seeker": None}))
+    monkeypatch.setattr("app.routers.plan.MotifApplicationRepo", lambda pool: apps)
+    r = c.patch(f"/v1/composition/works/{P}/outline/{N}/motif/role",
+                json={"role_key": "seeker", "entity_id": None})
+    assert r.status_code == 404
+    assert apps.set_calls == []
+    state.visible.assert_awaited_once_with(U, M)
+
+
+@pytest.mark.parametrize("denial, expected", [("work", 404), ("none", 404), ("view", 403), ("node", 404)])
+def test_rebind_preserves_work_book_and_node_gates(client, monkeypatch, denial, expected):
+    from app.grant_client import GrantLevel
+
+    c, state = client
+    state.node = SimpleNamespace(project_id=P, kind="scene")
+    if denial == "work":
+        state.work = None
+    elif denial == "node":
+        state.node.project_id = uuid.uuid4()
+    else:
+        state.grant_level = GrantLevel.NONE if denial == "none" else GrantLevel.VIEW
+    apps = FakeApps(bound=_bound_app({"seeker": None}))
+    monkeypatch.setattr("app.routers.plan.MotifApplicationRepo", lambda pool: apps)
+    r = c.patch(f"/v1/composition/works/{P}/outline/{N}/motif/role",
+                json={"role_key": "seeker", "entity_id": None})
+    assert r.status_code == expected
+    assert apps.set_calls == []
+    state.visible.assert_not_awaited()
+
+
+@pytest.mark.parametrize("entity_id, encoded", [(EID, f'"{EID}"'), (None, "null")])
+async def test_role_repository_creates_initial_key_and_preserves_scope(entity_id, encoded):
+    from app.db.repositories.motif_application import MotifApplicationRepo
+
+    conn = SimpleNamespace(execute=AsyncMock(return_value="UPDATE 1"))
+    updated = await MotifApplicationRepo(None).set_role_binding(P, N, "pov", entity_id, conn=conn)
+    assert updated == 1
+    sql, *args = conn.execute.await_args.args
+    sql = " ".join(sql.split())
+    # NV-6: create_missing=false silently leaves an initially empty object unchanged.
+    assert "COALESCE(role_bindings, '{}'::jsonb), ARRAY[$3], $4::jsonb, true)" in sql
+    assert "WHERE project_id = $1 AND outline_node_id = $2" in sql
+    assert args == [P, N, "pov", encoded]
 
 
 # ── POST …/motif/chain (chainIt) ─────────────────────────────────────────────────

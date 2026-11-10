@@ -205,7 +205,8 @@
       "batchRunning": "Analiz edilen bölümler: {{done}}/{{total}}…",
       "batchStop": "Durdur",
       "batchDone": "Analiz edilen bölümler: {{total}} · açılan sözler: {{opened}} · kapatılan: {{paid}}",
-      "batchStopped": "Durduruldu — {{total}} bölümden {{done}} analiz edildi."
+      "batchStopped": "Durduruldu — {{total}} bölümden {{done}} analiz edildi.",
+      "batchFailed": "{{total}} bölümün {{done}} tanesi analiz edildi; {{failed}} başarısız. Sonuçlar eksik."
     },
     "quality-critic": {
       "title": "Eleştirmen",
@@ -462,6 +463,10 @@
         "motifs": "Motifler"
       },
       "links": {
+        "loading": "Sahne bağlantıları yükleniyor…",
+        "loadError": "Sahne bağlantıları yüklenemedi.",
+        "unavailable": "Sahne kullanılamıyor",
+        "untitledScene": "Sahne {{number}}",
         "empty": "Henüz nedensel bağlantı yok.",
         "setup": "kurulum→sonuç",
         "custom": "özel",
@@ -1097,7 +1102,13 @@
     "criticBatchRemaining": "Kalan: {{count}}",
     "criticBatchFailed": "başarısız — yeniden denenecek",
     "criticBatchClear": "Sonuçları temizle",
-    "chaptersLoadError": "Bölüm listesi yüklenemedi."
+    "chaptersLoadError": "Bölüm listesi yüklenemedi.",
+    "criticBatchEstimate": "Tahmini en fazla model çağrısı: {{count}} bölüm için {{calls}}.",
+    "criticBatchConfirm": "Kitabın tamamının analizini onayla",
+    "criticBatchEstimateFailed": "Bu analiz için tahmin yapılamadı. Hiçbir çalıştırma başlatılmadı.",
+    "criticBatchProgress": "{{completed}} tamamlandı, {{failed}} başarısız, toplam {{total}}.",
+    "criticBatchDetached": "Bekleme durduruldu. Sunucudaki çalıştırma devam ediyor.",
+    "criticBatchEstimateCost": "Tahmini üst maliyet: ${{cost}}. Henüz çalıştırma başlatılmadı."
   },
   "sidebar": {
     "collapse": "Daralt",
@@ -1721,6 +1732,35 @@
     }
   },
   "planHub": {
+    "drawer": {
+      "noCanon": "Buraya bağlı kanon kuralı yok.",
+      "chapter": "Bölüm",
+      "scene": "Sahne",
+      "arc": "Öykü yayı",
+      "saga": "Destan",
+      "unknown": "Düğüm",
+      "anchor": "Bağlantı",
+      "notAnchored": "— bağlı değil —",
+      "currentAnchor": "(mevcut bağlantı)",
+      "anchorFirst": "Önce bu düğümü bir bölüme bağlayın",
+      "anchorError": "Bölüm listesi okunamadı; bağlantı değiştirilemiyor.",
+      "noAnchor": "El yazması bölümüne bağlı değil; yukarıdan bir bölüm seçin.",
+      "openEditor": "Düzenleyicide aç",
+      "expand": "Genişlet",
+      "collapse": "Daralt",
+      "expandScenes": "Sahneleri genişlet",
+      "collapseScenes": "Sahneleri daralt",
+      "expandArc": "Öykü yayını genişlet",
+      "expandLane": "Şeridi genişlet",
+      "collapseLane": "Şeridi daralt",
+      "referencesNote": "Geri başvurular henüz geliştirilmemiş composition_find_references aracını gerektirir. Yukarıdaki kişiler bu düğüme aittir.",
+      "criticNote": "Eleştiri kitap genelinde çalışır; Kalite → Eleştiri bölümüne bakın.",
+      "noPlan": "Bu düğümün henüz planı yok.",
+      "arcMissing": "Yapıda öykü yayı bulunamadı.",
+      "selectNode": "Planını görmek için bir düğüm seçin.",
+      "total": "Toplam {{count}}",
+      "truncated": "Liste kısaltıldı"
+    },
     "undo": "Geri al",
     "empty": {
       "title": "Bu kitap için henüz bir plan yok",
@@ -1970,5 +2010,45 @@
     "loading_more": "Yükleniyor…",
     "restore": "Geri yükle"
   },
-  "campaigns": "Kampanyalar (toplu çıkarma ve çeviri)"
+  "campaigns": "Kampanyalar (toplu çıkarma ve çeviri)",
+  "referenceShelf": {
+    "title": "Kaynak rafı",
+    "entity": "Sözlük varlığı",
+    "chooseEntity": "Bir varlık seçin",
+    "noEntities": "Bu kitap için kullanılabilir sözlük varlığı yok.",
+    "signIn": "Kaynakları yüklemek için oturum açın.",
+    "loading": "Kaynaklar yükleniyor…",
+    "loadFailed": "Kaynaklar yüklenemedi.",
+    "empty": "Kaynak bulunamadı.",
+    "partial": "Bazı kaynaklar yüklenemedi.",
+    "capped": "{{count}} kaynaktan {{shown}} tanesi gösteriliyor.",
+    "showMore": "Daha fazla göster",
+    "limitReached": "Kaynak görüntüleme sınırına ulaşıldı.",
+    "question": "Bu kaynaklar hakkında soru sorun",
+    "questionPlaceholder": "Ne öğrenmek istersiniz?",
+    "ask": "Yapay zekâ yardımcısına sor",
+    "asking": "Yapay zekâ yardımcısına soruluyor…",
+    "paid": "Bu isteğe bağlı istek model tokenlarını kullanır ve ücret doğurabilir. Kitabınızı düzenlemez.",
+    "model": "Model",
+    "inheritedModel": "Önce bu kitabın sohbet modeli, ardından hesap varsayılanınız kullanılır; değiştirmek için bir model seçin.",
+    "assistantFailed": "Yapay zekâ yardımcısı yanıt veremedi.",
+    "retry": "Kaynakları yeniden yükle",
+    "planOnly": "Yalnızca planlama referansları; el yazması ve bilgi grafiğindeki anılmalar dahil değildir.",
+    "indirectThreads": "Bu varlığın yer aldığı düğümlerde açılan anlatı kolları; varlığın doğrudan anıldığı yerler değildir.",
+    "prompts": {
+      "consistency": "Tutarlılığı denetle",
+      "summary": "Bilinenleri özetle",
+      "gaps": "Ne eksik?"
+    },
+    "groups": {
+      "outline_pov": "Bölüm bakış açısı",
+      "outline_present": "Bölüm karakterleri",
+      "scene_pov": "Sahne bakış açısı",
+      "scene_present": "Sahne karakterleri",
+      "structure_roster": "Anlatı yayı ve destan karakter listesi",
+      "motif_application": "Motif uygulamaları",
+      "canon_rule": "Kanon kuralları",
+      "narrative_thread": "İlgili anlatı kolları"
+    }
+  }
 }

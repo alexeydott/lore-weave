@@ -194,7 +194,7 @@ describe('PlanCanvas', () => {
     );
     // ch-1 has content ⇒ its real title; ch-2 has none ⇒ the story-order placeholder.
     expect(screen.getByTestId('plan-node-chapter-ch-1').textContent).toContain('The Summons');
-    expect(screen.getByTestId('plan-node-chapter-ch-2').textContent).toContain('Ch 3');
+    expect(screen.getByTestId('plan-node-chapter-ch-2').textContent).toContain('planHub.flow.chNo');
   });
 
   it('marks the active (you-are-here) node with data-here and leaves others unmarked', () => {

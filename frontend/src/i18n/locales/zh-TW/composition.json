@@ -274,6 +274,10 @@
     "deleteFailed": "無法移除該地點。",
     "backdropNoChapter": "請開啟章節以設定背景。"
   },
+  "groundingNoResults": "未能為此場景擷取到圖譜脈絡。圖譜可能仍然存在；場景位置、相符內容或知識服務故障都可能限制擷取。",
+  "groundingNoProject": "此作品尚未連結知識專案，目前無法使用依據功能。",
+  "groundingLoadFailed": "無法載入依據。請先重試，再考慮修改知識圖譜。",
+  "groundingRetry": "重試載入依據",
   "grounding": "依據",
   "canon": "正典",
   "progress": "進度",
@@ -371,7 +375,12 @@
     "saveContent": "儲存內容（重新嵌入）",
     "saveMetadata": "儲存詳細資訊",
     "saving": "儲存中…",
-    "sourceUrl": "來源 URL（選填）"
+    "sourceUrl": "來源 URL（選填）",
+    "loading": "正在載入參考資料…",
+    "listError": "無法載入參考資料，請重試。",
+    "inheritedEmbed": "使用繼承的嵌入模型",
+    "modelsLoading": "正在載入嵌入模型…",
+    "modelsError": "無法載入嵌入模型，請重試。"
   },
   "progressPanel": {
     "loading": "載入進度中…",
@@ -826,7 +835,10 @@
       "noWork": "為這本書制定一個將主題與場景進行綁定的計畫。",
       "committedTitle": "綁定場景主題",
       "loadError": "無法載入場景主題。",
-      "sectionTitle": "場景主題"
+      "sectionTitle": "場景主題",
+      "candidatesLoading": "正在載入母題…",
+      "candidatesError": "無法載入母題。",
+      "candidatesEmpty": "請在母題庫中新增或匯入母題，然後返回此處綁定。"
     },
     "swap": {
       "title": "更換主題",
@@ -852,12 +864,26 @@
         "bad": "節奏失準"
       },
       "rerunNeedsModel": "選擇一個模型來重新執行一致性檢查",
-      "bindCta": "將主題綁定至場景 →",
+      "bindCta": "選擇要綁定的場景 →",
       "couldNotCheck": "無法檢查",
       "notChecked": "尚未檢查",
       "notWritten": "尚未撰寫",
       "openScene": "在檢視器中開啟此場景",
-      "written": "已撰寫"
+      "written": "已撰寫",
+      "noChapter": "選擇章節",
+      "chaptersLoading": "正在載入章節…",
+      "chaptersError": "無法載入章節。",
+      "noChapters": "尚無章節。",
+      "actionError": "操作失敗，請重試。",
+      "running": "執行中…",
+      "snapshot": "上次檢查：{{time}}",
+      "status": {
+        "unavailable": "無法檢查",
+        "no_bound_motif": "請先綁定母題",
+        "motif_unavailable": "母題無法使用",
+        "no_manuscript_prose": "請先撰寫正文",
+        "stale": "已過期，請重新檢查"
+      }
     },
     "arc": {
       "mobileNotice": "時間軸網格可在較大螢幕上查看 — 在此處您可以以列表形式進行編輯。",
@@ -960,7 +986,8 @@
         "error": "無法對劇情弧建議進行排名。",
         "empty": "目前尚無符合的劇情弧模板 — 請建立一個，或匯入故事進行解析。",
         "mine": "您的",
-        "span": "{{count}} 章"
+        "span": "{{count}} 章",
+        "sectionMine": "你的故事弧"
       },
       "decompile": {
         "open": "將章節分組為劇情弧",
@@ -1092,10 +1119,14 @@
       "retry": "重試",
       "empty": "目前尚無符合此場景的主題 — 請在您的庫中添加更多內容。",
       "bind": "綁定",
-      "degradedMine": "您的主題（motifs）尚未依據契合度排序 — 請在設定中建立嵌入模型（embedding model），以便進行語義排序。",
-      "degradedLibrary": "尚未依據契合度排序 — 由於共享圖書館的嵌入模型尚未配置，因此這些是類型回退（genre fallbacks），而非評分匹配項。",
+      "degradedMine": "無法對你的私人建議進行語意排名：本書或帳戶尚未選定有效的嵌入模型。",
+      "degradedLibrary": "共享資料庫的語意排名無法使用：平台為其獨立設定的嵌入組態尚不完整。你的書籍或帳戶模型設定與此相互獨立。",
       "sectionMine": "您的主題",
-      "sectionLibrary": "來自圖庫"
+      "sectionLibrary": "來自圖庫",
+      "rankingUnavailable": "無法排名——這些建議未依契合度排序。",
+      "providerUnavailable": "排名暫時無法使用，請稍後重試。",
+      "emptyQuery": "新增故事前提或場景文字，即可依契合度對建議排名。",
+      "semanticMatch": "語意匹配"
     },
     "language": {
       "writtenIn": "書寫語言為",
@@ -1176,29 +1207,28 @@
       "violation": "{{label}}: {{n}} 處順序錯誤"
     },
     "editor": {
-      "add": "新增",
-      "beatIntent": "意圖",
-      "beatLabel": "節拍",
-      "beats": "節拍",
-      "conflict": "此動機已在其他地方變更 — 請重新開啟以獲取最新版本後再進行編輯。",
-      "deceived": "被欺騙者（以逗號分隔）",
-      "effects": "效果",
-      "emotion": "情感",
-      "examples": "範例（作者撰寫）",
-      "gap": "差距",
-      "genres": "類型（以逗號分隔）",
-      "kind": "種類",
-      "knows": "知情者（以逗號分隔）",
-      "name": "名稱",
-      "preconditions": "前提條件",
-      "roleConstraints": "限制條件",
-      "roleLabel": "標籤",
-      "roles": "角色",
-      "saveError": "儲存失敗。",
+      "open": "編輯母題",
+      "title": "場景母題",
+      "description": "按下儲存前，修改僅保留於草稿中。",
+      "search": "依名稱或代碼搜尋",
+      "motif": "母題",
+      "freeform": "自由形式（無母題）",
+      "preview": "母題預覽",
+      "unresolved": "未指派",
+      "save": "儲存",
       "saving": "儲存中…",
-      "scheme": "資訊不對稱",
-      "summary": "摘要（嵌入以供檢索）",
-      "tension": "張力 (1–5)"
+      "cancel": "取消",
+      "loadError": "無法載入母題資料。",
+      "saveError": "儲存失敗。草稿已保留，請重試儲存。",
+      "partialError": "部分修改已儲存。請重試儲存以完成；取消不會復原已儲存的修改。",
+      "discardTitle": "放棄未儲存的修改？",
+      "discardDescription": "未儲存的草稿將被捨棄。此處無法復原已儲存的修改。",
+      "stay": "繼續編輯",
+      "discard": "捨棄草稿",
+      "fallback": "暫無翻譯，顯示{{language}}。",
+      "contextRequired": "請選擇已確認的場景。",
+      "current": "目前",
+      "dirty": "有未儲存的修改"
     },
     "kind": {
       "arcs": "故事弧模板",
@@ -1765,6 +1795,13 @@
   "canonConflictCurrent": "當前 (v{{v}}): {{text}}",
   "coverageExtractionFailed": "無法從您的大綱中讀取伏筆（模型呼叫失敗或中斷）。請重試，或選擇不同的模型。",
   "coverageScoreFailed": "已讀取伏筆，但與全書進行比對評分時失敗。請重試。",
+  "coverageCorpusIncomplete": "無法評估全書：未能讀取 {{count}} 章的草稿。尚未產生針對全書的判定。請重試。",
+  "coverageCorpusIncomplete_zero": "無法評估全書：未能讀取 {{count}} 章的草稿。尚未產生針對全書的判定。請重試。",
+  "coverageCorpusIncomplete_one": "無法評估全書：未能讀取 {{count}} 章的草稿。尚未產生針對全書的判定。請重試。",
+  "coverageCorpusIncomplete_two": "無法評估全書：未能讀取 {{count}} 章的草稿。尚未產生針對全書的判定。請重試。",
+  "coverageCorpusIncomplete_few": "無法評估全書：未能讀取 {{count}} 章的草稿。尚未產生針對全書的判定。請重試。",
+  "coverageCorpusIncomplete_many": "無法評估全書：未能讀取 {{count}} 章的草稿。尚未產生針對全書的判定。請重試。",
+  "coverageCorpusIncomplete_other": "無法評估全書：未能讀取 {{count}} 章的草稿。尚未產生針對全書的判定。請重試。",
   "lengthAskedDelivered": "要求約 {{target}} 字，實際交付 {{actual}} 字 ({{pct}}%)。",
   "lengthOverCeiling": "單次呼叫要求的字數超過了模型能穩定交付的範圍 — 請將場景拆分為段落以獲得完整長度。",
   "techEdit": {
@@ -1818,7 +1855,12 @@
     "reasoning_exhausted": "推理耗盡了回應預算。",
     "truncated": "回應遭截斷。",
     "invalid_response": "模型回應無效。",
-    "manualRetry": "請在下次手動執行時重試。"
+    "manualRetry": "請在下次手動執行時重試。",
+    "unknown": "品質分析因未知原因失敗。",
+    "incomplete": "並非所有分析視窗都已完成。",
+    "synthesis_failed": "分析已完成，但報告綜合失敗。",
+    "synthesis_invalid_response": "分析已完成，但綜合過程傳回了無效回應。",
+    "audit_only": "僅完成了敘事線索稽核，暫無評論評分。"
   },
   "qualityScope": {
     "partial": "部分報告，不代表整章評估。",

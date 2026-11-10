@@ -184,6 +184,7 @@ export type ConformanceDim = {
 };
 
 export type SceneConformance = {
+  check_status?: 'checked' | 'unavailable' | 'no_bound_motif' | 'motif_unavailable' | 'no_manuscript_prose' | 'stale';
   outline_node_id: string;
   title: string;
   beat_role: string | null;
@@ -202,6 +203,7 @@ export type SceneConformance = {
 };
 
 export type ChapterConformance = {
+  last_run?: { computed_at?: string; completed_at?: string; created_at?: string; [key: string]: unknown };
   scope?: string;
   chapter_id: string;
   calibrated: boolean;                 // chapter-level calibration flag (R2.1)

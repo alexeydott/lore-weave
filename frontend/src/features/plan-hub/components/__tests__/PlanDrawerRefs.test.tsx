@@ -13,6 +13,7 @@ import type { PlanNodeView } from '../../hooks/usePlanNode';
 const hook = vi.hoisted(() => ({ usePlanNode: vi.fn() }));
 vi.mock('../../hooks/usePlanNode', () => ({ usePlanNode: hook.usePlanNode }));
 
+vi.mock('../ReferenceShelf', () => ({ ReferenceShelf: () => <div data-testid="plan-drawer-section-references" /> }));
 import { PlanDrawer } from '../PlanDrawer';
 
 const NODE = 'ch-1';
@@ -124,8 +125,8 @@ describe('PlanDrawer canon/thread facets (PH16/PH18)', () => {
       <PlanDrawer selectedId={NODE} kind="chapter" bookId="b" onClose={vi.fn()} overlay={overlay} />,
     );
     const note = screen.getByTestId('plan-drawer-canon-refs-capped');
-    expect(note.textContent).toContain('3 in total');
-    expect(note.textContent).toContain('truncated');
+    expect(note.textContent).toContain('planHub.drawer.total');
+    expect(note.textContent).toContain('planHub.drawer.truncated');
   });
 
   it('no overlay ⇒ the facets say so honestly (not a crash, not a fake zero)', () => {

@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { UserModel } from '../../ai-models/api';
 import { useReferences } from '../hooks/useReferences';
-import { useEffectiveModel } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
+import { useEffectiveModelSelection } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 import { AddModelCta } from '@/components/shared/AddModelCta';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { cn } from '@/lib/utils';
@@ -17,8 +17,9 @@ function embeddingModels(models: UserModel[]): UserModel[] {
   return models.filter((m) => m.is_active && (m.capability_flags?.embed || m.capability_flags?.embedding));
 }
 
-export function ReferencesPanel({ projectId, sceneId, token, models }: {
+export function ReferencesPanel({ projectId, sceneId, token, models, modelsLoading = false, modelsError = false }: {
   projectId: string; sceneId: string; token: string | null; models: UserModel[];
+  modelsLoading?: boolean; modelsError?: boolean;
 }) {
   const { t } = useTranslation('composition');
   const [query, setQuery] = useState('');
@@ -29,23 +30,25 @@ export function ReferencesPanel({ projectId, sceneId, token, models }: {
   const [librarySearch, setLibrarySearch] = useState('');
   const refs = useReferences(projectId, sceneId, token, query);
   const embedModels = embeddingModels(models);
-  // Inherit the shared cascade embedding model (spec §8) before list[0].
-  const inheritedEmbed = useEffectiveModel('embedding');
+  // A resolved role is an offer for the initial corpus pin, not an existing pin.
+  const inheritedEmbed = useEffectiveModelSelection('embedding');
 
-  const needsModel = !refs.embedModelSet;
-  const canAdd = draft.content.trim().length > 0 && (!needsModel || !!draft.model_ref || !!inheritedEmbed || embedModels.length > 0);
+  const listReady = !refs.isLoading && !refs.isListError && refs.embedModelSet !== undefined;
+  const needsModel = listReady && refs.embedModelSet === false;
+  const canAdd = listReady && draft.content.trim().length > 0 && (!needsModel || !!draft.model_ref || !!inheritedEmbed?.model_ref);
   const _q = librarySearch.trim().toLowerCase();
   const filteredLibrary = _q
     ? refs.references.filter((r) => `${r.title} ${r.author} ${r.content}`.toLowerCase().includes(_q))
     : refs.references;
 
   const submit = () => {
-    if (!draft.content.trim()) return;
-    const model_ref = needsModel ? (draft.model_ref || inheritedEmbed || embedModels[0]?.user_model_id) : undefined;
+    if (!canAdd) return;
+    const model_ref = needsModel ? (draft.model_ref || inheritedEmbed?.model_ref) : undefined;
     if (needsModel && !model_ref) return;  // no embedding model available
     refs.add.mutate(
       { content: draft.content.trim(), title: draft.title.trim(), author: draft.author.trim(),
-        source_url: draft.source_url.trim(), model_ref, model_source: model_ref ? 'user_model' : undefined },
+        source_url: draft.source_url.trim(), model_ref,
+        model_source: model_ref ? (draft.model_ref ? 'user_model' : inheritedEmbed?.model_source) : undefined },
       { onSuccess: () => setDraft({ title: '', author: '', source_url: '', content: '', model_ref: '' }) },
     );
   };
@@ -78,18 +81,22 @@ export function ReferencesPanel({ projectId, sceneId, token, models }: {
           className="rounded border px-2 py-1 text-xs dark:bg-neutral-900"
           value={draft.source_url} onChange={(e) => setDraft({ ...draft, source_url: e.target.value })}
         />
+        {refs.isLoading && <p role="status">{t('referencesPanel.loading')}</p>}
+        {refs.isListError && <p role="alert">{t('referencesPanel.listError')}</p>}
         {needsModel && (
-          embedModels.length > 0 ? (
+          (embedModels.length > 0 || inheritedEmbed?.model_ref) ? (
             <select
               data-testid="references-model-select"
               className="rounded border px-2 py-1 text-xs dark:bg-neutral-900"
               value={draft.model_ref} onChange={(e) => setDraft({ ...draft, model_ref: e.target.value })}
             >
-              <option value="">{t('referencesPanel.pickEmbedModel', { defaultValue: 'Embedding model (set once for this work)' })}</option>
+              <option value="">{inheritedEmbed?.model_ref ? t('referencesPanel.inheritedEmbed') : t('referencesPanel.pickEmbedModel', { defaultValue: 'Embedding model (set once for this work)' })}</option>
               {embedModels.map((m) => (
                 <option key={m.user_model_id} value={m.user_model_id}>{m.alias || m.provider_model_name}</option>
               ))}
             </select>
+          ) : modelsLoading || modelsError ? (
+            <p role={modelsError ? 'alert' : 'status'}>{t(modelsError ? 'referencesPanel.modelsError' : 'referencesPanel.modelsLoading')}</p>
           ) : (
             <div data-testid="references-no-embed-model" className="flex flex-col items-start gap-1 rounded bg-amber-50 p-1.5 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300">
               <span>{t('referencesPanel.noEmbedModel', { defaultValue: 'Add an embedding model (e.g. bge-m3) to enable reference retrieval.' })}</span>
@@ -170,7 +177,7 @@ export function ReferencesPanel({ projectId, sceneId, token, models }: {
               {t('referencesPanel.noMatch', { defaultValue: 'No references match your filter.' })}
             </li>
           )}
-          {!refs.references.length && (
+          {listReady && !refs.references.length && (
             <li data-testid="references-empty" className="px-1 py-1 text-xs text-neutral-500">
               {t('referencesPanel.empty', { defaultValue: 'No references yet — add influences above.' })}
             </li>

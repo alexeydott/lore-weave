@@ -32,6 +32,7 @@ vi.mock('@/features/composition/motif/components/MotifBindingLens', () => ({
   ),
 }));
 
+vi.mock('../ReferenceShelf', () => ({ ReferenceShelf: () => <div data-testid="plan-drawer-section-references" /> }));
 import { PlanDrawer } from '../PlanDrawer';
 
 function view(o: Partial<PlanNodeView>): PlanNodeView {

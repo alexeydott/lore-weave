@@ -204,7 +204,8 @@
       "batchRunning": "분석된 챕터: {{done}}/{{total}}…",
       "batchStop": "중지",
       "batchDone": "분석한 챕터: {{total}} · 열린 프로미스: {{opened}} · 완료: {{paid}}",
-      "batchStopped": "중지됨 — {{total}}개 중 {{done}}개 챕터 분석."
+      "batchStopped": "중지됨 — {{total}}개 중 {{done}}개 챕터 분석.",
+      "batchFailed": "{{total}}개 장 중 {{done}}개 분석, {{failed}}개 실패. 결과가 불완전합니다."
     },
     "quality-critic": {
       "title": "비평",
@@ -461,6 +462,10 @@
         "motifs": "모티프"
       },
       "links": {
+        "loading": "장면 연결 불러오는 중…",
+        "loadError": "장면 연결을 불러오지 못했습니다.",
+        "unavailable": "장면을 사용할 수 없음",
+        "untitledScene": "장면 {{number}}",
         "empty": "아직 인과 관계 연결이 없습니다.",
         "setup": "복선→회수",
         "custom": "사용자 지정",
@@ -1096,7 +1101,13 @@
     "criticBatchRemaining": "남은 장: {{count}}",
     "criticBatchFailed": "실패 — 재시도 예정",
     "criticBatchClear": "결과 지우기",
-    "chaptersLoadError": "장 목록을 불러올 수 없습니다."
+    "chaptersLoadError": "장 목록을 불러올 수 없습니다.",
+    "criticBatchEstimate": "예상 최대 모델 호출 수: {{count}}개 장에 걸쳐 {{calls}}회.",
+    "criticBatchConfirm": "책 전체 분석 확인",
+    "criticBatchEstimateFailed": "이 분석을 추산하지 못했습니다. 실행은 시작되지 않았습니다.",
+    "criticBatchProgress": "완료 {{completed}}개, 실패 {{failed}}개, 총 {{total}}개.",
+    "criticBatchDetached": "대기를 중단했습니다. 서버 실행은 계속됩니다.",
+    "criticBatchEstimateCost": "예상 비용 상한: ${{cost}}. 실행은 아직 시작되지 않았습니다."
   },
   "sidebar": {
     "collapse": "접기",
@@ -1707,6 +1718,35 @@
     }
   },
   "planHub": {
+    "drawer": {
+      "noCanon": "여기에 연결된 정사 규칙이 없습니다.",
+      "chapter": "장",
+      "scene": "장면",
+      "arc": "서사 아크",
+      "saga": "사가",
+      "unknown": "노드",
+      "anchor": "연결",
+      "notAnchored": "— 연결 없음 —",
+      "currentAnchor": "(현재 연결)",
+      "anchorFirst": "먼저 이 노드를 장에 연결하세요",
+      "anchorError": "장 목록을 읽을 수 없어 연결을 변경할 수 없습니다.",
+      "noAnchor": "원고의 장에 연결되지 않았습니다. 위에서 선택하세요.",
+      "openEditor": "편집기에서 열기",
+      "expand": "펼치기",
+      "collapse": "접기",
+      "expandScenes": "장면 펼치기",
+      "collapseScenes": "장면 접기",
+      "expandArc": "아크 펼치기",
+      "expandLane": "레인 펼치기",
+      "collapseLane": "레인 접기",
+      "referencesNote": "역참조에는 아직 구현되지 않은 composition_find_references가 필요합니다. 위 등장인물은 이 노드의 목록입니다.",
+      "criticNote": "비평은 책 단위로 실행됩니다. 품질 → 비평을 참조하세요.",
+      "noPlan": "이 노드에는 아직 계획이 없습니다.",
+      "arcMissing": "구조에서 아크를 찾을 수 없습니다.",
+      "selectNode": "노드를 선택하여 계획을 확인하세요.",
+      "total": "총 {{count}}개",
+      "truncated": "목록이 잘렸습니다"
+    },
     "undo": "실행 취소",
     "empty": {
       "title": "이 책에 설정된 플랜이 없습니다",
@@ -1970,5 +2010,45 @@
     "loading_more": "로딩 중…",
     "restore": "복원하기"
   },
-  "campaigns": "캠페인 (일괄 추출 및 번역)"
+  "campaigns": "캠페인 (일괄 추출 및 번역)",
+  "referenceShelf": {
+    "title": "출처 서가",
+    "entity": "용어집 개체",
+    "chooseEntity": "개체 선택",
+    "noEntities": "이 책에 사용 가능한 용어집 개체가 없습니다.",
+    "signIn": "출처를 불러오려면 로그인하세요.",
+    "loading": "출처 불러오는 중…",
+    "loadFailed": "출처를 불러오지 못했습니다.",
+    "empty": "출처를 찾을 수 없습니다.",
+    "partial": "일부 출처를 불러오지 못했습니다.",
+    "capped": "출처 {{count}}개 중 {{shown}}개 표시 중.",
+    "showMore": "더 보기",
+    "limitReached": "출처 표시 한도에 도달했습니다.",
+    "question": "이 출처에 대해 질문하기",
+    "questionPlaceholder": "무엇이 궁금한가요?",
+    "ask": "AI 도우미에게 질문",
+    "asking": "AI 도우미에게 질문하는 중…",
+    "paid": "이 선택적 요청은 모델 토큰을 사용하며 요금이 발생할 수 있습니다. 책을 수정하지는 않습니다.",
+    "model": "모델",
+    "inheritedModel": "이 책의 채팅 모델을 먼저 사용하고, 없으면 계정 기본 모델을 사용합니다. 다른 모델을 선택하면 재정의됩니다.",
+    "assistantFailed": "AI 도우미가 답변하지 못했습니다.",
+    "retry": "출처 다시 불러오기",
+    "planOnly": "계획 내 참조만 표시합니다. 원고 및 지식 그래프의 언급은 포함되지 않습니다.",
+    "indirectThreads": "이 개체가 등장하는 노드에서 시작된 서사 흐름이며, 개체를 직접 언급한 것은 아닙니다.",
+    "prompts": {
+      "consistency": "일관성 확인",
+      "summary": "알려진 내용 요약",
+      "gaps": "무엇이 빠졌나요?"
+    },
+    "groups": {
+      "outline_pov": "장의 시점",
+      "outline_present": "장의 등장인물",
+      "scene_pov": "장면의 시점",
+      "scene_present": "장면의 등장인물",
+      "structure_roster": "아크 및 사가의 인물 명단",
+      "motif_application": "모티프 적용",
+      "canon_rule": "정사 규칙",
+      "narrative_thread": "관련 서사 흐름"
+    }
+  }
 }

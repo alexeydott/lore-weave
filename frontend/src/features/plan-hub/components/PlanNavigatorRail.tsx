@@ -13,6 +13,7 @@
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { UNASSIGNED_KEY } from '../hooks/usePlanWindows';
 import { usePlanNavigator } from '../hooks/usePlanNavigator';
 
 interface Props {
@@ -30,7 +31,7 @@ interface Props {
 
 export function PlanNavigatorRail({ bookId, onFocusNode, selectedId, onOpenPlan }: Props) {
   const { t } = useTranslation('studio');
-  const { rows, loading, error, toggle } = usePlanNavigator(bookId);
+  const { rows, loading, error, toggle, hasMore, loadMore } = usePlanNavigator(bookId);
 
   return (
     <div data-testid="plan-nav" className="flex min-h-0 flex-1 flex-col">
@@ -92,7 +93,7 @@ export function PlanNavigatorRail({ bookId, onFocusNode, selectedId, onOpenPlan 
                   <button
                     type="button"
                     data-testid={`plan-nav-caret-${node.id}`}
-                    aria-label={expanded ? 'collapse' : 'expand'}
+                    aria-label={t(expanded ? 'planHub.drawer.collapse' : 'planHub.drawer.expand')}
                     aria-expanded={expanded}
                     onClick={() => toggle(node.id)}
                     className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
@@ -115,8 +116,8 @@ export function PlanNavigatorRail({ bookId, onFocusNode, selectedId, onOpenPlan 
                     isRoot ? 'font-bold' : 'font-medium',
                   )}
                 >
-                  <span className="min-w-0 flex-1 truncate" title={node.title}>{node.title || node.kind}</span>
-                  {node.chapter_count > 0 && (
+                  <span className="min-w-0 flex-1 truncate" title={node.title}>{node.title || t(`planHub.drawer.${node.kind}`, { defaultValue: t('planHub.drawer.unknown') })}</span>
+                  {'chapter_count' in node && node.chapter_count > 0 && (
                     <span
                       data-testid={`plan-nav-count-${node.id}`}
                       className={cn('ml-auto flex-shrink-0 font-mono text-[9px]', isRoot ? 'text-accent' : 'text-muted-foreground/70')}
@@ -125,9 +126,19 @@ export function PlanNavigatorRail({ bookId, onFocusNode, selectedId, onOpenPlan 
                     </span>
                   )}
                 </button>
+                {expanded && hasMore[node.id] && (
+                  <button type="button" data-testid={`plan-nav-more-${node.id}`} onClick={() => loadMore(node.id)}>
+                    {t('planNav.loadMore', { defaultValue: 'Load more' })}
+                  </button>
+                )}
               </div>
             );
           })
+        )}
+        {hasMore[UNASSIGNED_KEY] && (
+          <button type="button" data-testid="plan-nav-more-unassigned" onClick={() => loadMore(UNASSIGNED_KEY)}>
+            {t('planNav.loadMore', { defaultValue: 'Load more' })}
+          </button>
         )}
       </div>
     </div>

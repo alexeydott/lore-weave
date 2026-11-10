@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { useOutline, useOutlineMutations, useSceneLinks } from '@/features/composition/hooks/useOutline';
 import type { SceneLink, SceneLinkKind } from '@/features/composition/types';
 
-const shortId = (id: string) => `${id.slice(0, 8)}…`;
 
 // Module-level (NOT declared in the parent's render body) so React keeps row identity stable across
 // parent re-renders — an inline component remounts the whole list every render (focus loss + churn).
@@ -31,7 +30,7 @@ function LinkRow({ link, dir, title, onRemove, kindLabel, removeLabel }: {
   );
 }
 
-export function SceneLinksSection({ projectId, token, sceneId }: { projectId: string; token: string | null; sceneId: string }) {
+function ScopedSceneLinksSection({ projectId, token, sceneId }: { projectId: string; token: string | null; sceneId: string }) {
   const { t } = useTranslation('studio');
   const linksQ = useSceneLinks(projectId, token);
   const outlineQ = useOutline(projectId, token);
@@ -40,9 +39,18 @@ export function SceneLinksSection({ projectId, token, sceneId }: { projectId: st
   const [kind, setKind] = useState<SceneLinkKind>('setup_payoff');
   const [label, setLabel] = useState('');
 
-  // `||` (not `??`) so an empty-title scene (decompiled/imported leaves can have title='') degrades
-  // to a short-id like the picker below, never a blank label (review: titleOf consistency).
-  const titleOf = (id: string) => outlineQ.data?.find((n) => n.id === id)?.title || shortId(id);
+  const titleOf = (id: string) => {
+    if (outlineQ.isPending) return t('panels.scene-inspector.links.loading');
+    if (outlineQ.isError) return t('panels.scene-inspector.links.loadError');
+    const node = outlineQ.data?.find((n) => n.id === id);
+    if (!node) return t('panels.scene-inspector.links.unavailable');
+    if (node.title.trim()) return node.title;
+    const siblings = (outlineQ.data ?? []).filter((n) => n.kind === 'scene' && n.parent_id === node.parent_id)
+      .sort((a, b) => (a.story_order ?? Infinity) - (b.story_order ?? Infinity) || (a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0) || a.id.localeCompare(b.id));
+    const scene = t('panels.scene-inspector.links.untitledScene', { number: siblings.findIndex((n) => n.id === id) + 1 });
+    const chapter = outlineQ.data?.find((n) => n.id === node.parent_id);
+    return chapter?.title.trim() ? `${chapter.title} — ${scene}` : scene;
+  };
   const links = linksQ.data ?? [];
   const outgoing = links.filter((l) => l.from_node_id === sceneId);
   const incoming = links.filter((l) => l.to_node_id === sceneId);
@@ -55,7 +63,7 @@ export function SceneLinksSection({ projectId, token, sceneId }: { projectId: st
   );
 
   const add = () => {
-    if (!target) return;
+    if (!targets.some((n) => n.id === target) || linksQ.isPending || linksQ.isError || outlineQ.isPending || outlineQ.isError) return;
     m.createSceneLink.mutate(
       { from_node_id: sceneId, to_node_id: target, kind, label: label.trim() },
       {
@@ -114,7 +122,10 @@ export function SceneLinksSection({ projectId, token, sceneId }: { projectId: st
     <div data-testid="scene-inspector-links" className="space-y-2">
       {/* Gate on THIS scene's edges, not the project-wide `links` — else the hint vanishes as soon
           as the project has any link between two other scenes (review: scene-scoped empty state). */}
-      {outgoing.length === 0 && incoming.length === 0 && (
+      {linksQ.isPending && <p role="status">{t('panels.scene-inspector.links.loading')}</p>}
+      {linksQ.isError && <p role="alert">{t('panels.scene-inspector.links.loadError')}</p>}
+      {outlineQ.isError && <p role="alert">{t('panels.scene-inspector.links.loadError')}</p>}
+      {!linksQ.isPending && !linksQ.isError && outgoing.length === 0 && incoming.length === 0 && (
         <p className="text-[11px] text-muted-foreground">{t('panels.scene-inspector.links.empty', { defaultValue: 'No causal links yet.' })}</p>
       )}
       {outgoing.length > 0 && <ul className="space-y-1">{outgoing.map((l) => row(l, 'out'))}</ul>}
@@ -128,7 +139,7 @@ export function SceneLinksSection({ projectId, token, sceneId }: { projectId: st
           className="min-w-0 flex-1 rounded border bg-background px-1 py-0.5 text-[11px]"
         >
           <option value="">{t('panels.scene-inspector.links.pick', { defaultValue: 'Link to…' })}</option>
-          {targets.map((n) => <option key={n.id} value={n.id}>{n.title || shortId(n.id)}</option>)}
+          {targets.map((n) => <option key={n.id} value={n.id}>{titleOf(n.id)}</option>)}
         </select>
         <select
           data-testid="scene-links-kind" value={kind} onChange={(e) => setKind(e.target.value as SceneLinkKind)}
@@ -145,11 +156,16 @@ export function SceneLinksSection({ projectId, token, sceneId }: { projectId: st
         />
         <button
           type="button" data-testid="scene-links-add"
-          disabled={!target || m.createSceneLink.isPending}
+          disabled={!targets.some((n) => n.id === target) || linksQ.isPending || linksQ.isError || outlineQ.isPending || outlineQ.isError || m.createSceneLink.isPending}
           onClick={add}
           className="rounded bg-primary px-2 py-0.5 text-[11px] text-primary-foreground disabled:opacity-50"
         >+ {t('panels.scene-inspector.links.add', { defaultValue: 'link' })}</button>
       </div>
     </div>
   );
+}
+
+// Draft inputs belong to one inspected scene and authorization scope only.
+export function SceneLinksSection(props: { projectId: string; token: string | null; sceneId: string }) {
+  return <ScopedSceneLinksSection key={JSON.stringify([props.projectId, props.token, props.sceneId])} {...props} />;
 }

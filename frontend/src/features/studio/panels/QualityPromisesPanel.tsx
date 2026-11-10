@@ -25,7 +25,7 @@ import { compositionApi } from '@/features/composition/api';
 import type { ThreadsAssistantReport } from '@/features/composition/types';
 import { chapterDisplayTitle } from '@/features/studio/manuscript/partsTree';
 import { ModelPicker, useUserModels } from '@/components/model-picker';
-import { useEffectiveModel } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
+import { useEffectiveModelSelection } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 import { clampOutputBudget } from '@/lib/outputBudget';
 import { ThreadsPanel } from '@/features/composition/components/ThreadsPanel';
 import { useStudioHost } from '../host/StudioHostProvider';
@@ -72,11 +72,13 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
   // propagate everywhere via the shared model-picker invalidation.
   const modelsState = useUserModels({ capability: 'chat' });
   const modelList = modelsState.models ?? [];
-  const inheritedModel = useEffectiveModel('chat');
+  const inheritedModel = useEffectiveModelSelection('chat');
   const [pickedModel, setPickedModel] = useState('');
   const workDefaultRef = (activeWork?.settings?.default_model_ref as string | undefined) || '';
   const effectiveModelRef =
-    pickedModel || inheritedModel || workDefaultRef || modelList[0]?.user_model_id || '';
+    pickedModel || inheritedModel?.model_ref || workDefaultRef || modelList[0]?.user_model_id || '';
+  const effectiveModelSource = !pickedModel && inheritedModel?.model_source === 'platform_model'
+    ? 'platform_model' as const : 'user_model' as const;
   const selectedModel = modelList.find((m) => m.user_model_id === effectiveModelRef);
   const modelFallback = !pickedModel && !inheritedModel;
   const maxOutputTokens = clampOutputBudget(selectedModel?.max_output_tokens);
@@ -101,7 +103,16 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
   const defaultModelRef = (activeWork?.settings?.default_model_ref as string | undefined) || null;
   const { data: chapters } = useQuery({
     queryKey: ['books', 'chapters', host.bookId],
-    queryFn: () => booksApi.listChapters(accessToken!, host.bookId!, { limit: 100 }),
+    queryFn: async () => {
+      const first = await booksApi.listChapters(accessToken!, host.bookId!, { limit: 100, offset: 0 });
+      const items = [...first.items];
+      while (items.length < first.total) {
+        const page = await booksApi.listChapters(accessToken!, host.bookId!, { limit: 100, offset: items.length });
+        if (!page.items.length) throw new Error('Chapter listing ended before all chapters were loaded');
+        items.push(...page.items);
+      }
+      return { ...first, items };
+    },
     enabled: work.kind === 'ready' && ntEnabled && !!host.bookId && !!accessToken,
   });
   const [chapterId, setChapterId] = useState('');
@@ -110,16 +121,18 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
   }, [chapters, chapterId]);
   const [analyzing, setAnalyzing] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  // The report belongs to a specific chapter — persisted per book+chapter so a
-  // panel close/reopen (or a chapter switch) doesn't lose it (#user-report 2026-11-08).
-  const reportForRef = useRef<string | null>(null);
+  // Fence late assistant responses by account, Work and chapter. Reports remain
+  // ephemeral until a server-side report store exists (never user data in localStorage).
+  const reportScope = `${accessToken}\0${host.bookId}\0${activeWork?.project_id}\0${chapterId}`;
+  const reportScopeRef = useRef(reportScope);
+  reportScopeRef.current = reportScope;
   const analyzeChapter = async () => {
     if (!activeWork || !accessToken || !chapterId || !effectiveModelRef || analyzing) return;
     setAnalyzing(true);
     try {
       const r = await compositionApi.detectThreads(activeWork.project_id, {
         chapter_id: chapterId,
-        model_source: 'user_model',
+        model_source: effectiveModelSource,
         model_ref: effectiveModelRef,
         max_output_tokens: maxOutputTokens ?? undefined,
       }, accessToken);
@@ -143,32 +156,39 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
   const [batch, setBatch] = useState<{ done: number; total: number } | null>(null);
   const batchStopRef = useRef(false);
   const runBatch = async () => {
-    if (!activeWork || !accessToken || !chapters?.items?.length || batchBusy || analyzing) return;
+    if (!activeWork || !accessToken || !effectiveModelRef || !chapters?.items?.length || batchBusy || analyzing) return;
     setBatchBusy(true);
     batchStopRef.current = false;
     const total = chapters.items.length;
     let opened = 0;
     let paid = 0;
     let done = 0;
+    let failed = 0;
     try {
       for (const ch of chapters.items) {
         if (batchStopRef.current) break;
         try {
           const r = await compositionApi.detectThreads(activeWork.project_id, {
             chapter_id: ch.chapter_id,
-            model_source: 'user_model',
+            model_source: effectiveModelSource,
             model_ref: effectiveModelRef,
             max_output_tokens: maxOutputTokens ?? undefined,
           }, accessToken);
-          opened += r.opened;
-          paid += r.paid;
+          if (r.status === 'degraded' || r.status === 'empty') {
+            failed += 1;
+          } else {
+            opened += r.opened;
+            paid += r.paid;
+          }
         } catch {
-          // a failed chapter must not kill the queue — counted at the end
+          failed += 1;
         }
         done += 1;
         setBatch({ done, total });
       }
-      if (batchStopRef.current) {
+      if (failed > 0) {
+        toast.error(t('panels.quality-promises.batchFailed', { done, total, failed }));
+      } else if (batchStopRef.current) {
         toast.info(t('panels.quality-promises.batchStopped', { done, total }));
       } else {
         toast.success(t('panels.quality-promises.batchDone', { opened, paid, total }));
@@ -196,18 +216,20 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
   }, [assistantBusy]);
   const runAssistant = async () => {
     if (!activeWork || !accessToken || !chapterId || !effectiveModelRef || assistantBusy) return;
+    const scope = reportScope;
     setAssistantBusy(true);
     setReport(null);
     setReportChapter(null);
     try {
       const r = await compositionApi.threadsAssistant(activeWork.project_id, {
         chapter_id: chapterId,
-        model_source: 'user_model',
+        model_source: effectiveModelSource,
         model_ref: effectiveModelRef,
         max_output_tokens: maxOutputTokens ?? undefined,
       }, accessToken);
+      if (reportScopeRef.current !== scope) return;
       setReport(r);
-      setReportChapter(chapterId);
+      setReportChapter(scope);
       if (r.degraded) toast.error(t('panels.quality-promises.assistantFailed'));
     } catch (e) {
       toast.error((e as Error).message || t('panels.quality-promises.assistantFailed'));
@@ -215,28 +237,10 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
       setAssistantBusy(false);
     }
   };
-  // Persist the finished report per book+chapter: survives panel close/reopen
-  // and chapter switching. Adopt updates flow through the same effect.
   useEffect(() => {
-    if (!chapterId || !report || reportChapter !== chapterId) return;
-    try { localStorage.setItem(
-      `lw_promises_report:${host.bookId}:${chapterId}`,
-      JSON.stringify({ report, chapter: chapterId, savedAt: Date.now() }),
-    ); } catch { /* quota/private mode — report stays in-memory only */ }
-  }, [chapterId, report, reportChapter, host.bookId]);
-  // On chapter switch: restore THIS chapter's saved report, else clear.
-  useEffect(() => {
-    if (!chapterId) return;
-    try {
-      const raw = localStorage.getItem(`lw_promises_report:${host.bookId}:${chapterId}`);
-      if (raw) {
-        const parsed = JSON.parse(raw) as { report?: ThreadsAssistantReport };
-        if (parsed.report) { setReport(parsed.report); setReportChapter(chapterId); return; }
-      }
-    } catch { /* private mode / quota — in-memory only */ }
     setReport(null);
     setReportChapter(null);
-  }, [chapterId, host.bookId]);
+  }, [reportScope]);
   const [adopting, setAdopting] = useState<string | null>(null);
   const adoptPromise = async (p: { kind: string; summary: string }) => {
     if (!activeWork || !accessToken || adopting) return;
@@ -388,7 +392,7 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
             {elapsed > 0 && <span className="tabular-nums">· {elapsed} с</span>}
           </div>
         )}
-        {report && (
+        {report && reportChapter === reportScope && (
           <div className="mx-3 mb-3 space-y-3" data-testid="quality-promises-report">
             {/* Proposed unclosed promises — adoptable */}
             {report.promises.length > 0 && (

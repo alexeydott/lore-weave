@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 // Plan Hub v2 (24 H2.4 / PH14) — the swimlane band layer. Bands are rendered as low-z, non-
 // interactive React Flow nodes (NOT an absolute HTML overlay) so they pan/zoom in lockstep with
 // the content nodes under the same viewport transform. A band spans the full canvas width; its
@@ -22,6 +23,7 @@ export const LANE_NODE_PREFIX = 'lane:';
 export const LANE_DRAG_HANDLE_CLASS = 'plan-lane-handle';
 
 function LaneBandInner({ data }: NodeProps<LaneBandData>) {
+  const { t } = useTranslation('studio');
   const { band, onToggleArc, draggable, pagination, onLoadMore } = data;
 
   return (
@@ -49,7 +51,7 @@ function LaneBandInner({ data }: NodeProps<LaneBandData>) {
             onToggleArc(band.id);
           }}
           className="text-muted-foreground hover:text-foreground"
-          aria-label={band.collapsed ? 'Expand lane' : 'Collapse lane'}
+          aria-label={t(band.collapsed ? 'planHub.drawer.expandLane' : 'planHub.drawer.collapseLane')}
         >
           {band.collapsed ? '▸' : '▾'}
         </button>

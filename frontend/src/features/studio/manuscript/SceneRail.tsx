@@ -19,6 +19,7 @@ const STATUSES: OutlineNode['status'][] = ['empty', 'outline', 'drafting', 'done
 
 interface RowProps {
   scene: OutlineNode;
+  number: number;
   active: boolean;
   first: boolean;
   last: boolean;
@@ -31,8 +32,9 @@ interface RowProps {
   onDeleted: (id: string, title: string) => void;
 }
 
-function SceneRow({ scene, active, first, last, prevPrevId, nextId, onSaved, onJump, onDeleted }: RowProps) {
+function SceneRow({ scene, number, active, first, last, prevPrevId, nextId, onSaved, onJump, onDeleted }: RowProps) {
   const { t } = useTranslation('studio');
+  const label = scene.title.trim() || t("panels.scene-inspector.links.untitledScene", { number });
   const { accessToken } = useAuth();
   const [synopsis, setSynopsis] = useState(scene.synopsis);
   const [error, setError] = useState<string | null>(null);
@@ -115,9 +117,9 @@ function SceneRow({ scene, active, first, last, prevPrevId, nextId, onSaved, onJ
               data-testid={`scene-rail-jump-${scene.id}`}
               onClick={() => onJump(scene.id)}
               className="min-w-0 flex-1 truncate text-left text-[11px] font-medium hover:text-primary"
-              title={scene.title}
+              title={label}
             >
-              {scene.title}
+              {label}
             </button>
             <button
               type="button"
@@ -333,6 +335,7 @@ export function SceneRail() {
             <SceneRow
               key={s.id}
               scene={s}
+              number={i + 1}
               active={s.id === activeSceneId}
               first={i === 0}
               last={i === scenes.length - 1}

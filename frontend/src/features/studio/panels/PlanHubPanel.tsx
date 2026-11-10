@@ -484,6 +484,7 @@ export function PlanHubPanel(props: IDockviewPanelProps) {
           kind={selectedKind}
           bookId={bookId}
           onClose={() => view.select(null)}
+          onSelectReferenceNode={view.select}
           overlay={view.overlay}
           onOpenRef={openRef}
           writes={view.nodeWrites}

@@ -1,10 +1,5 @@
-// LOOM Composition · Q3 Book-level promise coverage (controller).
-//
-// Runs the book-level promise audit (v2): derives a stable promise set from the outline
-// spec and scores the whole book against it. Read-only/diagnostic — no accept/apply. The
-// view only renders + calls run. Book-scoped (no chapter), so it lives in the project-scoped
-// Quality dashboard, not the per-chapter Polish gate.
-import { useCallback, useState } from 'react';
+// Book-scoped diagnostic coverage; stale requests must never cross Work/auth boundaries.
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { compositionApi, type PromiseCoverage } from '../api';
 
@@ -19,22 +14,38 @@ export function useBookPromiseCoverage(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ran, setRan] = useState(false);
+  const scope = `${projectId}\0${token}`;
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const request = useRef(0);
+  useEffect(() => {
+    request.current += 1;
+    setCoverage(null);
+    setChapters(null);
+    setLoading(false);
+    setError(null);
+    setRan(false);
+    return () => { request.current += 1; };
+  }, [scope]);
 
   const run = useCallback(async () => {
     if (!projectId || !token || !modelRef) return;
+    const id = ++request.current;
+    const current = () => scopeRef.current === scope && request.current === id;
     setLoading(true);
     setError(null);
     try {
       const r = await compositionApi.promiseCoverage(projectId, { modelRef, modelSource }, token);
+      if (!current()) return;
       setCoverage(r.coverage ?? null);
       setChapters(r.chapters ?? null);
       setRan(true);
     } catch (e) {
-      setError((e as Error).message || 'Promise coverage failed');
+      if (current()) setError((e as Error).message || 'Promise coverage failed');
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
-  }, [projectId, token, modelRef, modelSource]);
+  }, [projectId, token, modelRef, modelSource, scope]);
 
   return { coverage, chapters, loading, error, ran, run };
 }

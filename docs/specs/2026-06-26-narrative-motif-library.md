@@ -576,7 +576,7 @@ Motif/arc-template logic is **agent-facing**: the glossary-assistant, the chat a
 |---|---|---|---|---|
 | `composition_motif_search` | **R** | `genre?, kind?, q?, scope?` | tier-merged search (system→user→book) → list + `match_reason` | VIEW |
 | `composition_motif_get` | **R** | `motif_id` | one motif (roles/beats/conditions/examples) | VIEW |
-| `composition_motif_suggest_for_chapter` | **R** | `project_id, node_id` | rank motifs for a chapter's beat/intent/tension → candidates + `match_reason` (powers the planner-binding "why this motif") | VIEW |
+| `composition_motif_suggest_for_chapter` | **R** | `project_id, node_id, display_language?` | rank motifs for a chapter's beat/intent/tension → candidates + `match_reason` (powers the planner-binding "why this motif") | VIEW |
 | `composition_arc_suggest` | **R** | `project_id, premise?, genre?` | rank arc_templates for a premise | VIEW |
 | `composition_motif_create` | **A** | `args(book\|user, code, name, roles, beats, …)` | assistant authors a motif from the conversation; `_meta.undo_hint` = delete | EDIT |
 | `composition_motif_bind` | **A** | `project_id, node_id, motif_id, role_bindings` | bind/swap a motif onto a chapter + re-derive scenes; `undo_hint` = restore prior binding | EDIT |
@@ -750,3 +750,16 @@ Independently-generated scenes leave **seams** (POC 5: higher cross-scene repeti
 
 ### §17.5 Phasing
 Scene-decompose + per-scene generation **exist** (A3 + cowrite). **`scenes_per_chapter`-for-length** is a planner config tweak — **P1**. The **STITCH pass** is **P2** (it needs the assembled-chapter revise op + the cross-scene repetition/continuity check). The arc-scale long-range drift guard is **P4** (§14 arc-conformance).
+
+
+Motif suggestion display-language contract: REST
+`GET /v1/composition/works/{project_id}/scenes/{node_id}/suggest-motifs`
+and MCP `composition_motif_suggest_for_chapter` accept optional `display_language`.
+The existing display-language normalizer trims and lowercases it; omitted or
+unspecified (`auto`, `unknown`, `und`, empty) values default to `en`. Both chapter
+and scene outline nodes retain the existing VIEW grant and project-membership gates.
+The existing batch translation resolver re-words results only: motif IDs, ranking,
+and private/library embedding spaces remain unchanged. Missing translations retain
+source text with `text_fallback`/`text_language` metadata. The GUI uses its active
+i18n language, partitions suggestion caches by language and authentication, and
+requires explicit retry after errors or degraded results (no automatic retries).

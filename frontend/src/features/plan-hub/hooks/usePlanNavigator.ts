@@ -9,13 +9,14 @@ import { useCallback, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/auth';
 import { getArcs } from '../api';
-import type { ArcListNode } from '../types';
+import { UNASSIGNED_KEY, usePlanWindows } from './usePlanWindows';
+import type { ArcListNode, SummaryNode } from '../types';
 
 /** One flattened rail row: the shell node + its TREE-derived depth. `depth` is recomputed from the
  *  parent_id tree here (the shell's own `depth` field is NOT trusted — laneLayout parity, where a
  *  LaneBand's depth is likewise recomputed), so a stale/miswritten depth can't mis-indent the rail. */
 export interface PlanNavRow {
-  node: ArcListNode;
+  node: ArcListNode | SummaryNode;
   depth: number;
   hasChildren: boolean;
   expanded: boolean;
@@ -64,8 +65,10 @@ export interface PlanNavigatorState {
   rows: PlanNavRow[];
   loading: boolean;
   error: string | null;
-  /** Collapse/expand a node's subtree (the shell is one bounded call — no lazy load on expand). */
+  /** Collapse/expand a shell subtree, or lazily load an unassigned chapter's scenes. */
   toggle: (id: string) => void;
+  loadMore: (id: string) => void;
+  hasMore: Record<string, boolean>;
 }
 
 export function usePlanNavigator(bookId: string): PlanNavigatorState {
@@ -83,24 +86,49 @@ export function usePlanNavigator(bookId: string): PlanNavigatorState {
   // visible). Tracking the COLLAPSED ids (not the open ones) means a fresh shell shows expanded.
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 
+  const [chapterExpansion, setChapterExpansion] = useState<{ bookId: string; ids: string[] }>({ bookId, ids: [] });
+  const expandedChapters = chapterExpansion.bookId === bookId ? chapterExpansion.ids : [];
+  const arcLess = enabled && !!arcsQuery.data && arcsQuery.data.arcs.length === 0;
+  const windows = usePlanWindows(arcLess ? bookId : null, token, [], expandedChapters);
+
   const rows = useMemo(
     () => flattenArcShell(arcsQuery.data?.arcs ?? [], collapsed),
     [arcsQuery.data, collapsed],
   );
 
+  const chapterRows: PlanNavRow[] = [];
+  if (arcLess) {
+    for (const chapter of Object.values(windows.content).filter((n) => n.kind === 'chapter')) {
+      const expanded = expandedChapters.includes(chapter.id);
+      chapterRows.push({ node: chapter, depth: 0, hasChildren: true, expanded });
+      if (expanded) for (const scene of Object.values(windows.content).filter((n) => n.kind === 'scene' && n.parent_id === chapter.id)) {
+        chapterRows.push({ node: scene, depth: 1, hasChildren: false, expanded: false });
+      }
+    }
+  }
+
   const toggle = useCallback((id: string) => {
+    if (arcLess) {
+      setChapterExpansion((prev) => {
+        const ids = prev.bookId === bookId ? prev.ids : [];
+        return { bookId, ids: ids.includes(id) ? ids.filter((v) => v !== id) : [...ids, id] };
+      });
+      return;
+    }
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }, []);
+  }, [arcLess, bookId]);
 
   return {
-    rows,
-    loading: enabled && arcsQuery.isLoading,
-    error: arcsQuery.error instanceof Error ? arcsQuery.error.message : null,
+    rows: arcLess ? chapterRows : rows,
+    loading: enabled && (arcsQuery.isLoading || (arcLess && !windows.unassignedLoaded && !windows.error)),
+    error: arcsQuery.error instanceof Error ? arcsQuery.error.message : windows.error,
+    hasMore: { ...windows.chapterHasMore, [UNASSIGNED_KEY]: !!windows.arcHasMore[UNASSIGNED_KEY] },
+    loadMore: (id) => id === UNASSIGNED_KEY ? windows.loadMoreArc(id) : windows.loadMoreChapter(id),
     toggle,
   };
 }

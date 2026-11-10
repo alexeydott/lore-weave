@@ -1045,6 +1045,26 @@ async def _execute_conformance_run(
 ) -> dict[str, Any]:
     """composition.conformance_run effect — ledger-claim → precheck → enqueue a
     `conformance_run` job (202+poll). The compute is owned by W5."""
+    if payload.get("book_id") != str(work.book_id):
+        raise HTTPException(status_code=403, detail={"code": "action_error"})
+    if payload.get("scope") == "chapter":
+        from app.clients.book_client import get_book_client
+        from app.db.pool import get_pool
+        try:
+            chapter_id = UUID(str(payload.get("chapter_id")))
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail={"code": "action_error", "message": "chapter_id must be a valid UUID"}) from exc
+        try:
+            await get_book_client().get_draft(
+                work.book_id, chapter_id, mint_service_bearer(envelope_user, settings.jwt_secret))
+        except BookClientError as exc:
+            if exc.status in (403, 404):
+                raise HTTPException(status_code=403, detail={"code": "action_error", "message": "chapter is unavailable in this book or access is denied"}) from exc
+            raise HTTPException(status_code=503, detail={"code": "BOOK_SERVICE_UNAVAILABLE", "message": "book service could not validate the chapter; retry when available"}) from exc
+        if not await OutlineRepo(get_pool()).scenes_for_chapter(project_id, chapter_id):
+            raise HTTPException(status_code=422, detail={"code": "NO_PLANNED_SCENES"})
+        if not payload.get("model_ref"):
+            raise HTTPException(status_code=422, detail={"code": "MODEL_REF_REQUIRED"})
     await _claim_or_replay(token, claims)
     estimate = float(payload.get("estimate_usd") or 0.0)
     await _precheck_or_402(owner_user_id=envelope_user, job_id=_billing_job_id(token), estimate_usd=estimate)

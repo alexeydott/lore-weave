@@ -274,6 +274,10 @@
     "deleteFailed": "Tidak dapat menghapus tempat ini.",
     "backdropNoChapter": "Buka sebuah bab untuk mengatur latar belakang."
   },
+  "groundingNoResults": "Tidak ada konteks graf yang diambil untuk adegan ini. Graf tersebut mungkin tetap ada; posisi adegan, konten yang cocok, atau kegagalan layanan pengetahuan dapat membatasi pengambilan konteks.",
+  "groundingNoProject": "Karya ini belum terhubung ke proyek pengetahuan. Grounding tidak tersedia untuk karya ini.",
+  "groundingLoadFailed": "Grounding tidak dapat dimuat. Coba lagi sebelum mengubah graf pengetahuan.",
+  "groundingRetry": "Coba lagi grounding",
   "grounding": "Grounding",
   "canon": "Kanun",
   "progress": "Progres",
@@ -371,7 +375,12 @@
     "saveContent": "Simpan konten (menanamkan ulang)",
     "saveMetadata": "Simpan detail",
     "saving": "Menyimpan…",
-    "sourceUrl": "URL Sumber (opsional)"
+    "sourceUrl": "URL Sumber (opsional)",
+    "loading": "Memuat referensi…",
+    "listError": "Referensi tidak dapat dimuat. Coba lagi.",
+    "inheritedEmbed": "Gunakan model embedding yang diwarisi",
+    "modelsLoading": "Memuat model embedding…",
+    "modelsError": "Model embedding tidak dapat dimuat. Coba lagi."
   },
   "progressPanel": {
     "loading": "Memuat progres...",
@@ -826,7 +835,10 @@
       "noWork": "Buat rencana untuk buku ini guna mengikat motif ke adegan-adegannya.",
       "committedTitle": "Ikat motif adegan",
       "loadError": "Tidak dapat memuat motif adegan.",
-      "sectionTitle": "Motif adegan"
+      "sectionTitle": "Motif adegan",
+      "candidatesLoading": "Memuat motif…",
+      "candidatesError": "Tidak dapat memuat motif.",
+      "candidatesEmpty": "Tambahkan atau impor motif di pustaka motif, lalu kembali ke sini untuk menautkannya."
     },
     "swap": {
       "title": "Tukar motif",
@@ -852,12 +864,26 @@
         "bad": "Beat terlewat"
       },
       "rerunNeedsModel": "Pilih model untuk menjalankan ulang konformitas",
-      "bindCta": "Ikat motif ke adegan →",
+      "bindCta": "Pilih adegan untuk ditautkan →",
       "couldNotCheck": "Tidak dapat memeriksa",
       "notChecked": "Belum diperiksa",
       "notWritten": "Belum ditulis",
       "openScene": "Buka adegan ini di inspektor",
-      "written": "Sudah ditulis"
+      "written": "Sudah ditulis",
+      "noChapter": "Pilih bab",
+      "chaptersLoading": "Memuat bab…",
+      "chaptersError": "Tidak dapat memuat bab.",
+      "noChapters": "Belum ada bab.",
+      "actionError": "Tindakan gagal. Coba lagi.",
+      "running": "Berjalan…",
+      "snapshot": "Pemeriksaan terakhir: {{time}}",
+      "status": {
+        "unavailable": "Tidak dapat diperiksa",
+        "no_bound_motif": "Tautkan motif terlebih dahulu",
+        "motif_unavailable": "Motif tidak tersedia",
+        "no_manuscript_prose": "Tulis naskah terlebih dahulu",
+        "stale": "Kedaluwarsa — periksa ulang"
+      }
     },
     "arc": {
       "mobileNotice": "Grid lini masa tersedia di layar yang lebih besar — di sini Anda dapat mengeditnya sebagai daftar.",
@@ -960,7 +986,8 @@
         "error": "Tidak dapat meranking saran alur.",
         "empty": "Belum ada templat alur yang cocok — buat satu, atau impor cerita untuk dibedah.",
         "mine": "milik Anda",
-        "span": "{{count}} bab"
+        "span": "{{count}} bab",
+        "sectionMine": "Alur cerita Anda"
       },
       "decompile": {
         "open": "Kelompokkan bab ke dalam alur",
@@ -1092,10 +1119,14 @@
       "retry": "Coba lagi",
       "empty": "Belum ada motif yang cocok untuk adegan ini — tambahkan lebih banyak ke pustaka Anda.",
       "bind": "Ikat",
-      "degradedMine": "Motif Anda tidak diurutkan berdasarkan kecocokan — atur model embedding di pengaturan Anda untuk mengurutkannya secara semantik.",
-      "degradedLibrary": "Tidak diurutkan berdasarkan kecocokan — model embedding pustaka bersama belum dikonfigurasi, jadi ini adalah cadangan genre, bukan hasil pencocokan yang dinilai.",
+      "degradedMine": "Pemeringkatan semantik untuk saran pribadi Anda tidak tersedia: belum ada model embedding efektif yang dipilih untuk buku atau akun ini.",
+      "degradedLibrary": "Pemeringkatan semantik untuk pustaka bersama tidak tersedia: konfigurasi embedding platform yang terpisah untuk pustaka tersebut belum lengkap. Pengaturan model buku atau akun Anda bersifat independen.",
       "sectionMine": "Motif Anda",
-      "sectionLibrary": "Dari pustaka"
+      "sectionLibrary": "Dari pustaka",
+      "rankingUnavailable": "Pemeringkatan tidak tersedia — saran ini tidak diurutkan berdasarkan kecocokan.",
+      "providerUnavailable": "Pemeringkatan sementara tidak tersedia — coba lagi nanti.",
+      "emptyQuery": "Tambahkan premis atau teks adegan untuk mengurutkan saran berdasarkan kecocokan.",
+      "semanticMatch": "Kecocokan semantik"
     },
     "language": {
       "writtenIn": "Ditulis dalam",
@@ -1176,29 +1207,28 @@
       "violation": "{{label}}: {{n}} tidak berurutan"
     },
     "editor": {
-      "add": "tambah",
-      "beatIntent": "niat",
-      "beatLabel": "beat",
-      "beats": "Beat",
-      "conflict": "Motif ini telah diubah di tempat lain — buka kembali untuk mendapatkan versi terbaru sebelum mengedit.",
-      "deceived": "siapa yang tertipu (koma)",
-      "effects": "Efek",
-      "emotion": "Emosi",
-      "examples": "Contoh (ditulis penulis)",
-      "gap": "celah",
-      "genres": "Genre (pisahkan dengan koma)",
-      "kind": "Jenis",
-      "knows": "siapa yang tahu (koma)",
-      "name": "Nama",
-      "preconditions": "Prasyarat",
-      "roleConstraints": "batasan",
-      "roleLabel": "label",
-      "roles": "Peran",
-      "saveError": "Gagal menyimpan.",
+      "open": "Edit motif",
+      "title": "Motif adegan",
+      "description": "Perubahan tetap dalam draf hingga Simpan.",
+      "search": "Cari nama atau kode",
+      "motif": "Motif",
+      "freeform": "Bebas (tanpa motif)",
+      "preview": "Pratinjau motif",
+      "unresolved": "Belum ditetapkan",
+      "save": "Simpan",
       "saving": "Menyimpan…",
-      "scheme": "Asimetri informasi",
-      "summary": "Ringkasan (disematkan untuk pengambilan data)",
-      "tension": "Ketegangan (1–5)"
+      "cancel": "Batal",
+      "loadError": "Data motif tidak dapat dimuat.",
+      "saveError": "Gagal menyimpan. Draf tetap ada; coba simpan lagi.",
+      "partialError": "Sebagian perubahan tersimpan. Simpan lagi untuk menyelesaikan; Batal tidak membatalkan yang tersimpan.",
+      "discardTitle": "Buang perubahan belum tersimpan?",
+      "discardDescription": "Draf yang belum tersimpan akan dibuang. Perubahan tersimpan tidak dibatalkan di sini.",
+      "stay": "Lanjut mengedit",
+      "discard": "Buang draf",
+      "fallback": "Terjemahan tidak tersedia; menampilkan {{language}}.",
+      "contextRequired": "Pilih adegan yang sudah dikonfirmasi.",
+      "current": "Saat ini",
+      "dirty": "Perubahan belum tersimpan"
     },
     "kind": {
       "arcs": "Templat Busur",
@@ -1765,6 +1795,13 @@
   "canonConflictCurrent": "Saat ini (v{{v}}): {{text}}",
   "coverageExtractionFailed": "Tidak dapat membaca janji dalam kerangka Anda (pemanggilan model gagal atau terputus). Coba lagi, atau pilih model lain.",
   "coverageScoreFailed": "Janji telah dibaca, tetapi gagal saat mencocokkannya dengan buku. Coba lagi.",
+  "coverageCorpusIncomplete": "Evaluasi seluruh buku tidak tersedia: draf {{count}} bab tidak dapat dibaca. Tidak ada kesimpulan untuk seluruh buku yang dibuat. Coba lagi.",
+  "coverageCorpusIncomplete_zero": "Evaluasi seluruh buku tidak tersedia: draf {{count}} bab tidak dapat dibaca. Tidak ada kesimpulan untuk seluruh buku yang dibuat. Coba lagi.",
+  "coverageCorpusIncomplete_one": "Evaluasi seluruh buku tidak tersedia: draf {{count}} bab tidak dapat dibaca. Tidak ada kesimpulan untuk seluruh buku yang dibuat. Coba lagi.",
+  "coverageCorpusIncomplete_two": "Evaluasi seluruh buku tidak tersedia: draf {{count}} bab tidak dapat dibaca. Tidak ada kesimpulan untuk seluruh buku yang dibuat. Coba lagi.",
+  "coverageCorpusIncomplete_few": "Evaluasi seluruh buku tidak tersedia: draf {{count}} bab tidak dapat dibaca. Tidak ada kesimpulan untuk seluruh buku yang dibuat. Coba lagi.",
+  "coverageCorpusIncomplete_many": "Evaluasi seluruh buku tidak tersedia: draf {{count}} bab tidak dapat dibaca. Tidak ada kesimpulan untuk seluruh buku yang dibuat. Coba lagi.",
+  "coverageCorpusIncomplete_other": "Evaluasi seluruh buku tidak tersedia: draf {{count}} bab tidak dapat dibaca. Tidak ada kesimpulan untuk seluruh buku yang dibuat. Coba lagi.",
   "lengthAskedDelivered": "Meminta ~{{target}} kata, menghasilkan {{actual}} ({{pct}}%).",
   "lengthOverCeiling": "Permintaan ini melebihi jumlah kata yang dapat dihasilkan dalam satu panggilan secara andal — bagi adegan menjadi beberapa bagian untuk mendapatkan panjang penuh.",
   "techEdit": {
@@ -1818,7 +1855,12 @@
     "reasoning_exhausted": "Penalaran menghabiskan anggaran respons.",
     "truncated": "Respons terpotong.",
     "invalid_response": "Respons model tidak valid.",
-    "manualRetry": "Coba lagi pada proses manual berikutnya."
+    "manualRetry": "Coba lagi pada proses manual berikutnya.",
+    "unknown": "Analisis kualitas gagal karena alasan yang tidak diketahui.",
+    "incomplete": "Tidak semua jendela analisis selesai.",
+    "synthesis_failed": "Analisis selesai, tetapi sintesis laporan gagal.",
+    "synthesis_invalid_response": "Analisis selesai, tetapi sintesis mengembalikan respons yang tidak valid.",
+    "audit_only": "Hanya audit alur cerita yang selesai; skor kritik tidak tersedia."
   },
   "qualityScope": {
     "partial": "Laporan parsial — bukan penilaian seluruh bab.",

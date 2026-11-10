@@ -274,6 +274,10 @@
     "deleteFailed": "Der Ort konnte nicht entfernt werden.",
     "backdropNoChapter": "Öffne eine 章, um eine Kulisse festzulegen."
   },
+  "groundingNoResults": "Für diese Szene wurde kein Kontext aus dem Graphen abgerufen. Der Graph kann dennoch vorhanden sein; die Szenenposition, passende Inhalte oder ein Fehler des Wissensdienstes können den Abruf einschränken.",
+  "groundingNoProject": "Dieses Werk ist noch mit keinem Wissensprojekt verknüpft. Für dieses Werk ist keine Verankerung verfügbar.",
+  "groundingLoadFailed": "Die Verankerung konnte nicht geladen werden. Versuche es erneut, bevor du den Wissensgraphen änderst.",
+  "groundingRetry": "Verankerung erneut laden",
   "grounding": "Fundierung",
   "canon": "Kanon",
   "progress": "Fortschritt",
@@ -371,7 +375,12 @@
     "saveContent": "Inhalt speichern (neu einbetten)",
     "saveMetadata": "Details speichern",
     "saving": "Speichern…",
-    "sourceUrl": "Quell-URL (optional)"
+    "sourceUrl": "Quell-URL (optional)",
+    "loading": "Referenzen werden geladen…",
+    "listError": "Referenzen konnten nicht geladen werden. Versuche es erneut.",
+    "inheritedEmbed": "Geerbtes Embedding-Modell verwenden",
+    "modelsLoading": "Embedding-Modelle werden geladen…",
+    "modelsError": "Embedding-Modelle konnten nicht geladen werden. Versuche es erneut."
   },
   "progressPanel": {
     "loading": "Fortschritt wird geladen…",
@@ -826,7 +835,10 @@
       "noWork": "Erstellen Sie einen Plan für dieses Buch, um Motive mit seinen Szenen zu verknüpfen.",
       "committedTitle": "Szenen-Motive verknüpfen",
       "loadError": "Szenen-Motive konnten nicht geladen werden.",
-      "sectionTitle": "Szenen-Motive"
+      "sectionTitle": "Szenen-Motive",
+      "candidatesLoading": "Motive werden geladen…",
+      "candidatesError": "Motive konnten nicht geladen werden.",
+      "candidatesEmpty": "Füge Motive in der Motivbibliothek hinzu oder importiere sie. Kehre dann hierher zurück, um eines zu verknüpfen."
     },
     "swap": {
       "title": "Motiv tauschen",
@@ -852,12 +864,26 @@
         "bad": "Beat verpasst"
       },
       "rerunNeedsModel": "Wählen Sie ein Modell aus, um die Konformitätsprüfung erneut durchzuführen",
-      "bindCta": "Ein Motiv mit einer Szene verknüpfen →",
+      "bindCta": "Szene zum Verknüpfen auswählen →",
       "couldNotCheck": "Konnte nicht geprüft werden",
       "notChecked": "Noch nicht geprüft",
       "notWritten": "Noch nicht geschrieben",
       "openScene": "Diese Szene im Inspektor öffnen",
-      "written": "Geschrieben"
+      "written": "Geschrieben",
+      "noChapter": "Kapitel auswählen",
+      "chaptersLoading": "Kapitel werden geladen…",
+      "chaptersError": "Kapitel konnten nicht geladen werden.",
+      "noChapters": "Noch keine Kapitel.",
+      "actionError": "Aktion fehlgeschlagen. Bitte erneut versuchen.",
+      "running": "Läuft…",
+      "snapshot": "Letzte Prüfung: {{time}}",
+      "status": {
+        "unavailable": "Prüfung nicht möglich",
+        "no_bound_motif": "Zuerst ein Motiv verknüpfen",
+        "motif_unavailable": "Motiv nicht verfügbar",
+        "no_manuscript_prose": "Zuerst Manuskripttext schreiben",
+        "stale": "Veraltet — erneut prüfen"
+      }
     },
     "arc": {
       "mobileNotice": "Das Zeitstrahl-Raster ist auf größeren Bildschirmen verfügbar – hier kannst du es als Liste bearbeiten.",
@@ -960,7 +986,8 @@
         "error": "Handlungsbogen-Vorschläge konnten nicht bewertet werden.",
         "empty": "Noch keine passenden Handlungsbogen-Vorlagen gefunden – erstelle eine oder importiere eine Geschichte zur Analyse.",
         "mine": "deine",
-        "span": "{{count}} Kap."
+        "span": "{{count}} Kap.",
+        "sectionMine": "Deine Handlungsbögen"
       },
       "decompile": {
         "open": "Kapitel in Handlungsbögen gruppieren",
@@ -1092,10 +1119,14 @@
       "retry": "Wiederholen",
       "empty": "Noch kein passendes Motiv für diese Szene gefunden – füge deiner Bibliothek mehr hinzu.",
       "bind": "Verknüpfen",
-      "degradedMine": "Deine Motive sind nicht nach Relevanz sortiert – richte in deinen Einstellungen ein Embedding-Modell ein, um sie semantisch zu bewerten.",
-      "degradedLibrary": "Nicht nach Relevanz sortiert – das Embedding-Modell der gemeinsamen Bibliothek ist nicht konfiguriert. Daher handelt es sich hierbei um Genre-Alternativen und nicht um bewertete Treffer.",
+      "degradedMine": "Die semantische Rangfolge für deine privaten Vorschläge ist nicht verfügbar: Für dieses Buch bzw. Konto ist kein wirksames Embedding-Modell ausgewählt.",
+      "degradedLibrary": "Die semantische Rangfolge der gemeinsamen Bibliothek ist nicht verfügbar: Ihre separate plattformseitige Embedding-Konfiguration ist unvollständig. Die Modelleinstellungen deines Buchs bzw. Kontos sind davon unabhängig.",
       "sectionMine": "Deine Motive",
-      "sectionLibrary": "Aus der Bibliothek"
+      "sectionLibrary": "Aus der Bibliothek",
+      "rankingUnavailable": "Rangfolge nicht verfügbar — diese Vorschläge sind nicht nach Eignung sortiert.",
+      "providerUnavailable": "Rangfolge vorübergehend nicht verfügbar — versuche es später erneut.",
+      "emptyQuery": "Ergänze eine Prämisse oder einen Szenentext, um Vorschläge nach Eignung zu sortieren.",
+      "semanticMatch": "Semantische Übereinstimmung"
     },
     "language": {
       "writtenIn": "Geschrieben in",
@@ -1176,29 +1207,28 @@
       "violation": "{{label}}: {{n}} außerhalb der Reihenfolge"
     },
     "editor": {
-      "add": "hinzufügen",
-      "beatIntent": "Absicht",
-      "beatLabel": "Beat",
-      "beats": "Beats",
-      "conflict": "Dieses Motiv wurde an anderer Stelle geändert – öffnen Sie es erneut, um den neuesten Stand vor der Bearbeitung zu erhalten.",
-      "deceived": "wer getäuscht wird (Komma)",
-      "effects": "Effekte",
-      "emotion": "Emotion",
-      "examples": "Beispiele (vom Autor geschrieben)",
-      "gap": "die Lücke",
-      "genres": "Genres (durch Komma getrennt)",
-      "kind": "Art",
-      "knows": "wer weiß (Komma)",
-      "name": "Name",
-      "preconditions": "Voraussetzungen",
-      "roleConstraints": "Einschränkungen",
-      "roleLabel": "Label",
-      "roles": "Rollen",
-      "saveError": "Speichern fehlgeschlagen.",
-      "saving": "Speichern…",
-      "scheme": "Informationsasymmetrie",
-      "summary": "Zusammenfassung (eingebettet zur Abfrage)",
-      "tension": "Spannung (1–5)"
+      "open": "Motiv bearbeiten",
+      "title": "Szenenmotiv",
+      "description": "Änderungen bleiben bis zum Speichern im Entwurf.",
+      "search": "Nach Name oder Code suchen",
+      "motif": "Motiv",
+      "freeform": "Freiform (kein Motiv)",
+      "preview": "Motivvorschau",
+      "unresolved": "Nicht zugewiesen",
+      "save": "Speichern",
+      "saving": "Wird gespeichert…",
+      "cancel": "Abbrechen",
+      "loadError": "Motivdaten konnten nicht geladen werden.",
+      "saveError": "Speichern fehlgeschlagen. Der Entwurf bleibt erhalten; erneut speichern.",
+      "partialError": "Einige Änderungen wurden gespeichert. Erneut speichern, um fortzufahren. Abbrechen macht gespeicherte Änderungen nicht rückgängig.",
+      "discardTitle": "Ungespeicherte Änderungen verwerfen?",
+      "discardDescription": "Ungespeicherte Änderungen werden verworfen. Bereits gespeicherte Änderungen bleiben bestehen.",
+      "stay": "Weiter bearbeiten",
+      "discard": "Entwurf verwerfen",
+      "fallback": "Keine Übersetzung; angezeigt wird {{language}}.",
+      "contextRequired": "Eine bestätigte Szene auswählen.",
+      "current": "Aktuell",
+      "dirty": "Ungespeicherte Änderungen"
     },
     "kind": {
       "arcs": "Handlungsbogen-Vorlagen",
@@ -1765,6 +1795,13 @@
   "canonConflictCurrent": "Aktuell (v{{v}}): {{text}}",
   "coverageExtractionFailed": "Die Versprechen konnten nicht aus Ihrem Entwurf gelesen werden (der Modellaufruf ist fehlgeschlagen oder wurde abgebrochen). Versuchen Sie es erneut oder wählen Sie ein anderes Modell.",
   "coverageScoreFailed": "Die Versprechen wurden gelesen, aber die Bewertung im Abgleich mit dem Buch ist fehlgeschlagen. Versuchen Sie es erneut.",
+  "coverageCorpusIncomplete": "Keine Auswertung des gesamten Buchs möglich: {{count}} Kapitelentwürfe konnten nicht gelesen werden. Es wurden keine Bewertungen für das gesamte Buch ermittelt. Bitte erneut versuchen.",
+  "coverageCorpusIncomplete_zero": "Keine Auswertung des gesamten Buchs möglich: {{count}} Kapitelentwürfe konnten nicht gelesen werden. Es wurden keine Bewertungen für das gesamte Buch ermittelt. Bitte erneut versuchen.",
+  "coverageCorpusIncomplete_one": "Keine Auswertung des gesamten Buchs möglich: {{count}} Kapitelentwurf konnte nicht gelesen werden. Es wurden keine Bewertungen für das gesamte Buch ermittelt. Bitte erneut versuchen.",
+  "coverageCorpusIncomplete_two": "Keine Auswertung des gesamten Buchs möglich: {{count}} Kapitelentwürfe konnten nicht gelesen werden. Es wurden keine Bewertungen für das gesamte Buch ermittelt. Bitte erneut versuchen.",
+  "coverageCorpusIncomplete_few": "Keine Auswertung des gesamten Buchs möglich: {{count}} Kapitelentwürfe konnten nicht gelesen werden. Es wurden keine Bewertungen für das gesamte Buch ermittelt. Bitte erneut versuchen.",
+  "coverageCorpusIncomplete_many": "Keine Auswertung des gesamten Buchs möglich: {{count}} Kapitelentwürfe konnten nicht gelesen werden. Es wurden keine Bewertungen für das gesamte Buch ermittelt. Bitte erneut versuchen.",
+  "coverageCorpusIncomplete_other": "Keine Auswertung des gesamten Buchs möglich: {{count}} Kapitelentwürfe konnten nicht gelesen werden. Es wurden keine Bewertungen für das gesamte Buch ermittelt. Bitte erneut versuchen.",
   "lengthAskedDelivered": "Anforderung: ~{{target}} Wörter, geliefert: {{actual}} ({{pct}}%).",
   "lengthOverCeiling": "Dies erfordert mehr Wörter, als ein einzelner Aufruf zuverlässig liefern kann – teilen Sie die Szene in Passagen auf, um die volle Länge zu erreichen.",
   "techEdit": {
@@ -1818,7 +1855,12 @@
     "reasoning_exhausted": "Antwortbudget durch Denkprozess aufgebraucht.",
     "truncated": "Antwort abgeschnitten.",
     "invalid_response": "Ungültige Modellantwort.",
-    "manualRetry": "Erneut beim nächsten manuellen Start versuchen."
+    "manualRetry": "Erneut beim nächsten manuellen Start versuchen.",
+    "unknown": "Die Qualitätsanalyse ist aus unbekanntem Grund fehlgeschlagen.",
+    "incomplete": "Nicht alle Analysefenster wurden abgeschlossen.",
+    "synthesis_failed": "Die Analyse wurde abgeschlossen, aber die Berichtssynthese ist fehlgeschlagen.",
+    "synthesis_invalid_response": "Die Analyse wurde abgeschlossen, aber die Synthese lieferte eine ungültige Antwort.",
+    "audit_only": "Nur die Prüfung der Handlungsstränge wurde abgeschlossen; Kritikerbewertungen sind nicht verfügbar."
   },
   "qualityScope": {
     "partial": "Teilbericht — keine Bewertung des gesamten Kapitels.",

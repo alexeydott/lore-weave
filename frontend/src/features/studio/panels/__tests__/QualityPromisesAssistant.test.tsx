@@ -19,6 +19,10 @@ vi.mock('@/components/model-picker', () => ({
   }),
 }));
 
+const toastError = vi.hoisted(() => vi.fn());
+const toastSuccess = vi.hoisted(() => vi.fn());
+vi.mock('sonner', () => ({ toast: { error: toastError, success: toastSuccess, info: vi.fn() } }));
+
 const detectThreads = vi.fn().mockResolvedValue({ opened: 0, paid: 0, status: 'ok' });
 const threadsAssistant = vi.fn();
 const threadsAdopt = vi.fn();
@@ -63,6 +67,11 @@ function dockProps() {
   return { api: { setTitle: vi.fn() } } as unknown as IDockviewPanelProps;
 }
 
+const selection = vi.hoisted(() => ({ current: null as null | { model_source: 'platform_model'; model_ref: string } }));
+vi.mock('@/features/chat-ai-settings/context/ChatAiSettingsContext', () => ({
+  useEffectiveModelSelection: () => selection.current,
+}));
+
 function renderPanel() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -73,11 +82,47 @@ function renderPanel() {
 }
 
 beforeEach(() => {
+  selection.current = null;
+  detectThreads.mockReset().mockResolvedValue({ opened: 0, paid: 0, status: 'ok' });
+  toastError.mockClear();
+  toastSuccess.mockClear();
   threadsAssistant.mockReset().mockResolvedValue(REPORT);
   threadsAdopt.mockReset().mockResolvedValue({ created: 1 });
 });
 
 describe('QualityPromisesPanel — ИИ-помощник report (#user-report 2026-11-08)', () => {
+  it('preserves inherited platform model source for assistant execution', async () => {
+    selection.current = { model_source: 'platform_model', model_ref: 'platform-1' };
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('quality-promises-assistant')).toBeEnabled());
+    await user.click(screen.getByTestId('quality-promises-assistant'));
+    await waitFor(() => expect(threadsAssistant).toHaveBeenCalledWith('proj-1', expect.objectContaining({ model_source: 'platform_model', model_ref: 'platform-1' }), 'tok'));
+  });
+
+  it.each(['degraded', 'empty', 'rejected'])('never reports a failed batch as success: %s', async (status) => {
+    if (status === 'rejected') detectThreads.mockRejectedValueOnce(new Error('offline'));
+    else detectThreads.mockResolvedValueOnce({ status, opened: 0, paid: 0 });
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('quality-promises-batch')).toBeEnabled());
+    await user.click(screen.getByTestId('quality-promises-batch'));
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
+    expect(detectThreads).toHaveBeenCalledTimes(1);
+    expect(toastSuccess).not.toHaveBeenCalled();
+  });
+
+  it('does not persist assistant report content in localStorage', async () => {
+    const store = vi.spyOn(Storage.prototype, 'setItem');
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('quality-promises-assistant')).toBeEnabled());
+    await user.click(screen.getByTestId('quality-promises-assistant'));
+    await waitFor(() => expect(screen.getByTestId('quality-promises-report')).toBeInTheDocument());
+    expect(store.mock.calls.some(([key]) => key.startsWith('lw_promises_report:'))).toBe(false);
+    store.mockRestore();
+  });
+
   it('renders the four report sections after the assistant CTA', async () => {
     const user = userEvent.setup();
     renderPanel();

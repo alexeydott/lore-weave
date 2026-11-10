@@ -4,7 +4,7 @@ import { GroundingPanel } from '../GroundingPanel';
 import type { Grounding, GroundingItem } from '../../types';
 
 const { mockGrounding, setAction, mockHeat } = vi.hoisted(() => ({
-  mockGrounding: { isLoading: false, data: undefined as unknown },
+  mockGrounding: { isLoading: false, isError: false, isFetching: false, refetch: vi.fn(), data: undefined as unknown },
   setAction: vi.fn(),
   mockHeat: { data: [] as Array<{ id: string; name: string; mention_count: number; band: number }> },
 }));
@@ -26,7 +26,31 @@ const item = (over: Partial<GroundingItem> & Pick<GroundingItem, 'type' | 'id'>)
   label: 'x', pinned: false, excluded: false, ...over,
 });
 
-beforeEach(() => { setAction.mockReset(); mockGrounding.isLoading = false; mockGrounding.data = undefined; mockHeat.data = []; });
+beforeEach(() => { setAction.mockReset(); mockGrounding.refetch.mockReset(); mockGrounding.isError = false; mockGrounding.isLoading = false; mockGrounding.data = undefined; mockHeat.data = []; });
+
+it('does not infer a missing graph from empty scene retrieval and retries', () => {
+  mockGrounding.data = grounding({ grounding_available: false });
+  render(<GroundingPanel projectId="p" bookId="b" chapterId="c" sceneId="s" token="t" />);
+  expect(screen.getByTestId('composition-grounding-empty-hint').textContent).toContain('groundingNoResults');
+  expect(screen.queryByText(/No knowledge graph yet/)).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'groundingRetry' }));
+  expect(mockGrounding.refetch).toHaveBeenCalledOnce();
+});
+
+it('shows a load failure rather than no grounding, including stale cached data', () => {
+  mockGrounding.isError = true;
+  mockGrounding.data = grounding();
+  render(<GroundingPanel projectId="p" bookId="b" chapterId="c" sceneId="s" token="t" />);
+  expect(screen.getByRole('alert').textContent).toContain('groundingLoadFailed');
+  fireEvent.click(screen.getByRole('button', { name: 'groundingRetry' }));
+  expect(mockGrounding.refetch).toHaveBeenCalledOnce();
+});
+
+it('distinguishes an explicitly unlinked knowledge project', () => {
+  mockGrounding.data = grounding({ grounding_available: false, warnings: ['grounding_unavailable: this work has no knowledge project yet'] });
+  render(<GroundingPanel projectId="p" bookId="b" chapterId="c" sceneId="s" token="t" />);
+  expect(screen.getByTestId('composition-grounding-empty-hint').textContent).toContain('groundingNoProject');
+});
 
 describe('GroundingPanel pin/exclude (T3.4)', () => {
   it('renders addressable items as rows; non-addressable blocks stay opaque, addressable ones are not duplicated', () => {

@@ -383,10 +383,11 @@ async def promise_coverage_endpoint(
     nodes = await outline.list_tree(project_id)
     plan_text = _render_outline_plan(nodes)
 
-    # Assemble every active chapter's prose in reading order (skip empty/failed — degrade).
+    # Empty drafts contain no prose; failed reads make whole-book coverage unavailable.
     chapters = await _book_chapter_ids(book, work.book_id, bearer)
     parts: list[str] = []
     n_ok = 0
+    failed_chapters = 0
     for ch in chapters:
         cid = ch.get("chapter_id")
         if not cid:
@@ -394,13 +395,14 @@ async def promise_coverage_endpoint(
         try:
             draft = await book.get_draft(work.book_id, UUID(str(cid)), bearer)
         except BookClientError:
+            failed_chapters += 1
             continue
         txt = tiptap_doc_to_text(draft.get("body") or draft.get("doc") or draft.get("content"))
         if txt.strip():
             parts.append(txt.strip())
             n_ok += 1
     book_text = "\n\n".join(parts)
-    if not book_text.strip():
+    if not book_text.strip() and not failed_chapters:
         raise HTTPException(status_code=400, detail={
             "code": "EMPTY_BOOK", "detail": "no chapter prose to analyze"})
 
@@ -408,6 +410,7 @@ async def promise_coverage_endpoint(
     cov_input = {
         "worker_op": "promise_coverage", "premise": "", "plan_text": plan_text,
         "book_text": book_text, "chapters": n_ok,
+        "failed_chapters": failed_chapters,
         "book_id": str(work.book_id), "project_id": str(project_id),
         "model_source": str(body.model_source), "model_ref": str(body.model_ref),
         "source_language": profile.source_language,
@@ -1018,7 +1021,7 @@ async def rebind_node_motif_role(
     Targets the single ``role_bindings[role_key]`` key in place, leaving the other
     resolved roles + motif lineage untouched. H13 uniform 404 (no existence oracle) on:
     a foreign/missing node, a node with NO bound motif (nothing to rebind), a ``role_key``
-    the binding doesn't have, or an ``entity_id`` not in THIS book's cast (tenant-scoped —
+    not declared by the visible motif, or an ``entity_id`` not in THIS book's cast (tenant-scoped —
     a rebind can only point at the book's own glossary entities)."""
     work = await _require_work(works, grant, user_id, project_id)
     node = await outline.get_node(node_id)
@@ -1031,8 +1034,9 @@ async def rebind_node_motif_role(
     if app is None or app.motif_id is None:
         # nothing bound on the node → no role to rebind.
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND"})
-    # only a role the binding actually has may be rebound (no arbitrary jsonb-key write).
-    if body.role_key not in (app.role_bindings or {}):
+    # Initial binds omit unresolved keys; the visible motif declares the legal roles.
+    motif = await MotifRepo(get_pool()).get_visible(user_id, app.motif_id)
+    if motif is None or body.role_key not in {role["key"] for role in motif.roles}:
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND"})
     # the target entity must be in the book's own cast (tenant-scoped; no foreign entity).
     if body.entity_id is not None:
@@ -1111,7 +1115,7 @@ def _assemble_motif_bindings(
             bindings[str(s.id)] = None
             continue
         role_bindings = {
-            rk: {"entity_id": str(eid), "entity_name": cast_names.get(str(eid), "")}
+            rk: {"entity_id": str(eid) if eid else None, "entity_name": cast_names.get(str(eid), "")}
             for rk, eid in (app.role_bindings or {}).items()
         }
         ann = app.annotations or {}
@@ -1119,6 +1123,7 @@ def _assemble_motif_bindings(
             "motif_id": str(app.motif_id),
             "motif_name": motif.name,
             "motif_source": motif.source,
+            "role_labels": {r["key"]: r.get("label", r["key"]) for r in motif.roles},
             "role_bindings": role_bindings,
             "match_reason": ann.get("match_reason") or {},
             "beat_key": ann.get("beat_key"),
@@ -1167,6 +1172,7 @@ def _assemble_succession(
 async def get_motif_bindings(
     project_id: UUID,
     chapter_id: UUID,
+    display_language: str | None = None,
     user_id: UUID = Depends(get_current_user),
     works: WorksRepo = Depends(get_works_repo),
     outline: OutlineRepo = Depends(get_outline_repo),
@@ -1204,6 +1210,8 @@ async def get_motif_bindings(
             m = await mrepo.get_visible(user_id, mid)
             if m is not None:
                 motif_by_id[mid] = m
+        localized = await mrepo._localize(list(motif_by_id.values()), display_language)
+        motif_by_id = {m.id: m for m in localized}
         cast = await _cast_roster(kal, work.book_id, user_id)
         cast_names = {e["entity_id"]: e["name"] for e in cast}
         # the legal-succession edges for the bound motifs → the ChainIt hints.

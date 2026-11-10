@@ -1,0 +1,143 @@
+openapi: 3.1.0
+info:
+  title: Composition entity references
+  version: 1.0.0
+  description: Read-only composition usages and explicit non-agentic single-pass summaries. No tools, actions, writes, or automatic retries.
+security:
+  - bearerAuth: []
+paths:
+  /v1/composition/books/{book_id}/entities/{entity_id}/references:
+    parameters:
+      - $ref: '#/components/parameters/Book'
+      - $ref: '#/components/parameters/Entity'
+    get:
+      operationId: compositionEntityReferences
+      parameters:
+        - name: sources
+          in: query
+          schema:
+            type: array
+            items: {$ref: '#/components/schemas/Source'}
+          style: form
+          explode: true
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: Exact counts and capped samples; independent failed sources carry error instead of a zero count.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/References'}
+        '401': {description: Authentication required}
+        '403': {description: Insufficient book grant}
+        '404': {description: Book inaccessible or entity absent from authorized book}
+        '422': {description: Invalid UUID, source, or limit}
+        '503': {description: Grant authority or KAL identity unavailable; fail closed}
+  /v1/composition/books/{book_id}/entities/{entity_id}/references/assistant:
+    parameters:
+      - $ref: '#/components/parameters/Book'
+      - $ref: '#/components/parameters/Entity'
+    post:
+      operationId: compositionEntityReferencesSummary
+      description: Requires VIEW. Server fetches all evidence. Explicit model overrides canonical book chat role, then caller account chat default. No configuration is written. Evidence is capped at 40 rows and 18000 JSON characters, output at 2048 tokens and 6000 answer characters. Citation IDs are response-local; node_ref.id is the actual composition row UUID. Narrative-thread matches are indirect promises opened at a node containing this entity, not direct entity mentions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [question, locale]
+              properties:
+                question: {type: string, minLength: 1, maxLength: 2000}
+                locale: {type: string, minLength: 2, maxLength: 35, pattern: '^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$'}
+                model_ref: {type: [string, 'null'], format: uuid}
+                model_source: {type: string, enum: [user_model, platform_model], default: user_model}
+      responses:
+        '200':
+          description: Validated grounded summary; citation rows are server-built, never model-supplied navigation targets.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [answer, citations, references]
+                properties:
+                  answer: {type: string, minLength: 1, maxLength: 6000}
+                  citations:
+                    type: array
+                    maxItems: 40
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/Reference'
+                        - type: object
+                          required: [citation_id]
+                          properties:
+                            citation_id: {type: string, pattern: '^r[1-9][0-9]*$'}
+                  references: {$ref: '#/components/schemas/References'}
+        '401': {description: Authentication required}
+        '403': {description: Insufficient book grant}
+        '404': {description: Book inaccessible or entity absent from authorized book}
+        '422': {description: Invalid request or MODEL_NOT_CONFIGURED}
+        '502': {description: REFERENCE_ASSISTANT_FAILED; invalid output, citations, timeout, or model failure; no unvalidated fallback}
+        '503': {description: Identity, grant authority, or every reference source unavailable}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  parameters:
+    Book:
+      name: book_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    Entity:
+      name: entity_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+  schemas:
+    Source:
+      type: string
+      enum: [outline_pov, outline_present, scene_pov, scene_present, structure_roster, motif_application, canon_rule, narrative_thread]
+    Reference:
+      type: object
+      required: [source, node_ref, detail]
+      properties:
+        source: {$ref: '#/components/schemas/Source'}
+        node_ref:
+          type: object
+          required: [kind, id, title]
+          properties:
+            kind: {type: string}
+            id: {type: string, format: uuid}
+            title: {type: [string, 'null']}
+        detail: {type: string}
+    References:
+      type: object
+      required: [book_id, entity_id, sources, _meta]
+      properties:
+        book_id: {type: string, format: uuid}
+        entity_id: {type: string, format: uuid}
+        sources:
+          type: object
+          propertyNames: {$ref: '#/components/schemas/Source'}
+          additionalProperties:
+            oneOf:
+              - type: object
+                required: [count, refs, has_more]
+                properties:
+                  count: {type: integer, minimum: 0}
+                  refs:
+                    type: array
+                    maxItems: 100
+                    items: {$ref: '#/components/schemas/Reference'}
+                  has_more: {type: boolean}
+              - type: object
+                required: [error]
+                properties:
+                  error: {type: string}
+        _meta:
+          type: object
+          required: [note]
+          properties:
+            note: {type: string}

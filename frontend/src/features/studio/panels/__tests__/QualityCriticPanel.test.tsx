@@ -33,9 +33,15 @@ vi.mock('@/features/books/api', () => ({
 }));
 
 const qualityReport = vi.fn();
+const listRuns = vi.fn();
+const estimateRun = vi.fn();
+const startRun = vi.fn();
+const stopRun = vi.fn();
+const report = { scope: { partial: false, complete: true, synthesis_completed: true }, critic: { coherence: 4, voice_match: 3, pacing: 2, canon_consistency: 5, violations: [] } };
+function serverRun(result = report, error: string | null = null) { return { id: 'r', project_id: 'proj-1', book_id: 'b1', model_source: 'user_model', model_ref: 'model-1', status: 'completed', stop_requested: false, total: 1, completed: error ? 0 : 1, failed: error ? 1 : 0, chapters: [{ chapter_id: 'ch1', title: 'Chapter One', status: error ? 'failed' : 'completed', result: { report: result }, error }] }; }
 vi.mock('@/features/composition/api', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/features/composition/api')>(),
-  compositionApi: { qualityReport: (...args: unknown[]) => qualityReport(...args) },
+  compositionApi: { qualityReport: (...args: unknown[]) => qualityReport(...args), listQualityRuns: (...args: unknown[]) => listRuns(...args), estimateQualityRun: (...args: unknown[]) => estimateRun(...args), startQualityRun: (...args: unknown[]) => startRun(...args), stopQualityRun: (...args: unknown[]) => stopRun(...args) },
 }));
 
 const effectiveModel = vi.fn(() => null);
@@ -77,6 +83,10 @@ beforeEach(() => {
   listChapters.mockReset();
   listChaptersPage.mockReset();
   qualityReport.mockReset();
+  listRuns.mockReset().mockResolvedValue({ runs: [] });
+  estimateRun.mockReset().mockResolvedValue({ total: 1, estimated_calls_max: 8, estimated_usd_max: 0.5, chapters: [] });
+  startRun.mockReset().mockResolvedValue(serverRun());
+  stopRun.mockReset();
   effectiveModel.mockReset().mockReturnValue(null);
   const chapters = [
     { chapter_id: 'ch1', title: 'Chapter One', original_filename: 'ch1.txt', sort_order: 1, draft_updated_at: '2026-11-08T00:00:00Z', draft_revision_count: 1 },
@@ -133,96 +143,53 @@ describe('QualityCriticPanel', () => {
     expect(listChaptersPage).toHaveBeenCalledTimes(2);
   });
 
-  it('sends the full inherited model source for whole-book analysis and caches each chapter', async () => {
+  it('estimates inherited platform models and submits only after explicit confirmation without local reports', async () => {
     effectiveModel.mockReturnValue({ model_source: 'platform_model', model_ref: 'provider/ref' });
     useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
-    const page1 = { chapter_id: 'ch1', title: 'Chapter One', sort_order: 1, draft_updated_at: '2026-11-08T00:00:00Z', draft_revision_count: 1 };
-    const page2 = { chapter_id: 'ch2', title: 'Chapter Two', sort_order: 2, draft_updated_at: '2026-11-08T00:01:00Z', draft_revision_count: 1 };
-    listChaptersPage.mockResolvedValueOnce({ items: [page1], total: 2, next_cursor: 'c2' })
-      .mockResolvedValueOnce({ items: [page2], total: null, next_cursor: null });
-    const cleanReport = { report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: {
-      coherence: 4, voice_match: 4, pacing: 4, canon_consistency: 4, violations: [],
-    } } };
-    qualityReport.mockResolvedValue(cleanReport);
     withHost('b1');
-
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Chapter Two' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('quality-critic-batch')).toBeEnabled());
+    expect(startRun).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('quality-critic-batch'));
-
-    await waitFor(() => expect(screen.getByTestId('quality-critic-batch-entry-ch2')).toBeInTheDocument());
-    expect(qualityReport).toHaveBeenCalledTimes(2);
-    expect(qualityReport).toHaveBeenNthCalledWith(1, 'proj-1', {
-      chapterId: 'ch1', modelRef: 'provider/ref', modelSource: 'platform_model',
-    }, 'tok');
-    const key = 'lw_critic_batch:b1:proj-1:platform_model:provider/ref';
-    expect(JSON.parse(localStorage.getItem(key) || '[]')).toHaveLength(2);
+    await screen.findByTestId('quality-critic-batch-confirm');
+    expect(estimateRun).toHaveBeenCalledWith('proj-1', { model_source: 'platform_model', model_ref: 'provider/ref' }, 'tok');
+    expect(startRun).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('quality-critic-batch-confirm'));
+    await screen.findByTestId('quality-critic-batch-entry-ch1');
+    expect(startRun).toHaveBeenCalledWith('proj-1', expect.objectContaining({ model_source: 'platform_model', model_ref: 'provider/ref', max_estimated_calls: 8, max_estimated_usd: 0.5 }), 'tok');
+    expect(qualityReport).not.toHaveBeenCalled();
+    expect(localStorage.length).toBe(0);
   });
 
-  it('reports a degraded critic result as retryable and retries it on the next pass', async () => {
+  it('restores failed server reports without automatic retry or claiming provider outage', async () => {
     useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
-    const chapter = { chapter_id: 'ch1', title: 'Chapter One', sort_order: 1, draft_updated_at: '2026-11-08T00:00:00Z', draft_revision_count: 1 };
-    listChaptersPage.mockResolvedValue({ items: [chapter], total: 1, next_cursor: null });
-    qualityReport.mockResolvedValueOnce({ report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: {
-      coherence: null, voice_match: null, pacing: null, canon_consistency: null,
-      violations: [], error: 'critic_unavailable',
-    } } }).mockResolvedValueOnce({ report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: {
-      coherence: 4, voice_match: 4, pacing: 4, canon_consistency: 4, violations: [],
-    } } });
+    listRuns.mockResolvedValue({ runs: [serverRun(report, 'critic_synthesis_invalid_response')] });
     withHost('b1');
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Chapter One' })).toBeInTheDocument());
-
-    fireEvent.click(screen.getByTestId('quality-critic-batch'));
-    await waitFor(() => expect(screen.getByTestId('quality-critic-batch-entry-ch1')).toHaveTextContent('qualityReasons.unavailable'));
-    fireEvent.click(screen.getByTestId('quality-critic-batch'));
-    await waitFor(() => expect(screen.getByTestId('quality-critic-batch-entry-ch1')).toHaveTextContent('coherence: 4/5'));
-    expect(qualityReport).toHaveBeenCalledTimes(2);
+    expect(await screen.findByTestId('quality-reason')).toHaveTextContent('qualityReasons.synthesis_invalid_response');
+    expect(startRun).not.toHaveBeenCalled();
+    expect(qualityReport).not.toHaveBeenCalled();
   });
 
-  it('stops between chapter requests and resumes without repeating the completed chapter', async () => {
+  it('requests server stop-after-current without cancelling or resubmitting', async () => {
     useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
-    const chapters = [
-      { chapter_id: 'ch1', title: 'Chapter One', sort_order: 1, draft_updated_at: '2026-11-08T00:00:00Z', draft_revision_count: 1 },
-      { chapter_id: 'ch2', title: 'Chapter Two', sort_order: 2, draft_updated_at: '2026-11-08T00:01:00Z', draft_revision_count: 1 },
-    ];
-    listChaptersPage.mockResolvedValue({ items: chapters, total: 2, next_cursor: null });
-    let resolveFirst!: (value: unknown) => void;
-    qualityReport.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
-      .mockResolvedValueOnce({ report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: {
-        coherence: 4, voice_match: 4, pacing: 4, canon_consistency: 4, violations: [],
-      } } });
-    useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
+    const running = { ...serverRun(), status: 'running', completed: 0 };
+    listRuns.mockResolvedValue({ runs: [running] });
+    stopRun.mockResolvedValue({ ...running, stop_requested: true });
     withHost('b1');
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Chapter Two' })).toBeInTheDocument());
-
-    fireEvent.click(screen.getByTestId('quality-critic-batch'));
-    await waitFor(() => expect(qualityReport).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByTestId('quality-critic-batch-stop'));
-    await act(async () => resolveFirst({ report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: {
-      coherence: 4, voice_match: 4, pacing: 4, canon_consistency: 4, violations: [],
-    } } }));
-    await waitFor(() => expect(screen.getByTestId('quality-critic-batch-entry-ch1')).toBeInTheDocument());
-    expect(qualityReport).toHaveBeenCalledTimes(1);
-
-    fireEvent.click(screen.getByTestId('quality-critic-batch'));
-    await waitFor(() => expect(screen.getByTestId('quality-critic-batch-entry-ch2')).toBeInTheDocument());
-    expect(qualityReport).toHaveBeenCalledTimes(2);
+    fireEvent.click(await screen.findByTestId('quality-critic-batch-stop'));
+    await waitFor(() => expect(screen.getByTestId('quality-critic-batch-stop')).toBeDisabled());
+    expect(stopRun).toHaveBeenCalledWith('proj-1', 'r', 'tok');
+    expect(startRun).not.toHaveBeenCalled();
   });
 
-  it('clears the active Work+model cache key', async () => {
-    effectiveModel.mockReturnValue({ model_source: 'user_model', model_ref: 'model-1' });
+  it('fails closed when the estimate is unavailable', async () => {
     useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
-    const chapter = { chapter_id: 'ch1', title: 'Chapter One', sort_order: 1, draft_updated_at: '2026-11-08T00:00:00Z', draft_revision_count: 1 };
-    listChaptersPage.mockResolvedValue({ items: [chapter], total: 1, next_cursor: null });
-    qualityReport.mockResolvedValue({ report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: {
-      coherence: 4, voice_match: 4, pacing: 4, canon_consistency: 4, violations: [],
-    } } });
+    estimateRun.mockRejectedValue(new Error('pricing unavailable'));
     withHost('b1');
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Chapter One' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('quality-critic-batch')).toBeEnabled());
     fireEvent.click(screen.getByTestId('quality-critic-batch'));
-    await waitFor(() => expect(screen.getByTestId('quality-critic-batch-entry-ch1')).toBeInTheDocument());
-    expect(localStorage.getItem('lw_critic_batch:b1:proj-1:user_model:model-1')).not.toBeNull();
-    fireEvent.click(screen.getByTestId('quality-critic-batch-clear'));
-    expect(localStorage.getItem('lw_critic_batch:b1:proj-1:user_model:model-1')).toBeNull();
+    await screen.findByTestId('quality-critic-batch-error');
+    expect(screen.queryByTestId('quality-critic-batch-confirm')).toBeNull();
+    expect(startRun).not.toHaveBeenCalled();
   });
 
   // /review-impl (D-04 follow-up) — `unavailable` means composition-service is DOWN. Rendering the

@@ -274,6 +274,10 @@
     "deleteFailed": "Không thể xóa địa điểm này.",
     "backdropNoChapter": "Mở một chương để thiết lập bối cảnh."
   },
+  "groundingNoResults": "Không truy xuất được ngữ cảnh từ đồ thị cho cảnh này. Đồ thị vẫn có thể tồn tại; vị trí cảnh, nội dung phù hợp hoặc lỗi dịch vụ tri thức có thể hạn chế việc truy xuất.",
+  "groundingNoProject": "Tác phẩm này chưa được liên kết với dự án tri thức nào. Tính năng cung cấp căn cứ chưa khả dụng cho tác phẩm này.",
+  "groundingLoadFailed": "Không thể tải căn cứ. Hãy thử lại trước khi thay đổi đồ thị tri thức.",
+  "groundingRetry": "Thử tải lại căn cứ",
   "grounding": "Căn cứ",
   "canon": "Canon",
   "progress": "Tiến độ",
@@ -371,7 +375,12 @@
     "saveContent": "Lưu nội dung (nhúng lại)",
     "saveMetadata": "Lưu chi tiết",
     "saving": "Đang lưu…",
-    "sourceUrl": "URL nguồn (tùy chọn)"
+    "sourceUrl": "URL nguồn (tùy chọn)",
+    "loading": "Đang tải tài liệu tham khảo…",
+    "listError": "Không thể tải tài liệu tham khảo. Vui lòng thử lại.",
+    "inheritedEmbed": "Dùng mô hình nhúng được kế thừa",
+    "modelsLoading": "Đang tải mô hình nhúng…",
+    "modelsError": "Không thể tải mô hình nhúng. Vui lòng thử lại."
   },
   "progressPanel": {
     "loading": "Đang tải tiến độ…",
@@ -826,7 +835,10 @@
       "noWork": "Tạo kế hoạch để liên kết các mô-típ với các cảnh trong cuốn sách này.",
       "committedTitle": "Liên kết các motif cảnh",
       "loadError": "Không thể tải các motif cảnh.",
-      "sectionTitle": "Motif cảnh"
+      "sectionTitle": "Motif cảnh",
+      "candidatesLoading": "Đang tải mô-típ…",
+      "candidatesError": "Không thể tải mô-típ.",
+      "candidatesEmpty": "Thêm hoặc nhập mô-típ vào thư viện mô-típ, rồi quay lại đây để gắn một mô-típ."
     },
     "swap": {
       "title": "Swap motif",
@@ -852,12 +864,26 @@
         "bad": "Beat missed"
       },
       "rerunNeedsModel": "Chọn một mô hình để chạy lại kiểm tra sự phù hợp",
-      "bindCta": "Liên kết một motif với một cảnh →",
+      "bindCta": "Chọn cảnh để gắn mô-típ →",
       "couldNotCheck": "Không thể kiểm tra",
       "notChecked": "Chưa kiểm tra",
       "notWritten": "Chưa viết",
       "openScene": "Mở cảnh này trong trình kiểm tra",
-      "written": "Đã viết"
+      "written": "Đã viết",
+      "noChapter": "Chọn chương",
+      "chaptersLoading": "Đang tải chương…",
+      "chaptersError": "Không thể tải chương.",
+      "noChapters": "Chưa có chương.",
+      "actionError": "Thao tác thất bại. Hãy thử lại.",
+      "running": "Đang chạy…",
+      "snapshot": "Kiểm tra gần nhất: {{time}}",
+      "status": {
+        "unavailable": "Không thể kiểm tra",
+        "no_bound_motif": "Hãy gắn mô-típ trước",
+        "motif_unavailable": "Mô-típ không khả dụng",
+        "no_manuscript_prose": "Hãy viết bản thảo trước",
+        "stale": "Đã cũ — hãy kiểm tra lại"
+      }
     },
     "arc": {
       "mobileNotice": "Lưới dòng thời gian có sẵn trên màn hình lớn — tại đây bạn có thể chỉnh sửa dưới dạng danh sách.",
@@ -960,7 +986,8 @@
         "error": "Không thể xếp hạng các gợi ý hồi.",
         "empty": "Chưa có mẫu hồi nào phù hợp — hãy tạo một mẫu mới hoặc nhập một câu chuyện để phân tích.",
         "mine": "của bạn",
-        "span": "{{count}} chương"
+        "span": "{{count}} chương",
+        "sectionMine": "Các tuyến truyện của bạn"
       },
       "decompile": {
         "open": "Nhóm các chương thành các hồi",
@@ -1092,10 +1119,14 @@
       "retry": "Thử lại",
       "empty": "Chưa có mô-típ nào phù hợp với cảnh này — hãy thêm nhiều hơn vào thư viện của bạn.",
       "bind": "Liên kết",
-      "degradedMine": "Các motif của bạn không được xếp hạng theo độ phù hợp — hãy thiết lập một mô hình embedding trong phần cài đặt để xếp hạng chúng theo ngữ nghĩa.",
-      "degradedLibrary": "Không được xếp hạng theo độ phù hợp — mô hình embedding của thư viện dùng chung chưa được cấu hình, vì vậy đây là các kết quả thay thế theo thể loại, không phải các kết quả khớp theo điểm số.",
+      "degradedMine": "Không thể xếp hạng ngữ nghĩa cho các gợi ý riêng tư của bạn: chưa chọn được mô hình nhúng có hiệu lực cho sách/tài khoản này.",
+      "degradedLibrary": "Không thể xếp hạng ngữ nghĩa cho thư viện chung: cấu hình nhúng riêng của nền tảng chưa hoàn chỉnh. Cài đặt mô hình của sách/tài khoản là độc lập.",
       "sectionMine": "Mô típ của bạn",
-      "sectionLibrary": "Từ thư viện"
+      "sectionLibrary": "Từ thư viện",
+      "rankingUnavailable": "Không thể xếp hạng — các gợi ý này chưa được xếp theo độ phù hợp.",
+      "providerUnavailable": "Tạm thời không thể xếp hạng — vui lòng thử lại sau.",
+      "emptyQuery": "Thêm tiền đề hoặc văn bản cảnh để xếp hạng gợi ý theo độ phù hợp.",
+      "semanticMatch": "Khớp ngữ nghĩa"
     },
     "language": {
       "writtenIn": "Viết bằng",
@@ -1176,29 +1207,28 @@
       "violation": "{{label}}: {{n}} lỗi thứ tự"
     },
     "editor": {
-      "add": "thêm",
-      "beatIntent": "ý định",
-      "beatLabel": "nhịp",
-      "beats": "Nhịp",
-      "conflict": "Motif này đã thay đổi ở nơi khác — hãy mở lại để cập nhật bản mới nhất trước khi chỉnh sửa.",
-      "deceived": "người bị lừa (cách nhau bằng dấu phẩy)",
-      "effects": "Hiệu ứng",
-      "emotion": "Cảm xúc",
-      "examples": "Ví dụ (tác giả viết)",
-      "gap": "khoảng cách",
-      "genres": "Thể loại (cách nhau bằng dấu phẩy)",
-      "kind": "Loại",
-      "knows": "người biết (cách nhau bằng dấu phẩy)",
-      "name": "Tên",
-      "preconditions": "Điều kiện tiên quyết",
-      "roleConstraints": "ràng buộc",
-      "roleLabel": "nhãn",
-      "roles": "Vai trò",
-      "saveError": "Không thể lưu.",
+      "open": "Sửa mô-típ",
+      "title": "Mô-típ cảnh",
+      "description": "Thay đổi chỉ được lưu khi chọn Lưu.",
+      "search": "Tìm theo tên hoặc mã",
+      "motif": "Mô-típ",
+      "freeform": "Tự do (không mô-típ)",
+      "preview": "Xem trước mô-típ",
+      "unresolved": "Chưa gán",
+      "save": "Lưu",
       "saving": "Đang lưu…",
-      "scheme": "Bất đối xứng thông tin",
-      "summary": "Tóm tắt (nhúng để truy xuất)",
-      "tension": "Căng thẳng (1–5)"
+      "cancel": "Hủy",
+      "loadError": "Không tải được dữ liệu mô-típ.",
+      "saveError": "Lưu thất bại. Bản nháp được giữ lại; hãy thử lưu lại.",
+      "partialError": "Một số thay đổi đã được lưu. Thử lưu lại để hoàn tất; hủy không hoàn tác phần đã lưu.",
+      "discardTitle": "Bỏ thay đổi chưa lưu?",
+      "discardDescription": "Bản nháp chưa lưu sẽ bị bỏ. Thay đổi đã lưu không được hoàn tác tại đây.",
+      "stay": "Tiếp tục sửa",
+      "discard": "Bỏ bản nháp",
+      "fallback": "Chưa có bản dịch; hiển thị {{language}}.",
+      "contextRequired": "Chọn cảnh đã xác nhận để sửa mô-típ.",
+      "current": "Hiện tại",
+      "dirty": "Thay đổi chưa lưu"
     },
     "kind": {
       "arcs": "Mẫu Arc",
@@ -1765,6 +1795,13 @@
   "canonConflictCurrent": "Hiện tại (v{{v}}): {{text}}",
   "coverageExtractionFailed": "Không thể đọc các lời hứa từ dàn ý của bạn (lệnh gọi mô hình bị lỗi hoặc bị ngắt quãng). Hãy thử lại hoặc chọn một mô hình khác.",
   "coverageScoreFailed": "Đã đọc các lời hứa, nhưng việc chấm điểm chúng dựa trên cuốn sách đã thất bại. Hãy thử lại.",
+  "coverageCorpusIncomplete": "Không thể đánh giá toàn bộ sách: không đọc được bản nháp của {{count}} chương. Chưa đưa ra kết luận nào cho toàn bộ sách. Vui lòng thử lại.",
+  "coverageCorpusIncomplete_zero": "Không thể đánh giá toàn bộ sách: không đọc được bản nháp của {{count}} chương. Chưa đưa ra kết luận nào cho toàn bộ sách. Vui lòng thử lại.",
+  "coverageCorpusIncomplete_one": "Không thể đánh giá toàn bộ sách: không đọc được bản nháp của {{count}} chương. Chưa đưa ra kết luận nào cho toàn bộ sách. Vui lòng thử lại.",
+  "coverageCorpusIncomplete_two": "Không thể đánh giá toàn bộ sách: không đọc được bản nháp của {{count}} chương. Chưa đưa ra kết luận nào cho toàn bộ sách. Vui lòng thử lại.",
+  "coverageCorpusIncomplete_few": "Không thể đánh giá toàn bộ sách: không đọc được bản nháp của {{count}} chương. Chưa đưa ra kết luận nào cho toàn bộ sách. Vui lòng thử lại.",
+  "coverageCorpusIncomplete_many": "Không thể đánh giá toàn bộ sách: không đọc được bản nháp của {{count}} chương. Chưa đưa ra kết luận nào cho toàn bộ sách. Vui lòng thử lại.",
+  "coverageCorpusIncomplete_other": "Không thể đánh giá toàn bộ sách: không đọc được bản nháp của {{count}} chương. Chưa đưa ra kết luận nào cho toàn bộ sách. Vui lòng thử lại.",
   "lengthAskedDelivered": "Yêu cầu khoảng {{target}} từ, đã trả về {{actual}} từ ({{pct}}%).",
   "lengthOverCeiling": "Yêu cầu này vượt quá số lượng từ mà một lần gọi có thể đảm bảo cung cấp — hãy chia cảnh thành các đoạn văn để đạt được độ dài đầy đủ.",
   "techEdit": {
@@ -1818,7 +1855,12 @@
     "reasoning_exhausted": "Suy luận đã dùng hết ngân sách phản hồi.",
     "truncated": "Phản hồi bị cắt ngắn.",
     "invalid_response": "Phản hồi mô hình không hợp lệ.",
-    "manualRetry": "Thử lại ở lần chạy thủ công tiếp theo."
+    "manualRetry": "Thử lại ở lần chạy thủ công tiếp theo.",
+    "unknown": "Phân tích chất lượng thất bại vì lý do không xác định.",
+    "incomplete": "Không phải mọi cửa sổ phân tích đều hoàn tất.",
+    "synthesis_failed": "Phân tích đã hoàn tất nhưng tổng hợp báo cáo thất bại.",
+    "synthesis_invalid_response": "Phân tích đã hoàn tất nhưng bước tổng hợp trả về phản hồi không hợp lệ.",
+    "audit_only": "Chỉ hoàn tất kiểm tra tuyến truyện; chưa có điểm đánh giá."
   },
   "qualityScope": {
     "partial": "Báo cáo một phần — không đánh giá toàn chương.",

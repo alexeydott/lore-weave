@@ -156,6 +156,9 @@ async def gather_present(
     # FTS select-for-context on empty/failure (AC4/AC5). Same item shape either
     # way (entity_id/cached_name/short_description), so the loop below is shared.
     bios = await knowledge.glossary_semantic(user_id, project_id=project_id, query=query)
+    # Semantic bios are graph-backed grounding too, even without explicit cast,
+    # prior timeline events, or retrievable lore passages for this scene.
+    seen = bool(bios)
     if not bios:
         bios = await glossary.select_for_context(book_id, user_id, query, language=language)
     for b in bios:
@@ -170,8 +173,16 @@ async def gather_present(
         })
     # Knowledge relations for the explicitly-cast entities (best-effort).
     by_id = {p["entity_id"]: p for p in present}
+    anchors = {}
+    if present_entity_ids:
+        graph = await knowledge.list_project_entities(bearer, project_id=project_id)
+        anchors = {str(e["glossary_entity_id"]): e["id"] for e in graph
+                   if e.get("glossary_entity_id") and e.get("id")}
     for ent_id in present_entity_ids:
-        detail = await knowledge.get_entity(bearer, str(ent_id))
+        graph_id = anchors.get(str(ent_id))
+        if graph_id is None:  # unprojected glossary entry: never guess a graph id
+            continue
+        detail = await knowledge.get_entity(bearer, graph_id)
         if detail is None:  # soft-absent / unavailable → skip (DI3)
             continue
         seen = True
@@ -185,7 +196,7 @@ async def gather_present(
         else:
             ent = detail.get("entity") or {}
             # Cache the glossary anchor id (stable), not the knowledge id.
-            anchor = ent.get("glossary_entity_id") or key
+            anchor = key
             present.append({"entity_id": anchor, "name": ent.get("name", ""), "summary": "", "relations": rels})
     return present, seen
 

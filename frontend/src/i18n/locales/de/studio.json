@@ -205,7 +205,8 @@
       "batchRunning": "Analysierte Kapitel: {{done}}/{{total}}…",
       "batchStop": "Stoppen",
       "batchDone": "Analysierte Kapitel: {{total}} · geöffnete Versprechen: {{opened}} · beglichene: {{paid}}",
-      "batchStopped": "Gestoppt — {{done}} von {{total}} Kapiteln analysiert."
+      "batchStopped": "Gestoppt — {{done}} von {{total}} Kapiteln analysiert.",
+      "batchFailed": "{{done}} von {{total}} Kapiteln analysiert; {{failed}} fehlgeschlagen. Ergebnisse unvollständig."
     },
     "quality-critic": {
       "title": "Kritiker",
@@ -462,6 +463,10 @@
         "motifs": "Motive"
       },
       "links": {
+        "loading": "Szenenverknüpfungen werden geladen…",
+        "loadError": "Szenenverknüpfungen konnten nicht geladen werden.",
+        "unavailable": "Szene nicht verfügbar",
+        "untitledScene": "Szene {{number}}",
         "empty": "Noch keine kausalen Verknüpfungen vorhanden.",
         "setup": "setup→payoff",
         "custom": "benutzerdefiniert",
@@ -1097,7 +1102,13 @@
     "criticBatchRemaining": "Verbleibend: {{count}}",
     "criticBatchFailed": "fehlgeschlagen — erneuter Versuch folgt",
     "criticBatchClear": "Ergebnisse löschen",
-    "chaptersLoadError": "Kapitelliste konnte nicht geladen werden."
+    "chaptersLoadError": "Kapitelliste konnte nicht geladen werden.",
+    "criticBatchEstimate": "Geschätzte maximale Modellaufrufe: {{calls}} für {{count}} Kapitel.",
+    "criticBatchConfirm": "Analyse des gesamten Buchs bestätigen",
+    "criticBatchEstimateFailed": "Diese Analyse konnte nicht geschätzt werden. Es wurde kein Lauf gestartet.",
+    "criticBatchProgress": "{{completed}} abgeschlossen, {{failed}} fehlgeschlagen, {{total}} insgesamt.",
+    "criticBatchDetached": "Warten beendet. Der Lauf auf dem Server wird fortgesetzt.",
+    "criticBatchEstimateCost": "Geschätzte Kostenobergrenze: ${{cost}}. Es wurde kein Lauf gestartet."
   },
   "sidebar": {
     "collapse": "Einklappen",
@@ -1721,6 +1732,35 @@
     }
   },
   "planHub": {
+    "drawer": {
+      "noCanon": "Hier ist keine Kanonregel verknüpft.",
+      "chapter": "Kapitel",
+      "scene": "Szene",
+      "arc": "Handlungsbogen",
+      "saga": "Saga",
+      "unknown": "Knoten",
+      "anchor": "Verknüpfung",
+      "notAnchored": "— nicht verknüpft —",
+      "currentAnchor": "(aktuelle Verknüpfung)",
+      "anchorFirst": "Zuerst mit einem Kapitel verknüpfen",
+      "anchorError": "Kapitelliste nicht verfügbar — Verknüpfung kann nicht geändert werden.",
+      "noAnchor": "Kein Manuskriptkapitel verknüpft — wählen Sie oben eines aus.",
+      "openEditor": "Im Editor öffnen",
+      "expand": "Aufklappen",
+      "collapse": "Zuklappen",
+      "expandScenes": "Szenen aufklappen",
+      "collapseScenes": "Szenen zuklappen",
+      "expandArc": "Handlungsbogen aufklappen",
+      "expandLane": "Bahn aufklappen",
+      "collapseLane": "Bahn zuklappen",
+      "referencesNote": "Rückverweise benötigen das noch nicht verfügbare Werkzeug composition_find_references. Oben stehen die Figuren dieses Knotens.",
+      "criticNote": "Kritikläufe gelten für das Buch — siehe Qualität → Kritik.",
+      "noPlan": "Dieser Knoten hat noch keinen Plan.",
+      "arcMissing": "Handlungsbogen nicht in der Struktur gefunden.",
+      "selectNode": "Wählen Sie einen Knoten, um seinen Plan zu sehen.",
+      "total": "Insgesamt {{count}}",
+      "truncated": "Die Liste ist gekürzt"
+    },
     "undo": "Rückgängig",
     "empty": {
       "title": "Noch kein Plan für dieses Buch",
@@ -1970,5 +2010,45 @@
     "loading_more": "Laden…",
     "restore": "Wiederherstellen"
   },
-  "campaigns": "Kampagnen (Batch-Extraktion & Übersetzung)"
+  "campaigns": "Kampagnen (Batch-Extraktion & Übersetzung)",
+  "referenceShelf": {
+    "title": "Quellenregal",
+    "entity": "Glossareintrag",
+    "chooseEntity": "Eintrag auswählen",
+    "noEntities": "Für dieses Buch sind keine Glossareinträge verfügbar.",
+    "signIn": "Melde dich an, um Quellen zu laden.",
+    "loading": "Quellen werden geladen…",
+    "loadFailed": "Quellen konnten nicht geladen werden.",
+    "empty": "Keine Quellen gefunden.",
+    "partial": "Einige Quellen konnten nicht geladen werden.",
+    "capped": "{{shown}} von {{count}} Quellen werden angezeigt.",
+    "showMore": "Mehr anzeigen",
+    "limitReached": "Anzeigelimit für Quellen erreicht.",
+    "question": "Fragen zu diesen Quellen stellen",
+    "questionPlaceholder": "Was möchtest du wissen?",
+    "ask": "KI-Assistenten fragen",
+    "asking": "KI-Assistent wird gefragt…",
+    "paid": "Diese optionale Anfrage verbraucht Modell-Tokens und kann Kosten verursachen. Dein Buch wird dabei nicht verändert.",
+    "model": "Modell",
+    "inheritedModel": "Verwendet das Chatmodell dieses Buchs, andernfalls den Kontostandard; wähle ein Modell, um dies zu überschreiben.",
+    "assistantFailed": "Der KI-Assistent konnte nicht antworten.",
+    "retry": "Quellen erneut laden",
+    "planOnly": "Nur Planungsreferenzen; Erwähnungen im Manuskript und Wissensgraphen sind nicht enthalten.",
+    "indirectThreads": "Handlungsstränge, die an Knoten mit dieser Entität eröffnet werden; keine direkten Erwähnungen der Entität.",
+    "prompts": {
+      "consistency": "Konsistenz prüfen",
+      "summary": "Bekanntes zusammenfassen",
+      "gaps": "Was fehlt?"
+    },
+    "groups": {
+      "outline_pov": "Kapitelperspektive",
+      "outline_present": "Kapitelbesetzung",
+      "scene_pov": "Szenenperspektive",
+      "scene_present": "Szenenbesetzung",
+      "structure_roster": "Besetzung von Handlungsbogen und Saga",
+      "motif_application": "Motivanwendungen",
+      "canon_rule": "Kanonregeln",
+      "narrative_thread": "Verwandte Handlungsstränge"
+    }
+  }
 }

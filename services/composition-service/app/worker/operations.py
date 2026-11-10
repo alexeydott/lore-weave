@@ -270,6 +270,16 @@ async def run_promise_coverage(
     it. Diagnostic only — read-only counts/verdicts, nothing to write back."""
     from app.engine.quality_report import _COVERAGE_WINDOW_CHARS, build_promise_coverage
 
+    # Persisted jobs predating corpus completeness have no failure count.
+    # Never score omitted prose as absence or publish full-book rates for it.
+    failed_chapters = input.get("failed_chapters", 0)
+    if failed_chapters:
+        from app.engine.promise_audit import _coverage_shape
+
+        coverage = _coverage_shape([], [], error="coverage_unavailable")
+        coverage["failed_chapters"] = failed_chapters
+        return {"coverage": coverage, "chapters": input.get("chapters")}
+
     # Model-context-aware window sizing — a flat 12K-char window tuned for a mid-size
     # model shouldn't cap a genuinely bigger model at the same number (fewer, larger
     # windows = fewer score calls + more surrounding context per verdict).

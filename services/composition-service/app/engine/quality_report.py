@@ -204,12 +204,14 @@ async def _score_windowed(llm, *, user_id, model_source, model_ref, promises, wi
     the whole thing is `coverage_unavailable` (honest — no fabricated verdicts)."""
     best: dict[str, str] = {p: "absent" for p in promises}
     any_ok = False
+    failed_windows = 0
     for w in windows:
         cov = await score_promise_coverage(
             llm, user_id=user_id, model_source=model_source, model_ref=model_ref,
             promises=promises, arc_text=w, source_language=source_language,
             trace_id=trace_id, cancel_check=cancel_check)
         if cov.get("error"):
+            failed_windows += 1
             continue
         any_ok = True
         for item in cov.get("coverage", []):
@@ -218,7 +220,15 @@ async def _score_windowed(llm, *, user_id, model_source, model_ref, promises, wi
                 best[p] = v
     if not any_ok:
         return _coverage_shape(promises, ["absent"] * len(promises), error="coverage_unavailable")
-    return _coverage_shape(promises, [best[p] for p in promises])
+    # Partial evidence cannot certify whole-book absence or abandonment. Preserve
+    # observed verdicts for inspection, but expose the existing error channel so
+    # callers cannot mistake a partial scan for a clean completed audit.
+    result = _coverage_shape(promises, [best[p] for p in promises])
+    if failed_windows:
+        result["error"] = "coverage_unavailable"
+        result["failed_windows"] = failed_windows
+        result["total_windows"] = len(windows)
+    return result
 
 
 async def build_promise_coverage(

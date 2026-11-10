@@ -85,7 +85,12 @@ export function BookPromiseCoverageSection({ projectId, token, modelRef, modelSo
           data-reason={c.error}
           className={`text-[11px] ${c.error === 'promise_extraction_failed' ? 'text-amber-600' : 'text-neutral-400'}`}
         >
-          {coverageReason(t, c.error)}
+          {c.failed_chapters
+            ? t('coverageCorpusIncomplete', {
+              defaultValue: 'Whole-book coverage unavailable: {{count}} chapter drafts could not be read. No whole-book verdicts were calculated. Try again.',
+              count: c.failed_chapters,
+            })
+            : coverageReason(t, c.error)}
         </span>
       )}
 

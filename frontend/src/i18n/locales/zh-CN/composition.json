@@ -274,6 +274,10 @@
     "deleteFailed": "无法移除该地点。",
     "backdropNoChapter": "打开一个章节以设置背景。"
   },
+  "groundingNoResults": "未能为此场景检索到图谱上下文。图谱可能仍然存在；场景位置、匹配内容或知识服务故障都可能限制检索。",
+  "groundingNoProject": "此作品尚未关联知识项目，暂时无法使用事实依据功能。",
+  "groundingLoadFailed": "无法加载事实依据。请先重试，再考虑修改知识图谱。",
+  "groundingRetry": "重试加载事实依据",
   "grounding": "事实依据",
   "canon": "正典",
   "progress": "进度",
@@ -371,7 +375,12 @@
     "saveContent": "保存内容（重新嵌入）",
     "saveMetadata": "保存详情",
     "saving": "正在保存…",
-    "sourceUrl": "来源 URL（可选）"
+    "sourceUrl": "来源 URL（可选）",
+    "loading": "正在加载参考资料…",
+    "listError": "无法加载参考资料，请重试。",
+    "inheritedEmbed": "使用继承的嵌入模型",
+    "modelsLoading": "正在加载嵌入模型…",
+    "modelsError": "无法加载嵌入模型，请重试。"
   },
   "progressPanel": {
     "loading": "正在加载进度…",
@@ -826,7 +835,10 @@
       "noWork": "为本书制定一个将主题与场景绑定的计划。",
       "committedTitle": "绑定场景动机",
       "loadError": "无法加载场景动机。",
-      "sectionTitle": "场景动机"
+      "sectionTitle": "场景动机",
+      "candidatesLoading": "正在加载母题…",
+      "candidatesError": "无法加载母题。",
+      "candidatesEmpty": "请在母题库中添加或导入母题，然后返回此处绑定。"
     },
     "swap": {
       "title": "切换模组",
@@ -852,12 +864,26 @@
         "bad": "错过节拍"
       },
       "rerunNeedsModel": "选择一个模型以重新进行一致性检查",
-      "bindCta": "将动机绑定至场景 →",
+      "bindCta": "选择要绑定的场景 →",
       "couldNotCheck": "无法检查",
       "notChecked": "尚未检查",
       "notWritten": "尚未撰写",
       "openScene": "在检查器中打开此场景",
-      "written": "已撰写"
+      "written": "已撰写",
+      "noChapter": "选择章节",
+      "chaptersLoading": "正在加载章节…",
+      "chaptersError": "无法加载章节。",
+      "noChapters": "暂无章节。",
+      "actionError": "操作失败，请重试。",
+      "running": "正在运行…",
+      "snapshot": "上次检查：{{time}}",
+      "status": {
+        "unavailable": "无法检查",
+        "no_bound_motif": "请先绑定母题",
+        "motif_unavailable": "母题不可用",
+        "no_manuscript_prose": "请先撰写正文",
+        "stale": "已过期，请重新检查"
+      }
     },
     "arc": {
       "mobileNotice": "时间轴网格在更大的屏幕上可用 — 在此您可以将其作为列表进行编辑。",
@@ -960,7 +986,8 @@
         "error": "无法对情节弧建议进行排名。",
         "empty": "目前尚无匹配的情节弧模板 —— 请创建一个，或导入故事进行拆解。",
         "mine": "您的",
-        "span": "{{count}} 章"
+        "span": "{{count}} 章",
+        "sectionMine": "你的故事弧"
       },
       "decompile": {
         "open": "将章节分组为情节弧",
@@ -1092,10 +1119,14 @@
       "retry": "重试",
       "empty": "目前尚无符合该场景的主题 —— 请在您的库中添加更多内容。",
       "bind": "绑定",
-      "degradedMine": "您的主题（Motif）未按匹配度排序 —— 请在设置中配置嵌入模型（Embedding Model）以实现语义排序。",
-      "degradedLibrary": "未按匹配度排序 —— 由于共享库的嵌入模型尚未配置，这些是基于类型的备选方案，而非评分匹配项。",
+      "degradedMine": "无法对你的私人建议进行语义排名：本书或账户尚未选定有效的嵌入模型。",
+      "degradedLibrary": "共享库的语义排名不可用：平台为其单独设置的嵌入配置尚不完整。你的书籍或账户模型设置与此相互独立。",
       "sectionMine": "您的主题",
-      "sectionLibrary": "来自库"
+      "sectionLibrary": "来自库",
+      "rankingUnavailable": "无法排名——这些建议未按契合度排序。",
+      "providerUnavailable": "排名暂时不可用，请稍后重试。",
+      "emptyQuery": "添加故事前提或场景文本，即可按契合度对建议排名。",
+      "semanticMatch": "语义匹配"
     },
     "language": {
       "writtenIn": "书写语言为",
@@ -1176,29 +1207,28 @@
       "violation": "{{label}}：{{n}} 处顺序错误"
     },
     "editor": {
-      "add": "添加",
-      "beatIntent": "意图",
-      "beatLabel": "节拍",
-      "beats": "节拍",
-      "conflict": "此动机已在别处更改 —— 请重新打开以获取最新版本后再进行编辑。",
-      "deceived": "被欺骗者（用逗号分隔）",
-      "effects": "效果",
-      "emotion": "情感",
-      "examples": "示例（作者编写）",
-      "gap": "差距",
-      "genres": "类型（用逗号分隔）",
-      "kind": "类型",
-      "knows": "知情者（用逗号分隔）",
-      "name": "名称",
-      "preconditions": "前提条件",
-      "roleConstraints": "限制条件",
-      "roleLabel": "标签",
-      "roles": "角色",
-      "saveError": "保存失败。",
-      "saving": "正在保存…",
-      "scheme": "信息不对称",
-      "summary": "摘要（嵌入用于检索）",
-      "tension": "张力 (1–5)"
+      "open": "编辑母题",
+      "title": "场景母题",
+      "description": "点击保存前，修改仅保留在草稿中。",
+      "search": "按名称或代码搜索",
+      "motif": "母题",
+      "freeform": "自由形式（无母题）",
+      "preview": "母题预览",
+      "unresolved": "未分配",
+      "save": "保存",
+      "saving": "保存中…",
+      "cancel": "取消",
+      "loadError": "无法加载母题数据。",
+      "saveError": "保存失败。草稿已保留，请重试保存。",
+      "partialError": "部分修改已保存。请重试保存以完成；取消不会撤销已保存的修改。",
+      "discardTitle": "放弃未保存的修改？",
+      "discardDescription": "未保存的草稿将被丢弃。此处无法撤销已保存的修改。",
+      "stay": "继续编辑",
+      "discard": "丢弃草稿",
+      "fallback": "暂无翻译，显示{{language}}。",
+      "contextRequired": "请选择已确认的场景。",
+      "current": "当前",
+      "dirty": "有未保存的修改"
     },
     "kind": {
       "arcs": "情节弧模板",
@@ -1765,6 +1795,13 @@
   "canonConflictCurrent": "当前 (v{{v}}): {{text}}",
   "coverageExtractionFailed": "无法从大纲中提取伏笔（模型调用失败或被截断）。请重试，或选择其他模型。",
   "coverageScoreFailed": "已读取伏笔，但无法根据书籍内容进行评分。请重试。",
+  "coverageCorpusIncomplete": "无法评估全书：未能读取 {{count}} 章的草稿。尚未生成针对全书的判定。请重试。",
+  "coverageCorpusIncomplete_zero": "无法评估全书：未能读取 {{count}} 章的草稿。尚未生成针对全书的判定。请重试。",
+  "coverageCorpusIncomplete_one": "无法评估全书：未能读取 {{count}} 章的草稿。尚未生成针对全书的判定。请重试。",
+  "coverageCorpusIncomplete_two": "无法评估全书：未能读取 {{count}} 章的草稿。尚未生成针对全书的判定。请重试。",
+  "coverageCorpusIncomplete_few": "无法评估全书：未能读取 {{count}} 章的草稿。尚未生成针对全书的判定。请重试。",
+  "coverageCorpusIncomplete_many": "无法评估全书：未能读取 {{count}} 章的草稿。尚未生成针对全书的判定。请重试。",
+  "coverageCorpusIncomplete_other": "无法评估全书：未能读取 {{count}} 章的草稿。尚未生成针对全书的判定。请重试。",
   "lengthAskedDelivered": "请求字数约为 {{target}}，实际生成 {{actual}} ({{pct}}%)。",
   "lengthOverCeiling": "单次调用请求的字数超过了模型的可靠输出上限——请将场景拆分为段落以获得完整长度。",
   "techEdit": {
@@ -1818,7 +1855,12 @@
     "reasoning_exhausted": "推理耗尽了响应预算。",
     "truncated": "响应被截断。",
     "invalid_response": "模型响应无效。",
-    "manualRetry": "请在下次手动运行时重试。"
+    "manualRetry": "请在下次手动运行时重试。",
+    "unknown": "质量分析因未知原因失败。",
+    "incomplete": "并非所有分析窗口都已完成。",
+    "synthesis_failed": "分析已完成，但报告综合失败。",
+    "synthesis_invalid_response": "分析已完成，但综合过程返回了无效响应。",
+    "audit_only": "仅完成了叙事线索审计，暂无批评评分。"
   },
   "qualityScope": {
     "partial": "部分报告，不代表整章评估。",

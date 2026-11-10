@@ -274,6 +274,10 @@
     "deleteFailed": "No se pudo eliminar el lugar.",
     "backdropNoChapter": "Abre un capítulo para establecer un trasfondo."
   },
+  "groundingNoResults": "No se recuperó contexto del grafo para esta escena. El grafo puede seguir existiendo; la posición de la escena, el contenido coincidente o un fallo del servicio de conocimiento pueden limitar la recuperación.",
+  "groundingNoProject": "Esta obra aún no tiene un proyecto de conocimiento vinculado. La contextualización no está disponible para esta obra.",
+  "groundingLoadFailed": "No se pudo cargar la contextualización. Vuelve a intentarlo antes de modificar el grafo de conocimiento.",
+  "groundingRetry": "Reintentar contextualización",
   "grounding": "Contextualización",
   "canon": "Canon",
   "progress": "Progreso",
@@ -371,7 +375,12 @@
     "saveContent": "Guardar contenido (reincrustar)",
     "saveMetadata": "Guardar detalles",
     "saving": "Guardando…",
-    "sourceUrl": "URL de origen (opcional)"
+    "sourceUrl": "URL de origen (opcional)",
+    "loading": "Cargando referencias…",
+    "listError": "No se pudieron cargar las referencias. Inténtalo de nuevo.",
+    "inheritedEmbed": "Usar tu modelo de embeddings heredado",
+    "modelsLoading": "Cargando modelos de embeddings…",
+    "modelsError": "No se pudieron cargar los modelos de embeddings. Inténtalo de nuevo."
   },
   "progressPanel": {
     "loading": "Cargando progreso…",
@@ -826,7 +835,10 @@
       "noWork": "Crea un plan para este libro para vincular los motivos a sus escenas.",
       "committedTitle": "Vincular motivos de escena",
       "loadError": "No se pudieron cargar los motivos de la escena.",
-      "sectionTitle": "Motivos de escena"
+      "sectionTitle": "Motivos de escena",
+      "candidatesLoading": "Cargando motivos…",
+      "candidatesError": "No se pudieron cargar los motivos.",
+      "candidatesEmpty": "Añade o importa motivos en la biblioteca de motivos y vuelve aquí para vincular uno."
     },
     "swap": {
       "title": "Cambiar motivo",
@@ -852,12 +864,26 @@
         "bad": "Tiempo perdido"
       },
       "rerunNeedsModel": "Elige un modelo para volver a ejecutar la conformidad",
-      "bindCta": "Vincular un motivo a una escena →",
+      "bindCta": "Elige una escena para vincular →",
       "couldNotCheck": "No se pudo verificar",
       "notChecked": "Aún no revisado",
       "notWritten": "Aún no escrito",
       "openScene": "Abrir esta escena en el inspector",
-      "written": "Escrito"
+      "written": "Escrito",
+      "noChapter": "Elige un capítulo",
+      "chaptersLoading": "Cargando capítulos…",
+      "chaptersError": "No se pudieron cargar los capítulos.",
+      "noChapters": "Aún no hay capítulos.",
+      "actionError": "La acción falló. Inténtalo de nuevo.",
+      "running": "En curso…",
+      "snapshot": "Última revisión: {{time}}",
+      "status": {
+        "unavailable": "No se pudo comprobar",
+        "no_bound_motif": "Vincula primero un motivo",
+        "motif_unavailable": "Motivo no disponible",
+        "no_manuscript_prose": "Escribe primero el manuscrito",
+        "stale": "Desactualizado — repite la revisión"
+      }
     },
     "arc": {
       "mobileNotice": "La cuadrícula de la línea de tiempo está disponible en una pantalla más grande; aquí puedes editarla como una lista.",
@@ -960,7 +986,8 @@
         "error": "No se pudieron clasificar las sugerencias de arcos.",
         "empty": "Aún no hay plantillas de arcos que coincidan; crea una o importa una historia para analizarla.",
         "mine": "tuyo",
-        "span": "{{count}} cap."
+        "span": "{{count}} cap.",
+        "sectionMine": "Tus arcos narrativos"
       },
       "decompile": {
         "open": "Agrupar capítulos en arcos",
@@ -1092,10 +1119,14 @@
       "retry": "Reintentar",
       "empty": "Aún no hay ningún motivo que encaje con esta escena; añade más a tu biblioteca.",
       "bind": "Vincular",
-      "degradedMine": "Tus motivos no están clasificados por relevancia; configura un modelo de embedding en tus ajustes para clasificarlos semánticamente.",
-      "degradedLibrary": "No están clasificados por relevancia; el modelo de embedding de la biblioteca compartida no está configurado, por lo que estos son valores predeterminados por género, no coincidencias puntuadas.",
+      "degradedMine": "La clasificación semántica de tus sugerencias privadas no está disponible: no hay ningún modelo de embeddings efectivo seleccionado para este libro o cuenta.",
+      "degradedLibrary": "La clasificación semántica de la biblioteca compartida no está disponible: su configuración independiente de embeddings de la plataforma está incompleta. Los ajustes de modelo de tu libro o cuenta son independientes.",
       "sectionMine": "Tus motivos",
-      "sectionLibrary": "De la biblioteca"
+      "sectionLibrary": "De la biblioteca",
+      "rankingUnavailable": "La clasificación no está disponible: estas sugerencias no están ordenadas por afinidad.",
+      "providerUnavailable": "La clasificación no está disponible temporalmente. Inténtalo más tarde.",
+      "emptyQuery": "Añade una premisa o el texto de una escena para ordenar las sugerencias por afinidad.",
+      "semanticMatch": "Coincidencia semántica"
     },
     "language": {
       "writtenIn": "Escrito en",
@@ -1176,29 +1207,28 @@
       "violation": "{{label}}: {{n}} fuera de orden"
     },
     "editor": {
-      "add": "añadir",
-      "beatIntent": "intención",
-      "beatLabel": "beat",
-      "beats": "Beats",
-      "conflict": "Este motivo ha cambiado en otro lugar; ábrelo de nuevo para obtener la versión más reciente antes de editar.",
-      "deceived": "quién es engañado (coma)",
-      "effects": "Efectos",
-      "emotion": "Emoción",
-      "examples": "Ejemplos (escritos por el autor)",
-      "gap": "la brecha",
-      "genres": "Géneros (separados por comas)",
-      "kind": "Tipo",
-      "knows": "quién sabe (coma)",
-      "name": "Nombre",
-      "preconditions": "Precondiciones",
-      "roleConstraints": "restricciones",
-      "roleLabel": "etiqueta",
-      "roles": "Roles",
-      "saveError": "No se pudo guardar.",
+      "open": "Editar motivo",
+      "title": "Motivo de escena",
+      "description": "Los cambios quedan en el borrador hasta Guardar.",
+      "search": "Buscar por nombre o código",
+      "motif": "Motivo",
+      "freeform": "Libre (sin motivo)",
+      "preview": "Vista previa",
+      "unresolved": "Sin asignar",
+      "save": "Guardar",
       "saving": "Guardando…",
-      "scheme": "Asimetría de información",
-      "summary": "Resumen (incrustado para recuperación)",
-      "tension": "Tensión (1–5)"
+      "cancel": "Cancelar",
+      "loadError": "No se pudieron cargar los motivos.",
+      "saveError": "Error al guardar. Se conserva el borrador; inténtalo de nuevo.",
+      "partialError": "Se guardaron algunos cambios. Vuelve a guardar para terminar; cancelar no los deshace.",
+      "discardTitle": "¿Descartar cambios sin guardar?",
+      "discardDescription": "Se perderá el borrador sin guardar. Los cambios guardados no se deshacen aquí.",
+      "stay": "Seguir editando",
+      "discard": "Descartar borrador",
+      "fallback": "Traducción no disponible; mostrando {{language}}.",
+      "contextRequired": "Selecciona una escena confirmada.",
+      "current": "Actual",
+      "dirty": "Cambios sin guardar"
     },
     "kind": {
       "arcs": "Plantillas de arco",
@@ -1765,6 +1795,13 @@
   "canonConflictCurrent": "Actual (v{{v}}): {{text}}",
   "coverageExtractionFailed": "No se pudieron leer las promesas de tu esquema (la llamada al modelo falló o se interrumpió). Inténtalo de nuevo o elige un modelo diferente.",
   "coverageScoreFailed": "Se leyeron las promesas, pero falló la evaluación con el libro. Inténtalo de nuevo.",
+  "coverageCorpusIncomplete": "No se puede evaluar el libro completo: no se pudieron leer los borradores de {{count}} capítulos. No se emitieron valoraciones sobre el libro completo. Inténtalo de nuevo.",
+  "coverageCorpusIncomplete_zero": "No se puede evaluar el libro completo: no se pudieron leer los borradores de {{count}} capítulos. No se emitieron valoraciones sobre el libro completo. Inténtalo de nuevo.",
+  "coverageCorpusIncomplete_one": "No se puede evaluar el libro completo: no se pudo leer el borrador de {{count}} capítulo. No se emitieron valoraciones sobre el libro completo. Inténtalo de nuevo.",
+  "coverageCorpusIncomplete_two": "No se puede evaluar el libro completo: no se pudieron leer los borradores de {{count}} capítulos. No se emitieron valoraciones sobre el libro completo. Inténtalo de nuevo.",
+  "coverageCorpusIncomplete_few": "No se puede evaluar el libro completo: no se pudieron leer los borradores de {{count}} capítulos. No se emitieron valoraciones sobre el libro completo. Inténtalo de nuevo.",
+  "coverageCorpusIncomplete_many": "No se puede evaluar el libro completo: no se pudieron leer los borradores de {{count}} capítulos. No se emitieron valoraciones sobre el libro completo. Inténtalo de nuevo.",
+  "coverageCorpusIncomplete_other": "No se puede evaluar el libro completo: no se pudieron leer los borradores de {{count}} capítulos. No se emitieron valoraciones sobre el libro completo. Inténtalo de nuevo.",
   "lengthAskedDelivered": "Se solicitaron ~{{target}} palabras, se entregaron {{actual}} ({{pct}}%).",
   "lengthOverCeiling": "Esto solicita en una sola llamada más de lo que una llamada puede entregar de forma fiable; divide la escena en pasajes para obtener la longitud completa.",
   "techEdit": {
@@ -1818,7 +1855,12 @@
     "reasoning_exhausted": "El razonamiento agotó el presupuesto de respuesta.",
     "truncated": "Respuesta truncada.",
     "invalid_response": "Respuesta del modelo no válida.",
-    "manualRetry": "Reintentar en la próxima ejecución manual."
+    "manualRetry": "Reintentar en la próxima ejecución manual.",
+    "unknown": "El análisis de calidad falló por un motivo desconocido.",
+    "incomplete": "No se completaron todas las ventanas de análisis.",
+    "synthesis_failed": "El análisis se completó, pero falló la síntesis del informe.",
+    "synthesis_invalid_response": "El análisis se completó, pero la síntesis devolvió una respuesta no válida.",
+    "audit_only": "Solo se completó la auditoría de hilos narrativos; las puntuaciones de crítica no están disponibles."
   },
   "qualityScope": {
     "partial": "Informe parcial: no evalúa todo el capítulo.",

@@ -144,15 +144,15 @@ class MotifApplicationRepo:
         role rebind never disturbs the other resolved roles, the motif lineage, or
         ``created_at``. ``entity_id=None`` writes a JSON ``null`` — the role stays visible
         but unresolved (matching the FE ``RoleBinding.entity_id=null``). Scoped to
-        project+node (the kinds-bug tenancy rule). ``create_missing=false`` so a
-        role the binding never had is a no-op (the router guards key membership; this is
-        belt-and-suspenders). Returns the rows updated (0 = nothing bound on the node)."""
+        project+node (the kinds-bug tenancy rule). Creates missing keys for initially
+        unresolved roles; the router validates membership in the visible motif's roles.
+        Returns the rows updated (0 = nothing bound on the node)."""
         val = json.dumps(str(entity_id)) if entity_id is not None else "null"
         res = await conn.execute(
             """
             UPDATE motif_application
             SET role_bindings = jsonb_set(
-                  COALESCE(role_bindings, '{}'::jsonb), ARRAY[$3], $4::jsonb, false)
+                  COALESCE(role_bindings, '{}'::jsonb), ARRAY[$3], $4::jsonb, true)
             WHERE project_id = $1 AND outline_node_id = $2
             """,
             project_id, node_id, role_key, val,

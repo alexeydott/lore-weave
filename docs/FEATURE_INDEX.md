@@ -6,6 +6,8 @@
 >
 > **Companion docs:** [`ARCHITECTURE.md`](ARCHITECTURE.md) (services + tech stack) · [`DATA_ARCHITECTURE.md`](DATA_ARCHITECTURE.md) (where the data lives) · [`03_planning/LLM_MMO_RPG/features/_index.md`](03_planning/LLM_MMO_RPG/features/_index.md) (the **design-track** feature folders — a different tree, don't confuse them)
 
+**Studio user workflows:** [Studio user pipelines](studio-user-pipelines.md) covers manuscript preparation, scene motifs, quality-tool prerequisites, cost boundaries and recovery.
+
 **43 feature folders** as of 2026-08-03. Routes are from [`frontend/src/App.tsx`](../frontend/src/App.tsx); service targets are the **actual gateway proxy targets** from `services/api-gateway-bff/src/gateway-setup.ts`, not inferred from the path name.
 
 ---
@@ -48,7 +50,7 @@ features/<name>/
 | **composition** (358) | `/composition/popout`, studio panels | LOOM co-writer — canon-grounded prose generation, arcs, motifs, conformance. | composition-service |
 | **books** (28) | `/books`, `/books/:bookId`, `/books/:bookId/chapters/:id/*` | Books, chapters, drafts, revision compare (1-vs-1 LCS diff). | book-service, catalog-service, sharing-service |
 | **plan-forge** (29) | studio panel | PlanForge (Studio M5) — the novel-system planner (`rules` / `llm` run modes). | composition-service |
-| **plan-hub** (50) | studio panel | Plan Hub v2 — the plan canvas (lane layout, arc shells). Prose never reaches the canvas. | composition-service |
+| **plan-hub** (50) | studio panel | Plan Hub v2 — plan canvas (lane layout, arc shells) and Source shelf: glossary-entity picker, eight spec-only reference lanes with exact counts, bounded samples and per-source errors; supported plan-node/thread navigation. Separate explicit paid, bounded single-pass AI explanation with supplied-ID citations; no plan/prose writes or inherited-model changes. Prose never reaches the canvas. [Pipeline guide](STUDIO_PIPELINES_GUIDE.md#reference-shelf-inspect-entity-use-in-the-plan). | composition-service |
 | **steering** (9) | studio panel | Per-book author steering rules ("story-bible-as-steering"). Rendered as a `<steering>` system part on book-scoped turns. | book-service |
 | **grammar** (2) | editor plugin | LanguageTool client (spell/grammar). Has a circuit breaker — a 502 disables checking for 60s. | LanguageTool (via frontend nginx) |
 | **pdf-import** (10) | (embedded) studio `BookImportPanel`, chapters tab | PDF → book import wizard. | book-service |

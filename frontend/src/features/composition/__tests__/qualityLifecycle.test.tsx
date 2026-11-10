@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { compositionApi, isQualityComplete } from '../api';
 import { useQualityReport } from '../hooks/useQualityReport';
+import { useBookPromiseCoverage } from '../hooks/useBookPromiseCoverage';
 
 const transport = vi.hoisted(() => vi.fn());
 vi.mock('../../../api', () => ({ apiBase: () => '', apiJson: (...args: unknown[]) => transport(...args) }));
@@ -9,6 +10,19 @@ afterEach(() => { vi.restoreAllMocks(); transport.mockReset(); });
 const report = { scope: { partial: false, complete: true, synthesis_completed: true }, critic: { coherence: 4, voice_match: 4, pacing: 4, canon_consistency: 4, violations: [] }, threads: { raised: [], resolved: [], raised_count: 0, resolved_count: 0 } };
 
 describe('quality lifecycle', () => {
+  it('isolates late book coverage after switching Work', async () => {
+    let resolve!: (value: any) => void;
+    vi.spyOn(compositionApi, 'promiseCoverage').mockImplementation(() => new Promise((r) => { resolve = r; }));
+    const { result, rerender } = renderHook(({ project }) => useBookPromiseCoverage(project, 't', 'm'), { initialProps: { project: 'old' } });
+    let pending!: Promise<void>;
+    act(() => { pending = result.current.run(); });
+    rerender({ project: 'new' });
+    await act(async () => { resolve({ coverage: { tracked_count: 7 }, chapters: 8 }); await pending; });
+    expect(result.current.coverage).toBeNull();
+    expect(result.current.chapters).toBeNull();
+    expect(result.current.ran).toBe(false);
+    expect(result.current.loading).toBe(false);
+  });
   it('rejects legacy and partial completion certificates', () => {
     expect(isQualityComplete(report)).toBe(true);
     expect(isQualityComplete({ ...report, scope: undefined })).toBe(false);

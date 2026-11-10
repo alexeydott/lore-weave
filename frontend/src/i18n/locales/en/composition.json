@@ -274,6 +274,10 @@
     "deleteFailed": "Could not remove the place.",
     "backdropNoChapter": "Open a chapter to set a backdrop."
   },
+  "groundingNoResults": "No graph context was retrieved for this scene. The graph may still exist; scene position, matching content, or a knowledge-service failure can limit retrieval.",
+  "groundingNoProject": "This work has no linked knowledge project yet. Grounding is not available for this work.",
+  "groundingLoadFailed": "Grounding could not be loaded. Retry before changing the knowledge graph.",
+  "groundingRetry": "Retry grounding",
   "grounding": "Grounding",
   "canon": "Canon",
   "progress": "Progress",
@@ -371,7 +375,12 @@
     "saveContent": "Save content (re-embeds)",
     "saveMetadata": "Save details",
     "saving": "Saving…",
-    "sourceUrl": "Source URL (optional)"
+    "sourceUrl": "Source URL (optional)",
+    "loading": "Loading references…",
+    "listError": "Could not load references. Try again.",
+    "inheritedEmbed": "Use your inherited embedding model",
+    "modelsLoading": "Loading embedding models…",
+    "modelsError": "Could not load embedding models. Try again."
   },
   "progressPanel": {
     "loading": "Loading progress…",
@@ -826,7 +835,10 @@
       "noWork": "Create a plan for this book to bind motifs to its scenes.",
       "committedTitle": "Bind scene motifs",
       "loadError": "Could not load scene motifs.",
-      "sectionTitle": "Scene motifs"
+      "sectionTitle": "Scene motifs",
+      "candidatesLoading": "Loading motifs…",
+      "candidatesError": "Could not load motifs.",
+      "candidatesEmpty": "Add or import motifs in the motif library, then return here to bind one."
     },
     "swap": {
       "title": "Swap motif",
@@ -852,12 +864,26 @@
         "bad": "Beat missed"
       },
       "rerunNeedsModel": "Pick a model to re-run conformance",
-      "bindCta": "Bind a motif to a scene →",
+      "bindCta": "Choose a scene to bind →",
       "couldNotCheck": "Couldn't check",
       "notChecked": "Not checked yet",
       "notWritten": "Not written yet",
       "openScene": "Open this scene in the inspector",
-      "written": "Written"
+      "written": "Written",
+      "noChapter": "Pick a chapter",
+      "chaptersLoading": "Loading chapters…",
+      "chaptersError": "Could not load chapters.",
+      "noChapters": "No chapters yet.",
+      "actionError": "The action failed. Please retry.",
+      "running": "Running…",
+      "snapshot": "Last check: {{time}}",
+      "status": {
+        "unavailable": "Could not check",
+        "no_bound_motif": "Bind a motif first",
+        "motif_unavailable": "Motif unavailable",
+        "no_manuscript_prose": "Write manuscript prose first",
+        "stale": "Outdated — re-run the check"
+      }
     },
     "arc": {
       "mobileNotice": "The timeline grid is available on a larger screen — here you can edit it as a list.",
@@ -960,7 +986,8 @@
         "error": "Could not rank arc suggestions.",
         "empty": "No arc templates fit yet — create one, or import a story to deconstruct.",
         "mine": "yours",
-        "span": "{{count}} ch"
+        "span": "{{count}} ch",
+        "sectionMine": "Your arcs"
       },
       "decompile": {
         "open": "Group chapters into arcs",
@@ -1092,10 +1119,14 @@
       "retry": "Retry",
       "empty": "No motif fits this scene yet — add more to your library.",
       "bind": "Bind",
-      "degradedMine": "Your motifs aren't ranked by fit — set up an embedding model in your settings to rank them semantically.",
-      "degradedLibrary": "Not ranked by fit — the shared library's embedding model isn't configured, so these are genre fallbacks, not scored matches.",
+      "degradedMine": "Semantic ranking for your private suggestions is unavailable: no effective embedding model is selected for this book/account.",
+      "degradedLibrary": "Semantic ranking for the shared library is unavailable: its separate platform embedding configuration is incomplete. Your book/account model settings are independent.",
       "sectionMine": "Your motifs",
-      "sectionLibrary": "From the library"
+      "sectionLibrary": "From the library",
+      "rankingUnavailable": "Ranking is unavailable — these suggestions are not ranked by fit.",
+      "providerUnavailable": "Ranking is temporarily unavailable — try again later.",
+      "emptyQuery": "Add a premise or scene text to rank suggestions by fit.",
+      "semanticMatch": "Semantic match"
     },
     "language": {
       "writtenIn": "Written in",
@@ -1176,29 +1207,28 @@
       "violation": "{{label}}: {{n}} out-of-order"
     },
     "editor": {
-      "add": "add",
-      "beatIntent": "intent",
-      "beatLabel": "beat",
-      "beats": "Beats",
-      "conflict": "This motif changed elsewhere — reopen it to get the latest before editing.",
-      "deceived": "who is deceived (comma)",
-      "effects": "Effects",
-      "emotion": "Emotion",
-      "examples": "Examples (author-written)",
-      "gap": "the gap",
-      "genres": "Genres (comma-separated)",
-      "kind": "Kind",
-      "knows": "who knows (comma)",
-      "name": "Name",
-      "preconditions": "Preconditions",
-      "roleConstraints": "constraints",
-      "roleLabel": "label",
-      "roles": "Roles",
-      "saveError": "Couldn't save.",
+      "open": "Edit motif",
+      "title": "Scene motif",
+      "description": "Changes stay in this draft until Save.",
+      "search": "Search by name or code",
+      "motif": "Motif",
+      "freeform": "Free-form (no motif)",
+      "preview": "Motif preview",
+      "unresolved": "Unassigned",
+      "save": "Save",
       "saving": "Saving…",
-      "scheme": "Information asymmetry",
-      "summary": "Summary (embedded for retrieval)",
-      "tension": "Tension (1–5)"
+      "cancel": "Cancel",
+      "loadError": "Could not load motif data.",
+      "saveError": "Save failed. Your draft is retained; retry Save.",
+      "partialError": "Some changes were saved. Remaining draft changes are retained; retry Save to finish. Cancel does not undo saved changes.",
+      "discardTitle": "Discard unsaved changes?",
+      "discardDescription": "Unsaved draft changes will be discarded. Changes already saved cannot be undone here.",
+      "stay": "Keep editing",
+      "discard": "Discard draft",
+      "fallback": "Translation unavailable; showing {{language}}.",
+      "contextRequired": "Select a committed scene to edit its motif.",
+      "current": "Current binding",
+      "dirty": "Unsaved changes"
     },
     "kind": {
       "arcs": "Arc templates",
@@ -1765,6 +1795,13 @@
   "canonConflictCurrent": "Current (v{{v}}): {{text}}",
   "coverageExtractionFailed": "Could not read the promises out of your outline (the model call failed or was cut short). Try again, or pick a different model.",
   "coverageScoreFailed": "The promises were read, but scoring them against the book failed. Try again.",
+  "coverageCorpusIncomplete": "Whole-book coverage unavailable: {{count}} chapter drafts could not be read. No whole-book verdicts were calculated. Try again.",
+  "coverageCorpusIncomplete_zero": "Whole-book coverage unavailable: {{count}} chapter drafts could not be read. No whole-book verdicts were calculated. Try again.",
+  "coverageCorpusIncomplete_one": "Whole-book coverage unavailable: {{count}} chapter draft could not be read. No whole-book verdicts were calculated. Try again.",
+  "coverageCorpusIncomplete_two": "Whole-book coverage unavailable: {{count}} chapter drafts could not be read. No whole-book verdicts were calculated. Try again.",
+  "coverageCorpusIncomplete_few": "Whole-book coverage unavailable: {{count}} chapter drafts could not be read. No whole-book verdicts were calculated. Try again.",
+  "coverageCorpusIncomplete_many": "Whole-book coverage unavailable: {{count}} chapter drafts could not be read. No whole-book verdicts were calculated. Try again.",
+  "coverageCorpusIncomplete_other": "Whole-book coverage unavailable: {{count}} chapter drafts could not be read. No whole-book verdicts were calculated. Try again.",
   "lengthAskedDelivered": "Asked for ~{{target}} words, delivered {{actual}} ({{pct}}%).",
   "lengthOverCeiling": "This asked one call for more than one call reliably delivers — split the scene into passages to get the full length.",
   "techEdit": {
@@ -1818,7 +1855,12 @@
     "reasoning_exhausted": "Reasoning exhausted the response budget.",
     "truncated": "Response truncated.",
     "invalid_response": "Invalid model response.",
-    "manualRetry": "Retry on the next manual run."
+    "manualRetry": "Retry on the next manual run.",
+    "unknown": "Quality analysis failed for an unknown reason.",
+    "incomplete": "Not all analysis windows completed.",
+    "synthesis_failed": "Analysis completed, but report synthesis failed.",
+    "synthesis_invalid_response": "Analysis completed, but synthesis returned an invalid response.",
+    "audit_only": "Only the thread audit completed; critic scores are unavailable."
   },
   "qualityScope": {
     "partial": "Partial report — not a whole-chapter assessment.",

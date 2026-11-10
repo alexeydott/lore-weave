@@ -413,11 +413,14 @@ async def analyze_quality(
                     job_meta={"usage_purpose": "quality_synthesis", "extractor": f"quality_{kind}_synthesis"})
             if getattr(job, "status", None) != "completed" or unusable(job, "quality_report_audit"):
                 raise ValueError("synthesis_unavailable")
-            obj = parse_critique_json(extract_judge_content(job.result))
+            try:
+                obj = parse_critique_json(extract_judge_content(job.result))
+            except (ValueError, TypeError) as exc:
+                raise ValueError("synthesis_json_parse_failed") from exc
             if not isinstance(obj, dict):
-                raise ValueError("synthesis_invalid_response")
+                raise ValueError("synthesis_json_object_missing")
             if not final and (not isinstance(obj.get("summary"), str) or not obj["summary"].strip()):
-                raise ValueError("synthesis_invalid_response")
+                raise ValueError("synthesis_summary_missing")
             if estimate_tokens(_json(obj)) > cap * 4 + 512:
                 raise ValueError("synthesis_response_budget_exceeded")
             node["status"] = "completed"
@@ -463,8 +466,9 @@ async def analyze_quality(
                             raise ValueError(normalized["error"])
                         result = {**_empty_critic(), **normalized}
                         result.pop("error", None)
-                        if any(result[d] is None for d in ("coherence", "voice_match", "pacing", "canon_consistency")):
-                            raise ValueError("synthesis_invalid_response")
+                        missing = [d for d in ("coherence", "voice_match", "pacing", "canon_consistency") if result[d] is None]
+                        if missing:
+                            raise ValueError("synthesis_scores_missing:" + ",".join(missing))
                         result["violations"] = []
                     else:
                         from app.engine.promise_audit import _parse_audit

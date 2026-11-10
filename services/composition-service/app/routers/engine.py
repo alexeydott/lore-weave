@@ -9,6 +9,8 @@ ACTIVE canon at call time. CC4: a critic failure degrades, never blocks.
 
 from __future__ import annotations
 
+from app.engine.retrieval_model import resolve_retrieval_model
+
 import json
 import re
 import logging
@@ -37,7 +39,7 @@ from app.db.repositories.grounding_pins import GroundingPinsRepo
 from app.db.repositories.style_voice import StyleProfileRepo, VoiceProfileRepo
 from app.db.repositories.narrative_thread import NarrativeThreadRepo
 from app.db.repositories.motif_application import MotifApplicationRepo
-from app.db.repositories.motif_repo import MotifRepo
+from app.db.repositories.motif_repo import MotifRepo, normalize_display_language
 from app.db.repositories.motif_retrieve import MotifRetriever, node_query_text
 from app.db.pool import get_pool
 from app.db.repositories.outline import OutlineRepo
@@ -2006,6 +2008,7 @@ async def suggest_cast(
 @router.get("/works/{project_id}/scenes/{node_id}/suggest-motifs")
 async def suggest_motifs(
     project_id: UUID, node_id: UUID,
+    display_language: str | None = Query(default=None),
     limit: int = Query(default=5, ge=1, le=20),
     user_id: UUID = Depends(get_current_user),
     works: WorksRepo = Depends(get_works_repo),
@@ -2027,12 +2030,12 @@ async def suggest_motifs(
     candidates = await retriever.retrieve(
         user_id, book_id=work.book_id, project_id=project_id,
         genre_tags=list(getattr(work, "genre_tags", []) or []),
-        language=getattr(work, "language", None) or "en",
+        display_language=normalize_display_language(display_language) or "en",
         # The node's OWN text + beat_role seed the query (see `node_query_text`); passing
         # None here forced every candidate onto the degrade path with cosine=0.0.
         beat_role=getattr(node, "beat_role", None),
         tension=getattr(node, "tension_target", None), limit=limit,
-        user_model=reference_embed_model(getattr(work, "settings", None)),
+        model_resolution=await resolve_retrieval_model(user_id, getattr(work, "settings", None)),
         query=node_query_text(node),
     )
     return {"candidates": [

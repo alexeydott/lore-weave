@@ -36,7 +36,7 @@ __all__ = ["SUPPORTED_OPERATIONS", "worker_op_of", "is_worker_drivable"]
 SUPPORTED_OPERATIONS: frozenset[str] = frozenset(
     {"decompose_preview", "plan_pipeline", "stitch_chapter", "generate", "chapter_generate",
      "selection_edit", "mine_motifs", "analyze_reference", "conformance_run", "self_heal_propose",
-     "quality_report", "promise_coverage", "plan_forge_propose", "plan_forge_refine",
+     "quality_report", "quality_report_batch", "promise_coverage", "plan_forge_propose", "plan_forge_refine",
      # The user-paid library translate (Tier-W, motif | arc_template). Retryable: the
      # confirm effect persists the full envelope (kind + ids + target + model), and the
      # engine re-checks tenancy on every run rather than trusting the proposal.
@@ -62,4 +62,6 @@ def is_worker_drivable(operation: str, input: dict[str, Any] | None) -> bool:
     column: an inline/streamed job (or a user-supplied free-form ``operation`` that
     happens to collide with a worker-op name) carries only partial input and is NOT
     server-reconstructable (/review-impl MED-1)."""
+    if operation == "quality_report_batch" or (input or {}).get("batch_parent_id"):
+        return False  # Recovery reconciles checkpoints; explicit paid retry is not supported.
     return (input or {}).get("worker_op") in SUPPORTED_OPERATIONS

@@ -3,7 +3,7 @@
 // QualityReportSection + useWorkResolution, reused AS-IS. Per-chapter and
 // on-demand (no book-wide critic aggregation exists yet — see the plan doc's
 // reality map), so this adds a chapter picker + the shared ModelPicker.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -11,92 +11,18 @@ import { useAuth } from '@/auth';
 import { ModelPicker, useUserModels } from '@/components/model-picker';
 import { useEffectiveModelSelection } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 import { booksApi, type Chapter } from '@/features/books/api';
-import { compositionApi, isQualityComplete, type QualityCritic, type QualityReportResponse } from '@/features/composition/api';
+import { type QualityCritic } from '@/features/composition/api';
 import { QualityReason, QualityScopeWarning } from "@/features/composition/components/QualityReportStatus";
 import { QualityReportSection } from '@/features/composition/components/QualityReportSection';
 import { useStudioHost } from '../host/StudioHostProvider';
 import { useStudioPanel } from './useStudioPanel';
 import { QualityWorkGate } from './QualityNoWorkState';
 import { useQualityWork } from './useQualityWork';
+import { useQualityBookRun } from './useQualityBookRun';
 import { chapterDisplayTitle } from '../manuscript/partsTree';
 
 const CHAPTER_PAGE_SIZE = 100;
 type QualityModelSource = 'user_model' | 'platform_model';
-
-type BatchEntry = {
-  chapterId: string;
-  title: string;
-  sortOrder: number;
-  draftUpdatedAt: string | null;
-  draftRevisionCount: number | null;
-  report: Pick<QualityReportResponse['report'], 'critic' | 'scope'> | null;
-  failed?: boolean;
-  error?: string;
-};
-
-type BatchProgress = {
-  done: number;
-  total: number;
-  currentTitle: string;
-  stopping: boolean;
-};
-
-function isQualityCritic(value: unknown): value is QualityCritic {
-  if (!value || typeof value !== 'object') return false;
-  const critic = value as Record<string, unknown>;
-  const scores = ['coherence', 'voice_match', 'pacing', 'canon_consistency'];
-  return scores.every((key) => critic[key] === null || typeof critic[key] === 'number')
-    && Array.isArray(critic.violations)
-    && critic.violations.every((violation) => {
-      if (!violation || typeof violation !== 'object') return false;
-      const item = violation as Record<string, unknown>;
-      return typeof item.rule_id === 'string'
-        && typeof item.violated === 'boolean'
-        && typeof item.why === 'string'
-        && typeof item.span === 'string';
-    })
-    && (critic.error === undefined || typeof critic.error === 'string');
-}
-
-function readBatchEntries(key: string): BatchEntry[] {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((entry): entry is BatchEntry => {
-      if (!entry || typeof entry !== 'object') return false;
-      const item = entry as Record<string, unknown>;
-      const report = item.report;
-      const reportValid = report === null || (
-        typeof report === 'object'
-        && report !== null
-        && isQualityCritic((report as Record<string, unknown>).critic)
-      );
-      return typeof item.chapterId === 'string'
-        && typeof item.title === 'string'
-        && typeof item.sortOrder === 'number'
-        && (item.draftUpdatedAt === null || typeof item.draftUpdatedAt === 'string')
-        && (item.draftRevisionCount === null || typeof item.draftRevisionCount === 'number')
-        && reportValid
-        && (item.failed === undefined || typeof item.failed === 'boolean')
-        && (item.error === undefined || typeof item.error === 'string');
-    });
-  } catch {
-    return [];
-  }
-}
-
-function sameDraft(entry: BatchEntry | undefined, chapter: Chapter): boolean {
-  const hasDraftVersion = chapter.draft_updated_at != null || chapter.draft_revision_count != null;
-  return !!entry
-    && hasDraftVersion
-    && !entry.failed
-    && !!entry.report
-    && isQualityComplete(entry.report)
-    && entry.draftUpdatedAt === (chapter.draft_updated_at ?? null)
-    && entry.draftRevisionCount === (chapter.draft_revision_count ?? null);
-}
 
 function isQualityModelSource(source: string): source is QualityModelSource {
   return source === 'user_model' || source === 'platform_model';
@@ -156,148 +82,20 @@ export function QualityCriticPanel(props: IDockviewPanelProps) {
 
   const chapters = chaptersQ.data?.items ?? [];
   const projectId = work.kind === 'ready' ? work.projectId : null;
-  const batchKey = `lw_critic_batch:${host.bookId}:${projectId ?? 'no-work'}:${effectiveModelSource}:${effectiveModelRef || 'no-model'}`;
-  const [batchEntries, setBatchEntries] = useState<BatchEntry[]>(() => readBatchEntries(batchKey));
-  const [batchEntriesKey, setBatchEntriesKey] = useState(batchKey);
   const [batchScope, setBatchScope] = useState<'selected' | 'all'>('all');
-  const [batch, setBatch] = useState<BatchProgress | null>(null);
-  const [batchError, setBatchError] = useState<string | null>(null);
-  const batchStop = useRef(false);
-  const batchRunning = useRef(false);
-  const mounted = useRef(false);
-  const activeBatchKey = useRef<string | null>(null);
-  const visibleBatchEntries = batchEntriesKey === batchKey ? batchEntries : [];
-  const entriesByChapter = useMemo(
-    () => new Map(visibleBatchEntries.map((entry) => [entry.chapterId, entry])),
-    [visibleBatchEntries],
-  );
-  const pickerChapter = chapters.find((chapter) => chapter.chapter_id === chapterId);
-  const chaptersToAnalyze = useMemo(
-    () => chapters.filter((chapter) => !sameDraft(entriesByChapter.get(chapter.chapter_id), chapter)),
-    [chapters, entriesByChapter],
-  );
-
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      batchStop.current = true;
-      activeBatchKey.current = null;
-    };
-  }, []);
-
-  // A panel may switch Works or models while mounted. Do not show or persist another scope's cache;
-  // if a pass is active, stop its queue after the current chapter finishes.
-  useEffect(() => {
-    batchStop.current = true;
-    activeBatchKey.current = null;
-    setBatch(null);
-    setBatchError(null);
-    setBatchEntries(readBatchEntries(batchKey));
-    setBatchEntriesKey(batchKey);
-    return () => {
-      batchStop.current = true;
-      activeBatchKey.current = null;
-    };
-  }, [batchKey]);
-
-  useEffect(() => {
-    if (batchEntriesKey !== batchKey || visibleBatchEntries.length === 0) return;
-    try {
-      localStorage.setItem(batchKey, JSON.stringify(visibleBatchEntries));
-    } catch { /* private mode / quota — in-memory only */ }
-  }, [batchKey, batchEntriesKey, visibleBatchEntries]);
-
+  const controller = useQualityBookRun(projectId, host.bookId, accessToken, effectiveModel);
+  const run = controller.run;
+  const batch = run && ['pending', 'running'].includes(run.status) ? {
+    done: run.completed, total: run.total,
+    currentTitle: run.chapters.find((chapter) => chapter.chapter_id === run.current_chapter_id)?.title ?? '',
+    stopping: run.stop_requested,
+  } : null;
+  const visibleBatchEntries = (run?.chapters ?? []).filter((chapter) => chapter.result || chapter.error).map((chapter) => ({
+    chapterId: chapter.chapter_id, title: chapter.title,
+    report: chapter.result?.report ?? null,
+    failed: chapter.status === 'failed', error: chapter.error,
+  }));
   useEffect(() => setChapterId(''), [host.bookId]);
-
-  const analyzeChapter = async (
-    chapter: Chapter,
-    entries: Map<string, BatchEntry>,
-    runKey: string,
-    total: number,
-    done: number,
-  ) => {
-    if (!accessToken || !projectId || !effectiveModel) return;
-    if (mounted.current && activeBatchKey.current === runKey) {
-      setBatch({ done, total, currentTitle: chapterDisplayTitle(chapter), stopping: false });
-    }
-    let entry: BatchEntry;
-    try {
-      const response = await compositionApi.qualityReport(projectId, {
-        chapterId: chapter.chapter_id,
-        modelRef: effectiveModel.model_ref,
-        modelSource: effectiveModel.model_source,
-      }, accessToken);
-      const critic = isQualityCritic(response.report?.critic) ? response.report.critic : null;
-      entry = {
-        chapterId: chapter.chapter_id,
-        title: chapterDisplayTitle(chapter),
-        sortOrder: chapter.sort_order,
-        draftUpdatedAt: chapter.draft_updated_at ?? null,
-        draftRevisionCount: chapter.draft_revision_count ?? null,
-        report: critic ? { critic, scope: response.report.scope ?? critic.scope } : null,
-        failed: !critic || !!critic.error || !!response.report.threads?.error,
-        error: critic?.error || (!critic ? 'Quality report returned no critic result' : undefined),
-      };
-    } catch (error) {
-      entry = {
-        chapterId: chapter.chapter_id,
-        title: chapterDisplayTitle(chapter),
-        sortOrder: chapter.sort_order,
-        draftUpdatedAt: chapter.draft_updated_at ?? null,
-        draftRevisionCount: chapter.draft_revision_count ?? null,
-        report: null,
-        failed: true,
-        error: (error as Error).message || 'Quality analysis failed',
-      };
-    }
-    entries.set(chapter.chapter_id, entry);
-    if (!mounted.current || activeBatchKey.current !== runKey) return;
-    setBatchEntries([...entries.values()].sort((a, b) => a.sortOrder - b.sortOrder));
-    setBatchEntriesKey(runKey);
-    setBatch((state) => state ? { ...state, done: done + 1 } : null);
-  };
-
-  const runBatch = async () => {
-    if (batchRunning.current || !accessToken || !projectId || !effectiveModel || chaptersQ.isLoading) return;
-    if (batchScope === 'selected' && !pickerChapter) return;
-    const queue = batchScope === 'selected' && pickerChapter ? [pickerChapter] : chapters;
-    if (queue.length === 0) return;
-
-    batchRunning.current = true;
-    batchStop.current = false;
-    activeBatchKey.current = batchKey;
-    setBatchError(null);
-    const entries = new Map(visibleBatchEntries.map((entry) => [entry.chapterId, entry]));
-    let done = 0;
-    const total = queue.length;
-    setBatch({ done, total, currentTitle: '', stopping: false });
-    try {
-      for (const chapter of queue) {
-        if (batchStop.current) break;
-        const existing = entries.get(chapter.chapter_id);
-        if (batchScope === 'all' && sameDraft(existing, chapter)) {
-          done += 1;
-          if (mounted.current && activeBatchKey.current === batchKey) {
-            setBatch({ done, total, currentTitle: chapterDisplayTitle(chapter), stopping: false });
-          }
-          continue;
-        }
-        await analyzeChapter(chapter, entries, batchKey, total, done);
-        done += 1;
-      }
-    } catch (error) {
-      if (mounted.current && activeBatchKey.current === batchKey) {
-        setBatchError(t('quality.criticBatchFailed'));
-      }
-    } finally {
-      batchRunning.current = false;
-      if (activeBatchKey.current === batchKey) {
-        activeBatchKey.current = null;
-        if (mounted.current) setBatch(null);
-      }
-    }
-  };
 
   if (work.kind !== 'ready') return <QualityWorkGate state={work} testIdPrefix="quality-critic" bookId={host.bookId} token={accessToken} />;
 
@@ -381,10 +179,7 @@ export function QualityCriticPanel(props: IDockviewPanelProps) {
               type="button"
               data-testid="quality-critic-batch-stop"
               disabled={batch.stopping}
-              onClick={() => {
-                batchStop.current = true;
-                setBatch((state) => state ? { ...state, stopping: true } : null);
-              }}
+              onClick={() => void controller.stop()}
               className="ml-auto rounded border px-2 py-0.5 text-[10px] font-medium disabled:opacity-60"
             >
               {batch.stopping
@@ -397,27 +192,19 @@ export function QualityCriticPanel(props: IDockviewPanelProps) {
             <button
               type="button"
               data-testid="quality-critic-batch"
-              onClick={() => void runBatch()}
-              disabled={!effectiveModel || !projectId || chaptersQ.isLoading || chaptersQ.isError || (batchScope === 'selected' ? !chapterId : chapters.length === 0)}
+              onClick={() => void controller.prepare()}
+              disabled={controller.busy || controller.loading || !effectiveModel || !projectId || chaptersQ.isLoading || chaptersQ.isError || chapters.length === 0 || batchScope === 'selected'}
               className="flex-1 rounded border border-sky-500/40 px-3 py-1.5 text-[11px] font-medium text-sky-600 hover:bg-sky-500/10 disabled:opacity-50"
             >
-              {batchScope === 'selected'
-                ? t('quality.criticBatchSelectedCta', { defaultValue: 'Analyze selected chapter' })
-                : chaptersToAnalyze.length > 0
-                  ? t('quality.criticBatchCta', { defaultValue: 'Analyze all chapters' })
-                  : t('quality.criticBatchDone', { defaultValue: 'All chapters analyzed' })}
+              {t('quality.criticBatchCta', { defaultValue: 'Analyze all chapters' })}
             </button>
-            {batchScope === 'all' && chaptersToAnalyze.length > 0 && visibleBatchEntries.length > 0 && (
-              <span className="text-[10px] text-neutral-500">
-                {t('quality.criticBatchRemaining', { count: chaptersToAnalyze.length, defaultValue: '{{count}} remaining' })}
-              </span>
-            )}
+
           </div>
         )}
 
-        {batchError && (
+        {controller.error && (
           <div data-testid="quality-critic-batch-error" className="mt-2 text-[11px] text-rose-500">
-            {batchError}
+            <QualityReason error={controller.error} />
           </div>
         )}
 
@@ -449,7 +236,7 @@ export function QualityCriticPanel(props: IDockviewPanelProps) {
                         </span>
                       )}
                   </div>
-                  {(entry.failed || critic?.error) && <QualityReason error={critic?.error ?? entry.error ?? 'critic_unavailable'} />}
+                  {(entry.failed || critic?.error) && <QualityReason error={critic?.error ?? entry.error ?? 'unknown'} />}
                   <QualityScopeWarning scope={entry.report?.scope ?? critic?.scope} />
                   {critic && critic.violations.length > 0 && (
                     <ul className="mt-1 flex flex-col gap-0.5">
@@ -464,20 +251,17 @@ export function QualityCriticPanel(props: IDockviewPanelProps) {
           </ul>
         )}
 
-        {visibleBatchEntries.length > 0 && !batch && (
-          <button
-            type="button"
-            data-testid="quality-critic-batch-clear"
-            onClick={() => {
-              setBatchEntries([]);
-              setBatchEntriesKey(batchKey);
-              try { localStorage.removeItem(batchKey); } catch { /* private mode */ }
-            }}
-            className="mt-2 text-[10px] text-neutral-400 hover:text-foreground"
-          >
-            {t('quality.criticBatchClear', { defaultValue: 'Clear results' })}
-          </button>
+        {controller.estimate && !batch && (
+          <div role="dialog" className="mt-2 text-xs">
+            {t('quality.criticBatchEstimate', { calls: controller.estimate.estimated_calls_max, count: controller.estimate.total })}
+            <div>{t('quality.criticBatchEstimateCost', { cost: controller.estimate.estimated_usd_max.toFixed(4) })}</div>
+            <button data-testid="quality-critic-batch-confirm" disabled={controller.busy} onClick={() => void controller.confirm()}>
+              {t('quality.criticBatchConfirm')}
+            </button>
+          </div>
         )}
+        {run && <div role="status" className="text-xs">{t('quality.criticBatchProgress', { completed: run.completed, failed: run.failed, total: run.total })}</div>}
+
       </div>
     </div>
   );

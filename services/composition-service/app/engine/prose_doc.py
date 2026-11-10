@@ -198,6 +198,40 @@ def scene_prose_presence(
     A scene's body runs from its heading to the next HEADING OF THE SAME OR HIGHER
     level (a deeper heading is a subsection of this scene, not the start of the
     next one)."""
+    return {sid: len(text.split()) for sid, text in scene_prose_texts(doc, scenes).items()}
+
+
+def chapter_conformance_texts(doc: Any, scenes: list[dict[str, Any]]) -> dict[str, str]:
+    """Resolve Conformance passages for the chapter's active planned scenes.
+
+    Only an unambiguous single-scene chapter may use its whole saved body.
+    Never write anchors or change the manuscript. Other consumers retain strict
+    scene anchoring through ``scene_prose_texts``.
+    """
+    blocks = doc.get("content") if isinstance(doc, dict) else None
+    if not isinstance(blocks, list):
+        return {}
+    nodes = [b for b in blocks if isinstance(b, dict)]
+    if len(scenes) == 1 and scenes[0].get("id"):
+        scene_id = str(scenes[0]["id"])
+        # Check BEFORE title matching, which must not relabel a foreign anchor.
+        if any((b.get("attrs") or {}).get("sceneId")
+               and str(b["attrs"]["sceneId"]) != scene_id for b in nodes):
+            return {}
+    anchored = scene_prose_texts(doc, scenes)
+    if anchored or len(scenes) != 1 or not scenes[0].get("id"):
+        return anchored
+    # Conservatively count every heading, including unrecognized scene titles.
+    if sum(b.get("type") == "heading" for b in nodes) > 1:
+        return {}
+    if not any(_block_text(b).strip() for b in nodes if b.get("type") != "heading"):
+        return {}
+    text = tiptap_doc_to_text(doc)
+    return {str(scenes[0]["id"]): text} if text else {}
+
+
+def scene_prose_texts(doc: Any, scenes: list[dict[str, Any]]) -> dict[str, str]:
+    """Read anchored scene passages without changing the manuscript."""
     if not isinstance(doc, dict):
         return {}
     blocks = doc.get("content")
@@ -222,7 +256,7 @@ def scene_prose_presence(
         _attach_scene_ids(nodes, unresolved)
 
     wanted = {str(s.get("id")) for s in scenes if s.get("id")}
-    out: dict[str, int] = {}
+    out: dict[str, str] = {}
     i = 0
     while i < len(nodes):
         node = nodes[i]
@@ -231,7 +265,7 @@ def scene_prose_presence(
             i += 1
             continue
         level = int(node.get("attrs", {}).get("level") or 1)
-        words = 0
+        passages: list[str] = []
         j = i + 1
         while j < len(nodes):
             nxt = nodes[j]
@@ -244,9 +278,10 @@ def scene_prose_presence(
                 # same false positive the bare-heading case guards against, one level down.
                 j += 1
                 continue
-            words += len(_block_text(nxt).split())
+            passages.append(_block_text(nxt))
             j += 1
-        if words > 0:
-            out[str(scene_id)] = words
+        text = "\n\n".join(passages).strip()
+        if text:
+            out[str(scene_id)] = text
         i = j if j > i else i + 1
     return out

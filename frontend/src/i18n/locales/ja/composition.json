@@ -274,6 +274,10 @@
     "deleteFailed": "場所を削除できませんでした。",
     "backdropNoChapter": "背景を設定するには、章を開いてください。"
   },
+  "groundingNoResults": "このシーンのグラフコンテキストは取得されませんでした。グラフ自体は存在している可能性があります。シーンの位置、一致するコンテンツ、ナレッジサービスの障害により、取得が制限されることがあります。",
+  "groundingNoProject": "この作品にはまだナレッジプロジェクトが紐付けられていません。この作品ではグラウンディングを利用できません。",
+  "groundingLoadFailed": "グラウンディングを読み込めませんでした。ナレッジグラフを変更する前に再試行してください。",
+  "groundingRetry": "グラウンディングを再試行",
   "grounding": "グラウンディング",
   "canon": "正典",
   "progress": "進捗",
@@ -371,7 +375,12 @@
     "saveContent": "コンテンツを保存（再埋め込み）",
     "saveMetadata": "詳細を保存",
     "saving": "保存中…",
-    "sourceUrl": "ソースURL（任意）"
+    "sourceUrl": "ソースURL（任意）",
+    "loading": "参考資料を読み込み中…",
+    "listError": "参考資料を読み込めませんでした。もう一度お試しください。",
+    "inheritedEmbed": "継承した埋め込みモデルを使用",
+    "modelsLoading": "埋め込みモデルを読み込み中…",
+    "modelsError": "埋め込みモデルを読み込めませんでした。もう一度お試しください。"
   },
   "progressPanel": {
     "loading": "進捗を読み込み中…",
@@ -826,7 +835,10 @@
       "noWork": "この本のシーンにモチーフを紐付けるためのプランを作成します。",
       "committedTitle": "シーンモチーフを固定",
       "loadError": "シーンモチーフを読み込めませんでした。",
-      "sectionTitle": "シーンモチーフ"
+      "sectionTitle": "シーンモチーフ",
+      "candidatesLoading": "モチーフを読み込み中…",
+      "candidatesError": "モチーフを読み込めませんでした。",
+      "candidatesEmpty": "モチーフライブラリでモチーフを追加またはインポートしてから、ここに戻って紐付けてください。"
     },
     "swap": {
       "title": "モチーフを入れ替える",
@@ -852,12 +864,26 @@
         "bad": "拍子のミス"
       },
       "rerunNeedsModel": "適合性を再計算するモデルを選択してください",
-      "bindCta": "モチーフをシーンに固定する →",
+      "bindCta": "紐付けるシーンを選択 →",
       "couldNotCheck": "確認できませんでした",
       "notChecked": "未チェック",
       "notWritten": "未執筆",
       "openScene": "このシーンをインスペクターで開く",
-      "written": "執筆済み"
+      "written": "執筆済み",
+      "noChapter": "章を選択",
+      "chaptersLoading": "章を読み込み中…",
+      "chaptersError": "章を読み込めませんでした。",
+      "noChapters": "章がありません。",
+      "actionError": "操作に失敗しました。再試行してください。",
+      "running": "実行中…",
+      "snapshot": "最終チェック：{{time}}",
+      "status": {
+        "unavailable": "チェックできませんでした",
+        "no_bound_motif": "先にモチーフを関連付けてください",
+        "motif_unavailable": "モチーフを利用できません",
+        "no_manuscript_prose": "先に本文を書いてください",
+        "stale": "古い結果です — 再チェックしてください"
+      }
     },
     "arc": {
       "mobileNotice": "タイムライン・グリッドは大きな画面で利用可能です — こちらではリスト形式で編集できます。",
@@ -960,7 +986,8 @@
         "error": "アークの提案をランク付けできませんでした。",
         "empty": "適合するアークのテンプレートがまだありません。新しく作成するか、物語をインポートして解析してください。",
         "mine": "あなたの",
-        "span": "{{count}} 章"
+        "span": "{{count}} 章",
+        "sectionMine": "自分のアーク"
       },
       "decompile": {
         "open": "チャプターをアークにグループ化",
@@ -1092,10 +1119,14 @@
       "retry": "再試行",
       "empty": "このシーンに合うモチーフがまだありません。ライブラリを増やしてください。",
       "bind": "紐付ける",
-      "degradedMine": "モチーフは適合度順にランク付けされていません。設定で埋め込みモデルをセットアップすると、意味的な類似度に基づいてランク付けされます。",
-      "degradedLibrary": "適合度順ではありません。共有ライブラリの埋め込みモデルが設定されていないため、これらはスコア化された一致ではなく、ジャンルによるフォールバックです。",
+      "degradedMine": "非公開の候補の意味的な順位付けは利用できません。この本またはアカウントで有効な埋め込みモデルが選択されていません。",
+      "degradedLibrary": "共有ライブラリの意味的な順位付けは利用できません。プラットフォーム側の独立した埋め込み設定が未完了です。本やアカウントのモデル設定とは別です。",
       "sectionMine": "あなたのモチーフ",
-      "sectionLibrary": "ライブラリから"
+      "sectionLibrary": "ライブラリから",
+      "rankingUnavailable": "順位付けは利用できません。これらの候補は適合度順に並んでいません。",
+      "providerUnavailable": "順位付けは一時的に利用できません。後でもう一度お試しください。",
+      "emptyQuery": "候補を適合度順に並べるには、前提設定またはシーンの本文を追加してください。",
+      "semanticMatch": "意味的な一致"
     },
     "language": {
       "writtenIn": "使用言語：",
@@ -1176,29 +1207,28 @@
       "violation": "{{label}}: {{n}}件の順序違反"
     },
     "editor": {
-      "add": "追加",
-      "beatIntent": "意図",
-      "beatLabel": "ビート",
-      "beats": "ビート",
-      "conflict": "このモチーフは他の場所で変更されました。編集する前に、最新の状態にするために再度開いてください。",
-      "deceived": "欺かれる対象（カンマ区切り）",
-      "effects": "効果",
-      "emotion": "感情",
-      "examples": "例（著者による作成）",
-      "gap": "ギャップ",
-      "genres": "ジャンル（カンマ区切り）",
-      "kind": "種類",
-      "knows": "知っている対象（カンマ区切り）",
-      "name": "名前",
-      "preconditions": "前提条件",
-      "roleConstraints": "制約",
-      "roleLabel": "ラベル",
-      "roles": "役割",
-      "saveError": "保存できませんでした。",
+      "open": "モチーフを編集",
+      "title": "シーンのモチーフ",
+      "description": "保存するまで変更は下書きにのみ保持されます。",
+      "search": "名前またはコードで検索",
+      "motif": "モチーフ",
+      "freeform": "自由形式（モチーフなし）",
+      "preview": "モチーフのプレビュー",
+      "unresolved": "未割り当て",
+      "save": "保存",
       "saving": "保存中…",
-      "scheme": "情報の非対称性",
-      "summary": "要約（検索用埋め込み）",
-      "tension": "緊張感 (1–5)"
+      "cancel": "キャンセル",
+      "loadError": "モチーフを読み込めませんでした。",
+      "saveError": "保存に失敗しました。下書きは保持されています。再試行してください。",
+      "partialError": "一部の変更は保存済みです。再保存して完了してください。キャンセルしても保存済みの変更は戻りません。",
+      "discardTitle": "未保存の変更を破棄しますか？",
+      "discardDescription": "未保存の下書きを破棄します。保存済みの変更はここでは元に戻せません。",
+      "stay": "編集を続ける",
+      "discard": "下書きを破棄",
+      "fallback": "翻訳がないため{{language}}で表示しています。",
+      "contextRequired": "確定済みのシーンを選択してください。",
+      "current": "現在",
+      "dirty": "未保存の変更"
     },
     "kind": {
       "arcs": "アークのテンプレート",
@@ -1765,6 +1795,13 @@
   "canonConflictCurrent": "現在 (v{{v}}): {{text}}",
   "coverageExtractionFailed": "アウトラインからプロットの約束事（プロミス）を読み取れませんでした（モデルの呼び出しに失敗したか、途中で切断されました）。もう一度試すか、別のモデルを選択してください。",
   "coverageScoreFailed": "プロットの約束事は読み取れましたが、書籍の内容との照合に失敗しました。もう一度試してください。",
+  "coverageCorpusIncomplete": "全巻の評価を実行できません：{{count}}章分の下書きを読み取れませんでした。全巻についての判定は行われていません。もう一度お試しください。",
+  "coverageCorpusIncomplete_zero": "全巻の評価を実行できません：{{count}}章分の下書きを読み取れませんでした。全巻についての判定は行われていません。もう一度お試しください。",
+  "coverageCorpusIncomplete_one": "全巻の評価を実行できません：{{count}}章分の下書きを読み取れませんでした。全巻についての判定は行われていません。もう一度お試しください。",
+  "coverageCorpusIncomplete_two": "全巻の評価を実行できません：{{count}}章分の下書きを読み取れませんでした。全巻についての判定は行われていません。もう一度お試しください。",
+  "coverageCorpusIncomplete_few": "全巻の評価を実行できません：{{count}}章分の下書きを読み取れませんでした。全巻についての判定は行われていません。もう一度お試しください。",
+  "coverageCorpusIncomplete_many": "全巻の評価を実行できません：{{count}}章分の下書きを読み取れませんでした。全巻についての判定は行われていません。もう一度お試しください。",
+  "coverageCorpusIncomplete_other": "全巻の評価を実行できません：{{count}}章分の下書きを読み取れませんでした。全巻についての判定は行われていません。もう一度お試しください。",
   "lengthAskedDelivered": "{{target}}文字程度をリクエストし、{{actual}}文字が出力されました（{{pct}}%）。",
   "lengthOverCeiling": "これは一度の呼び出しで確実に生成できる上限を超えています。シーンを複数の場面に分割して、全体の長さを取得してください。",
   "techEdit": {
@@ -1818,7 +1855,12 @@
     "reasoning_exhausted": "推論で応答予算を使い切りました。",
     "truncated": "応答が途中で切れました。",
     "invalid_response": "モデルの応答が無効です。",
-    "manualRetry": "次回の手動実行で再試行してください。"
+    "manualRetry": "次回の手動実行で再試行してください。",
+    "unknown": "不明な理由で品質分析に失敗しました。",
+    "incomplete": "すべての分析ウィンドウが完了したわけではありません。",
+    "synthesis_failed": "分析は完了しましたが、レポートの統合に失敗しました。",
+    "synthesis_invalid_response": "分析は完了しましたが、統合処理が無効な応答を返しました。",
+    "audit_only": "物語の筋の監査のみ完了しました。批評スコアは利用できません。"
   },
   "qualityScope": {
     "partial": "部分レポート — 章全体の評価ではありません。",

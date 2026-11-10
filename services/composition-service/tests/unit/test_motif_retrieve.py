@@ -692,7 +692,9 @@ async def test_private_motif_without_user_model_degrades_never_platform_embeds(m
     retr = MotifRetriever(_FakePool([row]))
     out = await retr.retrieve(
         caller, book_id=uuid.uuid4(), project_id=uuid.uuid4(),
-        genre_tags=["xianxia"], display_language="en", beat_role="climax", tension=90, user_model=None)
+        genre_tags=["xianxia"], display_language="en", beat_role="climax", tension=90,
+        model_resolution=__import__("app.engine.retrieval_model", fromlist=["RetrievalModel"]).RetrievalModel(
+            degradation_reason="model_unset"))
     assert out[0].match_reason["section"] == "mine"
     assert out[0].match_reason.get("degraded") is True
     assert calls == []                          # …never called for a private motif

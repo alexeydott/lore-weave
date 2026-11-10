@@ -40,9 +40,15 @@ vi.mock('@/features/books/api', () => ({
 }));
 
 const qualityReport = vi.fn();
+const listRuns = vi.fn();
+const estimateRun = vi.fn();
+const startRun = vi.fn();
+const stopRun = vi.fn();
+const report = { scope: { partial: false, complete: true, synthesis_completed: true }, critic: { coherence: 4, voice_match: 3, pacing: 2, canon_consistency: 5, violations: [] } };
+function serverRun(result = report, error: string | null = null) { return { id: 'r', project_id: 'proj-1', book_id: 'b1', model_source: 'user_model', model_ref: 'model-1', status: 'completed', stop_requested: false, total: 1, completed: error ? 0 : 1, failed: error ? 1 : 0, chapters: [{ chapter_id: 'ch1', title: 'Chapter One', status: error ? 'failed' : 'completed', result: { report: result }, error }] }; }
 vi.mock('@/features/composition/api', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/features/composition/api')>(),
-  compositionApi: { qualityReport: (...args: unknown[]) => qualityReport(...args) },
+  compositionApi: { qualityReport: (...args: unknown[]) => qualityReport(...args), listQualityRuns: (...args: unknown[]) => listRuns(...args), estimateQualityRun: (...args: unknown[]) => estimateRun(...args), startQualityRun: (...args: unknown[]) => startRun(...args), stopQualityRun: (...args: unknown[]) => stopRun(...args) },
 }));
 
 const effectiveModel = vi.fn(() => null);
@@ -84,6 +90,10 @@ beforeEach(() => {
   listChapters.mockReset();
   listChaptersPage.mockReset();
   qualityReport.mockReset();
+  listRuns.mockReset().mockResolvedValue({ runs: [] });
+  estimateRun.mockReset().mockResolvedValue({ total: 1, estimated_calls_max: 8, estimated_usd_max: 0.5, chapters: [] });
+  startRun.mockReset().mockResolvedValue(serverRun());
+  stopRun.mockReset();
   effectiveModel.mockReset().mockReturnValue(null);
   const chapters = [
     { chapter_id: 'ch1', title: 'Chapter One', original_filename: 'ch1.txt', sort_order: 1, draft_updated_at: '2026-11-08T00:00:00Z', draft_revision_count: 1 },
@@ -92,57 +102,35 @@ beforeEach(() => {
   listChaptersPage.mockResolvedValue({ items: chapters, total: 1, next_cursor: null });
 });
 
-describe('Russian Quality critic UI', () => {
-  it('renders batch controls and composition score dimensions in Russian', async () => {
-    effectiveModel.mockReturnValue({ model_source: 'user_model', model_ref: 'model-1' });
+describe('Russian durable Quality critic UI', () => {
+  it('renders confirmed server scores and translated controls without local storage', async () => {
     useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
-    qualityReport.mockResolvedValue({ report: { scope: { partial: false, complete: true, synthesis_completed: true }, critic: { coherence: 4, voice_match: 3, pacing: 2, canon_consistency: 5, violations: [] } } });
     withHost('b1');
-    await screen.findByRole('option', { name: 'Chapter One' });
-    expect(screen.getByText('Критический разбор всей книги')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Выбранная глава' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Все главы' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Проанализировать все главы' }));
+    expect(screen.getByText(studioRu.quality.criticBatchTitle)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('quality-critic-batch')).toBeEnabled());
+    fireEvent.click(screen.getByTestId('quality-critic-batch'));
+    fireEvent.click(await screen.findByTestId('quality-critic-batch-confirm'));
     const entry = await screen.findByTestId('quality-critic-batch-entry-ch1');
-    for (const dim of ['coherence', 'voice_match', 'pacing', 'canon_consistency'] as const) {
-      expect(entry).toHaveTextContent(compositionRu[dim]);
-    }
-    expect(screen.getByRole('button', { name: 'Все главы проанализированы' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Очистить результаты' })).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('quality-critic-batch-scope-selected'));
-    expect(screen.getByRole('button', { name: 'Проанализировать выбранную главу' })).toBeInTheDocument();
-    expect(document.body).not.toHaveTextContent('qualityDim_');
+    for (const dimension of ['coherence', 'voice_match', 'pacing', 'canon_consistency'] as const) expect(entry).toHaveTextContent(compositionRu[dimension]);
+    expect(localStorage.length).toBe(0);
   });
   for (const reason of ['context_limit', 'network', 'unavailable', 'reasoning_exhausted', 'truncated', 'invalid_response'] as const) {
-    it(`restores cached scope and Russian ${reason} without automatic retry`, async () => {
-      effectiveModel.mockReturnValue({ model_source: 'user_model', model_ref: 'model-1' });
+    it(`restores server scope and Russian ${reason} without automatic retry`, async () => {
       useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
-      const key = 'lw_critic_batch:b1:proj-1:user_model:model-1';
-      localStorage.setItem(key, JSON.stringify([{
-        chapterId: 'ch1', title: 'Chapter One', sortOrder: 1,
-        draftUpdatedAt: '2026-11-08T00:00:00Z', draftRevisionCount: 1, failed: true,
-        report: { scope: { partial: true, chapter_partial: true, windows_analyzed: 1, windows_total: 7 },
-          critic: { coherence: null, voice_match: null, pacing: null, canon_consistency: null, violations: [], error: `critic_${reason}` } },
-      }]));
+      listRuns.mockResolvedValue({ runs: [serverRun({ scope: { partial: true, chapter_partial: true, windows_analyzed: 1, windows_total: 7 }, critic: { ...report.critic, error: `critic_${reason}` } } as unknown as typeof report, `critic_${reason}`)] });
       withHost('b1');
-      await screen.findByTestId('quality-critic-batch-entry-ch1');
-      expect(screen.getByTestId('quality-reason')).toHaveTextContent(compositionRu.qualityReasons[reason]);
+      expect(await screen.findByTestId('quality-reason')).toHaveTextContent(compositionRu.qualityReasons[reason]);
       expect(screen.getByTestId('quality-reason')).toHaveTextContent(compositionRu.qualityReasons.manualRetry);
-      expect(screen.getByTestId('quality-partial')).toHaveTextContent('1 из 7');
+      expect(screen.getByTestId('quality-partial')).toHaveTextContent(ru.t('qualityScope.chapter', { ns: 'composition', analyzed: 1, total: 7 }));
+      expect(startRun).not.toHaveBeenCalled();
       expect(qualityReport).not.toHaveBeenCalled();
-      qualityReport.mockResolvedValue({ report: { critic: { coherence: 4, voice_match: 3, pacing: 2, canon_consistency: 5, violations: [] }, scope: { partial: true, chapter_partial: true, windows_analyzed: 1, windows_total: 9 } } });
-      await waitFor(() => expect(screen.getByTestId('quality-critic-batch')).toBeEnabled());
-      fireEvent.click(screen.getByTestId('quality-critic-batch'));
-      await waitFor(() => expect(qualityReport).toHaveBeenCalledTimes(1));
-      await waitFor(() => expect(screen.getByTestId('quality-partial')).toHaveTextContent('1 из 9'));
-      await waitFor(() => expect(JSON.parse(localStorage.getItem(key)!)[0].report.scope.windows_total).toBe(9));
-      expect(screen.queryByRole('button', { name: 'Все главы проанализированы' })).not.toBeInTheDocument();
+      expect(localStorage.length).toBe(0);
     });
   }
   it('renders chapter loading failures in Russian', async () => {
     useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
     listChaptersPage.mockRejectedValue(new Error('offline'));
     withHost('b1');
-    expect(await screen.findByText('Не удалось загрузить список глав.')).toBeInTheDocument();
+    expect(await screen.findByText(studioRu.quality.chaptersLoadError)).toBeInTheDocument();
   });
 });

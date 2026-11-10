@@ -29,7 +29,7 @@ export function ReferenceShelfPanel(props: IDockviewPanelProps) {
   const resolution = useWorkResolution(host.bookId, accessToken);
   const { data: activeWorkId } = useActiveWorkId(host.bookId, accessToken);
   const work = resolveActiveWork(resolution.data, activeWorkId);
-  const models = useUserModels({ capability: 'embedding' }).models;
+  const { models, loading: modelsLoading, error: modelsError } = useUserModels({ capability: 'embedding' });
 
   if (!work?.project_id) {
     // F10 / Part A — the shared onboarding door (guided copy + the idempotent create-Work CTA).
@@ -45,7 +45,7 @@ export function ReferenceShelfPanel(props: IDockviewPanelProps) {
   }
   return (
     <div className="h-full min-h-0 overflow-y-auto">
-      <ReferencesPanel projectId={work.project_id} sceneId="" token={accessToken} models={models ?? []} />
+      <ReferencesPanel projectId={work.project_id} sceneId="" token={accessToken} models={models ?? []} modelsLoading={modelsLoading} modelsError={!!modelsError} />
     </div>
   );
 }

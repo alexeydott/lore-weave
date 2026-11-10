@@ -32,6 +32,12 @@ export function GroundingPanel({ projectId, bookId, chapterId, sceneId, token, h
 
   if (!sceneId) return <div className="p-3 text-sm text-neutral-500">{t('needScene', { defaultValue: 'Pick a scene' })}</div>;
   if (grounding.isLoading) return <div className="p-3 text-sm text-neutral-500">{t('loadingGrounding', { defaultValue: 'Loading grounding…' })}</div>;
+  if (grounding.isError) return (
+    <div role="alert" className="p-3 text-sm text-neutral-500">
+      {t('groundingLoadFailed', { defaultValue: 'Grounding could not be loaded. Retry before changing the knowledge graph.' })}
+      <button type="button" disabled={grounding.isFetching} onClick={() => void grounding.refetch()}>{t('groundingRetry', { defaultValue: 'Retry grounding' })}</button>
+    </div>
+  );
   const g = grounding.data;
   if (!g) return <div className="p-3 text-sm text-neutral-500">{t('noGrounding', { defaultValue: 'No grounding.' })}</div>;
 
@@ -53,7 +59,10 @@ export function GroundingPanel({ projectId, bookId, chapterId, sceneId, token, h
       </div>
       {!g.grounding_available && (
         <div data-testid="composition-grounding-empty-hint" className="rounded bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-          {t('groundingEmptyHint', { defaultValue: 'No knowledge graph yet — run a knowledge extraction on this book once to ground the co-writer. After that, publishing chapters keeps the canon up to date automatically.' })}
+          {g.warnings.some((w) => w.includes('this work has no knowledge project yet'))
+            ? t('groundingNoProject', { defaultValue: 'This work has no linked knowledge project yet. Grounding is not available for this work.' })
+            : t('groundingNoResults', { defaultValue: 'No graph context was retrieved for this scene. The graph may still exist; scene position, matching content, or a knowledge-service failure can limit retrieval.' })}
+          <button type="button" disabled={grounding.isFetching} onClick={() => void grounding.refetch()}>{t('groundingRetry', { defaultValue: 'Retry grounding' })}</button>
         </div>
       )}
       {nonC3aWarnings.length > 0 && (

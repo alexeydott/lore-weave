@@ -205,7 +205,8 @@
       "batchRunning": "Bab dianalisis: {{done}}/{{total}}…",
       "batchStop": "Hentikan",
       "batchDone": "Bab dianalisis: {{total}} · janji dibuka: {{opened}} · dilunasi: {{paid}}",
-      "batchStopped": "Dihentikan — {{done}} dari {{total}} bab dianalisis."
+      "batchStopped": "Dihentikan — {{done}} dari {{total}} bab dianalisis.",
+      "batchFailed": "{{done}} dari {{total}} bab dianalisis; {{failed}} gagal. Hasil belum lengkap."
     },
     "quality-critic": {
       "title": "Kritikus",
@@ -462,6 +463,10 @@
         "motifs": "Motif"
       },
       "links": {
+        "loading": "Memuat tautan adegan…",
+        "loadError": "Tidak dapat memuat tautan adegan.",
+        "unavailable": "Adegan tidak tersedia",
+        "untitledScene": "Adegan {{number}}",
         "empty": "Belum ada tautan kausal.",
         "setup": "setup→payoff",
         "custom": "kustom",
@@ -1097,7 +1102,13 @@
     "criticBatchRemaining": "Tersisa: {{count}}",
     "criticBatchFailed": "gagal — akan dicoba lagi",
     "criticBatchClear": "Hapus hasil",
-    "chaptersLoadError": "Daftar bab tidak dapat dimuat."
+    "chaptersLoadError": "Daftar bab tidak dapat dimuat.",
+    "criticBatchEstimate": "Perkiraan maksimum panggilan model: {{calls}} untuk {{count}} bab.",
+    "criticBatchConfirm": "Konfirmasi analisis seluruh buku",
+    "criticBatchEstimateFailed": "Analisis ini tidak dapat diperkirakan. Tidak ada proses yang dimulai.",
+    "criticBatchProgress": "{{completed}} selesai, {{failed}} gagal, {{total}} total.",
+    "criticBatchDetached": "Berhenti menunggu. Proses di server tetap berjalan.",
+    "criticBatchEstimateCost": "Perkiraan batas atas biaya: ${{cost}}. Belum ada proses yang dimulai."
   },
   "sidebar": {
     "collapse": "Sembunyikan",
@@ -1721,6 +1732,35 @@
     }
   },
   "planHub": {
+    "drawer": {
+      "noCanon": "Tidak ada aturan kanon yang ditautkan di sini.",
+      "chapter": "Bab",
+      "scene": "Adegan",
+      "arc": "Alur",
+      "saga": "Saga",
+      "unknown": "Simpul",
+      "anchor": "Tautan",
+      "notAnchored": "— belum ditautkan —",
+      "currentAnchor": "(tautan saat ini)",
+      "anchorFirst": "Tautkan simpul ini ke bab terlebih dahulu",
+      "anchorError": "Daftar bab tidak dapat dibaca; tautan tidak dapat diubah.",
+      "noAnchor": "Belum terhubung ke bab naskah; pilih bab di atas.",
+      "openEditor": "Buka di editor",
+      "expand": "Perluas",
+      "collapse": "Ciutkan",
+      "expandScenes": "Perluas adegan",
+      "collapseScenes": "Ciutkan adegan",
+      "expandArc": "Perluas alur",
+      "expandLane": "Perluas lajur",
+      "collapseLane": "Ciutkan lajur",
+      "referencesNote": "Referensi balik memerlukan composition_find_references yang belum tersedia. Daftar tokoh di atas milik simpul ini.",
+      "criticNote": "Kritik dijalankan per buku; lihat Kualitas → Kritik.",
+      "noPlan": "Simpul ini belum memiliki rencana.",
+      "arcMissing": "Alur tidak ditemukan dalam struktur.",
+      "selectNode": "Pilih simpul untuk melihat rencananya.",
+      "total": "Total {{count}}",
+      "truncated": "Daftar dipotong"
+    },
     "undo": "Urungkan",
     "empty": {
       "title": "Belum ada rencana untuk buku ini",
@@ -1970,5 +2010,45 @@
     "loading_more": "Memuat…",
     "restore": "Pulihkan"
   },
-  "campaigns": "Kampanye (ekstraksi & penerjemahan massal)"
+  "campaigns": "Kampanye (ekstraksi & penerjemahan massal)",
+  "referenceShelf": {
+    "title": "Rak sumber",
+    "entity": "Entitas glosarium",
+    "chooseEntity": "Pilih entitas",
+    "noEntities": "Tidak ada entitas glosarium yang tersedia untuk buku ini.",
+    "signIn": "Masuk untuk memuat sumber.",
+    "loading": "Memuat sumber…",
+    "loadFailed": "Sumber tidak dapat dimuat.",
+    "empty": "Tidak ada sumber ditemukan.",
+    "partial": "Beberapa sumber tidak dapat dimuat.",
+    "capped": "Menampilkan {{shown}} dari {{count}} sumber.",
+    "showMore": "Tampilkan lebih banyak",
+    "limitReached": "Batas tampilan sumber tercapai.",
+    "question": "Tanyakan tentang sumber ini",
+    "questionPlaceholder": "Apa yang ingin Anda ketahui?",
+    "ask": "Tanya asisten AI",
+    "asking": "Bertanya kepada asisten AI…",
+    "paid": "Permintaan opsional ini menggunakan token model dan dapat dikenakan biaya. Permintaan ini tidak mengubah buku Anda.",
+    "model": "Model",
+    "inheritedModel": "Menggunakan model obrolan buku ini, lalu model bawaan akun Anda; pilih model untuk menggantinya.",
+    "assistantFailed": "Asisten AI tidak dapat menjawab.",
+    "retry": "Coba muat sumber lagi",
+    "planOnly": "Hanya referensi perencanaan; penyebutan dalam naskah dan graf pengetahuan tidak disertakan.",
+    "indirectThreads": "Alur cerita yang dibuka pada simpul tempat entitas ini muncul; bukan penyebutan langsung entitas.",
+    "prompts": {
+      "consistency": "Periksa konsistensi",
+      "summary": "Ringkas informasi yang diketahui",
+      "gaps": "Apa yang kurang?"
+    },
+    "groups": {
+      "outline_pov": "Sudut pandang bab",
+      "outline_present": "Tokoh dalam bab",
+      "scene_pov": "Sudut pandang adegan",
+      "scene_present": "Tokoh dalam adegan",
+      "structure_roster": "Daftar tokoh alur dan saga",
+      "motif_application": "Penerapan motif",
+      "canon_rule": "Aturan kanon",
+      "narrative_thread": "Alur cerita terkait"
+    }
+  }
 }
