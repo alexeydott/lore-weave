@@ -73,6 +73,7 @@ class StubJobs:
         self.active = []
         self.created = True
         self.job = _job()
+        self.missing = False
         self.updates = []
     async def list_active_for_node(self, p, n): return self.active
     async def create(self, p, **kw):
@@ -81,7 +82,7 @@ class StubJobs:
     async def update_status(self, jid, status, **kw):
         self.updates.append((str(jid), status, kw))
         return self.job
-    async def get(self, jid): return self.job
+    async def get(self, jid): return None if self.missing else self.job
 
 
 class StubCorrections:
@@ -463,6 +464,32 @@ def test_generate_cancels_in_flight_job_s2(ctx):
     jobs.active = [GenerationJob(id=prior, created_by=USER, project_id=PROJECT, book_id=BOOK, operation="x", status="running")]
     c.post(f"/v1/composition/works/{PROJECT}/generate", json=_gen_body())
     assert (str(prior), "cancelled", {}) in [(j, s, k) for j, s, k in jobs.updates]
+
+
+# ── POST /jobs/{job_id}/cancel — a given-up wait must stop the spend ──
+
+def test_cancel_transitions_active_job_cas(ctx):
+    c, _, _, _, jobs, _, _ = ctx
+    jobs.job = _job(status="running", result=None)
+    r = c.post(f"/v1/composition/jobs/{JOB}/cancel")
+    assert r.status_code == 200 and r.json() == {"job_id": str(JOB), "status": "cancelled"}
+    assert jobs.updates == [(str(JOB), "cancelled", {"only_if_active": True})]
+
+
+def test_cancel_terminal_job_conflicts(ctx):
+    c, _, _, _, jobs, _, _ = ctx
+    jobs.job = _job(status="completed")
+    r = c.post(f"/v1/composition/jobs/{JOB}/cancel")
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "JOB_TERMINAL"
+    assert jobs.updates == []
+
+
+def test_cancel_missing_job_404(ctx):
+    c, _, _, _, jobs, _, _ = ctx
+    jobs.missing = True
+    r = c.post(f"/v1/composition/jobs/{uuid.uuid4()}/cancel")
+    assert r.status_code == 404
+    assert jobs.updates == []
 
 
 def test_generate_idempotent_replay_does_not_restream_or_cancel(ctx):
