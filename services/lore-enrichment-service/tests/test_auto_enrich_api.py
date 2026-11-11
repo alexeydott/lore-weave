@@ -402,3 +402,37 @@ def test_auto_enrich_requires_auth():
               "generation_model_ref": str(uuid4())},
     )
     assert resp.status_code == 401
+
+
+# ── gate-locked technique → 422 BEFORE any job row / enqueue ─────────────────
+#
+# #user-report 2026-11-10: the API accepted a technique the worker later refused
+# (P3 recook is gated off until the C15 gate), and the worker DROPPED the refusal
+# — the job sat `pending` forever and the author's UI timed out. The submit must
+# reject the technique up front: no job row, no persisted request, no enqueue.
+
+@respx.mock
+async def test_auto_enrich_inactive_technique_rejected_before_any_write(monkeypatch):
+    book, project = uuid4(), uuid4()
+    _mock_coverage(book, [_under_described("玉虛宮", mentions=55)])
+    created, saved, prod = {}, {}, _RecordingProducer()
+    _patch_store(monkeypatch, jid=uuid4(), created=created, saved=saved, producer=prod)
+
+    resp = TestClient(_app()).post(
+        f"/v1/lore-enrichment/projects/{project}/auto-enrich",
+        json={
+            "book_id": str(book),
+            "embedding_model_ref": str(uuid4()),
+            "generation_model_ref": str(uuid4()),
+            "technique": "recook",  # P3 — gated OFF (C15)
+        },
+        headers={"Authorization": f"Bearer {_bearer()}"},
+    )
+
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "inactive" in detail and "recook" in detail and "C15" in detail
+    # Actionable: names the active alternative AND the env override.
+    assert "retrieval" in detail and "ENRICH_STRATEGY_RECOOK_ENABLED" in detail
+    # NOTHING was written: no job row, no persisted request, no enqueue.
+    assert created == {} and saved == {} and prod.calls == []

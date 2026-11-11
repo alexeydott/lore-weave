@@ -152,8 +152,30 @@ async def _redrive_locked(
             book_id=str(request["book_id"]) if request.get("book_id") else None,
         )
     except (InactiveStrategyError, UnknownStrategyError) as exc:
-        # Gate-locked / unknown technique → cannot re-drive; drop (not retryable).
-        logger.error("resume %s: runner build refused (%s) — drop", job_id, exc)
+        # Gate-locked / unknown technique → cannot re-drive; NOT retryable.
+        # Fail the job VISIBLY (#user-report 2026-11-10): a silent drop left the
+        # row `pending` forever and the author's UI waited on a run nobody would
+        # ever drive ("request time out"). `pending → failed` is ILLEGAL per the
+        # locked state-machine DAG (only estimating/running can fail), so the
+        # honest visible terminal from a pre-estimate refusal is `cancelled` —
+        # with the refusal recorded in error_message so the jobs panel says WHY.
+        try:
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE enrichment_job
+                    SET status = 'cancelled',
+                        error_message = $2,
+                        completed_at = now(),
+                        updated_at = now()
+                    WHERE job_id = $1
+                      AND status IN ('pending', 'estimating', 'running', 'paused')
+                    """,
+                    UUID(job_id), f"enrichment refused: {exc}",
+                )
+        except Exception:  # noqa: BLE001 — the error log below still records it
+            logger.warning("resume %s: could not surface the refusal on the job row", job_id, exc_info=True)
+        logger.error("resume %s: runner build refused (%s) — job cancelled with reason", job_id, exc)
         return "refused"
 
     try:
