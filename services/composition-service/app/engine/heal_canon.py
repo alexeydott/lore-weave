@@ -124,7 +124,7 @@ def render_canon(cast: Sequence[Mapping], *, convention: str = "",
             facts = c["source_facts"]
             lines.append(f"- {name} [source entity {c.get("entity_id", "")}]")
             for fact in facts:
-                lines.append("  - " + json.dumps(fact, ensure_ascii=False, sort_keys=True))
+                lines.append("  - " + json.dumps(fact, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
             continue
         role = str(c.get("role", "")).strip()
         head = f"- {name}" + (f" ({role})" if role else "") + ":"

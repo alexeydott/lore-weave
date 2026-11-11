@@ -26,6 +26,27 @@ def test_render_canon_builds_bible_from_cast():
     assert "Tính cách" not in out                                # personality dropped (terse — anti-burial)
 
 
+def test_full_fact_canon_compacts_json_without_losing_source_fields():
+    import json
+    from app.engine.heal_canon import cast_from_state
+
+    facts = [
+        {"attr": "name", "value": "Fixture"},
+        {"attr": "relationship", "value": {"target": "人物", "labels": ["a b", "c:d"]},
+         "valid_from_ordinal": 17, "source": {"quote": "exact source", "confidence": 0.9},
+         "nullable": None, "active": True},
+    ]
+    cast = cast_from_state([{"entity_id": "entity-fixture", "facts": facts}], preserve_facts=True)
+    rendered = render_canon(cast, convention="CONVENTION", full_facts=True)
+    encoded = [line.removeprefix("  - ") for line in rendered.splitlines() if line.startswith("  - ")]
+    assert [json.loads(line) for line in encoded] == facts
+    assert encoded == [json.dumps(f, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+                       for f in facts]
+    assert sum(map(len, encoded)) < sum(len(json.dumps(f, ensure_ascii=False, sort_keys=True))
+                                      for f in facts)
+    assert "CONVENTION" in rendered and "source entity entity-fixture" in rendered
+
+
 def test_render_canon_empty_yields_empty():
     assert render_canon([], convention="") == ""
     assert render_canon([{"name": ""}], convention="") == ""
