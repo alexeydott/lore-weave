@@ -431,6 +431,7 @@ func (s *Server) Router() http.Handler {
 		r.Get("/providers/{provider_credential_id}/models", s.listProviderInventory)
 
 		r.Get("/user-models", s.listUserModels)
+		r.Get("/user-models/{user_model_id}", s.getUserModel)
 		r.Post("/user-models", s.createUserModel)
 		r.Put("/user-models/reorder", s.reorderUserModels)
 		r.Patch("/user-models/{user_model_id}", s.patchUserModel)
@@ -2478,6 +2479,26 @@ func (s *Server) replaceUserModelTags(ctx context.Context, userModelID uuid.UUID
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+// getUserModel — GET /v1/model-registry/user-models/{id}: the owner-scoped
+// single read, same row shape as the list. knowledge-service's extraction-config
+// save-time validation (#user-report 2026-11-08) must check the referenced
+// model is still active before accepting a precision_filter.model_ref; until
+// this route existed that check had no single-read to call and either
+// false-blocked every save or degraded open. Missing/foreign rows 404 (the
+// owner scope IS the access rule here, mirroring patchUserModel).
+func (s *Server) getUserModel(w http.ResponseWriter, r *http.Request) {
+	userID, ok := s.auth(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "M03_UNAUTHORIZED", "unauthorized")
+		return
+	}
+	id, ok := parseUUIDParam(w, r, "user_model_id")
+	if !ok {
+		return
+	}
+	s.writeUserModel(w, r, userID, id)
 }
 
 func (s *Server) writeUserModel(w http.ResponseWriter, r *http.Request, userID, id uuid.UUID) {
