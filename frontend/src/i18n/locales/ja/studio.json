@@ -1108,7 +1108,14 @@
     "criticBatchEstimateFailed": "この分析を見積もれませんでした。実行は開始されていません。",
     "criticBatchProgress": "完了{{completed}}件、失敗{{failed}}件、合計{{total}}件。",
     "criticBatchDetached": "待機を終了しました。サーバーでの実行は続きます。",
-    "criticBatchEstimateCost": "推定費用上限：${{cost}}。実行はまだ開始されていません。"
+    "criticBatchEstimateCost": "推定費用上限：${{cost}}。実行はまだ開始されていません。",
+    "criticHistoryLoadError": "分析履歴を読み込めませんでした。すでに開始された処理はサーバー上で引き続き実行中の可能性があります。",
+    "criticHistoryRetry": "履歴の読み込みを再試行",
+    "criticBatchEstimateTimeout": "見積もりの準備がタイムアウトしました。分析は開始されていません。見積もりの準備を再試行してください。",
+    "criticBatchStartFailed": "分析の開始を確認できませんでした。再試行する前に履歴を更新してください。",
+    "criticBatchStartTimeout": "実行の開始がタイムアウトしました。サーバー上ではこれから開始される可能性があります。再試行する前に履歴を更新してください。",
+    "criticBatchStopFailed": "現在の章の完了後に停止する要求を送れませんでした。実行は続いている可能性があります。履歴を更新して確認してください。",
+    "criticBatchPreparingEstimate": "見積もりを準備中…"
   },
   "sidebar": {
     "collapse": "折りたたむ",

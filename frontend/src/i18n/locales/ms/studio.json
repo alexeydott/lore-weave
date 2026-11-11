@@ -1108,7 +1108,14 @@
     "criticBatchEstimateFailed": "Analisis ini tidak dapat dianggarkan. Tiada proses dimulakan.",
     "criticBatchProgress": "{{completed}} selesai, {{failed}} gagal, {{total}} keseluruhan.",
     "criticBatchDetached": "Berhenti menunggu. Proses pada pelayan diteruskan.",
-    "criticBatchEstimateCost": "Anggaran had atas kos: ${{cost}}. Tiada proses dimulakan lagi."
+    "criticBatchEstimateCost": "Anggaran had atas kos: ${{cost}}. Tiada proses dimulakan lagi.",
+    "criticHistoryLoadError": "Sejarah analisis tidak dapat dimuatkan. Proses sedia ada pada pelayan mungkin masih berjalan.",
+    "criticHistoryRetry": "Cuba muatkan sejarah semula",
+    "criticBatchEstimateTimeout": "Masa penyediaan anggaran tamat. Tiada proses analisis dimulakan. Cuba sediakan anggaran semula.",
+    "criticBatchStartFailed": "Tidak dapat mengesahkan bahawa proses analisis telah bermula. Muat semula sejarah sebelum mencuba lagi.",
+    "criticBatchStartTimeout": "Masa untuk memulakan proses tamat. Proses mungkin masih bermula pada pelayan. Muat semula sejarah sebelum mencuba lagi.",
+    "criticBatchStopFailed": "Tidak dapat meminta proses dihentikan selepas bab semasa selesai. Proses mungkin masih berjalan. Muat semula sejarah untuk menyemak.",
+    "criticBatchPreparingEstimate": "Menyediakan anggaran…"
   },
   "sidebar": {
     "collapse": "Kecilkan",

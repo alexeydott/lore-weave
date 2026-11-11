@@ -1108,7 +1108,14 @@
     "criticBatchEstimateFailed": "تعذّر تقدير هذا التحليل. لم يبدأ أي تشغيل.",
     "criticBatchProgress": "اكتمل {{completed}}، وفشل {{failed}}، والإجمالي {{total}}.",
     "criticBatchDetached": "توقف الانتظار. يستمر التشغيل على الخادم.",
-    "criticBatchEstimateCost": "الحد الأعلى التقديري للتكلفة: ${{cost}}. لم يبدأ أي تشغيل بعد."
+    "criticBatchEstimateCost": "الحد الأعلى التقديري للتكلفة: ${{cost}}. لم يبدأ أي تشغيل بعد.",
+    "criticHistoryLoadError": "تعذّر تحميل سجل التحليل. قد تظل عمليات التشغيل الحالية على الخادم قيد التنفيذ.",
+    "criticHistoryRetry": "إعادة محاولة تحميل السجل",
+    "criticBatchEstimateTimeout": "انتهت مهلة إعداد التقدير. لم يبدأ أي تشغيل للتحليل. أعد محاولة إعداد التقدير.",
+    "criticBatchStartFailed": "تعذّر تأكيد بدء تشغيل التحليل. حدّث السجل قبل المحاولة مجددًا.",
+    "criticBatchStartTimeout": "انتهت مهلة بدء التشغيل. قد يبدأ التشغيل على الخادم رغم ذلك. حدّث السجل قبل المحاولة مجددًا.",
+    "criticBatchStopFailed": "تعذّر طلب التوقف بعد الفصل الحالي. قد يكون التشغيل مستمرًا. حدّث السجل للتحقق.",
+    "criticBatchPreparingEstimate": "جارٍ إعداد التقدير…"
   },
   "sidebar": {
     "collapse": "طي",

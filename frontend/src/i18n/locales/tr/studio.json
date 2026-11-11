@@ -1108,7 +1108,14 @@
     "criticBatchEstimateFailed": "Bu analiz için tahmin yapılamadı. Hiçbir çalıştırma başlatılmadı.",
     "criticBatchProgress": "{{completed}} tamamlandı, {{failed}} başarısız, toplam {{total}}.",
     "criticBatchDetached": "Bekleme durduruldu. Sunucudaki çalıştırma devam ediyor.",
-    "criticBatchEstimateCost": "Tahmini üst maliyet: ${{cost}}. Henüz çalıştırma başlatılmadı."
+    "criticBatchEstimateCost": "Tahmini üst maliyet: ${{cost}}. Henüz çalıştırma başlatılmadı.",
+    "criticHistoryLoadError": "Analiz geçmişi yüklenemedi. Sunucudaki mevcut çalıştırmalar hâlâ devam ediyor olabilir.",
+    "criticHistoryRetry": "Geçmişi yeniden yükle",
+    "criticBatchEstimateTimeout": "Tahmin hazırlama zaman aşımına uğradı. Hiçbir analiz çalıştırması başlatılmadı. Tahmini yeniden hazırlamayı deneyin.",
+    "criticBatchStartFailed": "Analiz çalıştırmasının başladığı doğrulanamadı. Yeniden denemeden önce geçmişi yenileyin.",
+    "criticBatchStartTimeout": "Çalıştırmayı başlatma zaman aşımına uğradı. Sunucuda yine de başlayabilir. Yeniden denemeden önce geçmişi yenileyin.",
+    "criticBatchStopFailed": "Geçerli bölümden sonra durdurma isteği gönderilemedi. Çalıştırma hâlâ devam ediyor olabilir. Kontrol etmek için geçmişi yenileyin.",
+    "criticBatchPreparingEstimate": "Tahmin hazırlanıyor…"
   },
   "sidebar": {
     "collapse": "Daralt",

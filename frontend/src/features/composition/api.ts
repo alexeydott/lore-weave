@@ -84,11 +84,52 @@ async function _resolveJob<T extends { job_id: string; status: string }>(
       throw new Error((job.result as { error?: string } | null)?.error || 'generation failed');
     }
     if (job.status !== 'completed') {
+      // The wait gave up while the job is still pending/running — stop the
+      // server-side spend too (user report 2026-11-10: an abandoned wait must not
+      // leave the worker billing a job nobody is watching). Best-effort: a failed
+      // cancel never masks the timeout itself.
+      void compositionApi.cancelJob(r.job_id, token).catch(() => {});
       throw new Error('generation did not complete in time');
     }
     return map(job);
   }
   return resp;
+}
+
+/** Polls one quality_report job to terminal with progress mapping. Shared by the
+ * submit path and the remount-restore path so both render identical progress. */
+export async function pollQualityJob(jobId: string, token: string, options: QualityRunOptions = {}): Promise<QualityReportResponse> {
+  options.onJobId?.(jobId);
+  // Quality covers every chapter window and canon batch, not a short generation.
+  // The backend worker deadline governs this wait, with a transport grace period.
+  const deadline = Date.now() + 3600 * 1000 + 60_000;
+  while (true) {
+    options.signal?.throwIfAborted();
+    const job = await apiJson<GenerationJob & { progress?: QualityProgress }>(`${BASE}/jobs/${jobId}`, { token, signal: options.signal });
+    options.signal?.throwIfAborted();
+    const progress = (job.result as { progress?: { stage: string; scope?: QualityScope } } | null)?.progress;
+    if (progress) {
+      const scope = progress.scope;
+      const completed = (scope?.critic_units_completed ?? 0) + (scope?.audit_units_completed ?? 0) + (scope?.narrative_units_completed ?? 0) + (scope?.synthesis_completed ? 1 : 0);
+      const total = (scope?.critic_units_total ?? 0) + (scope?.audit_units_total ?? 0) + (scope?.narrative_units_total ?? 0) + 1;
+      options.onProgress?.({ stage: progress.stage, completed, total });
+    }
+    if (job.status === 'completed') return { job_id: job.id, status: job.status, ...(job.result as Record<string, unknown>) } as QualityReportResponse;
+    if (job.status === 'failed' || job.status === 'cancelled') throw new Error((job.result as { error?: string } | null)?.error || 'quality analysis failed');
+    if (Date.now() >= deadline) {
+      // Deadline exceeded while still running — cancel the server job so the
+      // worker stops spending on a result nobody will read (user report 2026-11-10).
+      void compositionApi.cancelJob(jobId, token).catch(() => {});
+      throw new Error('quality analysis wait deadline exceeded');
+    }
+    await new Promise<void>((resolve, reject) => {
+      const signal = options.signal;
+      const abort = () => { clearTimeout(timer); signal?.removeEventListener('abort', abort); reject(new DOMException('Stopped waiting', 'AbortError')); };
+      const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, JOB_POLL_INTERVAL_MS);
+      signal?.addEventListener('abort', abort, { once: true });
+      if (signal?.aborted) abort();
+    });
+  }
 }
 
 export const compositionApi = {
@@ -636,6 +677,12 @@ export const compositionApi = {
   getJob(jobId: string, token: string): Promise<GenerationJob> {
     return apiJson(`${BASE}/jobs/${jobId}`, { token });
   },
+  // Cancel a still-active Work-bound job (CAS pending/running → cancelled): the
+  // consumer aborts the in-flight LLM call (bug #34) and a queued job is skipped.
+  // Used when a wait deadline expires or the user explicitly stops waiting.
+  cancelJob(jobId: string, token: string): Promise<{ job_id: string; status: string }> {
+    return apiJson(`${BASE}/jobs/${jobId}/cancel`, { method: 'POST', token, timeoutMs: 10_000 });
+  },
   // BE-7c — the OWNER-scoped poll for a Work-LESS job (motif-mine, arc-import). Such a job
   // carries project_id=NULL, so `getJob` (`/jobs/{id}`, which gates on the job's project→book
   // grant) 404s on it FOREVER — the "spinner forever after you paid" bug. This route gates on
@@ -753,10 +800,10 @@ export const compositionApi = {
   // audit) for a chapter as a READ-ONLY report. Diagnostic, not applyable (no accept/apply).
   // 202+poll when the worker is on, else inline — same resolve path as proposeSelfHeal.
   estimateQualityRun(projectId: string, model: QualityRunModel, token: string) {
-    return apiJson<QualityRunEstimate>(`${BASE}/works/${projectId}/quality-runs/estimate`, { method: 'POST', token, body: JSON.stringify(model) });
+    return apiJson<QualityRunEstimate>(`${BASE}/works/${projectId}/quality-runs/estimate`, { method: 'POST', token, body: JSON.stringify(model), timeoutMs: 120_000 });
   },
   startQualityRun(projectId: string, body: QualityRunModel & { idempotency_key: string; max_estimated_calls: number; max_estimated_usd: number }, token: string) {
-    return apiJson<QualityBookRun>(`${BASE}/works/${projectId}/quality-runs`, { method: 'POST', token, body: JSON.stringify(body) });
+    return apiJson<QualityBookRun>(`${BASE}/works/${projectId}/quality-runs`, { method: 'POST', token, body: JSON.stringify(body), timeoutMs: 120_000 });
   },
   listQualityRuns(projectId: string, model: QualityRunModel, token: string, signal?: AbortSignal) {
     const query = new URLSearchParams({ model_source: model.model_source, model_ref: model.model_ref });
@@ -767,6 +814,12 @@ export const compositionApi = {
   },
   stopQualityRun(projectId: string, runId: string, token: string) {
     return apiJson<QualityBookRun>(`${BASE}/works/${projectId}/quality-runs/${runId}/stop`, { method: 'POST', token });
+  },
+  // Restores the LATEST saved per-chapter quality_report job (any status) so the
+  // Critic report survives reload/remount — the server owns report history, not
+  // panel state. Returns the job's result envelope; 404 when nothing has run.
+  getLatestQualityReport(projectId: string, chapterId: string, token: string): Promise<{ job_id: string; status: string; created_at: string; updated_at: string; result: Partial<QualityReportResponse> | null }> {
+    return apiJson(`${BASE}/works/${projectId}/quality-report?chapter_id=${encodeURIComponent(chapterId)}`, { token });
   },
   async qualityReport(
     projectId: string,
@@ -786,31 +839,8 @@ export const compositionApi = {
       },
     );
     if (!resp.job_id || !['pending', 'running'].includes(resp.status)) return resp;
-    // Quality covers every chapter window and canon batch, not a short generation.
-    // The backend worker deadline governs this wait, with a transport grace period.
-    const deadline = Date.now() + ((resp as QualityReportResponse & { wait_timeout_secs?: number }).wait_timeout_secs ?? 3600) * 1000 + 60_000;
-    while (true) {
-      options.signal?.throwIfAborted();
-      const job = await apiJson<GenerationJob & { progress?: QualityProgress }>(`${BASE}/jobs/${resp.job_id}`, { token, signal: options.signal });
-      options.signal?.throwIfAborted();
-      const progress = (job.result as { progress?: { stage: string; scope?: QualityScope } } | null)?.progress;
-      if (progress) {
-        const scope = progress.scope;
-        const completed = (scope?.critic_units_completed ?? 0) + (scope?.audit_units_completed ?? 0) + (scope?.narrative_units_completed ?? 0) + (scope?.synthesis_completed ? 1 : 0);
-        const total = (scope?.critic_units_total ?? 0) + (scope?.audit_units_total ?? 0) + (scope?.narrative_units_total ?? 0) + 1;
-        options.onProgress?.({ stage: progress.stage, completed, total });
-      }
-      if (job.status === 'completed') return { job_id: job.id, status: job.status, ...(job.result as Record<string, unknown>) } as QualityReportResponse;
-      if (job.status === 'failed' || job.status === 'cancelled') throw new Error((job.result as { error?: string } | null)?.error || 'quality analysis failed');
-      if (Date.now() >= deadline) throw new Error('quality analysis wait deadline exceeded');
-      await new Promise<void>((resolve, reject) => {
-        const signal = options.signal;
-        const abort = () => { clearTimeout(timer); signal?.removeEventListener('abort', abort); reject(new DOMException('Stopped waiting', 'AbortError')); };
-        const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, JOB_POLL_INTERVAL_MS);
-        signal?.addEventListener('abort', abort, { once: true });
-        if (signal?.aborted) abort();
-      });
-    }
+    options.onJobId?.(resp.job_id);
+    return pollQualityJob(resp.job_id, token, options);
   },
   // Q3 Book-level promise coverage — does the finished book pay off what the outline
   // promised? Read-only, book-scoped (no chapter). 202+poll or inline, same resolve path.
@@ -1038,6 +1068,9 @@ export interface QualityProgress {
 export interface QualityRunOptions {
   signal?: AbortSignal;
   onProgress?: (progress: QualityProgress) => void;
+  /** Fires as soon as the server job id is known (202 or restore), so the caller
+   * can cancel the SERVER job, not just its local wait. */
+  onJobId?: (jobId: string) => void;
 }
 
 /** Old reports without an explicit completion certificate are never reusable. */

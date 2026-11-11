@@ -1108,7 +1108,14 @@
     "criticBatchEstimateFailed": "无法估算此次分析，尚未启动运行。",
     "criticBatchProgress": "已完成 {{completed}}，失败 {{failed}}，共 {{total}}。",
     "criticBatchDetached": "已停止等待，服务器上的运行仍在继续。",
-    "criticBatchEstimateCost": "预计费用上限：${{cost}}。尚未启动运行。"
+    "criticBatchEstimateCost": "预计费用上限：${{cost}}。尚未启动运行。",
+    "criticHistoryLoadError": "无法加载分析历史。服务器上已有的任务可能仍在运行。",
+    "criticHistoryRetry": "重新加载历史",
+    "criticBatchEstimateTimeout": "准备估算超时，尚未启动分析。请重新准备估算。",
+    "criticBatchStartFailed": "无法确认分析是否已启动。请刷新历史后再试。",
+    "criticBatchStartTimeout": "启动运行超时，服务器上仍可能启动。请刷新历史后再试。",
+    "criticBatchStopFailed": "无法请求在当前章节完成后停止。运行可能仍在继续，请刷新历史查看。",
+    "criticBatchPreparingEstimate": "正在准备估算…"
   },
   "sidebar": {
     "collapse": "折叠",

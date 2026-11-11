@@ -1108,7 +1108,14 @@
     "criticBatchEstimateFailed": "Não foi possível estimar esta análise. Nenhuma execução foi iniciada.",
     "criticBatchProgress": "{{completed}} concluídos, {{failed}} com falha, {{total}} no total.",
     "criticBatchDetached": "Espera interrompida. A execução continua no servidor.",
-    "criticBatchEstimateCost": "Custo máximo estimado: ${{cost}}. Nenhuma execução foi iniciada."
+    "criticBatchEstimateCost": "Custo máximo estimado: ${{cost}}. Nenhuma execução foi iniciada.",
+    "criticHistoryLoadError": "Não foi possível carregar o histórico de análises. As execuções existentes no servidor podem continuar em andamento.",
+    "criticHistoryRetry": "Tentar carregar o histórico novamente",
+    "criticBatchEstimateTimeout": "O tempo de preparação da estimativa se esgotou. Nenhuma análise foi iniciada. Tente preparar a estimativa novamente.",
+    "criticBatchStartFailed": "Não foi possível confirmar que a análise foi iniciada. Atualize o histórico antes de tentar novamente.",
+    "criticBatchStartTimeout": "O tempo de início da execução se esgotou. Ela ainda pode ser iniciada no servidor. Atualize o histórico antes de tentar novamente.",
+    "criticBatchStopFailed": "Não foi possível solicitar a parada após o capítulo atual. A execução pode continuar. Atualize o histórico para verificar.",
+    "criticBatchPreparingEstimate": "Preparando estimativa…"
   },
   "sidebar": {
     "collapse": "Recolher",

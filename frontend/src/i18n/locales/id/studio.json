@@ -1108,7 +1108,14 @@
     "criticBatchEstimateFailed": "Analisis ini tidak dapat diperkirakan. Tidak ada proses yang dimulai.",
     "criticBatchProgress": "{{completed}} selesai, {{failed}} gagal, {{total}} total.",
     "criticBatchDetached": "Berhenti menunggu. Proses di server tetap berjalan.",
-    "criticBatchEstimateCost": "Perkiraan batas atas biaya: ${{cost}}. Belum ada proses yang dimulai."
+    "criticBatchEstimateCost": "Perkiraan batas atas biaya: ${{cost}}. Belum ada proses yang dimulai.",
+    "criticHistoryLoadError": "Riwayat analisis tidak dapat dimuat. Proses yang sudah ada di server mungkin masih berjalan.",
+    "criticHistoryRetry": "Coba muat riwayat lagi",
+    "criticBatchEstimateTimeout": "Waktu persiapan perkiraan habis. Tidak ada proses analisis yang dimulai. Coba siapkan perkiraan lagi.",
+    "criticBatchStartFailed": "Tidak dapat memastikan bahwa proses analisis sudah dimulai. Muat ulang riwayat sebelum mencoba lagi.",
+    "criticBatchStartTimeout": "Waktu memulai proses habis. Proses masih mungkin dimulai di server. Muat ulang riwayat sebelum mencoba lagi.",
+    "criticBatchStopFailed": "Tidak dapat meminta penghentian setelah bab saat ini selesai. Proses mungkin masih berjalan. Muat ulang riwayat untuk memeriksa.",
+    "criticBatchPreparingEstimate": "Menyiapkan perkiraan…"
   },
   "sidebar": {
     "collapse": "Sembunyikan",

@@ -1108,7 +1108,14 @@
     "criticBatchEstimateFailed": "Could not estimate this analysis. No run was started.",
     "criticBatchProgress": "{{completed}} complete, {{failed}} failed, {{total}} total.",
     "criticBatchDetached": "Stopped waiting. The server run continues.",
-    "criticBatchEstimateCost": "Estimated upper cost: ${{cost}}. No run has started."
+    "criticBatchEstimateCost": "Estimated upper cost: ${{cost}}. No run has started.",
+    "criticHistoryLoadError": "Could not load analysis history. Existing server runs may still be running.",
+    "criticHistoryRetry": "Retry loading history",
+    "criticBatchEstimateTimeout": "Preparing the estimate timed out. No analysis run was started. Retry preparing the estimate.",
+    "criticBatchStartFailed": "Could not confirm that the analysis run started. Refresh history before trying again.",
+    "criticBatchStartTimeout": "Starting the run timed out. It may still start on the server. Refresh history before trying again.",
+    "criticBatchStopFailed": "Could not request stop-after-current. The run may still be continuing. Refresh history to check.",
+    "criticBatchPreparingEstimate": "Preparing estimate…"
   },
   "sidebar": {
     "collapse": "Collapse",

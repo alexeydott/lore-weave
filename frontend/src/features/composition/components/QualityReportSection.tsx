@@ -79,17 +79,19 @@ export function QualityReportSection({ projectId, chapterId, token, modelRef, mo
 
       <QualityScopeWarning scope={q.report?.scope ?? critic?.scope ?? threads?.scope} />
 
+      {/* A partial report still carries real judgements: show every available score and
+          the failure reason TOGETHER — hiding the scores made a usable partial read as
+          "results vanished" (user regression report 2026-11-10). Unjudged dims stay '—'. */}
       {critic && (
-        <div className="flex flex-wrap gap-2" data-testid="quality-critic">
-          {critic.error ? (
-            <QualityReason error={critic.error} />
-          ) : (
-            DIMS.map((d) => (
+        <div className="flex flex-col gap-1" data-testid="quality-critic">
+          <div className="flex flex-wrap gap-2">
+            {DIMS.map((d) => (
               <span key={d} className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
                 {t(d)}: {critic[d] ?? '—'}/5
               </span>
-            ))
-          )}
+            ))}
+          </div>
+          {critic.error && <QualityReason error={critic.error} />}
         </div>
       )}
 
@@ -126,7 +128,11 @@ export function QualityReportSection({ projectId, chapterId, token, modelRef, mo
         </span>
       )}
 
-      {threads && !threads.error && (
+      {/* Show whatever the audit DID produce even when the branch is marked incomplete —
+          the reason above already says coverage is partial; hiding observed threads made a
+          partial audit read as "no results at all". The clean "no threads" state stays
+          reserved for a genuinely complete report. */}
+      {threads && (
         <div className="flex flex-col gap-1" data-testid="quality-threads">
           {/* Informational: the threads this chapter opens (NOT a defect — a setup paid off
               later is normal; the book-level coverage flags anything actually abandoned). */}
@@ -142,7 +148,7 @@ export function QualityReportSection({ projectId, chapterId, token, modelRef, mo
               </ul>
             </>
           ) : (
-            q.ran && q.report && isQualityComplete(q.report) && threads.selection?.exhaustive === true && <span className="text-[11px] text-neutral-400">{t('qualityNoThreads', { defaultValue: 'No new threads raised in this chapter.' })}</span>
+            q.ran && q.report && isQualityComplete(q.report) && threads.selection?.exhaustive === true && !threads.error && <span className="text-[11px] text-neutral-400">{t('qualityNoThreads', { defaultValue: 'No new threads raised in this chapter.' })}</span>
           )}
           {threads.resolved.length > 0 && (
             <span className="text-[10px] text-emerald-600">

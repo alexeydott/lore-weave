@@ -68,8 +68,7 @@ function dockProps() {
   return { api: { setTitle: vi.fn() } } as unknown as IDockviewPanelProps;
 }
 
-function withHost(bookId: string) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+function withHost(bookId: string, qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })) {
   return render(
     <QueryClientProvider client={qc}>
       <StudioHostProvider bookId={bookId}><QualityCriticPanel {...dockProps()} /></StudioHostProvider>
@@ -146,18 +145,52 @@ describe('QualityCriticPanel', () => {
   it('estimates inherited platform models and submits only after explicit confirmation without local reports', async () => {
     effectiveModel.mockReturnValue({ model_source: 'platform_model', model_ref: 'provider/ref' });
     useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
-    withHost('b1');
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const view = withHost('b1', qc);
     await waitFor(() => expect(screen.getByTestId('quality-critic-batch')).toBeEnabled());
     expect(startRun).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('quality-critic-batch'));
     await screen.findByTestId('quality-critic-batch-confirm');
+    expect(screen.getByTestId('quality-critic-batch-estimated-calls')).toHaveAttribute('data-calls', '8');
+    expect(screen.getByTestId('quality-critic-batch-estimated-calls')).toHaveAttribute('data-chapters', '1');
+    expect(screen.getByTestId('quality-critic-batch-estimated-cost')).toHaveAttribute('data-usd', '0.5');
+    expect(screen.getByText('quality.criticBatchEstimateCost')).toBeInTheDocument();
     expect(estimateRun).toHaveBeenCalledWith('proj-1', { model_source: 'platform_model', model_ref: 'provider/ref' }, 'tok');
+    view.unmount();
+    const remounted = withHost('b1', qc);
+    await screen.findByTestId('quality-critic-batch-confirm');
+    expect(estimateRun).toHaveBeenCalledTimes(1);
+    expect(startRun).not.toHaveBeenCalled();
+    remounted.unmount();
+    withHost('b1', qc);
+    await screen.findByTestId('quality-critic-batch-confirm');
     expect(startRun).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('quality-critic-batch-confirm'));
     await screen.findByTestId('quality-critic-batch-entry-ch1');
     expect(startRun).toHaveBeenCalledWith('proj-1', expect.objectContaining({ model_source: 'platform_model', model_ref: 'provider/ref', max_estimated_calls: 8, max_estimated_usd: 0.5 }), 'tok');
     expect(qualityReport).not.toHaveBeenCalled();
     expect(localStorage.length).toBe(0);
+  });
+
+  it('retains a successful estimate when the panel unmounts while the GET-independent estimate POST is pending', async () => {
+    effectiveModel.mockReturnValue({ model_source: 'platform_model', model_ref: 'provider/ref' });
+    useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
+    let resolveEstimate!: (value: { total: number; estimated_calls_max: number; estimated_usd_max: number; chapters: [] }) => void;
+    estimateRun.mockImplementationOnce(() => new Promise((resolve) => { resolveEstimate = resolve; }));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const first = withHost('b1', qc);
+    await waitFor(() => expect(screen.getByTestId('quality-critic-batch')).toBeEnabled());
+    fireEvent.click(screen.getByTestId('quality-critic-batch'));
+    await waitFor(() => expect(estimateRun).toHaveBeenCalledTimes(1));
+    first.unmount();
+    await act(async () => resolveEstimate({ total: 2, estimated_calls_max: 17, estimated_usd_max: 0.1234, chapters: [] }));
+    withHost('b1', qc);
+    await screen.findByTestId('quality-critic-batch-confirm');
+    expect(screen.getByTestId('quality-critic-batch-estimated-calls')).toHaveAttribute('data-calls', '17');
+    expect(screen.getByTestId('quality-critic-batch-estimated-calls')).toHaveAttribute('data-chapters', '2');
+    expect(screen.getByTestId('quality-critic-batch-estimated-cost')).toHaveAttribute('data-usd', '0.1234');
+    expect(estimateRun).toHaveBeenCalledTimes(1);
+    expect(startRun).not.toHaveBeenCalled();
   });
 
   it('restores failed server reports without automatic retry or claiming provider outage', async () => {
@@ -191,6 +224,57 @@ describe('QualityCriticPanel', () => {
     expect(screen.queryByTestId('quality-critic-batch-confirm')).toBeNull();
     expect(startRun).not.toHaveBeenCalled();
   });
+
+  it('offers safe GET retry for history failure instead of an analysis failure or paid retry', async () => {
+    useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
+    listRuns.mockRejectedValue(new Error('HTTP 500'));
+    const view = withHost('b1');
+    await waitFor(() => expect(screen.getByTestId('quality-critic-history-error')).toBeInTheDocument(), { timeout: 5000 });
+    expect(listRuns).toHaveBeenCalledTimes(3);
+    expect(screen.queryByTestId('quality-reason')).toBeNull();
+    expect(screen.queryByTestId('quality-critic-batch-error')).toBeNull();
+    expect(screen.getByTestId('quality-critic-history-error')).toHaveTextContent('quality.criticHistoryLoadError');
+    listRuns.mockResolvedValue({ runs: [] });
+    fireEvent.click(screen.getByTestId('quality-critic-history-retry'));
+    await waitFor(() => expect(screen.queryByTestId('quality-critic-history-error')).toBeNull());
+    expect(listRuns).toHaveBeenCalledTimes(4);
+    view.unmount();
+    withHost('b1');
+    await waitFor(() => expect(listRuns).toHaveBeenCalledTimes(5));
+    expect(startRun).not.toHaveBeenCalled();
+    expect(estimateRun).not.toHaveBeenCalled();
+    expect(qualityReport).not.toHaveBeenCalled();
+  }, 10000);
+
+  for (const stage of ['estimate', 'start', 'stop'] as const) {
+    for (const timeout of [false, true]) {
+      it(`renders safe ${stage} ${timeout ? 'timeout' : 'failure'} guidance, never critic errors`, async () => {
+        useWorkResolution.mockReturnValue({ isLoading: false, data: { status: 'found', work: { project_id: 'proj-1' } } });
+        const failure = Object.assign(new Error('private backend diagnostic'), { status: timeout ? undefined : 503, code: timeout ? 'REQUEST_TIMEOUT' : 'PRIVATE_CODE' });
+        if (stage === 'stop') {
+          listRuns.mockResolvedValue({ runs: [{ ...serverRun(), status: 'running' }] });
+          stopRun.mockRejectedValue(failure);
+        } else if (stage === 'estimate') estimateRun.mockRejectedValue(failure);
+        else startRun.mockRejectedValue(failure);
+        withHost('b1');
+        if (stage === 'stop') fireEvent.click(await screen.findByTestId('quality-critic-batch-stop'));
+        else {
+          await waitFor(() => expect(screen.getByTestId('quality-critic-batch')).toBeEnabled());
+          fireEvent.click(screen.getByTestId('quality-critic-batch'));
+          if (stage === 'start') fireEvent.click(await screen.findByTestId('quality-critic-batch-confirm'));
+        }
+        const key = stage === 'stop' ? 'criticBatchStopFailed' : stage === 'start' ? timeout ? 'criticBatchStartTimeout' : 'criticBatchStartFailed' : timeout ? 'criticBatchEstimateTimeout' : 'criticBatchEstimateFailed';
+        expect(await screen.findByTestId('quality-critic-batch-error')).toHaveTextContent(`quality.${key}`);
+        expect(screen.queryByTestId('quality-reason')).toBeNull();
+        expect(document.body).not.toHaveTextContent('private backend diagnostic');
+        expect(document.body).not.toHaveTextContent('PRIVATE_CODE');
+        if (stage !== 'estimate') {
+          fireEvent.click(screen.getByText('quality.criticHistoryRetry'));
+          expect(startRun).toHaveBeenCalledTimes(stage === 'start' ? 1 : 0);
+        }
+      });
+    }
+  }
 
   // /review-impl (D-04 follow-up) — `unavailable` means composition-service is DOWN. Rendering the
   // no-work sentence there tells the user "start composing a chapter first" when the data may well

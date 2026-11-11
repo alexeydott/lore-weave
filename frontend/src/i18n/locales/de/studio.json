@@ -1108,7 +1108,14 @@
     "criticBatchEstimateFailed": "Diese Analyse konnte nicht geschätzt werden. Es wurde kein Lauf gestartet.",
     "criticBatchProgress": "{{completed}} abgeschlossen, {{failed}} fehlgeschlagen, {{total}} insgesamt.",
     "criticBatchDetached": "Warten beendet. Der Lauf auf dem Server wird fortgesetzt.",
-    "criticBatchEstimateCost": "Geschätzte Kostenobergrenze: ${{cost}}. Es wurde kein Lauf gestartet."
+    "criticBatchEstimateCost": "Geschätzte Kostenobergrenze: ${{cost}}. Es wurde kein Lauf gestartet.",
+    "criticHistoryLoadError": "Der Analyseverlauf konnte nicht geladen werden. Bereits gestartete Läufe auf dem Server sind möglicherweise noch aktiv.",
+    "criticHistoryRetry": "Verlauf erneut laden",
+    "criticBatchEstimateTimeout": "Zeitüberschreitung beim Vorbereiten der Schätzung. Es wurde kein Analyselauf gestartet. Bereite die Schätzung erneut vor.",
+    "criticBatchStartFailed": "Der Start des Analyselaufs konnte nicht bestätigt werden. Aktualisiere den Verlauf, bevor du es erneut versuchst.",
+    "criticBatchStartTimeout": "Zeitüberschreitung beim Starten des Laufs. Er kann auf dem Server noch starten. Aktualisiere den Verlauf, bevor du es erneut versuchst.",
+    "criticBatchStopFailed": "Der Stopp nach dem aktuellen Kapitel konnte nicht angefordert werden. Der Lauf wird möglicherweise fortgesetzt. Aktualisiere den Verlauf zur Überprüfung.",
+    "criticBatchPreparingEstimate": "Schätzung wird vorbereitet…"
   },
   "sidebar": {
     "collapse": "Einklappen",

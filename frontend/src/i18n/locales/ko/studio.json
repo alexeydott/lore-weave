@@ -1107,7 +1107,14 @@
     "criticBatchEstimateFailed": "이 분석을 추산하지 못했습니다. 실행은 시작되지 않았습니다.",
     "criticBatchProgress": "완료 {{completed}}개, 실패 {{failed}}개, 총 {{total}}개.",
     "criticBatchDetached": "대기를 중단했습니다. 서버 실행은 계속됩니다.",
-    "criticBatchEstimateCost": "예상 비용 상한: ${{cost}}. 실행은 아직 시작되지 않았습니다."
+    "criticBatchEstimateCost": "예상 비용 상한: ${{cost}}. 실행은 아직 시작되지 않았습니다.",
+    "criticHistoryLoadError": "분석 기록을 불러오지 못했습니다. 기존 서버 실행은 아직 진행 중일 수 있습니다.",
+    "criticHistoryRetry": "기록 다시 불러오기",
+    "criticBatchEstimateTimeout": "추정 준비 시간이 초과되었습니다. 분석 실행은 시작되지 않았습니다. 추정 준비를 다시 시도하세요.",
+    "criticBatchStartFailed": "분석 실행이 시작되었는지 확인하지 못했습니다. 다시 시도하기 전에 기록을 새로고침하세요.",
+    "criticBatchStartTimeout": "실행 시작 시간이 초과되었습니다. 서버에서는 아직 시작될 수 있습니다. 다시 시도하기 전에 기록을 새로고침하세요.",
+    "criticBatchStopFailed": "현재 장이 끝난 후 중지하도록 요청하지 못했습니다. 실행이 계속되고 있을 수 있습니다. 기록을 새로고침하여 확인하세요.",
+    "criticBatchPreparingEstimate": "추정 준비 중…"
   },
   "sidebar": {
     "collapse": "접기",

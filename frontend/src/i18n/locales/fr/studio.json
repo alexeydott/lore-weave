@@ -1108,7 +1108,14 @@
     "criticBatchEstimateFailed": "Impossible d’estimer cette analyse. Aucune exécution n’a été lancée.",
     "criticBatchProgress": "{{completed}} terminés, {{failed}} en échec, {{total}} au total.",
     "criticBatchDetached": "Attente interrompue. L’exécution se poursuit sur le serveur.",
-    "criticBatchEstimateCost": "Coût maximal estimé : ${{cost}}. Aucune exécution n’a été lancée."
+    "criticBatchEstimateCost": "Coût maximal estimé : ${{cost}}. Aucune exécution n’a été lancée.",
+    "criticHistoryLoadError": "Impossible de charger l’historique des analyses. Des exécutions déjà lancées sur le serveur peuvent être encore en cours.",
+    "criticHistoryRetry": "Réessayer de charger l’historique",
+    "criticBatchEstimateTimeout": "Le délai de préparation de l’estimation a expiré. Aucune analyse n’a été lancée. Réessayez de préparer l’estimation.",
+    "criticBatchStartFailed": "Impossible de confirmer le démarrage de l’analyse. Actualisez l’historique avant de réessayer.",
+    "criticBatchStartTimeout": "Le délai de démarrage a expiré. L’exécution peut encore démarrer sur le serveur. Actualisez l’historique avant de réessayer.",
+    "criticBatchStopFailed": "Impossible de demander l’arrêt après le chapitre en cours. L’exécution peut se poursuivre. Actualisez l’historique pour vérifier.",
+    "criticBatchPreparingEstimate": "Préparation de l’estimation…"
   },
   "sidebar": {
     "collapse": "Réduire",

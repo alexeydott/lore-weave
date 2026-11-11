@@ -1108,7 +1108,14 @@
     "criticBatchEstimateFailed": "Không thể ước tính lần phân tích này. Chưa bắt đầu chạy.",
     "criticBatchProgress": "{{completed}} hoàn tất, {{failed}} thất bại, tổng cộng {{total}}.",
     "criticBatchDetached": "Đã ngừng chờ. Tiến trình trên máy chủ vẫn tiếp tục.",
-    "criticBatchEstimateCost": "Chi phí tối đa ước tính: ${{cost}}. Chưa bắt đầu chạy."
+    "criticBatchEstimateCost": "Chi phí tối đa ước tính: ${{cost}}. Chưa bắt đầu chạy.",
+    "criticHistoryLoadError": "Không thể tải lịch sử phân tích. Các tiến trình hiện có trên máy chủ có thể vẫn đang chạy.",
+    "criticHistoryRetry": "Thử tải lại lịch sử",
+    "criticBatchEstimateTimeout": "Quá thời gian chuẩn bị ước tính. Chưa bắt đầu tiến trình phân tích nào. Hãy thử chuẩn bị ước tính lại.",
+    "criticBatchStartFailed": "Không thể xác nhận tiến trình phân tích đã bắt đầu. Hãy làm mới lịch sử trước khi thử lại.",
+    "criticBatchStartTimeout": "Quá thời gian chờ khởi chạy. Tiến trình vẫn có thể bắt đầu trên máy chủ. Hãy làm mới lịch sử trước khi thử lại.",
+    "criticBatchStopFailed": "Không thể yêu cầu dừng sau chương hiện tại. Tiến trình có thể vẫn tiếp tục. Hãy làm mới lịch sử để kiểm tra.",
+    "criticBatchPreparingEstimate": "Đang chuẩn bị ước tính…"
   },
   "sidebar": {
     "collapse": "Thu gọn",

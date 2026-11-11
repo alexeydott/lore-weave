@@ -67,7 +67,27 @@ describe('QualityReportSection', () => {
     });
     render_();
     expect(screen.getByTestId('quality-threads-na')).toBeTruthy();
-    expect(screen.queryByTestId('quality-threads')).toBeNull();
+    // A partial audit still SHOWS what it observed alongside the failure reason —
+    // hiding the list made a usable partial read as "results vanished".
+    expect(screen.getByTestId('quality-threads').textContent).toContain('thread-a');
+    expect(screen.getByTestId('quality-threads').textContent).toContain('thread-b');
+  });
+
+  it('renders available critic scores beside the partial-coverage reason', () => {
+    state.value = base({
+      ran: true,
+      report: {
+        ...fullReport,
+        scope: { partial: true, complete: false, synthesis_completed: true, windows_total: 1, windows_analyzed: 0 },
+        critic: { ...fullReport.critic, error: 'critic_incomplete' },
+        threads: { ...fullReport.threads, error: 'audit_incomplete' },
+      },
+    });
+    render_();
+    // Scores stay visible; the reason + partial warning name the incompleteness.
+    expect(screen.getByTestId('quality-critic').textContent).toContain('4/5');
+    expect(screen.getByTestId('quality-critic').textContent).toContain('qualityReasons.incomplete');
+    expect(screen.getByTestId('quality-partial')).toBeTruthy();
   });
 
   const _prop = (over: Record<string, unknown> = {}) => ({

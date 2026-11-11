@@ -1108,7 +1108,14 @@
     "criticBatchEstimateFailed": "無法估算此次分析，尚未啟動執行。",
     "criticBatchProgress": "已完成 {{completed}}，失敗 {{failed}}，共 {{total}}。",
     "criticBatchDetached": "已停止等待，伺服器上的執行仍在繼續。",
-    "criticBatchEstimateCost": "預估費用上限：${{cost}}。尚未啟動執行。"
+    "criticBatchEstimateCost": "預估費用上限：${{cost}}。尚未啟動執行。",
+    "criticHistoryLoadError": "無法載入分析歷程。伺服器上既有的工作可能仍在執行。",
+    "criticHistoryRetry": "重新載入歷程",
+    "criticBatchEstimateTimeout": "準備估算逾時，尚未啟動分析。請重新準備估算。",
+    "criticBatchStartFailed": "無法確認分析是否已啟動。請重新整理歷程後再試。",
+    "criticBatchStartTimeout": "啟動執行逾時，伺服器上仍可能啟動。請重新整理歷程後再試。",
+    "criticBatchStopFailed": "無法請求在目前章節完成後停止。執行可能仍在繼續，請重新整理歷程查看。",
+    "criticBatchPreparingEstimate": "正在準備估算…"
   },
   "sidebar": {
     "collapse": "收合",

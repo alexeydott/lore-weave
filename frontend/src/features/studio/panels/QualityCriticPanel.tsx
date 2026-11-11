@@ -196,15 +196,28 @@ export function QualityCriticPanel(props: IDockviewPanelProps) {
               disabled={controller.busy || controller.loading || !effectiveModel || !projectId || chaptersQ.isLoading || chaptersQ.isError || chapters.length === 0 || batchScope === 'selected'}
               className="flex-1 rounded border border-sky-500/40 px-3 py-1.5 text-[11px] font-medium text-sky-600 hover:bg-sky-500/10 disabled:opacity-50"
             >
-              {t('quality.criticBatchCta', { defaultValue: 'Analyze all chapters' })}
+              {controller.stage === 'estimate' ? t('quality.criticBatchPreparingEstimate') : t('quality.criticBatchCta', { defaultValue: 'Analyze all chapters' })}
             </button>
 
           </div>
         )}
 
+        {controller.historyError && (
+          <div data-testid="quality-critic-history-error" role="alert" className="mt-2 text-[11px] text-amber-600">
+            {t('quality.criticHistoryLoadError')}
+            <button data-testid="quality-critic-history-retry" disabled={controller.historyRefreshing} onClick={() => void controller.retryHistory()} className="ml-2 underline">
+              {t('quality.criticHistoryRetry')}
+            </button>
+          </div>
+        )}
         {controller.error && (
           <div data-testid="quality-critic-batch-error" className="mt-2 text-[11px] text-rose-500">
-            <QualityReason error={controller.error} />
+            {controller.error.stage === 'estimate'
+              ? t(controller.error.code === 'REQUEST_TIMEOUT' ? 'quality.criticBatchEstimateTimeout' : 'quality.criticBatchEstimateFailed')
+              : controller.error.stage === 'start'
+                ? t(controller.error.code === 'REQUEST_TIMEOUT' ? 'quality.criticBatchStartTimeout' : 'quality.criticBatchStartFailed')
+                : t('quality.criticBatchStopFailed')}
+            {controller.error.stage !== 'estimate' && <button disabled={controller.historyRefreshing} onClick={() => void controller.retryHistory()} className="ml-2 underline">{t('quality.criticHistoryRetry')}</button>}
           </div>
         )}
 
@@ -253,8 +266,8 @@ export function QualityCriticPanel(props: IDockviewPanelProps) {
 
         {controller.estimate && !batch && (
           <div role="dialog" className="mt-2 text-xs">
-            {t('quality.criticBatchEstimate', { calls: controller.estimate.estimated_calls_max, count: controller.estimate.total })}
-            <div>{t('quality.criticBatchEstimateCost', { cost: controller.estimate.estimated_usd_max.toFixed(4) })}</div>
+            <div data-testid="quality-critic-batch-estimated-calls" data-calls={controller.estimate.estimated_calls_max} data-chapters={controller.estimate.total}>{t('quality.criticBatchEstimate', { calls: controller.estimate.estimated_calls_max, count: controller.estimate.total })}</div>
+            <div data-testid="quality-critic-batch-estimated-cost" data-usd={controller.estimate.estimated_usd_max}>{t('quality.criticBatchEstimateCost', { cost: controller.estimate.estimated_usd_max.toFixed(4) })}</div>
             <button data-testid="quality-critic-batch-confirm" disabled={controller.busy} onClick={() => void controller.confirm()}>
               {t('quality.criticBatchConfirm')}
             </button>

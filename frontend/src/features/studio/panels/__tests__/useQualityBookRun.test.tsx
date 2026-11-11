@@ -66,7 +66,7 @@ describe('durable quality book runs', () => {
     await waitFor(() => expect(hook.result.current.loading).toBe(false));
     await act(async () => { await hook.result.current.prepare(); });
     await act(async () => { await hook.result.current.confirm(); });
-    expect(hook.result.current.error).toBe('Failed to fetch');
+    expect(hook.result.current.error).toMatchObject({ stage: 'start', code: 'TRANSPORT_ERROR' });
     expect(hook.result.current.estimate).not.toBeNull();
     expect(start).toHaveBeenCalledTimes(1);
     const firstBody = start.mock.calls[0][1];
@@ -76,6 +76,47 @@ describe('durable quality book runs', () => {
     expect(start.mock.calls[1][1]).toEqual(firstBody);
     expect(hook.result.current.estimate).toBeNull();
     expect(hook.result.current.run?.id).toBe('r');
+    hook.unmount();
+  });
+  it('recovers an initial transient history read automatically without paid submission', async () => {
+    const list = vi.spyOn(compositionApi, 'listQualityRuns').mockRejectedValueOnce(new Error('HTTP 500')).mockResolvedValue({ runs: [] });
+    const start = vi.spyOn(compositionApi, 'startQualityRun');
+    const hook = renderHook(() => useQualityBookRun('p', 'b', 'a', model), { wrapper: wrapper() });
+    await waitFor(() => expect(hook.result.current.run).toBeNull(), { timeout: 2500 });
+    expect(list).toHaveBeenCalledTimes(2);
+    expect(hook.result.current.historyError).toBe(false);
+    expect(hook.result.current.error).toBeNull();
+    expect(start).not.toHaveBeenCalled();
+    hook.unmount();
+  });
+  it('retains the previous run on transient history failure and clears it on safe retry', async () => {
+    const list = vi.spyOn(compositionApi, 'listQualityRuns').mockResolvedValue({ runs: [{ ...run, status: 'completed' }] });
+    const start = vi.spyOn(compositionApi, 'startQualityRun');
+    const hook = renderHook(() => useQualityBookRun('p', 'b', 'a', model), { wrapper: wrapper() });
+    await waitFor(() => expect(hook.result.current.run?.id).toBe('r'));
+    list.mockRejectedValue(new Error('HTTP 500'));
+    await act(async () => { await hook.result.current.retryHistory(); });
+    expect(hook.result.current.historyError).toBe(true);
+    expect(hook.result.current.run?.id).toBe('r');
+    expect(hook.result.current.error).toBeNull();
+    list.mockResolvedValue({ runs: [] });
+    await act(async () => { await hook.result.current.retryHistory(); });
+    expect(hook.result.current.historyError).toBe(false);
+    expect(hook.result.current.run).toBeNull();
+    expect(start).not.toHaveBeenCalled();
+    hook.unmount();
+  }, 10000);
+  it('fences late action failures when the book scope changes', async () => {
+    vi.spyOn(compositionApi, 'listQualityRuns').mockResolvedValue({ runs: [] });
+    let reject!: (error: Error) => void;
+    vi.spyOn(compositionApi, 'estimateQualityRun').mockImplementation(() => new Promise((_, fail) => { reject = fail; }));
+    const hook = renderHook(({ book }) => useQualityBookRun('p', book, 'a', model), { wrapper: wrapper(), initialProps: { book: 'b' } });
+    let pending!: Promise<void>;
+    act(() => { pending = hook.result.current.prepare(); });
+    hook.rerender({ book: 'new' });
+    await act(async () => { reject(new Error('old action failure')); await pending; });
+    expect(hook.result.current.error).toBeNull();
+    expect(hook.result.current.busy).toBe(false);
     hook.unmount();
   });
   it('does not diagnose unknown or synthesis errors as provider outages', () => {
