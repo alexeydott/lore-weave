@@ -57,15 +57,18 @@ describe('ProposalDetail', () => {
     expect(screen.getByTestId('enrichment-detail-name')).toHaveTextContent('ref-42');
   });
 
-  it('renders the live H0 banner with origin, confidence.toFixed(2) and the review key', () => {
+  it('renders the live H0 banner as a localized meta line (#user-report 2026-11-10)', () => {
     setup(P({ origin: 'enrichment', confidence: 0.42, review_status: 'proposed' }));
     const banner = screen.getByTestId('enrichment-h0-banner');
     expect(banner).toHaveTextContent('detail.h0_banner');
-    expect(banner).toHaveTextContent('origin=enrichment');
-    // confidence is rendered via toFixed(2)
-    expect(banner).toHaveTextContent('confidence=0.42');
-    // review status rendered via the t('review.<status>') key (i18n mock returns the key)
-    expect(banner).toHaveTextContent('review.proposed');
+    // The raw `origin=… / confidence=…` machine line is gone; the meta line now
+    // comes from the localized detail.h0_meta template (the repo i18n mock
+    // returns the key without interpolating, so only the outer key is visible
+    // here — the inner origin/confidence/review interpolation is covered by the
+    // locale files and the real i18n instance).
+    expect(banner).not.toHaveTextContent('origin=enrichment');
+    expect(banner).not.toHaveTextContent('confidence=0.42');
+    expect(banner).toHaveTextContent('detail.h0_meta');
   });
 
   it('shows DimensionList content by default (not a textarea)', () => {

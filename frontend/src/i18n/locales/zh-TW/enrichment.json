@@ -141,6 +141,10 @@
       "low": "低",
       "medium": "中",
       "high": "高"
+    },
+    "evidence": {
+      "regurgitation_overlap": "與原文存在明顯重合（最長公共連續片段 {{lcs_chars}} 字，n-gram 覆蓋率 {{containment_pct}}%）——請檢查是否借用了原文表述。",
+      "regurgitation_verbatim": "輸出大幅逐字複製原文（最長公共連續片段 {{lcs_chars}} 字，佔輸出 {{output_fraction_pct}}%）——存在版權風險，已自動拒絕。"
     }
   },
   "prov": {
@@ -151,7 +155,10 @@
     "model": "模型",
     "recook_abstracted": "自抽象事實再製 — 由中性事實要點生成，而非來源原文（②）。",
     "grounding": "依據來源",
-    "skipped": "略過（未授權）來源"
+    "skipped": "略過（未授權）來源",
+    "origin_value": {
+      "enrichment": "AI 補全"
+    }
   },
   "license": {
     "public_domain": "公共領域",
@@ -170,7 +177,8 @@
     "show_less": "收合",
     "content": "已生成設定",
     "verify": "驗證",
-    "provenance": "來歷與來源"
+    "provenance": "來歷與來源",
+    "h0_meta": "變體 · {{origin}} · 信心 {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "信賴 {{value}}",
@@ -246,6 +254,36 @@
       "rank": "排名",
       "action": "操作"
     },
+    "kinds": {
+      "item": "物品",
+      "character": "角色",
+      "location": "地點",
+      "event": "事件",
+      "technique": "技法",
+      "terminology": "術語",
+      "power_system": "力量體系",
+      "trope": "橋段",
+      "species": "種族",
+      "organization": "組織",
+      "plot_arc": "劇情弧",
+      "social_setting": "社會設定"
+    },
+    "dims": {
+      "origin": "起源",
+      "powers": "力量",
+      "appearance": "外貌",
+      "owner": "所有者",
+      "significance": "重要性",
+      "personality": "性格",
+      "abilities": "能力",
+      "relationships": "關係",
+      "background": "背景",
+      "history": "歷史",
+      "geography": "地理",
+      "culture": "文化",
+      "features": "特徵",
+      "inhabitants": "居民"
+    },
     "top_k": "Top-K",
     "auto_enrich": "自動增強"
   },
@@ -302,7 +340,8 @@
     "error": {
       "gateLocked": "已被評估閘門鎖定 — 請先執行 enrichment 評估。",
       "internal": "增益失敗（內部錯誤）。停留滑鼠以檢視細節。",
-      "insufficientGrounding": "這些實體沒有可用的語料佐證 — 請貼上參考文本或使用 Fabrication。"
+      "insufficientGrounding": "這些實體沒有可用的語料佐證 — 請貼上參考文本或使用 Fabrication。",
+      "providerRateLimited": "Embedding 供應商已達到並行請求上限，請稍後再試。"
     }
   },
   "settings": {

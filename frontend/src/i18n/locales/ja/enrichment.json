@@ -141,6 +141,10 @@
       "low": "低",
       "medium": "中",
       "high": "高"
+    },
+    "evidence": {
+      "regurgitation_overlap": "原文との重なりが顕著です（最長共通連続 {{lcs_chars}} 文字、n-gram 包含率 {{containment_pct}} %）——表現の借用がないか確認してください。",
+      "regurgitation_verbatim": "出力が原文を大幅に逐語複製しています（最長共通連続 {{lcs_chars}} 文字、出力の {{output_fraction_pct}} %）——著作権上のリスクがあり、自動拒否されました。"
     }
   },
   "prov": {
@@ -151,7 +155,10 @@
     "model": "モデル",
     "recook_abstracted": "抽象化された事実から再構成 — 出典の文章ではなく中立的な事実の箇条書きから生成（②）。",
     "grounding": "根拠出典",
-    "skipped": "除外（無許諾）出典"
+    "skipped": "除外（無許諾）出典",
+    "origin_value": {
+      "enrichment": "AI エンリッチメント"
+    }
   },
   "license": {
     "public_domain": "パブリックドメイン",
@@ -170,7 +177,8 @@
     "show_less": "折りたたむ",
     "content": "生成された設定",
     "verify": "検証",
-    "provenance": "由来と出典"
+    "provenance": "由来と出典",
+    "h0_meta": "バリアント · {{origin}} · 信頼度 {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "信頼 {{value}}",
@@ -246,6 +254,36 @@
       "rank": "順位",
       "action": "操作"
     },
+    "kinds": {
+      "item": "アイテム",
+      "character": "キャラクター",
+      "location": "場所",
+      "event": "出来事",
+      "technique": "技法",
+      "terminology": "用語",
+      "power_system": "力の体系",
+      "trope": "定型",
+      "species": "種族",
+      "organization": "組織",
+      "plot_arc": "ストーリーアーク",
+      "social_setting": "社会設定"
+    },
+    "dims": {
+      "origin": "起源",
+      "powers": "力",
+      "appearance": "外見",
+      "owner": "所有者",
+      "significance": "重要性",
+      "personality": "性格",
+      "abilities": "能力",
+      "relationships": "関係性",
+      "background": "背景",
+      "history": "歴史",
+      "geography": "地理",
+      "culture": "文化",
+      "features": "特徴",
+      "inhabitants": "住人"
+    },
     "top_k": "Top-K",
     "auto_enrich": "自動拡充"
   },
@@ -302,7 +340,8 @@
     "error": {
       "gateLocked": "評価ゲートによりロックされています — まず enrichment 評価を実行してください。",
       "internal": "エンリッチメントが失敗しました（内部エラー）。詳細はホバーで表示。",
-      "insufficientGrounding": "これらのエンティティを裏付けるコーパスがありません — 参考テキストを貼り付けるか Fabrication を使ってください。"
+      "insufficientGrounding": "これらのエンティティを裏付けるコーパスがありません — 参考テキストを貼り付けるか Fabrication を使ってください。",
+      "providerRateLimited": "埋め込みプロバイダーの同時リクエスト上限に達しました。少し待ってから再試行してください。"
     }
   },
   "settings": {

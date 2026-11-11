@@ -209,13 +209,17 @@ describe('GapsPanel', () => {
     ];
     renderPanel();
     expect(screen.getByText('玉虛宮')).toBeInTheDocument();
-    expect(screen.getByText('location')).toBeInTheDocument();
-    expect(screen.getByText('appearance·history')).toBeInTheDocument();
+    // Kinds + dimension codes are LOCALIZED with a defaultValue fallback — this
+    // test suite's i18n mock returns the KEY, so unknown codes render as the
+    // t() key path (`gaps.kinds.location` / `gaps.dims.appearance`), never the
+    // raw code.
+    expect(screen.getByText('gaps.kinds.location')).toBeInTheDocument();
+    expect(screen.getByText('gaps.dims.appearance·gaps.dims.history')).toBeInTheDocument();
     expect(screen.getByText('0.82')).toBeInTheDocument();
 
     expect(screen.getByText('哪吒')).toBeInTheDocument();
-    expect(screen.getByText('character')).toBeInTheDocument();
-    expect(screen.getByText('lineage')).toBeInTheDocument();
+    expect(screen.getByText('gaps.kinds.character')).toBeInTheDocument();
+    expect(screen.getByText('gaps.dims.lineage')).toBeInTheDocument();
     expect(screen.getByText('0.50')).toBeInTheDocument();
   });
 
@@ -246,7 +250,10 @@ describe('GapsPanel', () => {
     expect(autoEnrichMock).toHaveBeenCalledWith({
       generation_model_ref: 'm1',
       embedding_model_ref: 'm1',
-      technique: 'recook',
+      // #user-report 2026-11-10 — the default technique must be the ACTIVE P1
+      // one: 'recook' (P3) is gated off (C15) and every untouched submit used to
+      // create a job the worker refuses (pending forever → UI timeout).
+      technique: 'retrieval',
       max_gaps: 3,
       max_spend_tokens: null,
       top_k: 5,
@@ -292,7 +299,7 @@ describe('GapsPanel', () => {
       expect.objectContaining({
         generation_model_ref: 'm1',
         embedding_model_ref: 'm1',
-        technique: 'recook',
+        technique: 'retrieval',
         targets: [
           expect.objectContaining({
             canonical_name: '玉虛宮',

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { TechniqueBadge, VerifyBadge, ReviewStatusBadge, H0Marker } from './badges';
+import { localizedFlagEvidence } from '../lib/flagEvidence';
 import type { Proposal } from '../types';
 
 /** A scannable proposal summary. Click selects (no unmount — the detail is keyed by
@@ -62,16 +63,22 @@ export function ProposalCard({
       </div>
       {!autoRejected && flagCount > 0 && (
         <div className="space-y-0.5" data-testid="enrichment-card-advisory">
-          {/* #8: show the flag KIND + evidence inline (e.g. "REGURGITATION · 逐字重合 14 字"),
-              not just a count — the kind is a technical token shown raw (like the tier). */}
-          {(verify?.flags ?? []).slice(0, 2).map((f, i) => (
-            <p key={i} className="flex items-start gap-1 text-[11px] text-warning">
-              <span className="shrink-0 rounded bg-warning/15 px-1 font-mono text-[10px] uppercase">
-                {f.kind}
-              </span>
-              {f.evidence && <span className="line-clamp-1">{f.evidence}</span>}
-            </p>
-          ))}
+          {/* #8: show the flag KIND + evidence inline, not just a count. The kind is
+              a localized label (#user-report 2026-11-10 — the raw English token
+              leaked into ru cards); the evidence prefers the STRUCTURED localized
+              sentence (evidence_code/params) and falls back to the raw audit
+              string for old rows. */}
+          {(verify?.flags ?? []).slice(0, 2).map((f, i) => {
+            const { text: evidence } = localizedFlagEvidence(f, t);
+            return (
+              <p key={i} className="flex items-start gap-1 text-[11px] text-warning">
+                <span className="shrink-0 rounded bg-warning/15 px-1 text-[10px] uppercase">
+                  {t(`verify.flag.${f.kind}`, { defaultValue: f.kind })}
+                </span>
+                {evidence && <span className="line-clamp-1">{evidence}</span>}
+              </p>
+            );
+          })}
           {flagCount > 2 && (
             <p className="text-[10px] text-muted-foreground">{t('card.advisory', { count: flagCount })}</p>
           )}

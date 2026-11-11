@@ -141,6 +141,10 @@
       "low": "düşük",
       "medium": "orta",
       "high": "yüksek"
+    },
+    "evidence": {
+      "regurgitation_overlap": "Kaynak metinle belirgin örtüşme var (en uzun ortak dizi {{lcs_chars}} karakter, {{containment_pct}} % n-gram kapsama) — devralınan ifadeleri gözden geçirin.",
+      "regurgitation_verbatim": "Çıktı, kaynağı önemli ölçüde bire bir kopyalıyor (en uzun ortak dizi {{lcs_chars}} karakter, çıktının %{{output_fraction_pct}}’i) — telif hakkı riski; otomatik olarak reddedildi."
     }
   },
   "prov": {
@@ -151,7 +155,10 @@
     "model": "Model",
     "recook_abstracted": "Soyutlanmış gerçeklerden yeniden pişirildi — kaynak metinden değil, nötr gerçek maddelerinden oluşturuldu (②).",
     "grounding": "Dayanak kaynaklar",
-    "skipped": "Atlanan (lisanssız) kaynaklar"
+    "skipped": "Atlanan (lisanssız) kaynaklar",
+    "origin_value": {
+      "enrichment": "Yapay zekâ zenginleştirme"
+    }
   },
   "license": {
     "public_domain": "kamu malı",
@@ -170,7 +177,8 @@
     "show_less": "Daha az göster",
     "content": "Üretilen lore",
     "verify": "Doğrulama",
-    "provenance": "Köken ve kaynaklar"
+    "provenance": "Köken ve kaynaklar",
+    "h0_meta": "Varyant · {{origin}} · güven {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "güven {{value}}",
@@ -247,6 +255,36 @@
       "missing": "Eksik boyutlar",
       "rank": "Sıra",
       "action": "Eylem"
+    },
+    "kinds": {
+      "item": "Eşya",
+      "character": "Karakter",
+      "location": "Mekân",
+      "event": "Olay",
+      "technique": "Teknik",
+      "terminology": "Terminoloji",
+      "power_system": "Güç sistemi",
+      "trope": "Kalıp",
+      "species": "Tür",
+      "organization": "Organizasyon",
+      "plot_arc": "Anlatı yayı",
+      "social_setting": "Sosyal ortam"
+    },
+    "dims": {
+      "origin": "Köken",
+      "powers": "Güçler",
+      "appearance": "Görünüm",
+      "owner": "Sahip",
+      "significance": "Önem",
+      "personality": "Kişilik",
+      "abilities": "Yetenekler",
+      "relationships": "İlişkiler",
+      "background": "Geçmiş",
+      "history": "Tarih",
+      "geography": "Coğrafya",
+      "culture": "Kültür",
+      "features": "Özellikler",
+      "inhabitants": "Sakinler"
     }
   },
   "sources": {
@@ -302,7 +340,8 @@
     "error": {
       "gateLocked": "Değerlendirme kapısı tarafından kilitlendi — önce zenginleştirme değerlendirmesini çalıştırın.",
       "internal": "Zenginleştirme başarısız oldu (dahili hata). Detaylar için üzerine gelin.",
-      "insufficientGrounding": "Bu varlıklar için kullanılabilir bir metin temeli bulunamadı — referans bağlamı yapıştırın veya Fabrication kullanın."
+      "insufficientGrounding": "Bu varlıklar için kullanılabilir bir metin temeli bulunamadı — referans bağlamı yapıştırın veya Fabrication kullanın.",
+      "providerRateLimited": "Embedding sağlayıcısının eşzamanlı istek sınırına ulaşıldı. Biraz sonra yeniden deneyin."
     }
   },
   "settings": {

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Check, AlertTriangle, ShieldAlert, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { localizedFlagEvidence } from '../lib/flagEvidence';
 import type { CanonVerify, VerifyFlag } from '../types';
 
 const FLAG_ICON: Record<string, typeof Check> = {
@@ -48,6 +49,7 @@ function FlagRow({ flag }: { flag: VerifyFlag }) {
   const { t } = useTranslation('enrichment');
   const Icon = FLAG_ICON[flag.kind] ?? AlertTriangle;
   const high = flag.severity === 'high';
+  const { text: evidence } = localizedFlagEvidence(flag, t);
   return (
     <div
       className={cn(
@@ -68,8 +70,8 @@ function FlagRow({ flag }: { flag: VerifyFlag }) {
           {t(`verify.severity.${flag.severity}`, { defaultValue: String(flag.severity) })}
         </span>
       </div>
-      {flag.evidence && (
-        <p className="mt-1 break-words font-mono text-[11px] text-muted-foreground">{flag.evidence}</p>
+      {evidence && (
+        <p className="mt-1 break-words text-[11px] text-muted-foreground">{evidence}</p>
       )}
     </div>
   );

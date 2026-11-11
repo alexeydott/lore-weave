@@ -38,6 +38,12 @@ export interface VerifyFlag {
   dimension: string | null;
   evidence: string;
   severity: Severity | string;
+  /** Stable machine code for UI localization (#user-report 2026-11-10); null on
+   *  older rows / kinds whose evidence embeds free source data — render the raw
+   *  `evidence` then. */
+  evidence_code?: string | null;
+  /** The measured numbers `evidence_code`'s message interpolates. */
+  evidence_params?: Record<string, unknown>;
 }
 
 /** provenance_json.canon_verify — the C12 + ③ verify annotation (never canon). */
@@ -468,6 +474,9 @@ export function classifyJobError(raw: string | null | undefined): {
   // grounding carries this prefixed NOTE (not an error) — map it to actionable copy.
   if (/^insufficient_grounding:/i.test(text)) {
     return { key: 'jobs.error.insufficientGrounding', raw: text };
+  }
+  if (/provider rate limited|http 429|rate limited/i.test(text)) {
+    return { key: 'jobs.error.providerRateLimited', raw: text };
   }
   if (/gate-locked|gate has not cleared/i.test(text)) {
     return { key: 'jobs.error.gateLocked', raw: text };

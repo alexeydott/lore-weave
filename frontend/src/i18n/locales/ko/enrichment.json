@@ -141,6 +141,10 @@
       "low": "낮음",
       "medium": "중간",
       "high": "높음"
+    },
+    "evidence": {
+      "regurgitation_overlap": "원문과의 겹침이 뚜렷합니다(최장 공통 연속 {{lcs_chars}}자, n-gram 포함률 {{containment_pct}}%) — 빌려 쓴 표현이 있는지 검토하세요.",
+      "regurgitation_verbatim": "출력이 원문을 상당 부분 그대로 복제합니다(최장 공통 연속 {{lcs_chars}}자, 출력의 {{output_fraction_pct}}%) — 저작권 위험으로 자동 거절되었습니다."
     }
   },
   "prov": {
@@ -151,7 +155,10 @@
     "model": "모델",
     "recook_abstracted": "추상화된 사실을 바탕으로 재구성됨 — 원문 산문이 아닌 중립적인 사실 불렛에서 생성됨 (②).",
     "grounding": "근거 자료",
-    "skipped": "건너뜀 (라이선스 없음)"
+    "skipped": "건너뜀 (라이선스 없음)",
+    "origin_value": {
+      "enrichment": "AI 보강"
+    }
   },
   "license": {
     "public_domain": "퍼블릭 도메인",
@@ -170,7 +177,8 @@
     "show_less": "간략히 보기",
     "content": "생성된 설정",
     "verify": "검증",
-    "provenance": "출처 및 근거"
+    "provenance": "출처 및 근거",
+    "h0_meta": "변형안 · {{origin}} · 신뢰도 {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "신뢰도 {{value}}",
@@ -247,6 +255,36 @@
       "rank": "순위",
       "action": "작업"
     },
+    "kinds": {
+      "item": "아이템",
+      "character": "인물",
+      "location": "장소",
+      "event": "사건",
+      "technique": "기법",
+      "terminology": "용어",
+      "power_system": "힘의 체계",
+      "trope": "클리셰",
+      "species": "종족",
+      "organization": "조직",
+      "plot_arc": "스토리 아크",
+      "social_setting": "사회 설정"
+    },
+    "dims": {
+      "origin": "기원",
+      "powers": "힘",
+      "appearance": "외모",
+      "owner": "소유자",
+      "significance": "중요성",
+      "personality": "성격",
+      "abilities": "능력",
+      "relationships": "관계",
+      "background": "배경",
+      "history": "역사",
+      "geography": "지리",
+      "culture": "문화",
+      "features": "특징",
+      "inhabitants": "거주민"
+    },
     "top_k": "Top-K"
   },
   "sources": {
@@ -302,7 +340,8 @@
     "error": {
       "gateLocked": "평가 게이트에 의해 잠김 — 먼저 enrichment eval을 실행하세요.",
       "internal": "Enrichment 실패 (내부 오류). 자세한 내용은 마우스를 올려 확인하세요.",
-      "insufficientGrounding": "해당 엔티티에 대한 사용 가능한 코퍼스 근거가 없음 — 참조 컨텍스트를 붙여넣거나 Fabrication을 사용하세요."
+      "insufficientGrounding": "해당 엔티티에 대한 사용 가능한 코퍼스 근거가 없음 — 참조 컨텍스트를 붙여넣거나 Fabrication을 사용하세요.",
+      "providerRateLimited": "임베딩 제공자의 동시 요청 한도에 도달했습니다. 잠시 후 다시 시도해 주세요."
     }
   },
   "settings": {

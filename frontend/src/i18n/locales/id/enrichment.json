@@ -141,6 +141,10 @@
       "low": "rendah",
       "medium": "sedang",
       "high": "tinggi"
+    },
+    "evidence": {
+      "regurgitation_overlap": "Tumpang tindih signifikan dengan teks sumber (run bersama terpanjang {{lcs_chars}} karakter, kontainmen n-gram {{containment_pct}}%) — tinjau frasa yang diambil dari sumber.",
+      "regurgitation_verbatim": "Keluaran menyalin sumber secara verbatim secara substansial (run bersama terpanjang {{lcs_chars}} karakter, {{output_fraction_pct}}% dari keluaran) — risiko hak cipta; ditolak otomatis."
     }
   },
   "prov": {
@@ -151,7 +155,10 @@
     "model": "Model",
     "recook_abstracted": "Disusun ulang dari fakta abstrak — dibuat dari poin-poin fakta netral, bukan dari prosa sumber (②).",
     "grounding": "Sumber grounding",
-    "skipped": "Sumber dilewati (tanpa lisensi)"
+    "skipped": "Sumber dilewati (tanpa lisensi)",
+    "origin_value": {
+      "enrichment": "Pengayaan AI"
+    }
   },
   "license": {
     "public_domain": "domain publik",
@@ -170,7 +177,8 @@
     "show_less": "Tampilkan lebih sedikit",
     "content": "Lore yang dihasilkan",
     "verify": "Verifikasi",
-    "provenance": "Provenans & sumber"
+    "provenance": "Provenans & sumber",
+    "h0_meta": "Varian · {{origin}} · keyakinan {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "conf {{value}}",
@@ -247,6 +255,36 @@
       "missing": "Dimensi yang hilang",
       "rank": "Peringkat",
       "action": "Tindakan"
+    },
+    "kinds": {
+      "item": "Item",
+      "character": "Karakter",
+      "location": "Lokasi",
+      "event": "Peristiwa",
+      "technique": "Teknik",
+      "terminology": "Terminologi",
+      "power_system": "Sistem kekuatan",
+      "trope": "Trope",
+      "species": "Spesies",
+      "organization": "Organisasi",
+      "plot_arc": "Alur cerita",
+      "social_setting": "Latar sosial"
+    },
+    "dims": {
+      "origin": "Asal",
+      "powers": "Kekuatan",
+      "appearance": "Penampilan",
+      "owner": "Pemilik",
+      "significance": "Kepentingan",
+      "personality": "Kepribadian",
+      "abilities": "Kemampuan",
+      "relationships": "Hubungan",
+      "background": "Latar belakang",
+      "history": "Sejarah",
+      "geography": "Geografi",
+      "culture": "Budaya",
+      "features": "Ciri-ciri",
+      "inhabitants": "Penghuni"
     }
   },
   "sources": {
@@ -302,7 +340,8 @@
     "error": {
       "gateLocked": "Terkunci oleh gerbang evaluasi — jalankan evaluasi pengayaan terlebih dahulu.",
       "internal": "Pengayaan gagal (kesalahan internal). Arahkan kursor untuk detail.",
-      "insufficientGrounding": "Tidak ada dasar korpus yang dapat digunakan untuk entitas ini — tempelkan konteks referensi atau gunakan Fabrication."
+      "insufficientGrounding": "Tidak ada dasar korpus yang dapat digunakan untuk entitas ini — tempelkan konteks referensi atau gunakan Fabrication.",
+      "providerRateLimited": "Penyedia embedding mencapai batas permintaan bersamaan. Coba lagi sebentar lagi."
     }
   },
   "settings": {

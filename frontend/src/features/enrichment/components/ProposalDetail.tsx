@@ -49,9 +49,16 @@ export function ProposalDetail({ proposal, actions }: { proposal: Proposal; acti
             data-testid="enrichment-h0-banner"
           >
             <p className="text-xs font-medium text-warning">{t('detail.h0_banner')}</p>
-            <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-              origin={proposal.origin} · confidence={proposal.confidence.toFixed(2)} ·{' '}
-              {t(`review.${proposal.review_status}`, { defaultValue: proposal.review_status })}
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {/* #user-report 2026-11-10 — the raw `origin=enrichment · confidence=0.30`
+                  machine line leaked into the author surface. Localized labels via
+                  prov.*; the origin ENUM is translated with the raw value as fallback
+                  (it stays the persisted/audit identifier), confidence keeps its number. */}
+              {t('detail.h0_meta', {
+                origin: t(`prov.origin_value.${proposal.origin}`, { defaultValue: proposal.origin }),
+                confidence: proposal.confidence.toFixed(2),
+                review: t(`review.${proposal.review_status}`, { defaultValue: proposal.review_status }),
+              })}
             </p>
           </div>
         </div>
