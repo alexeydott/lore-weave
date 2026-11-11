@@ -86,3 +86,36 @@ async def test_embed_query_without_meter_is_noop():
     embed_query = make_embed_query_fn(client, user_id=uuid4())  # type: ignore[arg-type]
     vec = await embed_query("昆侖山", _ctx())
     assert vec == [0.1, 0.2, 0.3]  # still returns the vector, no metering needed
+
+
+@pytest.mark.asyncio
+async def test_embed_query_prefers_the_bound_embedding_model_over_ctx():
+    """#user-report 2026-11-10 — the query embed must use the EMBEDDING model
+    bound at assembly, never the ctx's GENERATION model_ref (a chat-only ref
+    fails the registry's capability check → every retrieval run 400'd)."""
+    client = _FakeKnowledgeClient()
+    gen_ref, embed_ref = str(uuid4()), str(uuid4())
+    embed_query = make_embed_query_fn(
+        client, user_id=uuid4(), model_ref=embed_ref)  # type: ignore[arg-type]
+    await embed_query("昆侖山", StrategyContext(
+        user_id=str(uuid4()), project_id=str(uuid4()), model_ref=gen_ref))
+    assert client.calls[0]["model_ref"] == embed_ref  # NOT the generation ref
+
+
+@pytest.mark.asyncio
+async def test_embed_query_falls_back_to_ctx_model_ref_when_unbound():
+    """Legacy shape (no bound ref): the ctx model_ref still drives the call, and
+    a ctx WITHOUT any ref raises the actionable error instead of a blank call."""
+    client = _FakeKnowledgeClient()
+    ctx_ref = str(uuid4())
+    embed_query = make_embed_query_fn(client, user_id=uuid4())  # type: ignore[arg-type]
+    await embed_query("昆侖山", StrategyContext(
+        user_id=str(uuid4()), project_id=str(uuid4()), model_ref=ctx_ref))
+    assert client.calls[0]["model_ref"] == ctx_ref
+
+    from app.retrieval.embedding import make_embed_query_fn as _mk
+    empty_client = _FakeKnowledgeClient()
+    empty_ctx = StrategyContext(user_id=str(uuid4()), project_id=str(uuid4()), model_ref="")
+    with pytest.raises(ValueError, match="embedding model_ref is required"):
+        await _mk(empty_client, user_id=uuid4())(  # type: ignore[arg-type]
+            "昆侖山", empty_ctx)

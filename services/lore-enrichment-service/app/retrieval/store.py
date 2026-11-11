@@ -25,6 +25,7 @@ service's own ``source_corpus*`` tables — never to glossary / KG / Neo4j, neve
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Sequence
 from uuid import UUID
@@ -53,6 +54,18 @@ __all__ = [
 #: never imports an HTTP/LLM client directly — the strategy wires the real C1
 #: ``KnowledgeClient.embed`` (model_ref) in, tests pass a deterministic stub.
 EmbedFn = Callable[[Sequence[str]], Awaitable[list[list[float]]]]
+
+#: Ingest embeds in BOUNDED batches (#user-report 2026-11-10): one call per
+#: whole selection sent 40+ chunk texts (~30k chars) to /internal/embed and blew
+#: the 30s embed timeout, failing every multi-chapter ground. 16 × ~800-char
+#: chunks ≈ 13k chars per request — comfortably inside the deadline.
+_EMBED_BATCH = 16
+
+
+def _batched(items: Sequence[str], size: int) -> Iterator[Sequence[str]]:
+    """Deterministic fixed-size batches over ``items`` (last may be short)."""
+    for start in range(0, len(items), size):
+        yield items[start:start + size]
 
 
 @dataclass(frozen=True)
@@ -391,17 +404,23 @@ class SourceCorpusStore:
         pending = await self._unembedded_chunks(corpus_id=corpus_id)
         embedded = 0
         if pending:
-            vectors = await embed_fn([c.content for c in pending])
-            if len(vectors) != len(pending):
-                raise ValueError(
-                    f"embed_fn returned {len(vectors)} vectors for "
-                    f"{len(pending)} chunks (count mismatch)"
-                )
-            for chunk, vector in zip(pending, vectors):
-                await self._store_embedding(
-                    chunk_id=chunk.chunk_id, vector=list(vector), model_ref=model_ref
-                )
-                embedded += 1
+            # BOUNDED BATCHES (#user-report 2026-11-10): grounding 2 chapters
+            # = 40+ chunk texts in ONE /internal/embed call — the provider
+            # round-trip blew the 30s embed timeout and the whole ground
+            # failed (503). Batch size bounds each request's payload; the
+            # per-call count contract is checked per batch.
+            for batch in _batched([c.content for c in pending], _EMBED_BATCH):
+                vectors = await embed_fn(list(batch))
+                if len(vectors) != len(batch):
+                    raise ValueError(
+                        f"embed_fn returned {len(vectors)} vectors for "
+                        f"{len(batch)} chunks (count mismatch)"
+                    )
+                for chunk, vector in zip(pending[embedded:embedded + len(batch)], vectors):
+                    await self._store_embedding(
+                        chunk_id=chunk.chunk_id, vector=list(vector), model_ref=model_ref
+                    )
+                    embedded += 1
 
         return IngestResult(
             corpus_id=corpus_id,

@@ -13,7 +13,7 @@ Factory functions return closures matching the seams:
     used by ``SourceCorpusStore.ingest_corpus`` to embed chunks.
   * :func:`make_embed_query_fn`  → ``EmbedQueryFn`` (str, ctx → vector) used by
     ``RetrievalStrategy.run`` to embed a single gap query (model_ref read from
-    the per-run ``StrategyContext``).
+    the per-run ``StrategyContext`` unless explicitly bound).
 """
 
 from __future__ import annotations
@@ -54,11 +54,15 @@ def make_embed_fn(
 
 
 def make_embed_query_fn(
-    client: KnowledgeClient, *, user_id: UUID, meter: UsageMeter | None = None
+    client: KnowledgeClient,
+    *,
+    user_id: UUID,
+    meter: UsageMeter | None = None,
+    model_ref: str | None = None,
 ):
     """Bind an ``EmbedQueryFn`` for search: embeds ONE query string, reading the
-    ``model_ref`` from the per-run :class:`StrategyContext` (so each run uses its
-    project's configured embedding model). Returns a single vector.
+    ``model_ref`` from the per-run :class:`StrategyContext` unless bound explicitly.
+    Returns a single vector.
 
     ``meter`` (C1 / LE-059b): when a meter is supplied the embed leg of the per-gap
     cost is metered on the provider's REAL ``prompt_tokens`` (surfaced by
@@ -70,10 +74,11 @@ def make_embed_query_fn(
     """
 
     async def _embed_query(query: str, context: StrategyContext) -> list[float]:
-        if not context.model_ref:
+        ref = model_ref or context.model_ref
+        if not ref:
             raise ValueError(
-                "StrategyContext.model_ref is required for retrieval embedding "
-                "(resolve the project's embedding model via provider-registry)"
+                "embedding model_ref is required for retrieval embedding "
+                "(bind it at assembly or resolve it via provider-registry)"
             )
         # C18 — count the real embed call by outcome (NO model name in the label;
         # the model is resolved by model_ref at runtime).
@@ -81,7 +86,7 @@ def make_embed_query_fn(
             result = await client.embed(
                 user_id=user_id,
                 model_source=MODEL_SOURCE,
-                model_ref=context.model_ref,
+                model_ref=ref,
                 texts=[query],
             )
         except Exception:
