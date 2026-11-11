@@ -32,6 +32,7 @@ from uuid import UUID
 import pytest
 
 from app.clients.knowledge import GraphStats
+from app.db.book_profile import BookProfile
 from app.eval.gate import GateDecision
 from app.generation.provenance import ENRICHED_ORIGIN
 from app.retrieval.strategy import GroundedProposal, GroundingRef
@@ -499,6 +500,17 @@ def test_prompt_is_chinese_and_recontextualises():
     # era-bound: re-cast into 商周/封神, strip later/modern content
     assert "商周" in prompt or "封神" in prompt
     assert "时代错置" in prompt or "后世朝代" in prompt or "近现代" in prompt
+
+
+def test_ru_prompt_uses_human_language_name():
+    ru = _proposal(dims=["История", "Происхождение"])
+    prompt = build_recook_prompt(
+        ru, "Референсный факт.", BookProfile(language="ru", worldview="Городское фэнтези")
+    )
+    assert "in Russian" in prompt
+    assert "Write in ru" not in prompt
+    assert "历史" not in prompt
+    assert "Происхождение" in prompt
 
 
 def test_no_hardcoded_model_name_in_strategy_source():

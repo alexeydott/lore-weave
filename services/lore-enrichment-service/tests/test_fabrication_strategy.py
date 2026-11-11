@@ -29,6 +29,7 @@ from uuid import UUID
 import pytest
 
 from app.clients.knowledge import GraphStats
+from app.db.book_profile import BookProfile
 from app.eval.gate import GateDecision
 from app.generation.provenance import ENRICHED_ORIGIN
 from app.retrieval.strategy import GroundedProposal, GroundingRef
@@ -320,6 +321,17 @@ def test_no_hardcoded_model_name_in_strategy_source():
     for needle in ("gpt-", "claude-3", "claude-4", "qwen/", "qwen3", "bge-m3",
                    "text-embedding-", "gemma-3", "llama-"):
         assert needle.lower() not in src.lower()
+
+
+def test_ru_prompt_uses_human_language_name():
+    ru = _proposal(dims=["Внешность", "Способности"])
+    prompt = build_fabrication_prompt(
+        ru, [], profile=BookProfile(language="ru", worldview="Городское фэнтези")
+    )
+    assert "in Russian" in prompt
+    assert "Write in ru" not in prompt
+    assert "能力" not in prompt
+    assert "Способности" in prompt
 
 
 def test_poisoned_excerpt_is_neutralized_in_prompt():
