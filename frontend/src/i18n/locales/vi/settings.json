@@ -244,8 +244,8 @@
       "api_key_ph": "sk-...",
       "api_key_keep_hint": "Để trống để giữ khóa hiện có.",
       "max_concurrency": "Số yêu cầu song song tối đa",
-      "max_concurrency_ph": "Không giới hạn",
-      "max_concurrency_hint": "Số yêu cầu nhà cung cấp này chạy cùng lúc. Để trống nghĩa là không giới hạn (hạ tầng tự quyết). Chỉ đặt số khi backend của bạn có giới hạn đã biết (ví dụ GPU cục bộ).",
+      "max_concurrency_ph": "Mặc định",
+      "max_concurrency_hint": "Để trống để dùng giới hạn mặc định của nền tảng. Nhập số dương để tự đặt giới hạn.",
       "cancel": "Hủy",
       "saving": "Đang lưu...",
       "submit": "Lưu thay đổi"
@@ -426,8 +426,8 @@
       "key_ph_keep": "Để trống để giữ khóa hiện tại",
       "key_keep_hint": "Để trống để giữ nguyên khóa đang dùng.",
       "max_concurrency": "Số yêu cầu song song tối đa",
-      "max_concurrency_ph": "Không giới hạn",
-      "max_concurrency_hint": "Số yêu cầu dịch vụ này chạy cùng lúc. Để trống nghĩa là không giới hạn (hạ tầng tự quyết). Chỉ đặt số khi backend của bạn có giới hạn đã biết.",
+      "max_concurrency_ph": "Mặc định",
+      "max_concurrency_hint": "Để trống để dùng giới hạn mặc định của nền tảng. Nhập số dương để tự đặt giới hạn.",
       "cancel": "Hủy",
       "submit": "Lưu",
       "saving": "Đang lưu…"

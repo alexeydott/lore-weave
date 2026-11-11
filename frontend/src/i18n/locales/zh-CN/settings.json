@@ -244,8 +244,8 @@
       "api_key_ph": "sk-...",
       "api_key_keep_hint": "留空以保留现有密钥。",
       "max_concurrency": "最大并发请求数",
-      "max_concurrency_ph": "无限制",
-      "max_concurrency_hint": "该供应商同时运行的请求数。留空为无限制（由后端决定）。仅在您的后端有明确限制（如本地 GPU）时设置数值。",
+      "max_concurrency_ph": "默认",
+      "max_concurrency_hint": "留空则使用平台默认上限。输入正整数可自行设置。",
       "cancel": "取消",
       "saving": "正在保存...",
       "submit": "保存更改"
@@ -426,8 +426,8 @@
       "key_ph_keep": "留空以保留当前密钥",
       "key_keep_hint": "留空以保留现有密钥。",
       "max_concurrency": "最大并发请求数",
-      "max_concurrency_ph": "无限制",
-      "max_concurrency_hint": "该服务同时运行的请求数。留空为无限制（由后端决定）。仅在您的后端有明确限制时设置数字。",
+      "max_concurrency_ph": "默认",
+      "max_concurrency_hint": "留空则使用平台默认上限。输入正整数可自行设置。",
       "cancel": "取消",
       "submit": "保存",
       "saving": "正在保存…"

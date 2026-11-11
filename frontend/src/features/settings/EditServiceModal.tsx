@@ -28,7 +28,7 @@ export function EditServiceModal({ provider, model, onClose, onUpdated }: Props)
   const [endpoint, setEndpoint] = useState(provider.endpoint_base_url ?? '');
   const [secret, setSecret] = useState('');
   const [alias, setAlias] = useState(model?.alias ?? '');
-  // '' = unlimited (request-as-demand). Only a positive integer caps concurrency.
+	// '' leaves the system default cap in place; a positive integer overrides it.
   const [concurrency, setConcurrency] = useState(
     provider.max_concurrency != null ? String(provider.max_concurrency) : '',
   );
@@ -45,9 +45,9 @@ export function EditServiceModal({ provider, model, onClose, onUpdated }: Props)
       const credPatch: { endpoint_base_url?: string; secret?: string; max_concurrency?: number | null } = {};
       if (endpoint.trim() !== (provider.endpoint_base_url ?? '')) credPatch.endpoint_base_url = endpoint.trim();
       if (secret) credPatch.secret = secret;
-      // Only send max_concurrency when it changed. '' → null clears to unlimited;
-      // a positive integer sets the cap. (BE PATCH is present-aware, so omitting
-      // the key leaves the existing value untouched.)
+		  // Only send max_concurrency when it changed. '' → null restores the system
+		  // default; a positive integer overrides it. PATCH is present-aware, so omission
+		  // leaves the existing value untouched.
       const nextConc = concurrency.trim() === '' ? null : Math.max(0, parseInt(concurrency, 10) || 0) || null;
       const prevConc = provider.max_concurrency ?? null;
       if (nextConc !== prevConc) credPatch.max_concurrency = nextConc;

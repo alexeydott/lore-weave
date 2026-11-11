@@ -156,8 +156,8 @@ export function ProvidersTab() {
       if (editEndpoint !== (editProvider.endpoint_base_url ?? '')) payload.endpoint_base_url = editEndpoint || null;
       if (editSecret) payload.secret = editSecret;
       if (editApiStandard !== (editProvider.api_standard ?? 'openai_compatible')) payload.api_standard = editApiStandard;
-      // '' → null clears to unlimited; a positive integer sets the cap. BE PATCH
-      // is present-aware, so we send the key only when it actually changed.
+		  // '' → null restores the system default; a positive integer overrides it. BE PATCH
+		  // is present-aware, so we send the key only when it actually changed.
       const nextConc = editConcurrency.trim() === '' ? null : Math.max(0, parseInt(editConcurrency, 10) || 0) || null;
       if (nextConc !== (editProvider.max_concurrency ?? null)) payload.max_concurrency = nextConc;
       await providerApi.patchProvider(accessToken, editProvider.provider_credential_id, payload as any);
