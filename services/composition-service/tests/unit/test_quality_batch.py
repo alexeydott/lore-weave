@@ -104,8 +104,49 @@ async def test_failure_never_automatically_retries(monkeypatch, outcome):
     monkeypatch.setattr(batch, "run_quality_report", compute)
     assert await batch.run_quality_batch(Pool(), None, job.id) == "failed"
     assert await batch.run_quality_batch(Pool(), None, job.id) == "already_failed"
-    assert compute.await_count == (0 if outcome == "uncertain" else 1)
+    assert compute.await_count == (0 if outcome == "uncertain" else 3)
+    if outcome != "uncertain":
+        assert all(row.status == "failed" for key, row in rows.items() if key != job.id)
     assert not is_worker_drivable(job.operation, job.input)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["incomplete", "exception"])
+async def test_failed_first_chapter_still_attempts_second_once(monkeypatch, outcome):
+    job, rows, repo = fixture_run(count=2)
+    monkeypatch.setattr(batch, "GenerationJobsRepo", lambda pool: repo)
+    failure = {"report": {"scope": {"complete": False}}}
+    first = ValueError("synthesis failed") if outcome == "exception" else failure
+    compute = AsyncMock(side_effect=[first, {"report": {"scope": {"complete": True}}}])
+    monkeypatch.setattr(batch, "run_quality_report", compute)
+    assert await batch.run_quality_batch(Pool(), None, job.id) == "failed"
+    restored = present(job, [v for k, v in rows.items() if k != job.id])
+    assert [c["status"] for c in restored["chapters"]] == ["failed", "completed"]
+    assert [call.kwargs["input"]["chapter_id"] for call in compute.await_args_list] == [
+        c["chapter_id"] for c in job.input["chapters"]]
+    assert await batch.run_quality_batch(Pool(), None, job.id) == "already_failed"
+    assert compute.await_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["incomplete", "exception"])
+async def test_stop_after_failed_current_preserves_failure(monkeypatch, outcome):
+    job, rows, repo = fixture_run(count=2)
+    monkeypatch.setattr(batch, "GenerationJobsRepo", lambda pool: repo)
+
+    async def compute(*args, **kwargs):
+        job.input["stop_requested"] = True
+        if outcome == "exception":
+            raise ValueError("synthesis failed")
+        return {"report": {"scope": {"complete": False}}}
+
+    mock = AsyncMock(side_effect=compute)
+    monkeypatch.setattr(batch, "run_quality_report", mock)
+    assert await batch.run_quality_batch(Pool(), None, job.id) == "cancelled"
+    restored = present(job, [v for k, v in rows.items() if k != job.id])
+    assert [c["status"] for c in restored["chapters"]] == ["failed", "skipped"]
+    assert restored["chapters"][0]["result"] is not None
+    assert mock.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -205,6 +246,37 @@ async def test_lost_response_replay_skips_preflight_and_paid_submission(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_quality_runs_binds_json_owner_as_text():
+    from app.db.repositories.generation_jobs import GenerationJobsRepo
+    pool = Pool()
+    pool.connection.fetch = AsyncMock(return_value=[])
+    project_id, user_id = uuid4(), uuid4()
+    assert await GenerationJobsRepo(pool).quality_runs(project_id, user_id, "user_model", "model") == []
+    sql, *args = pool.connection.fetch.await_args.args
+    assert "project_id=$1" in sql
+    assert "input->>'owner_user_id'=$2::text" in sql
+    assert args == [project_id, str(user_id), "user_model", "model"]
+    assert type(args[1]) is str
+
+
+@pytest.mark.asyncio
+async def test_latest_chapter_quality_job_scopes_project_chapter_and_operation():
+    from app.db.repositories.generation_jobs import GenerationJobsRepo
+    pool = Pool()
+    pool.connection.fetchrow = AsyncMock(return_value=None)
+    project_id, chapter_id = uuid4(), uuid4()
+    assert await GenerationJobsRepo(pool).latest_chapter_quality_job(project_id, chapter_id) is None
+    sql, *args = pool.connection.fetchrow.await_args.args
+    assert "project_id=$1" in sql
+    assert "operation='quality_report'" in sql
+    assert "input->>'chapter_id'=$2" in sql
+    # Latest-wins with a deterministic tiebreak; batch runs stay on /quality-runs.
+    assert "ORDER BY created_at DESC, id DESC LIMIT 1" in sql
+    assert "quality_report_batch" not in sql
+    assert args == [project_id, str(chapter_id)]
+
+
+@pytest.mark.asyncio
 async def test_runtime_budget_and_context_are_frozen():
     llm = SimpleNamespace(submit_and_wait=AsyncMock(return_value="done"),
                           resolve_context_length=AsyncMock(return_value=1))
@@ -239,6 +311,8 @@ async def test_atomic_repo_dedup_under_concurrent_submit_and_replay(monkeypatch)
 
         async def fetchrow(self, sql, *args):
             queries.append(sql)
+            assert type(args[1]) is str
+            assert args[1] == str(job.created_by)
             if not stored:
                 return None
             candidate = stored[0]

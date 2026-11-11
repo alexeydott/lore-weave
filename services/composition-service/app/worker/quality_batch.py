@@ -46,6 +46,7 @@ async def run_quality_batch(pool, llm, job_id):
                 return f"already_{job.status}"
             await repo.update_status(job_id, "running", only_if_active=True)
             inp = job.input
+            failure = None
             for chapter in inp["chapters"]:
                 child_id = UUID(chapter["job_id"])
                 child = await repo.get(child_id)
@@ -58,8 +59,9 @@ async def run_quality_batch(pool, llm, job_id):
                         await repo.update_status(job_id, "failed", result={"error": "QUALITY_CHILD_EXECUTION_UNCERTAIN"}, only_if_active=True)
                         return "failed"
                     if child.status in ("failed", "cancelled"):
-                        await repo.update_status(job_id, "failed", result={"error": "QUALITY_CHILD_FAILED"}, only_if_active=True)
-                        return "failed"
+                        # Durable failures are never retried, but do not skip other chapters.
+                        failure = failure or "QUALITY_CHILD_FAILED"
+                        continue
                 current = await repo.get(job_id)
                 if current.status not in ("pending", "running"):
                     return current.status
@@ -97,13 +99,14 @@ async def run_quality_batch(pool, llm, job_id):
                     await repo.update_status(child_id, "completed" if complete else "failed", result=result,
                                              only_if_active=True)
                     if not complete:
-                        await repo.update_status(job_id, "failed", result={"error": "QUALITY_REPORT_INCOMPLETE"}, only_if_active=True)
-                        return "failed"
+                        failure = failure or "QUALITY_REPORT_INCOMPLETE"
                 except Exception as exc:
                     # All provider/business/infra failures after dispatch are terminal, not paid retries.
                     await repo.update_status(child_id, "failed", result={"error": str(exc)}, only_if_active=True)
-                    await repo.update_status(job_id, "failed", result={"error": "QUALITY_CHILD_FAILED"}, only_if_active=True)
-                    return "failed"
+                    failure = failure or "QUALITY_CHILD_FAILED"
+            if failure:
+                await repo.update_status(job_id, "failed", result={"error": failure}, only_if_active=True)
+                return "failed"
             await repo.update_status(job_id, "completed", result={"complete": True}, only_if_active=True)
             return "completed"
         finally:
