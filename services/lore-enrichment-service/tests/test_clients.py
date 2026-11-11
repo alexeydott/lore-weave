@@ -143,6 +143,22 @@ async def test_embed_uses_model_ref_not_hardcoded_name():
 
 
 @respx.mock
+async def test_embed_preserves_upstream_429_as_retryable_provider_error():
+    respx.post(f"{PR}/internal/embed").respond(
+        429,
+        headers={"Retry-After": "4"},
+        json={"code": "EMBED_PROVIDER_RATE_LIMITED", "message": "provider rate limited"},
+    )
+    c = _kg()
+    with pytest.raises(KnowledgeServiceError) as exc:
+        await c.embed(user_id=uuid4(), model_source="user_model", model_ref="r", texts=["x"])
+    await c.aclose()
+    assert exc.value.status_code == 429
+    assert exc.value.retryable is True
+    assert exc.value.retry_after_s == 4.0
+
+
+@respx.mock
 async def test_embed_internal_token_header():
     route = respx.post(f"{PR}/internal/embed").respond(
         200, json={"embeddings": [[0.0]], "dimension": 1, "model": "m"}

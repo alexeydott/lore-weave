@@ -71,6 +71,18 @@ def test_collect_stream_text_still_collects_tokens():
     assert collect_stream_text(_SSE_WITH_USAGE) == "昆侖山是一座仙山"
 
 
+def test_collect_stream_text_preserves_rate_limit_code_and_retryability():
+    from app.generation.complete import CompletionSeamError
+
+    sse = 'event: error\ndata: {"event":"error","code":"LLM_RATE_LIMITED","message":"provider rate limited: HTTP 429","retry_after_s":4}\n\n'
+    with pytest.raises(CompletionSeamError, match="LLM_RATE_LIMITED") as exc:
+        collect_stream_text(sse)
+    assert exc.value.retryable is True
+    assert exc.value.status_code == 429
+    assert exc.value.retry_after_s == 4.0
+
+
+
 def test_collect_stream_usage_parses_frame_reasoning_as_output():
     usage = collect_stream_usage(_SSE_WITH_USAGE)
     assert usage is not None
@@ -175,6 +187,24 @@ async def test_complete_fn_bounds_output_and_disables_thinking():
     assert body["reasoning_effort"] == "none"
     assert body["chat_template_kwargs"]["thinking"] is False
     assert body["chat_template_kwargs"]["enable_thinking"] is False
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_complete_fn_preserves_http_retry_after_header():
+    from app.generation.complete import CompletionSeamError
+
+    respx.post("http://pr.local/internal/llm/stream").respond(
+        429, headers={"Retry-After": "6"}, text="provider busy"
+    )
+    complete = make_complete_fn(
+        provider_registry_base_url="http://pr.local", internal_token="t"
+    )
+    with pytest.raises(CompletionSeamError) as exc:
+        await complete("p", _ctx())
+    assert exc.value.status_code == 429
+    assert exc.value.retryable is True
+    assert exc.value.retry_after_s == 6.0
 
 
 @pytest.mark.asyncio
