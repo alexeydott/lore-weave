@@ -230,8 +230,26 @@ class GenerationJobsRepo:
                 f"SELECT {_SELECT_COLS} FROM generation_job WHERE project_id=$1 "
                 "AND input->>'owner_user_id'=$2::text AND operation='quality_report_batch' "
                 "AND input->>'model_source'=$3 AND input->>'model_ref'=$4 ORDER BY created_at DESC",
-                project_id, user_id, model_source, model_ref)
+                project_id, str(user_id), model_source, model_ref)
         return [_row_to_job(r) for r in rows]
+
+    async def latest_chapter_quality_job(self, project_id, chapter_id):
+        """Latest quality_report job for one chapter, any status.
+
+        Restores the last Critic report after remount/reload (server is the SSOT,
+        not component state). Read rule honored: project-scoped, no created_by
+        filter — the router gates VIEW before calling. Non-terminal rows come
+        back too so a client can resume polling `result.progress`. Batch
+        children (operation='quality_report_batch') are excluded: batch runs
+        surface through /quality-runs instead."""
+        async with self._pool.acquire() as c:
+            row = await c.fetchrow(
+                f"SELECT {_SELECT_COLS} FROM generation_job WHERE project_id=$1 "
+                "AND outline_node_id IS NULL AND operation='quality_report' "
+                "AND input->>'chapter_id'=$2 "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                project_id, str(chapter_id))
+        return _row_to_job(row) if row else None
 
     async def create_quality_run(self, project_id, user_id, input, key):
         # Per-user run/spend scope is explicit and server-stamped, distinct from
@@ -245,7 +263,7 @@ class GenerationJobsRepo:
                     f"SELECT {_SELECT_COLS} FROM generation_job WHERE project_id=$1 AND input->>'owner_user_id'=$2::text "
                     "AND operation='quality_report_batch' AND (idempotency_key=$3 OR input->'submission_keys' ? $3 OR "
                     "(status IN ('pending','running') AND input->>'model_source'=$4 AND input->>'model_ref'=$5)) "
-                    "ORDER BY created_at DESC LIMIT 1", project_id, user_id, key,
+                    "ORDER BY created_at DESC LIMIT 1", project_id, str(user_id), key,
                     input['model_source'], input['model_ref'])
                 if row:
                     await c.execute(

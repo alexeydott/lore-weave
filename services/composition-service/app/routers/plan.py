@@ -257,6 +257,35 @@ class QualityReportRequest(BaseModel):
     canon: str | None = Field(default=None, max_length=20000)
 
 
+@router.get("/works/{project_id}/quality-report")
+async def quality_report_latest(
+    project_id: UUID,
+    chapter_id: UUID,
+    user_id: UUID = Depends(get_current_user),
+    works: WorksRepo = Depends(get_works_repo),
+    grant: GrantClient = Depends(get_grant_client_dep),
+):
+    """Latest saved quality_report job for ONE chapter (any status).
+
+    Restores the last Critic report after reload/remount — the server, not the
+    panel, owns report history (user report 2026-11-10: latest results must
+    survive navigation). VIEW-gated like every project read; collaborators with
+    VIEW may read the report exactly as they may read GET /jobs/{id}. The input
+    blob (full prose + canon) is deliberately NOT returned — the FE needs only
+    the result envelope."""
+    work = await _require_work(works, grant, user_id, project_id, GrantLevel.VIEW)
+    jobs = await get_generation_jobs_repo()
+    job = await jobs.latest_chapter_quality_job(project_id, chapter_id)
+    if job is None or job.project_id != project_id or job.book_id != work.book_id:
+        # Same uniform 404 whether nothing ran yet or the row is corrupt-scoped
+        # (no enumeration oracle; H13).
+        raise HTTPException(status_code=404, detail="quality report not found")
+    result = job.result if isinstance(job.result, dict) else None
+    return {"job_id": str(job.id), "status": job.status,
+            "created_at": job.created_at.isoformat(), "updated_at": job.updated_at.isoformat(),
+            "result": result}
+
+
 @router.post("/works/{project_id}/quality-report")
 async def quality_report_endpoint(
     project_id: UUID,
