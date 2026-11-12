@@ -34,25 +34,20 @@ round 1) while doing real work; both scripts were timed locally
 (census 3427s / 57:07, falsification 1284s / 21:24, sandbox is slower than
 a GitHub runner so these are upper bounds) and the timeouts raised to 120
 and 60 with the measurements recorded as comments in the workflow.
-Still open before push: nothing — the full `govulncheck` rescan of all 76
-go.mod modules is done (go1.26.11). First full run: 67 PASS / 9 FAIL, all 9
-fails network timeouts while the Go client downloaded module zips from the
-proxy (segmentio/encoding v0.5.4, klauspost/compress v1.18.6/v1.19.0,
-pierrec/lz4/v4 v4.1.21 — sandbox-side deadline, no findings). Retry of the
-9 after seeding the module cache: 8 PASS, 1 real FAIL — `archive-worker`
-called two vulnerabilities: GO-2026-6888 (brotli v1.1.1, excessive memory
-allocation on crafted streams) and GO-2026-6865 (klauspost/compress
-v1.19.0, panic on two-block frames, hit in the parquet-write path), plus
-one uncalled module-level note GO-2026-5932 (x/crypto v0.58.0 openpgp).
-Fixed in this commit (archive-worker only — book-service,
-provider-registry-service and tests/integration pin the same vulnerable
-versions but do not call them, so they pass): brotli 1.1.1 → 1.2.7,
-compress 1.19.0 → 1.20.2, x/crypto 0.58.0 →
-0.58.1-0.20261009181718-2f1f834330b2. Verified: `govulncheck ./...` in
-archive-worker prints `No vulnerabilities found` (exit 0), so all 76
-modules are clean; `go build ./...` and `go test ./...` pass. Ready to
-push rounds 3 (3595ae93 + cd8228c4 + this commit) once the owner supplies
-a fresh one-time token.
+Pushed rounds 3 (3595ae93 + cd8228c4 + 3e5c1d46) to origin main 2026-11-12
+~23:09 (`d4cc915` → `3e5c1d46`, verified via `ls-remote`; first push
+attempt failed on a connection reset, retry succeeded). CI for 3e5c1d46:
+dep-vuln success, python-integration-tests success (knowledge-service
+build with pgvector 0.8.7 passed), lint / Game subtree / python-unit /
+conformance success — but foundation-ci FAILED on the DB live-smoke job:
+`go test publisher live-smoke` in tests/integration died with `go: updates
+to go.mod needed; go mod tidy`. Cause was this round's own archive-worker
+bump: tests/integration replaces archive-worker locally, so MVS picks the
+new brotli/compress/x/crypto versions, but tests/integration/go.mod still
+pinned the old ones and `go test` runs `-mod=readonly`. Fixed in this
+commit by `go mod tidy` in tests/integration (only the three versions
+moved). Re-pushing now; the owner keeps the one-time token valid until CI
+is green, then revokes it.
 Needs a decision before closing: P0-1 hardcoded dev credentials in
 `infra/docker-compose.yml`, P0-2 `_guard_throwaway` inline copies (13 files),
 P1-5 seven UNIMPLEMENTED gRPC methods (DP-C5 design), P1-6 unbound
