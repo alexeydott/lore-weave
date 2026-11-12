@@ -34,9 +34,11 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           # Patch-exact: the 1.26 series' crypto/x509 fix (GO-2026-6809) lands
-          # in 1.26.10 — a bare "1.26" resolved 1.26.9 on the runner and kept
-          # flagging the stdlib. Bump this patch alongside the scanner pin.
-          go-version: "1.26.10"
+          # in 1.26.10, and the net/http MaxBytesReader fix (GO-2026-6859)
+          # lands in 1.26.11 — a bare "1.26" resolved an older patch on the
+          # runner and kept flagging the stdlib. Bump this patch alongside
+          # the scanner pin.
+          go-version: "1.26.11"
           # 🔴 The repo ROOT has no go.mod, so setup-go's dependency cache
           # cannot compute a key ("Primary key was not generated") and its
           # POST step fails the job — even when every module scanned clean
@@ -159,15 +161,26 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo install cargo-audit --locked
       - name: cargo audit (root workspace Cargo.lock)
-        # Two --ignore entries are advisories with NO in-range fix today
-        # (2026-10-24), both reached only through jsonwebtoken v10.4.0:
+        # Three --ignore entries are advisories with NO in-range fix today
+        # (2026-10-24 for the first two, 2026-11-12 for the third), the
+        # first two reached only through jsonwebtoken v10.4.0:
         #   RUSTSEC-2023-0071 — rsa "Marvin Attack". No fixed rsa release
         #     exists at all; our use is JWT sign/verify, not the RSA
         #     decryption the attack requires.
         #   RUSTSEC-2026-0387 — crypto-bigint timing; the sole patched line
         #     is >=0.7.6 while our copy is 0.5.5, pinned by
         #     elliptic-curve 0.13 <- ecdsa/p256 <- jsonwebtoken.
-        # Lift BOTH when jsonwebtoken bumps its RustCrypto stack (Dependabot
-        # will open that PR); until then these two would keep this advisory
+        #   RUSTSEC-2026-0459 — libsqlite3-sys 0.30.1, C SQLite
+        #     CVE-2026-119375. No in-range fix: the newest sqlx 0.9.0
+        #     (sqlx-sqlite 0.9.0) caps libsqlite3-sys at <0.38.0 while the
+        #     patched line is >=0.39.0 (checked 2026-11-12 on crates.io).
+        #     And the vulnerable code is not in the build at all:
+        #     sqlx-sqlite is absent from `cargo tree -p sqlx` (only the
+        #     postgres backend is enabled) and libsqlite3-sys is built
+        #     without its `bundled` feature, linking the system libsqlite3.
+        # Lift ALL THREE when the upstream bumps land (jsonwebtoken's
+        # RustCrypto stack for the first two, a sqlx release allowing
+        # libsqlite3-sys >=0.39.0 for the third — Dependabot will open
+        # those PRs); until then these three would keep this advisory
         # leg permanently red over unfollowable findings.
-        run: cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0387
+        run: cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0387 --ignore RUSTSEC-2026-0459

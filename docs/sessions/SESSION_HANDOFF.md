@@ -1,6 +1,6 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
-## ▶ TECH-DEBT AUDIT 2026-11-12 — HEAD `440fe02`, round 1 committed, round 2 in this commit
+## ▶ TECH-DEBT AUDIT 2026-11-12 — HEAD `440fe02`, rounds 1+2 pushed as `d4cc915`, round 3 in this commit
 
 Four read-only passes (Rust+Go, TS+Python, infra/CI/security, docs/tests/eval)
 + a verification pass. Register: `docs/deferred/TECH-DEBT-2026-11.md`
@@ -11,19 +11,31 @@ and the 5 bare statements there are idempotent; `timeout-minutes` on all
 recorded in `CHANGELOG.md` `[Unreleased]` (partial — earlier unreleased
 work since `0.1.0-rc.1` still unrecorded); 3 personal-Windows-path links
 in the LLM-migration ADR replaced; `.githooks/pre-commit` mode fixed
-(P2-27). Round 2 (this commit): all 10 RED gates from the first full run
+(P2-27). Round 2 (commit `d4cc915`): all 10 RED gates from the first full run
 fixed — i18n 7 keys, generation-guard 60th caller, llm-budget literal,
 language-bias `hardSplit`, pytest/pydantic-ai/docker/protoc installed,
 guard-redability 18/18, db-ensure-bite static-only; second full run
 **136 GREEN / 0 RED / 28 SKIP, exit 0**; `make ci-local` PASS; frontend
 build PASS. The 28 live gates stay SKIP by design: no live stack in the
 sandbox (containers cannot start there — `setns` denied), and the 2
-bare-runnable live gates refuse an empty store. Needs a decision before
-closing: P0-1 hardcoded dev credentials in `infra/docker-compose.yml`,
-P0-2 `_guard_throwaway` inline copies (13 files), P1-5 seven UNIMPLEMENTED
-gRPC methods (DP-C5 design), P1-6 unbound `YamlGuardrail`, P1-1/P1-2
-frontend lint expansion. Push pending: full-green reached; awaiting a
-fresh token from the owner.
+bare-runnable live gates refuse an empty store. Rounds 1+2 pushed to origin
+main 2026-11-12 20:02 (`440fe02` → `d4cc915`, verified via `ls-remote`).
+Round 3 (this commit): CI failures on the pushed `d4cc915` — dep-vuln Go leg
+(`GO-2026-6859`, go-version 1.26.10 → 1.26.11; verified red→green locally),
+dep-vuln Rust leg (`event-listener` 5.4.2, `rustix` 1.1.6, `spin` 0.9.9;
+`RUSTSEC-2026-0459` triaged to `--ignore`, no in-range fix exists —
+newest sqlx 0.9.0 caps libsqlite3-sys <0.38.0, patch needs >=0.39.0;
+`cargo audit` exit 0, `cargo check --workspace --locked` exit 0), and the
+`knowledge-service` docker build (`PGVECTOR_VERSION` 0.8.6 → 0.8.7, PGDG
+dropped 0.8.6; the build itself cannot be verified in this sandbox).
+Still open from that CI run: `lint-foundation` — `agentruntime-census` and
+`agentruntime-falsification` hit the 10-minute `timeout-minutes` (added in
+round 1) while doing real work; both scripts are being timed locally to set
+the timeout from a measured runtime, fix to follow in its own commit.
+Needs a decision before closing: P0-1 hardcoded dev credentials in
+`infra/docker-compose.yml`, P0-2 `_guard_throwaway` inline copies (13 files),
+P1-5 seven UNIMPLEMENTED gRPC methods (DP-C5 design), P1-6 unbound
+`YamlGuardrail`, P1-1/P1-2 frontend lint expansion.
 
 ## ▶ KNOWLEDGE-ARCHITECTURE REFACTOR IS CLOSED — merged from `refactor/entity-lifecycle` (2026-08-31)
 
