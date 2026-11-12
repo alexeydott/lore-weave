@@ -28,6 +28,7 @@ jobs:
   rust:
     name: Rust workspace (build + test)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     # Heavy-gate scope guard (see header): main + mmo-rpg pushes, PRs onto them.
     if: >-
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/mmo-rpg/'))) ||
@@ -76,6 +77,7 @@ jobs:
   dp-contract:
     name: dp — tier/scope contract (clippy + tests, all branches)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -95,6 +97,7 @@ jobs:
   go:
     name: Go modules (build + vet + test)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     # Heavy-gate scope guard (see header): main + mmo-rpg pushes, PRs onto them.
     if: >-
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/mmo-rpg/'))) ||
@@ -140,6 +143,7 @@ jobs:
   lints:
     name: Foundation lints (I3 language-rule + projection-coverage + validators)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # Heavy-gate scope guard (see header): main + mmo-rpg pushes, PRs onto them.
     if: >-
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/mmo-rpg/'))) ||
@@ -399,6 +403,7 @@ jobs:
   python:
     name: Python services (byte-compile)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     # Heavy-gate scope guard (see header): main + mmo-rpg pushes, PRs onto them.
     if: >-
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/mmo-rpg/'))) ||
@@ -448,6 +453,7 @@ jobs:
   db-smoke:
     name: DB live-smoke (PgEventStore + publisher integration)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # Heavy-gate scope guard (see header): main + mmo-rpg pushes, PRs onto them.
     if: >-
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/mmo-rpg/'))) ||
@@ -801,6 +807,7 @@ jobs:
   secrets:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # SEC-1 / P0-6: NO scope guard — gitleaks scans EVERY branch (the workflow
     # trigger is `**`). A secret can land on any feature branch, so this gate is
     # intentionally the one job that runs regardless of branch. The `.githooks/

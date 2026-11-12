@@ -1,0 +1,133 @@
+# Tech-debt register — November 2026 audit
+
+> Audit of HEAD `440fe02` (2026-11-08), shallow clone, depth 1.
+> Four read-only passes (Rust+Go, TS+Python, infra/CI/deps/security,
+> docs/tests/eval), then a verification pass over the highest-severity
+> items. Every item carries file:line evidence verified against the
+> code at audit time. Items marked **verified** were re-checked by the
+> auditor; items marked **agent-reported** were measured by a pass
+> agent and not independently re-checked — re-verify before acting on
+> them.
+>
+> This register does NOT replace `DEFERRED.md` (the tracked-debt home,
+> managed by Scribe — do not hand-edit it). It is the audit's own
+> snapshot; when an item here is accepted as tracked debt, open a
+> DEFERRED row for it and link back here.
+>
+> Method limits: no `cargo`/`go`/`pnpm` in the audit sandbox, so no
+> clippy/udeps/go-vet/pnpm runs; per-file git history unavailable
+> (shallow clone); CI was not run. Counts are grep-measured.
+
+## Severity definitions
+
+- **P0 — integrity / safety.** A LOCKED rule is violated, or a failure
+  mode that already caused data loss can recur. Fix first.
+- **P1 — structural.** The defect blocks reuse, hides breakage, or
+  makes a whole surface (lint, docs, CI) report coverage it does not
+  have. Fix next, or formally defer with a DEFERRED row.
+- **P2 — maintainability.** Duplication, drift, god files, dead code,
+  missing tests. Fix opportunistically, in the owning area.
+- **P3 — hygiene.** Small, local, no blast radius.
+
+## P0 — integrity / safety
+
+| # | Item | Evidence | Status |
+|---|---|---|---|
+| P0-1 | Hardcoded dev credentials in the tracked main compose file — 3 bare literals + 70 `${VAR:-<literal>}` fallbacks, no `env_file:` anywhere. Directly contradicts the LOCKED "No hardcoded secrets" rule; the pattern is copy-pasteable into a prod compose. | `infra/docker-compose.yml:43` (`POSTGRES_PASSWORD: loreweave_dev`), `:227` (`SHARD_DB_PASSWORD`), `:279` (`PROVISION_PG_PASSWORD`), `:2252` (`NEO4J_AUTH` fallback) | verified |
+| P0-2 | `_guard_throwaway` reimplemented inline in 13 files instead of living in the shared helper. AGENTS.md forbids exactly this ("never reimplement a helper inline") — the failure mode once hard-deleted every user's books. Copies are near-identical, so a fix to one silently misses the others. | `services/campaign-service/tests/integration/conftest.py:47`, `services/composition-service/tests/integration/db/conftest.py:32`, `services/knowledge-service/tests/integration/db/conftest.py:41`, `services/lore-enrichment-service/tests/db/conftest.py:64`, + 9 more | verified (count 13; copies diffed as near-identical) |
+| P0-3 | 32 silent `except Exception: pass` in Python request paths (of 51 total; 19 annotated best-effort). Worst: MinIO deletions silently skipped in a cleanup loop — orphaned objects, no metric. | `services/chat-service/app/routers/internal.py:996`, `services/chat-service/app/routers/voice.py:234,290`, `services/composition-service/app/routers/engine.py:577,583`, `services/knowledge-service/app/clients/embedding_client.py:145` | agent-reported |
+| P0-4 | `readyz()` is byte-identical to `livez()` (always 200). When the service gains Postgres/Redis/HTTP deps, load balancers will route to a broken instance. Documented `TODO(readiness)` (LOW-4, 2026-05-24). | `services/tilemap-service/src/http/health.rs:60` | agent-reported |
+
+## P1 — structural
+
+| # | Item | Evidence | Status |
+|---|---|---|---|
+| P1-1 | `frontend/` lint is effectively one rule (`react-hooks/rules-of-hooks` only); `exhaustive-deps` deliberately OFF, `no-explicit-any` not enabled, `reportUnusedDisableDirectives: 'off'` hides stale suppressions. 157 `any`s unlinted; 53 disable comments suppress nothing. Documented as intentional ("Expand later") — the debt is the deferral, not an accident. | `frontend/eslint.config.js:3,16,25` | verified |
+| P1-2 | `cms-frontend/` is completely unlinted: no eslint config, no `lint` script, not in `pnpm-workspace.yaml`, outside the root eslint glob. 52 TS files, zero lint coverage. | `cms-frontend/package.json` (scripts: dev/build/preview/test only); root `eslint.config.mjs` glob | verified |
+| P1-3 | `frontend/` duplicates the shared auth/fetch layer and ignores `packages/*`: `apiBase`/`refreshAccessToken`/`apiJson` re-implement `packages/auth-client`; `cms-frontend/src/api.ts` is a third copy. Zero `@loreweave/*` imports in `frontend/` or `cms-frontend/`; only `frontend-game` consumes the workspace packages. | `frontend/src/api.ts:19,43,128`; `packages/auth-client/src/index.ts:44,249,298`; `cms-frontend/src/api.ts:7,11` | agent-reported |
+| P1-4 | Major version drift across the three frontends: React 18 vs 19, Vite 5 vs 8, TS 5.5 vs 5.9 vs 7.0.2 (native port), Tailwind 3 vs 4, react-router 6 vs 7. Shared-component/hook reuse across them is a latent break. | `frontend/package.json`, `frontend-game/package.json`, `cms-frontend/package.json` | agent-reported |
+| P1-5 | 7 contract-declared gRPC methods return `UNIMPLEMENTED` — the largest known functional gap in the Rust surface. Tracked by design (two-way test asserts the list), blockers named (DP-C5 migration state machine, `npc_binding` DDL design gap). Closing needs design decisions, not a code sweep. | `crates/dp-control-plane/src/lib.rs:71`; `tests/surface.rs::every_unimplemented_method_says_so_and_no_other_does` | verified |
+| P1-6 | `YamlGuardrail` implemented but bound by no production service; the workspace `Cargo.toml` comment claims roleplay-service / world-service bind it — grep finds zero uses outside its own crate. Canon writes in production are unguarded or guarded elsewhere (unverified either way). | `crates/contracts-prompt/src/canon_guardrail.rs:181`; `crates/dp-kernel/src/canon_cache.rs:416,425` (`NoOpGuardrail`/`StubRejectGuardrail`, also unbound) | verified (0 uses outside crate) |
+| P1-7 | 835 broken relative links out of 13,759 in `docs/` (6.1%). 242 trace to one refactor (knowledge-service extraction/neo4j files moved, docs never updated); 595 in `docs/sessions/` alone. The session archive is the project's memory; agents follow pointers into deleted code. | `docs/sessions/SESSION_ARCHIVE.md` → `../plans/2026-08-09-knowledge-architecture-refactor.md` (moved to `.ai-factory/archive/plans/`), → `../../services/knowledge-service/app/extraction/llm_entity_extractor.py` (missing) | verified (spot-checked: target files missing, moved file exists at new path) |
+| P1-8 | Progress SSOTs stale: `docs/MILESTONE.md` last updated 2026-08-08 (~3 months before HEAD) although AGENTS.md declares it the SSOT; `docs/sessions/SESSION_HANDOFF.md` latest in-content date 2026-09-04 (~2 months stale). | `docs/MILESTONE.md:7`; `docs/sessions/SESSION_HANDOFF.md` (max date 2026-09-04) | verified |
+| P1-9 | `CHANGELOG.md` `[Unreleased]` completely empty while HEAD is a feature commit (`440fe02`) and the last release section is `[0.1.0-rc.1] - 2026-09-06` — ~2 months of work unrecorded. | `CHANGELOG.md` (`[Unreleased]` subsections blank) | verified |
+| P1-10 | No GitHub Action pinned to a commit SHA anywhere (0 of 147 `uses:`); `dtolnay/rust-toolchain@master` (floating branch) in 3 places. The repo's own `dep-pinning-lint` pins Docker `FROM` digests but does not scan `uses:` at all, so this is unenforced. | `.github/workflows/foundation-ci.yml:87`, `gates.yml:100,260`; `scripts/dep-pinning-lint.sh:9` | verified |
+| P1-11 | Migration-idempotency validator does not walk `contracts/migrations/glossary/` — exactly where the non-idempotent statements live: bare `CREATE TABLE` + 4 bare `CREATE INDEX` in `0001_canon_change_history.up.sql`. | `scripts/migration-idempotency-validator.py:75-77` (TREES covers only `per_reality` + `migrations/meta`); `contracts/migrations/glossary/0001_canon_change_history.up.sql:35,65,68,72,77` | verified |
+
+## P2 — maintainability
+
+| # | Item | Evidence | Status |
+|---|---|---|---|
+| P2-1 | `world-gen` is ~40% of all Rust and the least decomposed: `flatworld.rs` 2318 lines, `flat_climate.rs` 2235, `civ_adapter.rs` 2153; `generate()` 351 lines (`flatworld.rs:578`), 195 (`lib.rs:66`), 243 (`main.rs:357` `run_generate`), 179 (`shape/csg.rs:80`). | `crates/world-gen/src/*` | agent-reported |
+| P2-2 | `lock().unwrap()` / `lock().expect("poisoned")` in public production methods; release profile sets `panic = "abort"`, so a poisoned mutex kills the process, not just the request. No lock helper. | `crates/dp-kernel/src/ws.rs:283,288,292,302,326,344,357,376`; `crates/dp-kernel/src/event_store.rs:505,540` | agent-reported |
+| P2-3 | `Cargo.lock`: 35 packages in multiple versions (axum 0.7.9 + 0.8.9 via tonic 0.12.3; rand 0.8/0.9/0.10; hashbrown ×4; getrandom ×3). All transitive, no git deps. Bloat + trait-incompatibility risk. | `Cargo.lock` | agent-reported |
+| P2-4 | Go module sprawl: 27 `go.mod` under `contracts/` + `tools/eventgen` (76 repo-wide), no `go.work`; `go 1.22` (32) / `1.24` (4) / `1.25` (7) / `1.26.0` (33). CI pins 1.26.10 uniformly, so builds are consistent — the drift is maintenance debt. | `contracts/*/go.mod` | agent-reported |
+| P2-5 | Duplicated Python client shims across services: `model_name.py` ×6 services (near-identical), `embedding_client.py` ×3, `llm_client.py` ×5 (divergent wrappers). Provider-resolution behaviour can drift per service. | `services/{campaign,composition,knowledge,lore-enrichment,translation,video-gen}-service/.../model_name.py` | agent-reported |
+| P2-6 | Duplicated wizard-step components and shared types in `frontend/`: `StepConfirm`/`StepProgress`/`StepResults` in extraction, glossary-translate, pdf-import (1,309 lines); 97 exported-name collisions (`WizardStep` ×5, `CostEstimate` ×3, `Tier` ×3, `ProviderKind` ×3). | `frontend/src/features/{extraction,glossary-translate,pdf-import}/` | agent-reported |
+| P2-7 | ~268 skipped/disabled test call sites (Go `t.Skip` 111, Python skip 95, TS `.skip(` 38, Rust `#[ignore]` 7). Mostly env-gated by design, but TS skips concentrate in Playwright e2e — untested UI surface. | `frontend/tests/e2e/specs/campaign-factory.spec.ts` (8), `studio-divergence.spec.ts` (5), `agent-context-rack.spec.ts` (4) | agent-reported |
+| P2-8 | `packages/` has zero tests (api-types, auth-client, design-tokens, i18n all 0 test files); two of those packages are empty skeletons (`export {};`) yet declared as dependencies of frontend-game. | `packages/api-types/src/index.ts:14`, `packages/design-tokens/src/index.ts`, `frontend-game/package.json:26,28` | agent-reported |
+| P2-9 | Deprecated `ChapterEditorPage` (1,405 lines, `DEPRECATED — DO NOT EDIT` banner) is still the default edit route; its 15 legacy-only capabilities have no Studio equivalent enforced by deletion. | `frontend/src/pages/ChapterEditorPage.tsx:2`; `frontend/src/App.tsx:156` | agent-reported |
+| P2-10 | God-file API layers (hand-written, not generated): `frontend/src/features/knowledge/api.ts` 2,053 lines, `books/api.ts` 1,146, `composition/api.ts` 1,009. | `frontend/src/features/*/api.ts` | agent-reported |
+| P2-11 | `:latest` images in the tracked compose (`mailhog:latest`, `languagetool:latest`, `pandoc/core:latest`) plus floating majors (`postgres:16`, `redis:7-alpine`); the repo's own Dockerfile comments forbid the same class for `apache/age:latest`. | `infra/docker-compose.yml:140,2130,2163` | agent-reported |
+| P2-12 | 14 of 52 compose services have no `healthcheck:` (minio, mailhog, frontend, cms-frontend, otel-collector, tempo, grafana, …); `depends_on:` without healthchecks lets dependents start against not-ready backends. | `infra/docker-compose.yml` | agent-reported |
+| P2-13 | 9 of 14 workflows have zero `timeout-minutes` on any job (default GitHub timeout 6h); the repo's `timeout-discipline-lint` only checks HTTP-client timeouts in code, not workflow timeouts. | `conformance-ci.yml`, `foundation-ci.yml`, `gates.yml` (partial), `oss-release.yml`, `python-*.yml`, `domain-db-smoke.yml`, `dep-vuln.yml`, `game-subtree-ci.yml`, `visual-snapshots-bake.yml` | agent-reported |
+| P2-14 | 20 duplicated PNGs across `eval/compare-*` dirs (5 md5 groups × 4 identical copies); orphaned baseline `eval/baselines/v5.10.json` referenced by 0 files; compare dirs consumed by no live script (2026-05 planning docs only). | `eval/compare-v2.1e/…`, `eval/baselines/v5.10.json` | agent-reported |
+| P2-15 | Service count prose is one behind: AGENTS.md, CONTRIBUTING.md, README.md and docs/ARCHITECTURE.md say 47 services, `ls services/` = 48. (Historical mentions in archived RUN-STATE docs left as-is.) | `AGENTS.md:67`, `CONTRIBUTING.md:6`, `README.md:317`, `docs/ARCHITECTURE.md:9,69` | verified |
+| P2-16 | Two `canon` projection TODOs silently drop event shapes (`canon.entry.cascaded`, L3 override arms fall through to `_ => vec![]`) instead of erroring. | `crates/projections/canon/src/lib.rs:154,159` | agent-reported |
+| P2-17 | `CheckPackage` version-glob matching is exact — a banned-package entry with a glob version never matches, so the ban silently doesn't apply (`TODO: fnmatch in cycle 21`). | `contracts/supply_chain/policy.go:197` | agent-reported |
+| P2-18 | Failed-transition audit writes silently discarded (`_ = writeFailedTransitionAudit(...)`) against the Q-L1A-3 "full audit, no sampling" requirement; an audit gap is invisible. | `contracts/meta/lifecycle.go:36,42,46,103` | agent-reported |
+| P2-19 | Unused runtime dependencies: frontend-game `i18next` (0 imports; i18n goes via `@loreweave/i18n`), frontend `@tanstack/query-sync-storage-persister` + `@tanstack/react-query-persist-client` (0 references), cms-frontend `tailwind-merge` (0 imports). | `frontend-game/package.json`, `frontend/package.json`, `cms-frontend/package.json` | agent-reported |
+| P2-20 | Links leak a personal Windows path (`C:\Users\NeneScarlet\...`) — dead for everyone else. 13 hits across 9 files (3 in the ADR, 10 in audit/verification/session records — the latter are historical run records; fix the ADR, leave the records). | `docs/03_planning/KNOWLEDGE_SERVICE_LLM_MIGRATION_ADR.md` (×3) | verified (13 hits, 9 files) |
+| P2-21 | English-only rule (LOCKED) violated in prose: 64,768 Vietnamese-character hits in 500 files under `docs/`; most are legitimate corpus fixtures, but confirmed exposition leaks exist (`docs/ARCHITECTURE_WEAKNESSES.md`, `docs/03_planning/MVP_RELEASE_DEBT.md`); ~298 files with 1–19 hits need triage. | `docs/ARCHITECTURE_WEAKNESSES.md`, `docs/03_planning/MVP_RELEASE_DEBT.md` | agent-reported |
+| P2-22 | Duplicated story corpus ×3: `docs/specs/2026-06-30-editor-compose-overhaul/story-export{,-v2,-v3}/` (13 files each, 148 KB each) with no note saying which version is current. | `docs/specs/2026-06-30-editor-compose-overhaul/` | agent-reported |
+| P2-23 | Dead code: `crates/world-gen/src/zonegen.rs:194` `blended_height_with_owner` (zero callers, kept alive by `#[allow(dead_code)]`); `FakeBackend` test double (13 `.unwrap()`) ships in the library with zero users outside its own tests. | `crates/world-gen/src/zonegen.rs:194`, `crates/dp-kernel/src/canon_cache.rs:467–612` | agent-reported |
+| P2-24 | `tests/e2e/registry/*.ps1` smoke scripts appear unwired — 10+ scripts not referenced by any workflow. | `tests/e2e/registry/` | agent-reported |
+| P2-25 | `.gitignore` gaps: `.terraform/` + `*.tfstate` (an `infra/terraform/` tree exists), `.DS_Store`, `coverage/` (only `coverage.xml`/`htmlcov/` ignored). Latent, nothing tracked yet. | `.gitignore`, `infra/terraform/` | agent-reported |
+| P2-26 | 60 `cargo check` warnings in the workspace (all "missing documentation" on public items + 2 `cargo fix` suggestions), 53 of them in `world-service`. Warnings, not errors — `cargo check` passes. Found during verification (2026-11-12, `make ci-local` rerun after protoc install). | `services/world-service/src/rebuild/event_source.rs:187,201`, `crates/meta-rs/src/routing.rs:118,125,126`, `services/commit-service` (2), `crates/world-gen` (2) | verified |
+
+## P3 — hygiene
+
+| # | Item | Evidence | Status |
+|---|---|---|---|
+| P3-1 | `console.log` debug traces in prod code, one logging 80 chars of transcribed user text. | `frontend/src/hooks/useBackendSTT.ts:96,102,146,181,185,192`, `frontend/src/lib/TTSPlaybackQueue.ts:73,75,98`, `frontend/src/lib/VoicePipelineState.ts:107` | agent-reported |
+| P3-2 | Dead exports: `LoginResult`/`PasswordProblem` (`packages/auth-client/src/index.ts:102,219`), `isPlainTextMessage` (`frontend/src/api.ts:122`), `LanguageDir`/`LanguageEntry` (`frontend/src/lib/languages.ts`). | as listed | agent-reported |
+| P3-3 | `crates/dp/Cargo.toml:4` — `edition = "2021"` while the workspace declares 2024 and 27 of 28 other members inherit it; also doesn't inherit `authors`/`license`/`publish`. No comment explains the exception. | `crates/dp/Cargo.toml:4` | agent-reported |
+| P3-4 | `crates/foundation-model/Cargo.toml` — `stateright = "0.31"` is the only member dependency bypassing `[workspace.dependencies]` pinning. | `crates/foundation-model/Cargo.toml` | agent-reported |
+| P3-5 | Only 4 of 21 crates declare `#![forbid(unsafe_code)]`; no production `unsafe` exists today, so this is a missing guardrail, not a live risk. | `crates/dp-control-plane`, `crates/dp`, `crates/meta-rs`, `crates/sim-core` | agent-reported |
+| P3-6 | Dead script `scripts/qc5-arm1b-five-runs.sh` — zero references repo-wide (only `.git/index` mentions the name). One-off QC script; delete or keep deliberately. | `scripts/qc5-arm1b-five-runs.sh` | verified |
+| P3-7 | Lint duplication across three surfaces: `observability-inventory-lint` in two workflow matrices; `language-rule-lint` in `lint-foundation.yml` and again in `foundation-ci.yml`. No single owner list. | `lint.yml`, `lint-foundation.yml`, `foundation-ci.yml` | agent-reported |
+| P3-8 | `lint.yml` matrix silently skips missing scripts (`if [ -f ... ] … skipping`) — a renamed/deleted lint reports success. The exact "scope never reaches it" non-vacuity shape AGENTS.md warns about. | `.github/workflows/lint.yml` | agent-reported |
+| P3-9 | 3 workflows lack an explicit `permissions:` block (default `GITHUB_TOKEN` permissions apply). | `gates.yml`, `game-subtree-ci.yml`, `lint-foundation.yml` | agent-reported |
+| P3-10 | Action version split / toolchain duplication: `actions/checkout@v4` vs `@v7`, `setup-python` v5/v6/v7, two different Rust toolchain actions (`dtolnay/rust-toolchain` vs `actions-rust-lang/setup-rust-toolchain`). | `.github/workflows/*` | agent-reported |
+| P3-11 | Unpinned `pip install` in workflows (≥6 spots, bare `pyyaml`/`pytest` with no `==` and no requirements file). | `conformance-ci.yml:307`, `gates.yml:125`, `foundation-ci.yml:155` | agent-reported |
+| P3-12 | 16 of 73 `scripts/*.sh` have no `set -e` (mostly live-smoke scripts that intentionally continue after failures; one lint is a thin `exec` wrapper). Low-risk hygiene gap. | `scripts/architecture-live-proof-iso.sh`, `scripts/state-asof-live-smoke.sh`, … | agent-reported |
+| P3-13 | Real TODOs are few but concrete: unbounded `Map` of job samples (`frontend/src/features/knowledge/hooks/useJobProgressRate.ts:46`); movement-system tweening is a no-op stub (`frontend-game/src/game/systems/movement-system.ts:7`); single-worker assumption in the benchmark runner (`services/knowledge-service/app/benchmark/runner.py:26,183`). | as listed | agent-reported |
+| P3-14 | 28 hand-rolled Go `Validate()` methods across 24 files, no shared validation helper; `adminjwt`/`platformjwt` verify.go are structurally parallel (intentional — RS256 vs HS256). | `contracts/meta/intent.go`, `contracts/events/envelope.go` | agent-reported |
+
+## Verified clean (not debt)
+
+- No committed build artifacts (`node_modules/`, `target/`, `dist/`): 0 tracked paths.
+- `make lint` / `make ci-local` targets match reality: all 15 lint scripts and all 4 Go contract dirs exist.
+- No `curl | bash` executed anywhere; no `pull_request_target`; `oss-release.yml` triggers only on `v*` tags.
+- `.gitleaks.toml` exists with custom rules and gitleaks runs in CI on every branch + pre-commit hook; `SECURITY.md` exists. No production credential found by scan (158 literal-looking assignments classified; all non-placeholder ones are dev defaults / CI fixtures).
+- All 72 `.up.sql` migrations have a matching `.down.sql`; the migration validator's self-test passes (8 checks).
+- Rust: 0 production `unsafe`, 0 genuine commented-out code blocks, 1 production `panic!` (deliberate chaos-harness poison pill), no unpinned git deps in Cargo.
+- Python: 0 bare `except:`; `print()` in runtime code is confined to eval/benchmark/migration tooling, not request handlers.
+- Test coverage is broad: Go 798 test files, Python 1524, TS 922+, Rust 299 files with `#[test]`; only 3 of 43 frontend feature folders lack tests; `travel-service` has no tests by design (Cycle-0 scaffold).
+- Existing debt docs: `docs/deferred/DEBT-BATCHES.md` (2026-06-16), `docs/03_planning/MVP_RELEASE_DEBT.md` (2026-05-30, still "DRAFT 0.1.0"), `docs/specs/2026-08-03-glossary-kg-entity-refactor/DEBT-REGISTER.md` (2026-08-03), `docs/deferred/DEFERRED.md` (latest in-content date 2026-09-01) — contents not re-validated item by item here.
+
+## Closed in this audit
+
+- P1-9 (empty `[Unreleased]`) — partial: HEAD feature recorded; earlier unreleased work since `0.1.0-rc.1` still unrecorded (shallow clone has no history to reconstruct it from).
+- P1-11 (migration validator gap) — validator extended to walk `contracts/migrations/glossary/` (floor 1); the 5 violations in `0001_canon_change_history.up.sql` (1 bare `CREATE TABLE` + 4 bare `CREATE INDEX`) made idempotent. Red→green evidence: pre-fix run FAILed with 5 violations; post-fix validator PASSes 144 files across 3 trees, self-test OK.
+- P2-13 (workflow timeouts) — `timeout-minutes` added to all 42 jobs in the 9 uncovered workflows (30 for scans/smoke, 60 for test/build jobs, 120 for nightly/release-heavy jobs); YAML re-parsed after edit, 42/42 jobs covered.
+- P2-15 (service count 47 → 48) — fixed in `AGENTS.md:67`, `CONTRIBUTING.md:6`, `README.md:317`, `docs/ARCHITECTURE.md:9,69`. Historical mentions in archived RUN-STATE docs left as-is.
+- P2-20 (personal Windows paths in the ADR) — the 3 links in `docs/03_planning/KNOWLEDGE_SERVICE_LLM_MIGRATION_ADR.md` replaced with plain-text pattern names noting the feedback files live outside the repo. The remaining 10 hits are in historical audit/verification/session records and were left untouched.
+
+## Needs a decision (not closable by an audit)
+
+- P0-1: dev credentials in compose — replace with `${VAR}` without literal fallbacks + `.env.example` (breaks `docker compose up` with no setup), or formally mark the file dev-only? This changes the local-dev flow; needs the owner's call.
+- P0-2: `_guard_throwaway` dedup — touches the safety helper whose failure once deleted all books; needs a careful refactor + the db-safety gate's own tests, not a drive-by.
+- P1-5: the 7 UNIMPLEMENTED gRPC methods wait on DP-C5 design (migration state machine, `npc_binding` DDL) — design work, not a fix.
+- P1-6: `YamlGuardrail` unbound — either bind it in roleplay-service / world-service or delete it and correct the workspace comment.
+- P1-1/P1-2: frontend lint expansion — enabling rules surfaces ~157 `any`s + 53 stale suppressions; a cleanup in its own right.

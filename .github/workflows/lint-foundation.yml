@@ -171,6 +171,7 @@ jobs:
   # reads RED here. That remains the verdicts' job.
   agentruntime-census:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -210,6 +211,7 @@ jobs:
   # is built from. ~2 minutes; it reuses one mirror rather than one per falsifier.
   agentruntime-falsification:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7

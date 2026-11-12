@@ -48,6 +48,7 @@ jobs:
   unit:
     name: ${{ matrix.service }} (pytest, unit)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

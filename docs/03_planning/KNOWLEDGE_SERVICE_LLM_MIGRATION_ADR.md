@@ -255,7 +255,7 @@ async def extract_entities(
     return _parse_entities_with_tolerance(job.result.get("entities", []))
 ```
 
-**Step 3 — Tolerant parser** (uses the [feedback_llm_schema_tolerate_filter_dont_reject](../../C:\Users\NeneScarlet\.claude\projects\d--Works-source-lore-weave\memory\feedback_llm_schema_tolerate_filter_dont_reject.md) pattern):
+**Step 3 — Tolerant parser** (uses the *feedback_llm_schema_tolerate_filter_dont_reject* pattern — local feedback notes, not in this repo):
 
 ```python
 def _parse_entities_with_tolerance(raw: list[dict]) -> list[EntityCandidate]:
@@ -393,6 +393,6 @@ A sub-cycle's plan-row [x] only counts when ALL of the following are true. Phase
 - [`sdks/python/loreweave_llm/`](../../sdks/python/loreweave_llm/) — Phase 1b SDK foundation
 - [SESSION_PATCH session 52](../sessions/SESSION_PATCH.md) cycles 2–20 — refactor narrative
 - [SESSION_HANDOFF session 52](../sessions/SESSION_HANDOFF.md) §"What's NEXT" — Path A/B/C tradeoffs
-- Memory: [feedback_llm_schema_tolerate_filter_dont_reject](../../C:\Users\NeneScarlet\.claude\projects\d--Works-source-lore-weave\memory\feedback_llm_schema_tolerate_filter_dont_reject.md) — caller-side tolerance > fix-up retry, evidence basis for D3
-- Memory: [feedback_local_llm_first_cloud_is_fallback](../../C:\Users\NeneScarlet\.claude\projects\d--Works-source-lore-weave\memory\feedback_local_llm_first_cloud_is_fallback.md) — quality cycles target LM Studio gemma-4-26b-a4b baseline / qwen3.6-35b-a3b stretch
+- Memory: *feedback_llm_schema_tolerate_filter_dont_reject* (local feedback notes, not in this repo) — caller-side tolerance > fix-up retry, evidence basis for D3
+- Memory: *feedback_local_llm_first_cloud_is_fallback* (local feedback notes, not in this repo) — quality cycles target LM Studio gemma-4-26b-a4b baseline / qwen3.6-35b-a3b stretch
 - ADR pattern reference: [`KNOWLEDGE_SERVICE_BUDGET_GLOBAL_SCOPE_ADR.md`](./KNOWLEDGE_SERVICE_BUDGET_GLOBAL_SCOPE_ADR.md) — C16 DESIGN-first cycle template

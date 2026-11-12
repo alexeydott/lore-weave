@@ -3,7 +3,7 @@
 Welcome. This file is the **entry point** — enough to get you running, oriented, and shipping a
 first PR without reading all 2,000 documents in `docs/`.
 
-LoreWeave is a large monorepo: **47 services** in four languages, plus two frontends and a Rust
+LoreWeave is a large monorepo: **48 services** in four languages, plus two frontends and a Rust
 kernel tier. That size is manageable once you know that **you only ever need the slice you are
 working on.** Nobody reads it all. This file tells you which slice.
 

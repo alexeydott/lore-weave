@@ -1,5 +1,22 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## ▶ TECH-DEBT AUDIT 2026-11-12 — HEAD `440fe02`, uncommitted
+
+Four read-only passes (Rust+Go, TS+Python, infra/CI/security, docs/tests/eval)
++ a verification pass. Register: `docs/deferred/TECH-DEBT-2026-11.md`
+(4 P0, 11 P1, 25 P2, 14 P3; 7 items verified clean). Closed in this run:
+migration validator now walks `contracts/migrations/glossary/` and the 5
+bare statements there are idempotent; `timeout-minutes` on all 42 jobs in
+the 9 uncovered workflows; service count 47 → 48 (4 files); HEAD feature
+recorded in `CHANGELOG.md` `[Unreleased]` (partial — earlier unreleased
+work since `0.1.0-rc.1` still unrecorded); 3 personal-Windows-path links
+in the LLM-migration ADR replaced. Needs a decision before closing:
+P0-1 hardcoded dev credentials in `infra/docker-compose.yml`, P0-2
+`_guard_throwaway` inline copies (13 files), P1-5 seven UNIMPLEMENTED
+gRPC methods (DP-C5 design), P1-6 unbound `YamlGuardrail`, P1-1/P1-2
+frontend lint expansion. No push made; changes are uncommitted in the
+working tree, awaiting POST-REVIEW.
+
 ## ▶ KNOWLEDGE-ARCHITECTURE REFACTOR IS CLOSED — merged from `refactor/entity-lifecycle` (2026-08-31)
 
 Two plans finished and were merged into this branch. Neither is in flight; both are countable

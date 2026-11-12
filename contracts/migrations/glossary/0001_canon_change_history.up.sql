@@ -32,7 +32,7 @@
 
 BEGIN;
 
-CREATE TABLE canon_change_history (
+CREATE TABLE IF NOT EXISTS canon_change_history (
     change_id UUID PRIMARY KEY,
     canon_entry_id UUID NOT NULL,
     book_id UUID NOT NULL,
@@ -62,19 +62,19 @@ COMMENT ON COLUMN canon_change_history.reality_id IS 'NULL = book-wide change; n
 -- Indexes — author-UI query patterns.
 -- ─────────────────────────────────────────────────────────────────────────
 
-CREATE INDEX canon_change_history_entry_recorded_idx
+CREATE INDEX IF NOT EXISTS canon_change_history_entry_recorded_idx
     ON canon_change_history (canon_entry_id, recorded_at DESC);
 
-CREATE INDEX canon_change_history_book_path_recorded_idx
+CREATE INDEX IF NOT EXISTS canon_change_history_book_path_recorded_idx
     ON canon_change_history (book_id, attribute_path, recorded_at DESC);
 
 -- Per-reality drill-down (partial: most rows are book-wide).
-CREATE INDEX canon_change_history_reality_recorded_idx
+CREATE INDEX IF NOT EXISTS canon_change_history_reality_recorded_idx
     ON canon_change_history (reality_id, recorded_at DESC)
     WHERE reality_id IS NOT NULL;
 
 -- Source event linkage (forensic).
-CREATE INDEX canon_change_history_source_event_idx
+CREATE INDEX IF NOT EXISTS canon_change_history_source_event_idx
     ON canon_change_history (source_event_id);
 
 -- ─────────────────────────────────────────────────────────────────────────

@@ -20,6 +20,9 @@ pre-release identifiers, what "release" vs "pre-release" means for this repo, ar
 
 ### Added
 
+- **Promises panel: batch analyze-all-chapters** — the detection pass now runs over every chapter sequentially (per-chapter calls keep the server gate and the per-model budget), with live progress (chapter i/N), a Stop that cuts the remaining queue, and a summary toast; one cache invalidation at the end.
+- **Ledger rows: edit/archive** — PATCH and DELETE routes for narrative-threads rows (EDIT-tier, work-gated). An OPEN row's summary/kind are editable; paid and dropped rows are frozen history; archive is a soft-delete that hides the row from listings and the re-injection set. ThreadsPanel rows grow pencil/trash affordances for open rows (inline summary edit, Enter/Escape keys, archive with invalidation).
+
 ### Changed
 
 ### Fixed

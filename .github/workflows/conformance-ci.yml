@@ -34,6 +34,7 @@ jobs:
     # is the separate standing-integrity-nightly job; skip this one on schedule.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: tests/conformance
@@ -62,6 +63,7 @@ jobs:
     # (should_panic) proves loom catches an unsynchronized counter.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -80,6 +82,7 @@ jobs:
     # loom-ci. The bite (should_panic) proves shuttle explores interleavings.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -98,6 +101,7 @@ jobs:
     # schedule fires only on main; workflow_dispatch is the manual post-merge smoke.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -146,6 +150,7 @@ jobs:
     # baseline is informational-only and is NOT read here.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -205,6 +210,7 @@ jobs:
     # benches the PR base + HEAD on the SAME runner and fails on a flagged regression.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
         with:
@@ -244,6 +250,7 @@ jobs:
     # artifacts. schedule fires only on main; workflow_dispatch is the manual smoke.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -334,6 +341,7 @@ jobs:
     # only on main; workflow_dispatch is the manual smoke. Dormant until merged.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -393,6 +401,7 @@ jobs:
     # uses its own Cargo manifest. The deep seed sweep runs nightly below.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -411,6 +420,7 @@ jobs:
     # workflow_dispatch is the manual smoke. Dormant on a feature branch.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -432,6 +442,7 @@ jobs:
     # only on main; workflow_dispatch is the manual smoke. Dormant until merged.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -461,6 +472,7 @@ jobs:
     # readiness driver must keep compiling (review LOW-3). Cheap go build/vet.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -478,6 +490,7 @@ jobs:
     # but the new Go tooling (metaworker-bench + roleplay-load) must keep compiling.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -558,6 +571,7 @@ jobs:
     # freeze-set + provisioner_live safe_ident + capacity_glue lock-key.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     # Postgres added 2026-08-31 by the skipped-test audit. `world-gen`'s
     # `shape::postgres_cache::round_trip_against_real_postgres` is `#[ignore]`d with the
     # reason "requires TEST_DATABASE_URL; not run by default CI" — and BOTH halves of that
@@ -615,6 +629,7 @@ jobs:
     # weight. exit 1 → fail; exit 2 → notrun (green). schedule fires only on main.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7

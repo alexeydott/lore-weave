@@ -32,6 +32,7 @@ jobs:
   frontend-game:
     name: frontend-game (lint + typecheck + test + build + bundle size)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -55,6 +56,7 @@ jobs:
   frontend-game-e2e:
     name: frontend-game cross-browser e2e (AC-FG-16)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
 
@@ -89,6 +91,7 @@ jobs:
   game-server:
     name: game-server (build + test)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: services/game-server
@@ -106,6 +109,7 @@ jobs:
   tilemap-service:
     name: tilemap-service (cargo test)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 

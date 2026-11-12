@@ -314,7 +314,7 @@ The complete design lives in [`docs/03_planning/LLM_MMO_RPG/`](docs/03_planning/
 
 ## Documentation
 
-- [Architecture & Services](docs/ARCHITECTURE.md) — all 47 services, tech stack, infrastructure, ports
+- [Architecture & Services](docs/ARCHITECTURE.md) — all 48 services, tech stack, infrastructure, ports
 - [Data Architecture](docs/DATA_ARCHITECTURE.md) — SSOT layers, the 22 databases, event flows
 - [Frontend Feature Index](docs/FEATURE_INDEX.md) — every UI feature → route → backing service
 - [Standards index](docs/standards/README.md) — every cross-cutting rule, where it lives, how it's enforced

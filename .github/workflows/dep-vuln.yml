@@ -27,6 +27,7 @@ jobs:
   go-vuln:
     name: Go — govulncheck (advisory)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -71,6 +72,7 @@ jobs:
   python-vuln:
     name: Python — pip-audit (advisory)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -111,6 +113,7 @@ jobs:
   npm-vuln:
     name: JS/TS — npm/pnpm audit (frontend + gateways) (advisory)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -148,6 +151,7 @@ jobs:
   cargo-vuln:
     name: Rust — cargo audit (advisory)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7

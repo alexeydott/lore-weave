@@ -39,6 +39,7 @@ concurrency:
 jobs:
   validate-changelog:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       version: ${{ steps.version.outputs.version }}
       is_prerelease: ${{ steps.version.outputs.is_prerelease }}
@@ -67,6 +68,7 @@ jobs:
   compute-targets:
     needs: validate-changelog
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       matrix: ${{ steps.targets.outputs.matrix }}
     steps:
@@ -83,6 +85,7 @@ jobs:
   build-and-push:
     needs: [validate-changelog, compute-targets]
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -113,6 +116,7 @@ jobs:
   github-release:
     needs: [validate-changelog, build-and-push]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

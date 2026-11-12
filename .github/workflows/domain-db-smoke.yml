@@ -65,6 +65,7 @@ jobs:
   db-smoke:
     name: Domain DB round-trips (book + glossary)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:18-alpine
@@ -129,6 +130,7 @@ jobs:
   meta-db-smoke:
     name: Meta + PII-KMS DB round-trips
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:18-alpine
@@ -201,6 +203,7 @@ jobs:
   rot1-db-smoke:
     name: Auth · provider-registry · billing · scheduler DB round-trips
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:18-alpine

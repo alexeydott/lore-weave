@@ -6,7 +6,7 @@
 >
 > **Companion docs:** [`DATA_ARCHITECTURE.md`](DATA_ARCHITECTURE.md) (SSOT layers, DB ownership, data flows) · [`standards/README.md`](standards/README.md) (every cross-cutting rule/law/invariant) · [`FEATURE_INDEX.md`](FEATURE_INDEX.md) (frontend feature → route → backing service)
 
-Cloud-hosted (AWS target) monorepo, Docker Compose for local development. **47 services + infra containers + 3 frontends.** Contract-first API design. Event-driven with the transactional outbox pattern.
+Cloud-hosted (AWS target) monorepo, Docker Compose for local development. **48 services + infra containers + 3 frontends.** Contract-first API design. Event-driven with the transactional outbox pattern.
 
 ---
 
@@ -66,7 +66,7 @@ The service tables here are hand-maintained and therefore driftable. `contracts/
 
 ## Services
 
-47 service directories, grouped by tier. **Language is not editorial — it follows the LOCKED language rule (I3):** Rust = kernel-derived · Go = domain/meta · Python = AI/LLM · TypeScript = gateway/BFF + realtime.
+48 service directories, grouped by tier. **Language is not editorial — it follows the LOCKED language rule (I3):** Rust = kernel-derived · Go = domain/meta · Python = AI/LLM · TypeScript = gateway/BFF + realtime.
 
 "Compose" = host port in [`infra/docker-compose.yml`](../infra/docker-compose.yml); **`—` means the service is not in the local dev stack at all** (see §Not in the local stack).
 

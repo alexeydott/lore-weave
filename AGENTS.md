@@ -64,7 +64,7 @@ enumerate their contents (see Services below for why an inlined service table is
 
 ### Services
 
-The repo has **47 services** (verify: `ls services/ | wc -l`). This file does **not** enumerate them — the old inlined table went stale and misled agents. **Authoritative service→language map: [`contracts/language-rule.yaml`](contracts/language-rule.yaml); purposes: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); frontend feature → route → backing service: [`docs/FEATURE_INDEX.md`](docs/FEATURE_INDEX.md); data layer: [`docs/DATA_ARCHITECTURE.md`](docs/DATA_ARCHITECTURE.md).** Language rule: Go = domain/meta · Python = AI/LLM · TS = gateway/realtime · Rust = kernel-derived. Do not assume a service is absent because it's not named here.
+The repo has **48 services** (verify: `ls services/ | wc -l`). This file does **not** enumerate them — the old inlined table went stale and misled agents. **Authoritative service→language map: [`contracts/language-rule.yaml`](contracts/language-rule.yaml); purposes: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); frontend feature → route → backing service: [`docs/FEATURE_INDEX.md`](docs/FEATURE_INDEX.md); data layer: [`docs/DATA_ARCHITECTURE.md`](docs/DATA_ARCHITECTURE.md).** Language rule: Go = domain/meta · Python = AI/LLM · TS = gateway/realtime · Rust = kernel-derived. Do not assume a service is absent because it's not named here.
 
 Load-bearing facts an agent needs regardless:
 - **`provider-registry-service`** is the ONLY home of provider SDKs/keys (Provider-gateway invariant below).
