@@ -51,7 +51,14 @@
   "guidedCueReady": "寫下開頭，然後按「生成」 — 或在編輯器中從游標處「繼續書寫」。",
   "guidedCueStart": "建立第一個場景，寫下開頭再按「生成」 — 或在編輯器中從游標處「繼續書寫」。",
   "guidedStart": "開始書寫",
-  "compose": "撰寫",
+  "compose": {
+    "workDefault": {
+      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+      "apply": "Use my default chat model",
+      "applied": "Default model for this book has been set",
+      "apply_failed": "Failed to apply"
+    }
+  },
   "cowriter": "共筆",
   "cw": {
     "insert": "插入為草稿",
@@ -100,7 +107,8 @@
     "stale": "游標已移動 — 請重試。",
     "need_editor": "編輯器仍在載入中。",
     "streaming": "正在寫作…請等待目前的內容寫完。",
-    "pending_ghost": "在開始下一個建議前，請先接受或捨棄目前的建議。"
+    "pending_ghost": "在開始下一個建議前，請先接受或捨棄目前的建議。",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "節拍",
   "beatsheet": {
@@ -1808,5 +1816,7 @@
     "preview_back": "返回",
     "preview_more": "…還有 {{n}} 處",
     "preview_blank": "將刪除一個空行"
-  }
+  },
+  "threadEditAria": "Edit promise",
+  "threadArchiveAria": "Archive promise"
 }

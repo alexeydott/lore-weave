@@ -1,21 +1,29 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
-## ▶ TECH-DEBT AUDIT 2026-11-12 — HEAD `440fe02`, uncommitted
+## ▶ TECH-DEBT AUDIT 2026-11-12 — HEAD `440fe02`, round 1 committed, round 2 in this commit
 
 Four read-only passes (Rust+Go, TS+Python, infra/CI/security, docs/tests/eval)
 + a verification pass. Register: `docs/deferred/TECH-DEBT-2026-11.md`
-(4 P0, 11 P1, 25 P2, 14 P3; 7 items verified clean). Closed in this run:
-migration validator now walks `contracts/migrations/glossary/` and the 5
-bare statements there are idempotent; `timeout-minutes` on all 42 jobs in
-the 9 uncovered workflows; service count 47 → 48 (4 files); HEAD feature
+(4 P0, 11 P1, 27 P2, 14 P3; 7 items verified clean). Round 1 (commit
+`ac1fe4f`): migration validator now walks `contracts/migrations/glossary/`
+and the 5 bare statements there are idempotent; `timeout-minutes` on all
+55 jobs in all 14 workflows; service count 47 → 48 (4 files); HEAD feature
 recorded in `CHANGELOG.md` `[Unreleased]` (partial — earlier unreleased
 work since `0.1.0-rc.1` still unrecorded); 3 personal-Windows-path links
-in the LLM-migration ADR replaced. Needs a decision before closing:
-P0-1 hardcoded dev credentials in `infra/docker-compose.yml`, P0-2
-`_guard_throwaway` inline copies (13 files), P1-5 seven UNIMPLEMENTED
+in the LLM-migration ADR replaced; `.githooks/pre-commit` mode fixed
+(P2-27). Round 2 (this commit): all 10 RED gates from the first full run
+fixed — i18n 7 keys, generation-guard 60th caller, llm-budget literal,
+language-bias `hardSplit`, pytest/pydantic-ai/docker/protoc installed,
+guard-redability 18/18, db-ensure-bite static-only; second full run
+**136 GREEN / 0 RED / 28 SKIP, exit 0**; `make ci-local` PASS; frontend
+build PASS. The 28 live gates stay SKIP by design: no live stack in the
+sandbox (containers cannot start there — `setns` denied), and the 2
+bare-runnable live gates refuse an empty store. Needs a decision before
+closing: P0-1 hardcoded dev credentials in `infra/docker-compose.yml`,
+P0-2 `_guard_throwaway` inline copies (13 files), P1-5 seven UNIMPLEMENTED
 gRPC methods (DP-C5 design), P1-6 unbound `YamlGuardrail`, P1-1/P1-2
-frontend lint expansion. No push made; changes are uncommitted in the
-working tree, awaiting POST-REVIEW.
+frontend lint expansion. Push pending: full-green reached; awaiting a
+fresh token from the owner.
 
 ## ▶ KNOWLEDGE-ARCHITECTURE REFACTOR IS CLOSED — merged from `refactor/entity-lifecycle` (2026-08-31)
 

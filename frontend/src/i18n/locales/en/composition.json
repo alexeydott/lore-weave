@@ -51,7 +51,14 @@
   "guidedCueReady": "Write your opening, then Generate — or Continue from your cursor in the editor.",
   "guidedCueStart": "Create your first scene, then write your opening and Generate — or Continue from your cursor in the editor.",
   "guidedStart": "Start writing",
-  "compose": "Compose",
+  "compose": {
+    "workDefault": {
+      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+      "apply": "Use my default chat model",
+      "applied": "Default model for this book has been set",
+      "apply_failed": "Failed to apply"
+    }
+  },
   "cowriter": "Co-writer",
   "cw": {
     "insert": "Insert as draft",
@@ -100,7 +107,8 @@
     "stale": "The cursor moved — try again.",
     "need_editor": "The editor is still loading.",
     "streaming": "Writing… let the current continuation finish.",
-    "pending_ghost": "Accept or discard the current suggestion before starting another."
+    "pending_ghost": "Accept or discard the current suggestion before starting another.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "Beats",
   "beatsheet": {
@@ -574,6 +582,8 @@
   "threadKind_question": "question",
   "threadKind_mice_thread": "thread",
   "threadPaid": "paid",
+  "threadEditAria": "Edit promise",
+  "threadArchiveAria": "Archive promise",
   "threadDropped": "dropped",
   "noThreads": "No threads yet.",
   "noOpenThreads": "No open promises — all paid.",

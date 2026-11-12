@@ -51,7 +51,14 @@
   "guidedCueReady": "编写你的开场，然后点击“生成” — 或者在编辑器中从光标处“继续”。",
   "guidedCueStart": "创建你的第一个场景，然后编写开场并点击“生成” — 或者在编辑器中从光标处“继续”。",
   "guidedStart": "开始写作",
-  "compose": "创作",
+  "compose": {
+    "workDefault": {
+      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+      "apply": "Use my default chat model",
+      "applied": "Default model for this book has been set",
+      "apply_failed": "Failed to apply"
+    }
+  },
   "cowriter": "共同作者",
   "cw": {
     "insert": "作为草稿插入",
@@ -100,7 +107,8 @@
     "stale": "光标已移动 — 请重试。",
     "need_editor": "编辑器正在加载中。",
     "streaming": "正在写作……请等待当前续写完成。",
-    "pending_ghost": "在开始新的建议之前，请先接受或舍弃当前的建议。"
+    "pending_ghost": "在开始新的建议之前，请先接受或舍弃当前的建议。",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "情节节拍",
   "beatsheet": {
@@ -1808,5 +1816,7 @@
     "preview_back": "返回",
     "preview_more": "…还有 {{n}} 处",
     "preview_blank": "将删除一个空行"
-  }
+  },
+  "threadEditAria": "Edit promise",
+  "threadArchiveAria": "Archive promise"
 }

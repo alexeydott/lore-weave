@@ -294,7 +294,7 @@ fi
 # completeness is a property of the tree, since a service can be added with no row by a
 # commit that touches no yaml at all. That is exactly how jobs-service landed 2026-06-15
 # with no row while the lint sat on no commit path.
-sh "$ROOT/scripts/language-rule-lint.sh"
+bash "$ROOT/scripts/language-rule-lint.sh"
 
 # _boundaries/ single-writer mutex (added 2026-07-26). Checks for EVIDENCE OF A CYCLE, not
 # for Owner != None — the normal combined claim+release commit ends with Owner: None by
@@ -565,10 +565,10 @@ fi
 # a `use meta_rs::…` in a service source file, and touched none of those
 # directories. Default-uncovered again (docs/standards/non-vacuity.md, NV-3).
 if git diff --cached --name-only | grep -qE 'migrations/meta/|contracts/(service_acl|meta)/|crates/meta-rs/'    || git diff --cached -U0 | grep -qE '^\+.*(meta-rs|meta_rs|contracts/meta|MetaWrite\(|meta_write)'; then
-  sh "$ROOT/scripts/service-acl-matrix-lint.sh"
-  sh "$ROOT/scripts/role-grant-validator.sh"
-  sh "$ROOT/scripts/pii-classify-lint.sh"
-  sh "$ROOT/scripts/meta-write-discipline-lint.sh"
+  bash "$ROOT/scripts/service-acl-matrix-lint.sh"
+  bash "$ROOT/scripts/role-grant-validator.sh"
+  bash "$ROOT/scripts/pii-classify-lint.sh"
+  bash "$ROOT/scripts/meta-write-discipline-lint.sh"
 fi
 
 # I3 — the TRANSPORT TIER owns no database of record. Repo-wide, not
@@ -693,11 +693,11 @@ fi
 if git diff --cached --name-only | grep -qE '\.(py|go|rs|ts|tsx|sql|ya?ml)$'; then
   "$PY" "$ROOT/scripts/slo-latency-lint.py"
   "$PY" "$ROOT/scripts/context-budget-l3-lint.py"
-  sh "$ROOT/scripts/transitions-validation-lint.sh"
+  bash "$ROOT/scripts/transitions-validation-lint.sh"
 fi
 if git diff --cached --name-only | grep -qE 'migrations/meta/|contracts/meta/|crates/meta-rs/|_audit'; then
-  sh "$ROOT/scripts/meta-actor-uuid-lint.sh"
-  sh "$ROOT/scripts/read-audit-query-type-drift-lint.sh"
+  bash "$ROOT/scripts/meta-actor-uuid-lint.sh"
+  bash "$ROOT/scripts/read-audit-query-type-drift-lint.sh"
 fi
 
 # ML-7 (multilingual.md) — locale completeness. When an i18n locale JSON is staged, every uiLocale

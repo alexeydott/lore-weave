@@ -108,6 +108,23 @@ paths:
       that one builder, asserted by test — the six-hand-written-copies defect `canon_envelope`
       was extracted from started as two dicts that agreed on the day they were written.
 
+  - id: composition.world.setup_assist_description
+    service: composition-service
+    language: python
+    file: services/composition-service/app/routers/engine.py
+    symbol: world_setup_assist_description
+    status: unguarded
+    owner: composition-service
+    note: >-
+      POST /books/{book_id}/world-setup/assist-description drafts the world
+      description (3-6 paragraphs of prose) from the book's opening chapters.
+      The description is a DRAFT for the textarea: the human reviews/edits it
+      before "Plan my world". No guard report rides with it — no guard_status,
+      no canon check — so this is unguarded, not guarded: the control is human
+      review, and a human review is not a coverage field. The output budget at
+      the call site is a model field (`WorldAssistBody.max_output_tokens`,
+      ceiling `SCENE_OUTPUT_CEILING` = 32768), tracked by llm-budget-ssot-gate.
+
   - id: composition.chapter.single_pass
     service: composition-service
     language: python
@@ -215,7 +232,20 @@ discovery:
   # different pattern typed at a prompt, which would have masked one new Rust caller forever —
   # a baseline is only a guard if the thing that checks it produced it.
   baseline:
-    python: 59
+    # 59 → 60 on 2026-11-12: `services/composition-service/app/routers/engine.py`
+    # gained its first detector-matching call sites (two `submit_and_wait` calls,
+    # both added by the 2026-11-08 promises/world-setup feature). Each was READ
+    # before being counted rather than accepted as a number:
+    #   · `world_setup_assist_description` — a real generation path: drafts the
+    #     world-description prose the author reviews/edits before planning.
+    #     Classified above as `composition.world.setup_assist_description`
+    #     (unguarded: no guard report rides with the draft).
+    #   · `threads_assistant` — NOT a generation path: a structured audit report
+    #     (proposed promises, critic notes, canon issues) for panel review, the
+    #     same class as eval_judge/promise_audit, which this registry deliberately
+    #     does not enumerate. Returns `degraded: true` when the model output is
+    #     not parseable JSON.
+    python: 60
     go: 2
     # 24 → 30 on the 2026-08-02 merge of `origin/main` (the game-logic promotion). The six new
     # files are all `services/commit-service/src/`, and the raise is narrow because each was

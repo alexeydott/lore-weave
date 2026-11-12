@@ -51,7 +51,14 @@
   "guidedCueReady": "Viết đoạn mở đầu rồi nhấn Tạo — hoặc Tiếp tục từ con trỏ trong trình soạn thảo.",
   "guidedCueStart": "Tạo cảnh đầu tiên, viết đoạn mở đầu rồi nhấn Tạo — hoặc Tiếp tục từ con trỏ trong trình soạn thảo.",
   "guidedStart": "Bắt đầu viết",
-  "compose": "Soạn",
+  "compose": {
+    "workDefault": {
+      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+      "apply": "Use my default chat model",
+      "applied": "Default model for this book has been set",
+      "apply_failed": "Failed to apply"
+    }
+  },
   "cowriter": "Đồng tác giả",
   "cw": {
     "insert": "Chèn làm bản nháp",
@@ -100,7 +107,8 @@
     "stale": "Con trỏ đã di chuyển — hãy thử lại.",
     "need_editor": "Trình chỉnh sửa vẫn đang tải.",
     "streaming": "Đang viết… hãy để phần tiếp theo hiện tại hoàn tất.",
-    "pending_ghost": "Hãy chấp nhận hoặc loại bỏ gợi ý hiện tại trước khi bắt đầu một gợi ý khác."
+    "pending_ghost": "Hãy chấp nhận hoặc loại bỏ gợi ý hiện tại trước khi bắt đầu một gợi ý khác.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "Nhịp",
   "beatsheet": {
@@ -1808,5 +1816,7 @@
     "preview_back": "Quay lại",
     "preview_more": "…và {{n}} nữa",
     "preview_blank": "dòng trống sẽ bị xóa"
-  }
+  },
+  "threadEditAria": "Edit promise",
+  "threadArchiveAria": "Archive promise"
 }

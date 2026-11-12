@@ -51,7 +51,14 @@
   "guidedCueReady": "আপনার সূচনা লিখুন, তারপর Generate করুন — অথবা এডিটরে কার্সার থেকে Continue করুন।",
   "guidedCueStart": "আপনার প্রথম দৃশ্যটি তৈরি করুন, তারপর সূচনা লিখুন এবং Generate করুন — অথবা এডিটরে কার্সার থেকে Continue করুন।",
   "guidedStart": "লেখা শুরু করুন",
-  "compose": "কম্পোজ",
+  "compose": {
+    "workDefault": {
+      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+      "apply": "Use my default chat model",
+      "applied": "Default model for this book has been set",
+      "apply_failed": "Failed to apply"
+    }
+  },
   "cowriter": "কো-রাইটার",
   "cw": {
     "insert": "খসড়া হিসেবে ইনসার্ট করুন",
@@ -100,7 +107,8 @@
     "stale": "কার্সার সরে গেছে — আবার চেষ্টা করুন।",
     "need_editor": "এডিটরটি এখনও লোড হচ্ছে।",
     "streaming": "লেখা হচ্ছে… বর্তমান অংশটি শেষ হতে দিন।",
-    "pending_ghost": "অন্যটি শুরু করার আগে বর্তমান প্রস্তাবটি গ্রহণ বা বর্জন করুন।"
+    "pending_ghost": "অন্যটি শুরু করার আগে বর্তমান প্রস্তাবটি গ্রহণ বা বর্জন করুন।",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "বিটস",
   "beatsheet": {
@@ -1808,5 +1816,7 @@
     "preview_back": "পেছনে",
     "preview_more": "…আরও {{n}}টি",
     "preview_blank": "ফাঁকা লাইন মুছে ফেলা হবে"
-  }
+  },
+  "threadEditAria": "Edit promise",
+  "threadArchiveAria": "Archive promise"
 }

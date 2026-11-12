@@ -2562,6 +2562,11 @@ class WorldAssistBody(BaseModel):
     model_ref: UUID
     lang: str = "auto"
     max_chapters: int = Field(default=5, ge=1, le=20)
+    # The model's own output budget, same shape as ThreadsAssistantBody: the
+    # caller may NARROW it, never override the ceiling; None keeps the 4096
+    # default below. (D-LLM-BUDGET-SSOT: a flat literal here was the last
+    # unattributed budget in this file.)
+    max_output_tokens: int | None = Field(default=None, ge=64, le=SCENE_OUTPUT_CEILING)
 
 
 @router.post("/books/{book_id}/world-setup/assist-description")
@@ -2628,7 +2633,8 @@ async def world_setup_assist_description(
         model_source=body.model_source, model_ref=str(body.model_ref),
         input={
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            "response_format": {"type": "text"}, "temperature": 0.3, "max_tokens": 4096,
+            "response_format": {"type": "text"}, "temperature": 0.3,
+            "max_tokens": body.max_output_tokens or 4096,
             **no_thinking_fields(),
         },
         job_meta={"usage_purpose": "world_setup_assist", "extractor": "world_setup_assist"},

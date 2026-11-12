@@ -51,7 +51,14 @@
   "guidedCueReady": "เขียนบทนำของคุณ แล้วกด Generate — หรือเขียนต่อจากเคอร์เซอร์ในตัวแก้ไข",
   "guidedCueStart": "สร้างฉากแรกของคุณ จากนั้นเขียนบทนำแล้วกด Generate — หรือเขียนต่อจากเคอร์เซอร์ในตัวแก้ไข",
   "guidedStart": "เริ่มเขียน",
-  "compose": "เรียบเรียง",
+  "compose": {
+    "workDefault": {
+      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+      "apply": "Use my default chat model",
+      "applied": "Default model for this book has been set",
+      "apply_failed": "Failed to apply"
+    }
+  },
   "cowriter": "ผู้ช่วยเขียน",
   "cw": {
     "insert": "แทรกเป็นฉบับร่าง",
@@ -100,7 +107,8 @@
     "stale": "เคอร์เซอร์มีการเคลื่อนที่ — โปรดลองอีกครั้ง",
     "need_editor": "ตัวแก้ไขกำลังโหลด",
     "streaming": "กำลังเขียน… โปรดรอให้การเขียนต่อเนื่องปัจจุบันเสร็จสิ้น",
-    "pending_ghost": "กรุณายอมรับหรือปฏิเสธคำแนะนำปัจจุบันก่อนเริ่มคำแนะนำใหม่"
+    "pending_ghost": "กรุณายอมรับหรือปฏิเสธคำแนะนำปัจจุบันก่อนเริ่มคำแนะนำใหม่",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "จังหวะเรื่อง",
   "beatsheet": {
@@ -1808,5 +1816,7 @@
     "preview_back": "ย้อนกลับ",
     "preview_more": "…และอีก {{n}}",
     "preview_blank": "บรรทัดว่างจะถูกลบ"
-  }
+  },
+  "threadEditAria": "Edit promise",
+  "threadArchiveAria": "Archive promise"
 }

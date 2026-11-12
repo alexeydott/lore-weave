@@ -51,7 +51,14 @@
   "guidedCueReady": "اكتب مقدمتك، ثم اضغط على «توليد» — أو «المتابعة من موقع المؤشر» في المحرر.",
   "guidedCueStart": "أنشئ مشهدك الأول، ثم اكتب مقدمتك واضغط على «توليد» — أو «المتابعة من موقع المؤشر» في المحرر.",
   "guidedStart": "ابدأ الكتابة",
-  "compose": "تأليف",
+  "compose": {
+    "workDefault": {
+      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+      "apply": "Use my default chat model",
+      "applied": "Default model for this book has been set",
+      "apply_failed": "Failed to apply"
+    }
+  },
   "cowriter": "المؤلف المساعد",
   "cw": {
     "insert": "إدراج كمسودة",
@@ -100,7 +107,8 @@
     "stale": "تحرك المؤشر — حاول مرة أخرى.",
     "need_editor": "المحرر لا يزال قيد التحميل.",
     "streaming": "جاري الكتابة... انتظر حتى ينتهي الجزء الحالي.",
-    "pending_ghost": "يجب قبول الاقتراح الحالي أو رفضه قبل البدء في اقتراح آخر."
+    "pending_ghost": "يجب قبول الاقتراح الحالي أو رفضه قبل البدء في اقتراح آخر.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "الإيقاعات",
   "beatsheet": {
@@ -1808,5 +1816,7 @@
     "preview_back": "رجوع",
     "preview_more": "…و{{n}} أخرى",
     "preview_blank": "سيُحذف سطر فارغ"
-  }
+  },
+  "threadEditAria": "Edit promise",
+  "threadArchiveAria": "Archive promise"
 }

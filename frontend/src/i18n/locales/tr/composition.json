@@ -51,7 +51,14 @@
   "guidedCueReady": "Açılışınızı yazın, ardından Oluştur deyin — veya editörde imlecinizden Devam edin.",
   "guidedCueStart": "İlk sahnenizi oluşturun, ardından açılışınızı yazın ve Oluştur deyin — veya editörde imlecinizden Devam edin.",
   "guidedStart": "Yazmaya başla",
-  "compose": "Oluştur",
+  "compose": {
+    "workDefault": {
+      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+      "apply": "Use my default chat model",
+      "applied": "Default model for this book has been set",
+      "apply_failed": "Failed to apply"
+    }
+  },
   "cowriter": "Yazma ortağı",
   "cw": {
     "insert": "Taslak olarak ekle",
@@ -100,7 +107,8 @@
     "stale": "İmleç hareket etti — tekrar deneyin.",
     "need_editor": "Editör hâlâ yükleniyor.",
     "streaming": "Yazılıyor… mevcut devamlılığın tamamlanmasına izin verin.",
-    "pending_ghost": "Başka bir öneriye başlamadan önce mevcut öneriyi kabul edin veya reddedin."
+    "pending_ghost": "Başka bir öneriye başlamadan önce mevcut öneriyi kabul edin veya reddedin.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "Olay Örgüsü",
   "beatsheet": {
@@ -1808,5 +1816,7 @@
     "preview_back": "Geri",
     "preview_more": "…ve {{n}} tane daha",
     "preview_blank": "boş satır silinecek"
-  }
+  },
+  "threadEditAria": "Edit promise",
+  "threadArchiveAria": "Archive promise"
 }

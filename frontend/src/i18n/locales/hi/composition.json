@@ -51,7 +51,14 @@
   "guidedCueReady": "अपनी शुरुआत लिखें, फिर जनरेट करें — या एडिटर में अपने कर्सर से आगे बढ़ें।",
   "guidedCueStart": "अपना पहला दृश्य बनाएँ, फिर अपनी शुरुआत लिखें और जनरेट करें — या एडिटर में अपने कर्सर से आगे बढ़ें।",
   "guidedStart": "लिखना शुरू करें",
-  "compose": "रचना करें",
+  "compose": {
+    "workDefault": {
+      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+      "apply": "Use my default chat model",
+      "applied": "Default model for this book has been set",
+      "apply_failed": "Failed to apply"
+    }
+  },
   "cowriter": "को-राइटर",
   "cw": {
     "insert": "ड्राफ्ट के रूप में डालें",
@@ -100,7 +107,8 @@
     "stale": "कर्सर हिल गया है — फिर से प्रयास करें।",
     "need_editor": "एडिटर अभी लोड हो रहा है।",
     "streaming": "लिखा जा रहा है… वर्तमान निरंतरता को पूरा होने दें।",
-    "pending_ghost": "दूसरा सुझाव शुरू करने से पहले वर्तमान सुझाव को स्वीकार करें या हटा दें।"
+    "pending_ghost": "दूसरा सुझाव शुरू करने से पहले वर्तमान सुझाव को स्वीकार करें या हटा दें।",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "बीट्स",
   "beatsheet": {
@@ -1808,5 +1816,7 @@
     "preview_back": "वापस",
     "preview_more": "…और {{n}}",
     "preview_blank": "खाली पंक्ति हटाई जाएगी"
-  }
+  },
+  "threadEditAria": "Edit promise",
+  "threadArchiveAria": "Archive promise"
 }

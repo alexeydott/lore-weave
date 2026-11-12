@@ -51,7 +51,14 @@
   "guidedCueReady": "Schreibe deine Eröffnung und dann „Generieren“ — oder „Weiter“ von deinem Cursor im Editor aus.",
   "guidedCueStart": "Erstelle deine erste Szene, schreibe dann deine Eröffnung und klicke auf „Generieren“ — oder „Weiter“ von deinem Cursor im Editor aus.",
   "guidedStart": "Schreiben starten",
-  "compose": "Komponieren",
+  "compose": {
+    "workDefault": {
+      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+      "apply": "Use my default chat model",
+      "applied": "Default model for this book has been set",
+      "apply_failed": "Failed to apply"
+    }
+  },
   "cowriter": "Co-Writer",
   "cw": {
     "insert": "Als Entwurf einfügen",
@@ -100,7 +107,8 @@
     "stale": "Der Cursor hat sich bewegt — bitte erneut versuchen.",
     "need_editor": "Der Editor wird noch geladen.",
     "streaming": "Schreibt… bitte warten, bis die aktuelle Fortsetzung abgeschlossen ist.",
-    "pending_ghost": "Akzeptieren oder verwerfen Sie den aktuellen Vorschlag, bevor Sie einen neuen starten."
+    "pending_ghost": "Akzeptieren oder verwerfen Sie den aktuellen Vorschlag, bevor Sie einen neuen starten.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "Beats",
   "beatsheet": {
@@ -1808,5 +1816,7 @@
     "preview_back": "Zurück",
     "preview_more": "…und {{n}} weitere",
     "preview_blank": "Leerzeile wird gelöscht"
-  }
+  },
+  "threadEditAria": "Edit promise",
+  "threadArchiveAria": "Archive promise"
 }

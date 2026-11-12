@@ -51,7 +51,14 @@
   "guidedCueReady": "Tulis pembukaan Anda, lalu Generate — atau Lanjutkan dari kursor Anda di editor.",
   "guidedCueStart": "Buat adegan pertama Anda, lalu tulis pembukaan dan Generate — atau Lanjutkan dari kursor Anda di editor.",
   "guidedStart": "Mulai menulis",
-  "compose": "Susun",
+  "compose": {
+    "workDefault": {
+      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+      "apply": "Use my default chat model",
+      "applied": "Default model for this book has been set",
+      "apply_failed": "Failed to apply"
+    }
+  },
   "cowriter": "Co-writer",
   "cw": {
     "insert": "Masukkan sebagai draf",
@@ -100,7 +107,8 @@
     "stale": "Kursor berpindah — coba lagi.",
     "need_editor": "Editor sedang memuat.",
     "streaming": "Sedang menulis… biarkan kelanjutan saat ini selesai.",
-    "pending_ghost": "Terima atau buang saran saat ini sebelum memulai yang lain."
+    "pending_ghost": "Terima atau buang saran saat ini sebelum memulai yang lain.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "Beat",
   "beatsheet": {
@@ -1808,5 +1816,7 @@
     "preview_back": "Kembali",
     "preview_more": "…dan {{n}} lagi",
     "preview_blank": "baris kosong akan dihapus"
-  }
+  },
+  "threadEditAria": "Edit promise",
+  "threadArchiveAria": "Archive promise"
 }
