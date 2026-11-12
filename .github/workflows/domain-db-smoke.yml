@@ -58,6 +58,10 @@ on:
       - "migrations/meta/**"
       - ".github/workflows/domain-db-smoke.yml"
 
+  # Manual trigger: this workflow is path-filtered, so a fix that touches
+  # none of its paths would otherwise never re-run it on the new head.
+  workflow_dispatch:
+
 permissions:
   contents: read
 

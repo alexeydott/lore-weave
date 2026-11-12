@@ -46,8 +46,16 @@ bump: tests/integration replaces archive-worker locally, so MVS picks the
 new brotli/compress/x/crypto versions, but tests/integration/go.mod still
 pinned the old ones and `go test` runs `-mod=readonly`. Fixed in this
 commit by `go mod tidy` in tests/integration (only the three versions
-moved). Re-pushing now; the owner keeps the one-time token valid until CI
-is green, then revokes it.
+moved). Re-pushed as b43714a8; CI for it fully green 7/7 (lint, dep-vuln,
+Game subtree, conformance-ci, foundation-ci, gates, lint-foundation).
+Follow-up in this commit: the three path-filtered workflows
+(python-integration-tests, python-unit-tests, domain-db-smoke) did not run
+on b43714a8, and the owner asked to verify them on the current head
+anyway. They had no `workflow_dispatch`, so a manual trigger was
+impossible; added bare `workflow_dispatch:` to each (same pattern as
+gates.yml / dep-vuln.yml) — the push itself triggers them, since each
+workflow lists its own file in its push paths. The owner keeps the
+one-time token valid until CI is green, then revokes it.
 Needs a decision before closing: P0-1 hardcoded dev credentials in
 `infra/docker-compose.yml`, P0-2 `_guard_throwaway` inline copies (13 files),
 P1-5 seven UNIMPLEMENTED gRPC methods (DP-C5 design), P1-6 unbound

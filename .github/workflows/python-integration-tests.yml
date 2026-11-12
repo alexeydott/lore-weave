@@ -69,6 +69,10 @@ on:
       - "scripts/postgres-knowledge-image-smoke.sh"
       - ".github/workflows/python-integration-tests.yml"
 
+  # Manual trigger: this workflow is path-filtered, so a fix that touches
+  # none of its paths would otherwise never re-run it on the new head.
+  workflow_dispatch:
+
 permissions:
   contents: read
 
