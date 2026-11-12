@@ -27,11 +27,16 @@ dep-vuln Rust leg (`event-listener` 5.4.2, `rustix` 1.1.6, `spin` 0.9.9;
 newest sqlx 0.9.0 caps libsqlite3-sys <0.38.0, patch needs >=0.39.0;
 `cargo audit` exit 0, `cargo check --workspace --locked` exit 0), and the
 `knowledge-service` docker build (`PGVECTOR_VERSION` 0.8.6 → 0.8.7, PGDG
-dropped 0.8.6; the build itself cannot be verified in this sandbox).
-Still open from that CI run: `lint-foundation` — `agentruntime-census` and
+dropped 0.8.6; the build itself cannot be verified in this sandbox), and
+`lint-foundation` timeouts — `agentruntime-census` and
 `agentruntime-falsification` hit the 10-minute `timeout-minutes` (added in
-round 1) while doing real work; both scripts are being timed locally to set
-the timeout from a measured runtime, fix to follow in its own commit.
+round 1) while doing real work; both scripts were timed locally
+(census 3427s / 57:07, falsification 1284s / 21:24, sandbox is slower than
+a GitHub runner so these are upper bounds) and the timeouts raised to 120
+and 60 with the measurements recorded as comments in the workflow.
+Still open before push: the full `govulncheck` rescan of all 76 go.mod
+modules (the first attempt's /tmp logs were lost to a sandbox restart;
+rerun after the timeout measurement), then push rounds 3 once green.
 Needs a decision before closing: P0-1 hardcoded dev credentials in
 `infra/docker-compose.yml`, P0-2 `_guard_throwaway` inline copies (13 files),
 P1-5 seven UNIMPLEMENTED gRPC methods (DP-C5 design), P1-6 unbound

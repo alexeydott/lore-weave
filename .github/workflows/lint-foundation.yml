@@ -171,7 +171,10 @@ jobs:
   # reads RED here. That remains the verdicts' job.
   agentruntime-census:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Measured 3427s (57:07) locally on 2026-11-12; the sandbox is slower than
+    # a GitHub runner, so this is an upper bound. 120 gives ~2x headroom; 10
+    # cancelled real work in run 43265288095.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -211,7 +214,10 @@ jobs:
   # is built from. ~2 minutes; it reuses one mirror rather than one per falsifier.
   agentruntime-falsification:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Measured 1284s (21:24) locally on 2026-11-12; sandbox is slower than a
+    # GitHub runner, so this is an upper bound. 60 gives ~2.8x headroom; 10
+    # cancelled real work in run 43265288095.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
