@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { TranslationReviewCard, isTranslationProposeCall, summarizeTranslationReview } from '../TranslationReviewCard';
-import type { ToolCallRecord } from '../types';
+import type { ToolCallRecord } from '../../types';
 
 // S4 — the chat translation-review card renders the agent's class-W draft proposals
 // (glossary_propose_translation / glossary_propose_aliases) inline so the human knows

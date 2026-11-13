@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { NotificationItem } from '../NotificationItem';
-import type { Notification } from '../api';
+import type { Notification } from '../../api';
 
 // Mock i18n with a small dictionary + interpolation so we can assert the
 // client-side localization (not the stored English title).

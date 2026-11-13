@@ -16,8 +16,8 @@ Zero merge conflicts across all 8 merges. Register
 (`docs/deferred/TECH-DEBT-2026-11.md`) updated in the same commit as this
 handoff: P0-1, P0-2, P1-10, P2-11, P2-12, P2-26, P3-5 FIXED; P0-4 closed
 as not-a-defect; P1-7 improved 801 -> 152.
-NOT merged: `audit/frontend-live` (`1a0d2ce4`, FL-1/FL-3/FL-4) — the parent
-verifies and merges it. NOT pushed: no token was held at any point; push
+Merged here by the parent after personal verification (vitest 45/45,
+tsc 0, production build 0). NOT pushed: no token was held at any point; push
 needs a fresh one-time PAT, then fork CI is the real proof (SHA pinning,
 compose changes, and the pgvector-adjacent legs cannot be proven from the
 sandbox). Environment note: the VM was replaced a second time during this
@@ -51,6 +51,58 @@ it fixed. Round-5 analysis items NOT addressed here: path-filtered
 workflow verdicts, flaky-leg triage, `workflow_dispatch` coverage,
 reusable-workflow duplication. NEXT: push this branch on a fresh token,
 watch fork CI, then continue with round 6.
+
+## ▶ LIVE FRONTEND AUDIT (test account), 2026-11-13 — worktree `~/workspace/projects/lore-weave-fe-audit`, HEAD `fac8291f`
+
+Multi-round LIVE audit of the frontend with the real test account
+(`claude-test@loreweave.dev`, see `docs/dev/LOCAL_TEST_ENV.md`). R1 walked
+all 26 primary routes through the real UI login (26 screenshots in
+`~/workspace/logs/lore-weave/fe-live-audit/`): login works end-to-end,
+every route renders its shell + honest empty/error states. R2 (FEATURE_INDEX
+cross-check): 43 index rows = 43 `frontend/src/features/` folders, no
+stubbed/claimed-but-unimplemented flows found. R3 (knip + i18n + TODO
+sweep): i18n parity OK (36 namespaces × 17 locales), 2 TODOs in `src/`
+(both benign), knip reports 7 files with zero references and 3 unused
+dependencies — triaged in the audit report, NOT deleted here. Fixes committed as `1a0d2ce4` on `audit/frontend-live`, merged here:
+- FL-1 (`frontend/src/api.ts`, `frontend/src/__tests__/api.test.ts`):
+  `apiJson` surfaced Go's router-default body `404 page not found` verbatim
+  as the user error (BooksPage banner, AssistantPage full-screen error).
+  New `isStatusCodeBoilerplate` excludes bodies that are just their own
+  status code; all 20 Go `http.Error` sites write sentences and still
+  surface. Red→green via an in-memory esbuild harness (vitest itself could
+  not start — see below): 1 FAIL before, ALL PASS after. Verified LIVE
+  2026-11-13 ~16:31 by the recovery run: with only auth-service behind
+  `/v1`, the BooksPage banner reads "Not Found" (screenshot
+  `~/workspace/logs/lore-weave/fe-live-audit/fl1-books.png`); the Display
+  Name round-trip via the Settings UI works ("Claude Test" →
+  "Claude Test UI" → "Claude Test").
+- FL-3 (`docs/dev/LOCAL_TEST_ENV.example.md`): the register curl documented
+  `"name"`, which the endpoint ignores (it reads `display_name`) — accounts
+  seeded from it have NULL `display_name`. One-word fix.
+- FL-4 (3 test files): stale `import type` paths to non-existent modules
+  (`frontend/src/features/chat/components/__tests__/TranslationReviewCard.test.tsx`,
+  `frontend/src/features/glossary/components/tiering/__tests__/ResearchJobCard.test.tsx`,
+  `frontend/src/features/notifications/components/__tests__/NotificationItem.test.tsx`).
+  Invisible to `tsc` (tests excluded) and erased at runtime. Red→green via
+  a temp `tsconfig.audit.json` (deleted after): TS2307 3 → 0, total errors
+  2433 → 2430 (the rest is pre-existing test-tree type noise).
+Not fixed here: FL-2 Google Fonts CDN (`frontend/index.html:18-20`) fails
+offline — fonts need self-hosting, unfetchable from this sandbox.
+SANDBOX RECOVERED 2026-11-13 ~18:26; the recovery run rebuilt the live
+stack on a container PG16 (:5432) after the VM replacement wiped the old
+scratch clusters (new test-account IDs in `docs/dev/LOCAL_TEST_ENV.md` §3).
+R1b DONE 2026-11-13 ~16:40 with real book-service data (book
+"Audit Test Book 2", chapter "Chapter One"): b10–b22 all render real data
+or honest empty/error states; b17/b18 failed transiently in the walk run
+(blank page, frame detached) and both pass on a clean retry — not a
+defect. The walk's sidebar "User" label is a shim artifact (the shim
+routes only `/v1/auth/*`, not `/v1/account/*`; auth-service serves the
+profile with 200 directly). Full report:
+`~/workspace/logs/lore-weave/fe-live-audit/REPORT.md`. Branch
+`audit/frontend-live` to be created for this change set; run the real
+`vitest run src/__tests__/api.test.ts` + the 3 touched test files +
+`tsc --noEmit` + `pnpm build` before committing. Do NOT merge to main —
+the parent verifies and merges.
 
 ## ▶ TECH-DEBT AUDIT, NEW MULTI-ROUND PASS 2026-11-13 — HEAD `04716f37`, ≥10 rounds, fix+commit
 
