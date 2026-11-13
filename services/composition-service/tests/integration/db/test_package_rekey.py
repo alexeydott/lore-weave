@@ -15,8 +15,8 @@ genuinely was, and cannot drift into testing a fiction of it.
       assume it (`checklist-is-self-report-enforce-by-tests`).
 
 Gated on TEST_COMPOSITION_DB_URL, which MUST name a throwaway DB (the fixture drops every
-table). A hard guard refuses any DSN whose database name lacks "test" — this suite would
-otherwise destroy the shared dev DB (`kg-integration-tests-truncate-shared-dev-db`).
+table). A hard guard refuses any DSN whose database name lacks a throwaway marker
+(test/smoke/audit/…) — this suite would otherwise destroy the shared dev DB (`kg-integration-tests-truncate-shared-dev-db`).
 """
 
 from __future__ import annotations
@@ -33,6 +33,8 @@ import pytest
 # `test_t1_crash_before_marker_stamp_converges` went red the first time the memo shipped.
 from app.db.migrate import run_migrations_uncached as run_migrations
 from app.db.package_rekey import _MARKER, revert_package_rekey
+
+from .conftest import _guard_throwaway
 
 _DSN = os.environ.get("TEST_COMPOSITION_DB_URL")
 
@@ -62,15 +64,6 @@ BEGIN
   END LOOP;
 END $$;
 """
-
-
-def _guard_throwaway(dsn: str) -> None:
-    db = dsn.rsplit("/", 1)[-1].split("?")[0]
-    if "test" not in db.lower():
-        raise RuntimeError(
-            f"REFUSING to run: TEST_COMPOSITION_DB_URL points at {db!r}, which is not a "
-            "throwaway DB. This suite drops every table."
-        )
 
 
 async def _build_legacy_schema(p: asyncpg.Pool) -> None:

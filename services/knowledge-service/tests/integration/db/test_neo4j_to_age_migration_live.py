@@ -35,6 +35,8 @@ from app.db.migrations.neo4j_to_age import (
     verify,
 )
 
+from .conftest import _guard_throwaway
+
 pytestmark = pytest.mark.asyncio
 
 
@@ -42,19 +44,9 @@ pytestmark = pytest.mark.asyncio
 #: graphs and `g_shared` all hold zero. A destination carrying rows from another test reports
 #: EXTRA, and the first run of this file did exactly that (`EXTRA g_shared/Book: 2, source 1`),
 #: which reads like a migration defect and is not one. So the precondition is ESTABLISHED here
-#: rather than hoped for — behind the same throwaway guard the rest of this directory uses,
+#: rather than hoped for — behind the same throwaway guard the rest of this directory uses
+#: (imported from .conftest, so the marker set cannot drift from the shared one),
 #: because establishing it means dropping every graph in the database.
-_THROWAWAY = re.compile(r"(?i)(test|smoke|audit|scratch|throwaway|tmp|sandbox|ephemeral)")
-
-
-def _guard_throwaway(dsn: str) -> None:
-    db = dsn.rsplit("/", 1)[-1].split("?", 1)[0]
-    if not _THROWAWAY.search(db):
-        raise RuntimeError(
-            f"REFUSING: TEST_AGE_DSN database {db!r} is not a throwaway DB (the name must "
-            f"contain test/smoke/audit/…). This fixture DROPs every AGE graph in it — point "
-            f"it at a disposable DB, never a real knowledge store."
-        )
 
 
 @pytest_asyncio.fixture
@@ -62,7 +54,11 @@ async def age_pool():
     dsn = os.environ.get("TEST_AGE_DSN")
     if not dsn:
         pytest.skip("TEST_AGE_DSN not set — the migration needs a real destination")
-    _guard_throwaway(dsn)  # refuse a real store BEFORE the drop below
+    _guard_throwaway(  # refuse a real store BEFORE the drop below
+        dsn,
+        var_name="TEST_AGE_DSN",
+        destroys="This fixture DROPs every AGE graph in it — point it at a disposable DB, never a real knowledge store.",
+    )
     pool = await create_age_pool(dsn, min_size=2, max_size=4)
     try:
         async with pool.acquire() as conn:

@@ -9,7 +9,7 @@ cascade-prone neighbours (a motif_application bound to the arc via an ON DELETE 
 that MUST be detached before the arc delete), runs the lift, and asserts the whole effect.
 
 Gated on TEST_COMPOSITION_DB_URL (a throwaway DB — the fixture drops every table; hard-guarded to
-refuse any DSN whose name lacks "test", per kg-integration-tests-truncate-shared-dev-db).
+refuse any DSN whose name lacks a throwaway marker (test/smoke/audit/…), per kg-integration-tests-truncate-shared-dev-db).
 """
 
 from __future__ import annotations
@@ -22,6 +22,8 @@ import pytest
 
 from app.db.arc_lift import _LIFT_MARKER, run_arc_lift
 from app.db.migrate import run_migrations
+
+from .conftest import _guard_throwaway
 
 _DSN = os.environ.get("TEST_COMPOSITION_DB_URL")
 
@@ -50,12 +52,6 @@ BEGIN
   END LOOP;
 END $$;
 """
-
-
-def _guard_throwaway(dsn: str) -> None:
-    db = dsn.rsplit("/", 1)[-1].split("?")[0]
-    if "test" not in db.lower():
-        raise RuntimeError(f"REFUSING: TEST_COMPOSITION_DB_URL={db!r} is not a throwaway DB (drops every table)")
 
 
 @pytest.fixture
