@@ -46,6 +46,7 @@ from app.engine.plan_forge.interpret import interpret_feedback, interpret_rules
 from app.engine.plan_forge.llm import ProviderPlanForgeLLM
 from app.engine.plan_forge.propose import propose_spec
 from app.engine.plan_forge.self_check import run_self_check, run_self_check_on_document
+from app.engine.plan_forge.spec_index import translate_gap_paths
 from app.engine.plan_forge.structure import resolve_structure
 from app.engine.arc_plan import shape_tension_curve
 from app.packer.profile import from_settings
@@ -1372,7 +1373,18 @@ class PlanForgeService:
             top = [g for g in gaps if g.get("severity") in ("error", "warn")][:5]
             if not top:
                 break
-            revision = {"focus_paths": [g["path"] for g in top if g.get("path")]}
+            # F9 — the raw gap paths are rule/check IDs (`thr_no_early_explain`,
+            # `synopsis_<title>`, ...). Passed verbatim they slice to `{}` and
+            # the merge drops the repair, so the round burns one LLM call and
+            # lands nothing. Translate them against THIS round's spec (re-read
+            # every round: the previous round's refine may have added or removed
+            # the very events the gaps are about); an ID with no spec region
+            # drops out, and an empty focus falls back to the full-spec refine
+            # rather than an empty slice.
+            spec_art = await self._runs.latest_artifact(book_id, run_id, "spec")
+            spec = spec_art.content if spec_art is not None else {}
+            revision = {"focus_paths": translate_gap_paths(
+                [g["path"] for g in top if g.get("path")], spec)}
             mode, payload = await self.refine(
                 created_by, book_id, run_id,
                 model_ref=model_ref, revision=revision, focus_paths=None,
@@ -1609,8 +1621,15 @@ class PlanForgeService:
                 logger.warning("self_check: own-document coverage failed", exc_info=True)
         if not gaps:
             audit = consistency_audit(spec)
+            # `critical` is a list of STRINGS ("<title>: <issue>"), not dicts —
+            # calling `.get()` on one raises AttributeError and takes self-check
+            # down exactly when the spec actually FAILS the audit. The string
+            # already reads as the message; the path is the audit's own token
+            # (the same `audit_critical` the fixture-form self-check uses as a
+            # gap id), which the autofix translator resolves to the arc_2
+            # events the audit only ever flags.
             for c in audit.get("critical") or []:
-                gaps.append({"path": c.get("field", ""), "severity": "error", "message": c.get("issue", "")})
+                gaps.append({"path": "audit_critical", "severity": "error", "message": c})
             for r in run_rules(spec):
                 if not r["pass"]:
                     gaps.append({"path": r["rule"], "severity": "warn", "message": r.get("detail", "")})
