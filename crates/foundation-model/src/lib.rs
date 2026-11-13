@@ -8,6 +8,9 @@
 //! and the negative `discovery(name)` (a bite-test asserts a counterexample
 //! EXISTS). It de-risked the dep + the liveness/discovery APIs.
 
+
+#![forbid(unsafe_code)]
+
 pub mod fanout;
 pub mod lifecycle;
 pub mod outbox;

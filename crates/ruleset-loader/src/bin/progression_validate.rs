@@ -33,6 +33,9 @@
 //! one a reality actually takes is a verdict that can pass for a reality that
 //! cannot load. So this runs the real one, against a throwaway store.
 
+
+#![forbid(unsafe_code)]
+
 use std::collections::BTreeMap;
 use std::path::Path;
 

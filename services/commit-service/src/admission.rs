@@ -8,8 +8,6 @@
 //! per-category subsets = `15_commit_service.md` §7b.2 (their registration
 //! rides the REC-53 bundle).
 
-use std::collections::BTreeMap;
-use std::time::{Duration, Instant};
 
 use sim_core::{Admitted, Class, EntityId, Fallback, Gen, InputId, Producer, QueuedInput, Seq};
 

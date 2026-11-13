@@ -21,6 +21,9 @@
 //! highest-risk types is the deferred Option-B reference projector
 //! (D-C2-REFERENCE-PROJECTOR).
 
+
+#![forbid(unsafe_code)]
+
 use dp_kernel::{EventEnvelope, ProjectionUpdate};
 use serde::Deserialize;
 

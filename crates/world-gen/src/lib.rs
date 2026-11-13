@@ -10,6 +10,9 @@
 //! P4 adds JSON (de)serialization, SVG export, and optional LLM authoring
 //! ([`author`]).
 
+
+#![forbid(unsafe_code)]
+
 pub mod author;
 pub mod biome;
 pub mod civ_adapter;

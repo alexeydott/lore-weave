@@ -37,6 +37,9 @@
 //!   meta-worker runtime work in cycle 24+ (L5.B canon writer).
 //! - Async — sync only per Q-L3-2 (consistent with cycle 13 projections).
 
+
+#![forbid(unsafe_code)]
+
 use dp_kernel::{EventEnvelope, Projection, ProjectionUpdate, VerificationMeta};
 use serde_json::json;
 

@@ -52,6 +52,7 @@ pub const MAX_SECTION: usize = 200;
 /// `POST /internal/v1/space/view`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SpaceViewRequest {
+    /// The reality to look in.
     pub reality_id: Uuid,
     /// The `channels.id` to look at.
     pub node: i64,
@@ -64,12 +65,16 @@ pub struct SpaceViewRequest {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// The assembled space view for the requested node.
 pub struct SpaceViewResponse {
+    /// The reality the view is about.
     pub reality_id: Uuid,
+    /// The assembled view, flattened into the response.
     #[serde(flatten)]
     pub view: SpaceView,
 }
 
+/// Assemble and return the space view for the requested node, enforcing the per-section budget.
 pub async fn view(
     State(state): State<AppState>,
     body: Result<Json<SpaceViewRequest>, JsonRejection>,
@@ -128,13 +133,16 @@ pub async fn view(
 /// `POST /internal/v1/space/where-is`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct WhereIsRequest {
+    /// The reality to look in.
     pub reality_id: Uuid,
     /// The island entity id, as `actors.entity_id` allocates it.
     pub entity_id: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Where the entity is, or that it is nowhere.
 pub struct WhereIsResponse {
+    /// The reality the answer is about.
     pub reality_id: Uuid,
     /// Three distinct facts, never flattened to a nullable. See [`Whereabouts`].
     pub whereabouts: Whereabouts,

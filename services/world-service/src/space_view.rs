@@ -59,8 +59,11 @@ impl ViewBudget {
 /// One node in the view, in the order the view fixes.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct ViewNode {
+    /// The `channels.id` of the node.
     pub node_id: i64,
+    /// The node's `MapKind`.
     pub kind: String,
+    /// The reality's own word for the level (`DP-A13`).
     pub level_name: String,
     /// `None` unless the node is a `Domain` carrying a `place` row.
     pub place_name: Option<String>,
@@ -69,6 +72,7 @@ pub struct ViewNode {
 /// The assembled answer to *"what is here"*.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct SpaceView {
+    /// The node the view is centred on.
     pub here: ViewNode,
     /// Nearest first. Bounded by `DP-Ch1`, not by a cap of ours.
     pub ancestors: Vec<ViewNode>,
@@ -83,8 +87,11 @@ pub struct SpaceView {
 }
 
 #[derive(Debug)]
+/// Why assembling a space view failed.
 pub enum ViewError {
+    /// The node does not exist in this reality.
     NotFound(i64),
+    /// The database failed while assembling the view.
     Db(sqlx::Error),
 }
 
@@ -258,6 +265,7 @@ pub enum Whereabouts {
 /// The `in_cell` arm's payload.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct EntityLocation {
+    /// The island entity id, as `actors.entity_id` allocates it.
     pub entity_id: i64,
     /// The `channels.id` the entity occupies.
     pub node: i64,
