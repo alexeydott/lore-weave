@@ -1,5 +1,26 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## ▶ ROUND 5 — WORKFLOWS/CI PINNING (P1-10), 2026-11-13 — HEAD `fac8291f`, branch `audit/round5-workflows`
+
+P1-10 FIXED in this commit: 0 of 147 `uses:` refs in `.github/workflows/`
+were pinned to a SHA; now **147/147 are pinned to a full 40-hex commit
+SHA** with a `# v7`-style version comment. Version drift unified first:
+`actions/checkout` v4 (8) → v7, `actions/setup-python` v5 (8) / v6 (4) →
+v7, `dtolnay/rust-toolchain` `master` (3) → `stable`, plus extra drift
+found by this round — `actions/setup-go` v5 (2) → v7. No other drifted
+action found; 16 distinct action pins total. Verification: YAML parses on
+all 14 workflow files; actionlint 1.7.12 clean on all 14 (baseline at HEAD
+was also clean); every SHA re-resolved independently with `git ls-remote`
+against the action's public repo, 16/16 match (peeled commit used for
+annotated tags); P2-13 rechecked — 0 jobs without `timeout-minutes`.
+PENDING, not verifiable from this sandbox: a full CI run on the fork after
+push (a wrong SHA breaks the workflow outright, so the fork run is the
+real proof). Register row P1-10 still reads OPEN — the coordinator marks
+it fixed. Round-5 analysis items NOT addressed here: path-filtered
+workflow verdicts, flaky-leg triage, `workflow_dispatch` coverage,
+reusable-workflow duplication. NEXT: push this branch on a fresh token,
+watch fork CI, then continue with round 6.
+
 ## ▶ TECH-DEBT AUDIT, NEW MULTI-ROUND PASS 2026-11-13 — HEAD `04716f37`, ≥10 rounds, fix+commit
 
 Owner ordered a new audit of the fork (≥10 rounds, fix what is found and

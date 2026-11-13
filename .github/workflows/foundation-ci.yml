@@ -34,9 +34,9 @@ jobs:
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/mmo-rpg/'))) ||
       (github.event_name == 'pull_request' && (github.base_ref == 'main' || startsWith(github.base_ref, 'mmo-rpg/')))
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       # 🔴 `crates/dp-control-plane` is a workspace member (Cargo.toml:50) and
       # its build.rs compiles `contracts/proto/dp_control_plane.proto` with
       # tonic-build, which shells out to `protoc`. NOT ONE workflow in this repo
@@ -79,18 +79,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # `aggregate_contract` scopes itself with `git ls-files`, so it needs a
           # real checkout rather than a shallow archive.
           fetch-depth: 0
       # No `@stable`: `rust-toolchain.toml` pins the channel, because this leg's
       # trybuild `.stderr` files pin rustc's diagnostic prose.
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: "1.89.0"
           components: clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - run: cargo test -p dp -- --nocapture
       - run: cargo clippy -p dp --all-targets -- -D warnings
 
@@ -103,8 +103,8 @@ jobs:
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/mmo-rpg/'))) ||
       (github.event_name == 'pull_request' && (github.base_ref == 'main' || startsWith(github.base_ref, 'mmo-rpg/')))
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: "1.26.10"
       - name: build + vet + test every go.mod module
@@ -149,7 +149,7 @@ jobs:
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/mmo-rpg/'))) ||
       (github.event_name == 'pull_request' && (github.base_ref == 'main' || startsWith(github.base_ref, 'mmo-rpg/')))
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # This job ends in `python -m pytest scripts/test_*.py` — 16 files, 250 tests,
       # including the ratchet that proves every gate can go red. The runner has no
       # pytest, so that step died on `No module named pytest` and the whole set ran
@@ -409,8 +409,8 @@ jobs:
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/mmo-rpg/'))) ||
       (github.event_name == 'pull_request' && (github.base_ref == 'main' || startsWith(github.base_ref, 'mmo-rpg/')))
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.12"
       # Byte-compile only — no pip install, no pytest (avoids heavy/networked
@@ -484,10 +484,10 @@ jobs:
     env:
       PGPASSWORD: foundation
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: "1.26.10"
       - name: create dp_kernel_test + apply migrations 0002 + 0004 + 0013 + 0016 (+ default partition)
@@ -790,7 +790,7 @@ jobs:
       # Found by reading the job rather than by the leg failing on its first
       # line, which is the only way it could have been found here: Actions
       # cannot be run on the dev box.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.12"
       - name: cargo test EVERY live suite (registry-driven, one DB per suite)
@@ -813,10 +813,10 @@ jobs:
     # intentionally the one job that runs regardless of branch. The `.githooks/
     # pre-commit` hook adds a staged-diff pass so it is also caught pre-commit.
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v3
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITLEAKS_CONFIG: .gitleaks.toml
           # gitleaks-action@v2 requires GITHUB_TOKEN to scan pull_request events
