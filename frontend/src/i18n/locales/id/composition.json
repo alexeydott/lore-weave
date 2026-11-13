@@ -51,13 +51,12 @@
   "guidedCueReady": "Tulis pembukaan Anda, lalu Generate — atau Lanjutkan dari kursor Anda di editor.",
   "guidedCueStart": "Buat adegan pertama Anda, lalu tulis pembukaan dan Generate — atau Lanjutkan dari kursor Anda di editor.",
   "guidedStart": "Mulai menulis",
-  "compose": {
-    "workDefault": {
-      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-      "apply": "Use my default chat model",
-      "applied": "Default model for this book has been set",
-      "apply_failed": "Failed to apply"
-    }
+  "compose": "Compose",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
   },
   "cowriter": "Co-writer",
   "cw": {
@@ -1629,7 +1628,8 @@
   "canonConflictKeepTheirs": "Simpan milik mereka",
   "canonConflictReapply": "Terapkan kembali suntingan saya ke v{{v}}",
   "canonConflictTitle": "Aturan ini berubah di tempat lain — draf Anda tetap disimpan di bawah.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} aktif",
     "branchHint": "Apa yang diketahui kanon tepat sebelum cabang ini",
     "branchToggle": "Kanon pada cabang",

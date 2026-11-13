@@ -51,13 +51,12 @@
   "guidedCueReady": "เขียนบทนำของคุณ แล้วกด Generate — หรือเขียนต่อจากเคอร์เซอร์ในตัวแก้ไข",
   "guidedCueStart": "สร้างฉากแรกของคุณ จากนั้นเขียนบทนำแล้วกด Generate — หรือเขียนต่อจากเคอร์เซอร์ในตัวแก้ไข",
   "guidedStart": "เริ่มเขียน",
-  "compose": {
-    "workDefault": {
-      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-      "apply": "Use my default chat model",
-      "applied": "Default model for this book has been set",
-      "apply_failed": "Failed to apply"
-    }
+  "compose": "Compose",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
   },
   "cowriter": "ผู้ช่วยเขียน",
   "cw": {
@@ -1629,7 +1628,8 @@
   "canonConflictKeepTheirs": "ใช้ฉบับของพวกเขา",
   "canonConflictReapply": "ใช้การแก้ไขของฉันซ้ำลงใน v{{v}}",
   "canonConflictTitle": "กฎนี้มีการเปลี่ยนแปลงที่อื่น — ร่างของคุณจะถูกเก็บไว้ด้านล่าง",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} รายการที่ใช้งานอยู่",
     "branchHint": "สิ่งที่เนื้อเรื่องหลักรับรู้ก่อนถึงจุดแยกนี้",
     "branchToggle": "เนื้อเรื่องหลัก ณ จุดแยก",

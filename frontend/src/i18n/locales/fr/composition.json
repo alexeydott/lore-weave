@@ -51,13 +51,12 @@
   "guidedCueReady": "Écrivez votre ouverture, puis Générer — ou Continuez depuis votre curseur dans l'éditeur.",
   "guidedCueStart": "Créez votre première scène, puis écrivez votre ouverture et Générer — ou Continuez depuis votre curseur dans l'éditeur.",
   "guidedStart": "Commencer à écrire",
-  "compose": {
-    "workDefault": {
-      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-      "apply": "Use my default chat model",
-      "applied": "Default model for this book has been set",
-      "apply_failed": "Failed to apply"
-    }
+  "compose": "Compose",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
   },
   "cowriter": "Co-auteur",
   "cw": {
@@ -1629,7 +1628,8 @@
   "canonConflictKeepTheirs": "Garder la leur",
   "canonConflictReapply": "Réappliquer ma modification sur la v{{v}}",
   "canonConflictTitle": "Cette règle a été modifiée ailleurs — votre brouillon est conservé ci-dessous.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} actif(s)",
     "branchHint": "Ce que le canon sait juste avant cette branche",
     "branchToggle": "Canon à la branche",

@@ -51,13 +51,12 @@
   "guidedCueReady": "Escribe tu apertura y luego pulsa Generar — o continúa desde el cursor en el editor.",
   "guidedCueStart": "Crea tu primera escena, escribe tu apertura y pulsa Generar — o continúa desde el cursor en el editor.",
   "guidedStart": "Empezar a escribir",
-  "compose": {
-    "workDefault": {
-      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-      "apply": "Use my default chat model",
-      "applied": "Default model for this book has been set",
-      "apply_failed": "Failed to apply"
-    }
+  "compose": "Compose",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
   },
   "cowriter": "Coescritor",
   "cw": {
@@ -1629,7 +1628,8 @@
   "canonConflictKeepTheirs": "Mantener la suya",
   "canonConflictReapply": "Reaplicar mi edición en la v{{v}}",
   "canonConflictTitle": "Esta regla ha cambiado en otro lugar; tu borrador se mantiene abajo.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} activo(s)",
     "branchHint": "Lo que el canon sabe justo antes de esta rama",
     "branchToggle": "Canon en la rama",

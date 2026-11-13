@@ -51,13 +51,12 @@
   "guidedCueReady": "编写你的开场，然后点击“生成” — 或者在编辑器中从光标处“继续”。",
   "guidedCueStart": "创建你的第一个场景，然后编写开场并点击“生成” — 或者在编辑器中从光标处“继续”。",
   "guidedStart": "开始写作",
-  "compose": {
-    "workDefault": {
-      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-      "apply": "Use my default chat model",
-      "applied": "Default model for this book has been set",
-      "apply_failed": "Failed to apply"
-    }
+  "compose": "Compose",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
   },
   "cowriter": "共同作者",
   "cw": {
@@ -1629,7 +1628,8 @@
   "canonConflictKeepTheirs": "保留对方的修改",
   "canonConflictReapply": "将我的编辑重新应用到 v{{v}}",
   "canonConflictTitle": "此规则已在别处更改 —— 您的草稿将保留在下方。",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} 个生效",
     "branchHint": "在此分支前，正典已知的信息",
     "branchToggle": "分支处正典状态",

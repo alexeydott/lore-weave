@@ -51,13 +51,13 @@ describe('CanonAtChapterPanel (M6)', () => {
     const presence = screen.getByTestId('canonview-presence');
     expect(within(presence).getByText('Alice')).toBeTruthy();
     expect(within(presence).getByText('×3')).toBeTruthy();        // mention_count badge
-    expect(within(presence).getByText('canonview.srcGlossary')).toBeTruthy();
+    expect(within(presence).getByText('canonAtChapter.srcGlossary')).toBeTruthy();
     expect(screen.getByTestId('canonview-established')).toBeTruthy();
     const state = screen.getByTestId('canonview-canonstate');
-    expect(within(state).getByText('canonview.srcKnowledge')).toBeTruthy();
+    expect(within(state).getByText('canonAtChapter.srcKnowledge')).toBeTruthy();
     // the i18n test mock returns the key (defaultValue ignored), so assert the keys
-    expect(within(state).getByText('canonview.active')).toBeTruthy();
-    expect(within(state).getByText('canonview.events')).toBeTruthy();
+    expect(within(state).getByText('canonAtChapter.active')).toBeTruthy();
+    expect(within(state).getByText('canonAtChapter.events')).toBeTruthy();
   });
 
   it('knowledge window unavailable → fail-closed hint (not a clean-slate)', () => {
@@ -67,7 +67,7 @@ describe('CanonAtChapterPanel (M6)', () => {
       knowledgeError: false, isLoading: false, isEmpty: false,
     };
     render(<CanonAtChapterPanel {...base} />);
-    expect(screen.getByText('canonview.windowUnavailable')).toBeTruthy();
+    expect(screen.getByText('canonAtChapter.windowUnavailable')).toBeTruthy();
     // established section omitted when chapterIndex absent (established === null)
     expect(screen.queryByTestId('canonview-established')).toBeNull();
   });

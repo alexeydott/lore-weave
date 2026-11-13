@@ -1,5 +1,46 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## ▶ TECH-DEBT AUDIT, NEW MULTI-ROUND PASS 2026-11-13 — HEAD `04716f37`, ≥10 rounds, fix+commit
+
+Owner ordered a new audit of the fork (≥10 rounds, fix what is found and
+commit it; existing defects only, nothing invented). Round 1 (this commit's
+register update): every still-open register item re-verified at HEAD
+`04716f37` in four read-only passes — **40 OPEN / 8 STALE / 2
+NEEDS-DECISION (P1-5, P1-6) / 0 FIXED by rounds 1–3**; counts corrected
+in the register (P0-1 fallbacks 70 → 211/115 cred-ish, P0-2 13 → 8 files,
+P2-14 dup PNGs 20 → 179 files, P2-21 64,768 → 77,888 hits, P2-2 grew
+10 → 12). Codex cross-check: 6 of 15 upstream-PR findings are PRESENT in
+the fork (F1 reorder NULL wipe, F7 non-PDF import replay, F9 autofix
+rule-ID paths, F11 string criticals crash, F12 streamer zero counters,
+F15 critic hint lie) — the round 2/3/4 fix candidates. Visual audit of
+the composition workspace (owner's priority: the workspace-panel mess)
+ran on Storybook + MockAuthProvider — no live stack in the sandbox, no
+`docs/dev/LOCAL_TEST_ENV.md`, so no real test-account login; 8 new
+stories + Playwright screenshots. Three findings, all FIXED in this
+commit (see the register's Visual audit section): VA-1 tab labels were
+i18next error strings (`compose`/`canonview` were objects in
+`composition.json` — renamed to `workDefault`/`canonAtChapter` in all 18
+locales, string labels added, `panelLabels.test.ts` guards all 25 ids);
+VA-2 the dark theme was dead app-wide (Tailwind `darkMode: 'class'` but
+nothing ever added `.dark` — `ThemeProvider` now toggles it,
+`ThemeProvider.test.tsx` guards it, re-screenshots readable); VA-3 the
+picker menu (`z-30`) hid under floating windows (`z-40..49`) — now
+`z-[60]`. Verification: new tests red→green, affected suites 65/65,
+`tsc` clean, `eslint` clean on touched files, `i18n:check` passes,
+full frontend vitest + production build (see commit message for the
+counts). Round 2 (Go: F7 + F12 streamer half + bounded staticcheck /
+gosec / revive sweep) is in flight on branch `audit/round2-go` — do NOT
+commit its files from this tree until it is reviewed and merged.
+Upstream side: owner created the pgvector PR as letuhao/lore-weave
+**#329** (`fix/pgvector-0.8.7`). Normalized bodies for #318–327 and the
+heads-up comments are ready in `~/workspace/logs/lore-weave/` but CANNOT
+be applied via API: the available token returns 403 on both PATCH and
+POST to letuhao/lore-weave (re-tested 2026-11-13 ~15:12); paste manually
+or supply a token scoped to letuhao/lore-weave (Pull requests + Issues
+write). The token's stated purpose (until CI passes on the 8 PRs) is
+done — CI fully ran, verdict delivered 2026-11-13 ~14:45 — owner may
+revoke it; a fresh one is needed for the next fork push.
+
 ## ▶ TECH-DEBT AUDIT 2026-11-12 — HEAD `440fe02`, rounds 1+2 pushed as `d4cc915`, round 3 in this commit
 
 Four read-only passes (Rust+Go, TS+Python, infra/CI/security, docs/tests/eval)

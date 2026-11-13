@@ -51,13 +51,12 @@
   "guidedCueReady": "اكتب مقدمتك، ثم اضغط على «توليد» — أو «المتابعة من موقع المؤشر» في المحرر.",
   "guidedCueStart": "أنشئ مشهدك الأول، ثم اكتب مقدمتك واضغط على «توليد» — أو «المتابعة من موقع المؤشر» في المحرر.",
   "guidedStart": "ابدأ الكتابة",
-  "compose": {
-    "workDefault": {
-      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-      "apply": "Use my default chat model",
-      "applied": "Default model for this book has been set",
-      "apply_failed": "Failed to apply"
-    }
+  "compose": "Compose",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
   },
   "cowriter": "المؤلف المساعد",
   "cw": {
@@ -1629,7 +1628,8 @@
   "canonConflictKeepTheirs": "الإبقاء على مسودتهم",
   "canonConflictReapply": "إعادة تطبيق تعديلي على الإصدار v{{v}}",
   "canonConflictTitle": "تغيرت هذه القاعدة في مكان آخر — سيتم الاحتفاظ بمسودتك أدناه.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} نشطة",
     "branchHint": "ما يعرفه المسار الأصلي قبل هذا الفرع مباشرة",
     "branchToggle": "المسار الأصلي عند الفرع",

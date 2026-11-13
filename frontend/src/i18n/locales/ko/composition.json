@@ -51,13 +51,12 @@
   "guidedCueReady": "도입부를 작성한 후 '생성'을 누르거나, 에디터의 커서 위치에서 '계속하기'를 누르세요.",
   "guidedCueStart": "첫 장면을 만든 다음, 도입부를 작성하고 '생성'을 누르거나 에디터의 커서 위치에서 '계속하기'를 누르세요.",
   "guidedStart": "쓰기 시작",
-  "compose": {
-    "workDefault": {
-      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-      "apply": "Use my default chat model",
-      "applied": "Default model for this book has been set",
-      "apply_failed": "Failed to apply"
-    }
+  "compose": "Compose",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
   },
   "cowriter": "공동 저자",
   "cw": {
@@ -1629,7 +1628,8 @@
   "canonConflictKeepTheirs": "상대방 수정사항 유지",
   "canonConflictReapply": "v{{v}} 버전에 내 편집 내용 다시 적용",
   "canonConflictTitle": "다른 곳에서 규칙이 변경되었습니다. 작성 중인 초안은 아래에 유지됩니다.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}}개 활성",
     "branchHint": "이 분기점 직전의 설정 상태",
     "branchToggle": "분기점의 설정",

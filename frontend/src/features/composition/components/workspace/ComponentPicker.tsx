@@ -26,7 +26,10 @@ export function ComponentPicker({ hiddenIds, onShow }: {
       {open && (
         <ul
           data-testid="dock-picker-menu"
-          className="absolute right-0 top-full z-30 mt-1 max-h-64 w-44 overflow-auto rounded border border-neutral-200 bg-white py-1 text-xs shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+          // z-[60] — above floating windows (z-40..49) and the Power view
+          // overlay (z-50): at z-30 the open menu painted underneath any
+          // overlapping floating window and its items were unreachable.
+          className="absolute right-0 top-full z-[60] mt-1 max-h-64 w-44 overflow-auto rounded border border-neutral-200 bg-white py-1 text-xs shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
         >
           {hiddenIds.map((id) => (
             <li key={id}>

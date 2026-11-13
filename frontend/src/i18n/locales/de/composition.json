@@ -51,13 +51,12 @@
   "guidedCueReady": "Schreibe deine Eröffnung und dann „Generieren“ — oder „Weiter“ von deinem Cursor im Editor aus.",
   "guidedCueStart": "Erstelle deine erste Szene, schreibe dann deine Eröffnung und klicke auf „Generieren“ — oder „Weiter“ von deinem Cursor im Editor aus.",
   "guidedStart": "Schreiben starten",
-  "compose": {
-    "workDefault": {
-      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-      "apply": "Use my default chat model",
-      "applied": "Default model for this book has been set",
-      "apply_failed": "Failed to apply"
-    }
+  "compose": "Compose",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
   },
   "cowriter": "Co-Writer",
   "cw": {
@@ -1629,7 +1628,8 @@
   "canonConflictKeepTheirs": "Ihren Entwurf behalten",
   "canonConflictReapply": "Meine Bearbeitung auf v{{v}} erneut anwenden",
   "canonConflictTitle": "Diese Regel wurde an anderer Stelle geändert — Ihr Entwurf bleibt unten erhalten.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} aktiv",
     "branchHint": "Was der Kanon unmittelbar vor diesem Zweig weiß",
     "branchToggle": "Kanon am Zweig",

@@ -325,10 +325,10 @@ export function SceneGraphCanvas({ work, bookId, token, onPromoted }: {
             <button
               type="button" data-testid="scenegraph-whatif-canon"
               className={`rounded border px-2 py-0.5 ${showBranchCanon ? 'border-indigo-400 bg-indigo-50 text-indigo-700 dark:border-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-300' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-              title={t('canonview.branchHint', { defaultValue: 'What canon knows right before this branch' })}
+              title={t('canonAtChapter.branchHint', { defaultValue: 'What canon knows right before this branch' })}
               onClick={() => setShowBranchCanon((v) => !v)}
             >
-              ⊙ {t('canonview.branchToggle', { defaultValue: 'Canon at branch' })}
+              ⊙ {t('canonAtChapter.branchToggle', { defaultValue: 'Canon at branch' })}
             </button>
             <button
               type="button" data-testid="scenegraph-whatif-discard"
@@ -350,7 +350,7 @@ export function SceneGraphCanvas({ work, bookId, token, onPromoted }: {
             bookId={bookId}
             chapterId={anchorScene.chapter_id}
             chapterIndex={anchorChapterSort}
-            chapterLabel={anchorChapterSort != null ? t('canonview.chapterN', { defaultValue: 'chapter {{n}}', n: anchorChapterSort + 1 }) : undefined}
+            chapterLabel={anchorChapterSort != null ? t('canonAtChapter.chapterN', { defaultValue: 'chapter {{n}}', n: anchorChapterSort + 1 }) : undefined}
             token={token}
             enabled={showBranchCanon}
           />

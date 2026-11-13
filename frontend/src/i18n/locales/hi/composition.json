@@ -51,13 +51,12 @@
   "guidedCueReady": "अपनी शुरुआत लिखें, फिर जनरेट करें — या एडिटर में अपने कर्सर से आगे बढ़ें।",
   "guidedCueStart": "अपना पहला दृश्य बनाएँ, फिर अपनी शुरुआत लिखें और जनरेट करें — या एडिटर में अपने कर्सर से आगे बढ़ें।",
   "guidedStart": "लिखना शुरू करें",
-  "compose": {
-    "workDefault": {
-      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-      "apply": "Use my default chat model",
-      "applied": "Default model for this book has been set",
-      "apply_failed": "Failed to apply"
-    }
+  "compose": "Compose",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
   },
   "cowriter": "को-राइटर",
   "cw": {
@@ -1629,7 +1628,8 @@
   "canonConflictKeepTheirs": "उनका रखें",
   "canonConflictReapply": "v{{v}} पर अपना संपादन फिर से लागू करें",
   "canonConflictTitle": "यह नियम कहीं और बदल गया है — आपका ड्राफ्ट नीचे रखा गया है।",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} सक्रिय",
     "branchHint": "इस शाखा से ठीक पहले कैनन में क्या था",
     "branchToggle": "शाखा पर कैनन",

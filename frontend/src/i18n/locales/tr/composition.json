@@ -51,13 +51,12 @@
   "guidedCueReady": "Açılışınızı yazın, ardından Oluştur deyin — veya editörde imlecinizden Devam edin.",
   "guidedCueStart": "İlk sahnenizi oluşturun, ardından açılışınızı yazın ve Oluştur deyin — veya editörde imlecinizden Devam edin.",
   "guidedStart": "Yazmaya başla",
-  "compose": {
-    "workDefault": {
-      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-      "apply": "Use my default chat model",
-      "applied": "Default model for this book has been set",
-      "apply_failed": "Failed to apply"
-    }
+  "compose": "Compose",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
   },
   "cowriter": "Yazma ortağı",
   "cw": {
@@ -1629,7 +1628,8 @@
   "canonConflictKeepTheirs": "Onunkini tut",
   "canonConflictReapply": "Düzenlememi v{{v}} üzerine yeniden uygula",
   "canonConflictTitle": "Bu kural başka bir yerde değişti — taslağınız aşağıda tutuluyor.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} aktif",
     "branchHint": "Bu kırılmadan hemen önce kanonun bildikleri",
     "branchToggle": "Kırılmadaki kanon",

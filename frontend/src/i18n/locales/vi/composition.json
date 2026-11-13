@@ -51,13 +51,12 @@
   "guidedCueReady": "Viết đoạn mở đầu rồi nhấn Tạo — hoặc Tiếp tục từ con trỏ trong trình soạn thảo.",
   "guidedCueStart": "Tạo cảnh đầu tiên, viết đoạn mở đầu rồi nhấn Tạo — hoặc Tiếp tục từ con trỏ trong trình soạn thảo.",
   "guidedStart": "Bắt đầu viết",
-  "compose": {
-    "workDefault": {
-      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-      "apply": "Use my default chat model",
-      "applied": "Default model for this book has been set",
-      "apply_failed": "Failed to apply"
-    }
+  "compose": "Compose",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
   },
   "cowriter": "Đồng tác giả",
   "cw": {
@@ -1629,7 +1628,8 @@
   "canonConflictKeepTheirs": "Giữ bản của họ",
   "canonConflictReapply": "Áp dụng lại chỉnh sửa của tôi lên v{{v}}",
   "canonConflictTitle": "Quy tắc này đã thay đổi ở nơi khác — bản thảo của bạn được giữ lại bên dưới.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} đang hoạt động",
     "branchHint": "Những gì chính văn đã biết ngay trước nhánh này",
     "branchToggle": "Chính văn tại nhánh",

@@ -51,13 +51,12 @@
   "guidedCueReady": "আপনার সূচনা লিখুন, তারপর Generate করুন — অথবা এডিটরে কার্সার থেকে Continue করুন।",
   "guidedCueStart": "আপনার প্রথম দৃশ্যটি তৈরি করুন, তারপর সূচনা লিখুন এবং Generate করুন — অথবা এডিটরে কার্সার থেকে Continue করুন।",
   "guidedStart": "লেখা শুরু করুন",
-  "compose": {
-    "workDefault": {
-      "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-      "apply": "Use my default chat model",
-      "applied": "Default model for this book has been set",
-      "apply_failed": "Failed to apply"
-    }
+  "compose": "Compose",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
   },
   "cowriter": "কো-রাইটার",
   "cw": {
@@ -1629,7 +1628,8 @@
   "canonConflictKeepTheirs": "তাদেরটি রাখুন",
   "canonConflictReapply": "v{{v}} সংস্করণে আমার এডিটটি পুনরায় প্রয়োগ করুন",
   "canonConflictTitle": "এই নিয়মটি অন্য কোথাও পরিবর্তিত হয়েছে — আপনার ড্রাফটটি নিচে রাখা হয়েছে।",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}}টি সক্রিয়",
     "branchHint": "এই শাখাটি আসার ঠিক আগে ক্যানন কী জানে",
     "branchToggle": "শাখা অনুযায়ী ক্যানন",
