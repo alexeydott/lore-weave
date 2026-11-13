@@ -44,6 +44,13 @@ services:
       - ./redis/sentinel.conf:/etc/redis/sentinel.conf:ro
     ports:
       - "127.0.0.1:26379:26379"
+    healthcheck:
+      # Same shape as redis-cache's own probe; redis-cli ships in the
+      # redis:7.4.1-alpine image and Sentinel answers PING on :26379.
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - lw-meta
 
