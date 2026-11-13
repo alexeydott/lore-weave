@@ -70,7 +70,17 @@ func (s *Server) uploadWorldMapImageCore(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
+	// G120 — cap the body BEFORE parsing (see uploadChapterMedia): without
+	// MaxBytesReader an unbounded body spools to disk before the fh.Size
+	// check below ever runs.
+	r.Body = http.MaxBytesReader(w, r.Body, maxImageSize+multipartOverhead)
 	if err := r.ParseMultipartForm(maxImageSize); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			writeError(w, http.StatusRequestEntityTooLarge, "MEDIA_TOO_LARGE",
+				fmt.Sprintf("image exceeds %d MB limit", maxImageSize/(1<<20)))
+			return
+		}
 		writeError(w, http.StatusBadRequest, "MEDIA_TOO_LARGE", "file exceeds size limit")
 		return
 	}

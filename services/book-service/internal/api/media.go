@@ -26,6 +26,11 @@ const (
 	maxImageSize = 10 << 20  // 10 MB
 	maxVideoSize = 100 << 20 // 100 MB
 	mediaBucket  = "loreweave-media"
+	// multipartOverhead — multipart framing around the file part (boundary +
+	// headers + form fields). MaxBytesReader caps the WHOLE body, so the cap
+	// is the file limit plus this slack, mirroring provider-registry's
+	// sttMultipartOverhead (64 KiB).
+	multipartOverhead = 64 << 10
 )
 
 var allowedMediaTypes = map[string]string{
@@ -72,7 +77,17 @@ func (s *Server) uploadChapterMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// G120 — cap the body BEFORE parsing: without MaxBytesReader the
+	// maxVideoSize arg bounds only the in-memory part and an unbounded body
+	// spools to disk before the fh.Size check below ever runs. Same pattern
+	// as the import handlers (MaxBytesReader + 413).
+	r.Body = http.MaxBytesReader(w, r.Body, maxVideoSize+multipartOverhead)
 	if err := r.ParseMultipartForm(maxVideoSize); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			writeError(w, http.StatusRequestEntityTooLarge, "MEDIA_TOO_LARGE", "file exceeds size limit")
+			return
+		}
 		writeError(w, http.StatusBadRequest, "MEDIA_TOO_LARGE", "file exceeds size limit")
 		return
 	}

@@ -119,17 +119,20 @@ func (s *Server) resolveGrant(ctx context.Context, bookID, userID uuid.UUID) (Gr
 
 // resolveAccess resolves the caller's grant AND the book's lifecycle, for the
 // /access authority (E0-1 consumers gate edit/manage on lifecycle). On NO grant
-// (missing book or no role) it returns an EMPTY lifecycle — same as a missing
-// book — so /access can't distinguish exists-but-no-access from missing (R4).
-func (s *Server) resolveAccess(ctx context.Context, bookID, userID uuid.UUID) (GrantLevel, string, error) {
-	lvl, _, lifecycle, err := s.resolve(ctx, bookID, userID)
+// (missing book or no role) it returns an EMPTY lifecycle and a NIL owner —
+// same as a missing book — so /access can't distinguish exists-but-no-access
+// from missing (R4). The owner is blanked for the same reason: it is only
+// meaningful to a grantee (cross-tenant reads), and a stranger must get no
+// owner/existence oracle.
+func (s *Server) resolveAccess(ctx context.Context, bookID, userID uuid.UUID) (GrantLevel, uuid.UUID, string, error) {
+	lvl, owner, lifecycle, err := s.resolve(ctx, bookID, userID)
 	if err != nil {
-		return GrantNone, "", err
+		return GrantNone, uuid.Nil, "", err
 	}
 	if lvl == GrantNone {
-		return GrantNone, "", nil
+		return GrantNone, uuid.Nil, "", nil
 	}
-	return lvl, lifecycle, nil
+	return lvl, owner, lifecycle, nil
 }
 
 // authBook is the E0-2 grant chokepoint for book-service's OWN per-book routes.
@@ -194,7 +197,12 @@ func (s *Server) getBookAccess(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "BAD_USER_ID", "invalid user_id")
 		return
 	}
-	lvl, owner, lifecycle, err := s.resolve(r.Context(), bookID, userID)
+	// R4: resolveAccess (not resolve) — a non-grantee gets an empty lifecycle
+	// and a nil owner, so an existing-but-forbidden book is indistinguishable
+	// from a missing one. resolve() itself returns the real lifecycle/owner
+	// for a GrantNone caller, which would leak the book's state to any
+	// internal caller probing arbitrary (book, user) pairs.
+	lvl, owner, lifecycle, err := s.resolveAccess(r.Context(), bookID, userID)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, "RESOLVE_FAILED", "grant resolution failed")
 		return
