@@ -34,10 +34,10 @@
 
 | # | Item | Evidence | Status |
 |---|---|---|---|
-| P0-1 | Hardcoded dev credentials in the tracked main compose file — 3 bare literals + 70 `${VAR:-<literal>}` fallbacks, no `env_file:` anywhere. Directly contradicts the LOCKED "No hardcoded secrets" rule; the pattern is copy-pasteable into a prod compose. | `infra/docker-compose.yml:43` (`POSTGRES_PASSWORD: loreweave_dev`), `:227` (`SHARD_DB_PASSWORD`), `:279` (`PROVISION_PG_PASSWORD`), `:2252` (`NEO4J_AUTH` fallback) | OPEN (re-verified 2026-11-13; fallbacks re-measured: 211 total, 115 credential-keyworded - larger than registered) |
-| P0-2 | `_guard_throwaway` reimplemented inline in 13 files instead of living in the shared helper. AGENTS.md forbids exactly this ("never reimplement a helper inline") — the failure mode once hard-deleted every user's books. Copies are near-identical, so a fix to one silently misses the others. | `services/campaign-service/tests/integration/conftest.py:47`, `services/composition-service/tests/integration/db/conftest.py:32`, `services/knowledge-service/tests/integration/db/conftest.py:41`, `services/lore-enrichment-service/tests/db/conftest.py:64`, + 9 more | OPEN (re-verified 2026-11-13; 8 files / 9 definitions, not 13 - same at 440fe02; two copies weaker: test_arc_lift.py:55, test_package_rekey.py:67 use "test" not in db.lower()) |
+| P0-1 | Hardcoded dev credentials in the tracked main compose file — 3 bare literals + 70 `${VAR:-<literal>}` fallbacks, no `env_file:` anywhere. Directly contradicts the LOCKED "No hardcoded secrets" rule; the pattern is copy-pasteable into a prod compose. | `infra/docker-compose.yml:43` (`POSTGRES_PASSWORD: loreweave_dev`), `:227` (`SHARD_DB_PASSWORD`), `:279` (`PROVISION_PG_PASSWORD`), `:2252` (`NEO4J_AUTH` fallback) | FIXED 2026-11-13 round 6 (0bc87955, merged 60ea3105): 258 live `${VAR:-default}` in `infra/docker-compose.yml` -> bare `${VAR}` + 29 literal credential values -> `${VAR}`; `infra/.env.example` carries 130 dev defaults (merged with the existing commented template); `docker compose config` resolves identically except the pins/healthchecks. Two deliberate exceptions stay: `RUST_LOG` (per-service debug filters cannot share one value) and `DATABASE_URL` literals (16 distinct per-service values under one name). Fallbacks remain in the other compose files (observability 13, meta-ha 22, knowledge-pg 3) — out of this round's scope. |
+| P0-2 | `_guard_throwaway` reimplemented inline in 13 files instead of living in the shared helper. AGENTS.md forbids exactly this ("never reimplement a helper inline") — the failure mode once hard-deleted every user's books. Copies are near-identical, so a fix to one silently misses the others. | `services/campaign-service/tests/integration/conftest.py:47`, `services/composition-service/tests/integration/db/conftest.py:32`, `services/knowledge-service/tests/integration/db/conftest.py:41`, `services/lore-enrichment-service/tests/db/conftest.py:64`, + 9 more | FIXED 2026-11-13 round 8 (90630383, merged 60ea3105): definitions 9 -> 6; the two weak copies (`test_arc_lift.py:55`, `test_package_rekey.py:67`) and the strict knowledge copy now import the shared helper; db-safety gate exit 0, its own tests 14 passed, new guard tests 18 + 16 passed. Note: the `latest` substring case is accepted by the shared helper AND the gate's `RE_THROWAWAY` alike — closing it needs a repo-wide predicate change, not done here. |
 | P0-3 | 32 silent `except Exception: pass` in Python request paths (of 51 total; 19 annotated best-effort). Worst: MinIO deletions silently skipped in a cleanup loop — orphaned objects, no metric. | `services/chat-service/app/routers/internal.py:996`, `services/chat-service/app/routers/voice.py:234,290`, `services/composition-service/app/routers/engine.py:577,583`, `services/knowledge-service/app/clients/embedding_client.py:145` | OPEN (re-verified 2026-11-13; register counts do not reproduce - services/*/app: 522 except Exception:, 22 silent-pass; routers+clients 93/11; routers-only 75/7) |
-| P0-4 | `readyz()` is byte-identical to `livez()` (always 200). When the service gains Postgres/Redis/HTTP deps, load balancers will route to a broken instance. Documented `TODO(readiness)` (LOW-4, 2026-05-24). | `services/tilemap-service/src/http/health.rs:60` | OPEN (re-verified 2026-11-13; readyz() still 200, TODO(readiness) present, still no Postgres/Redis/HTTP deps) |
+| P0-4 | `readyz()` is byte-identical to `livez()` (always 200). When the service gains Postgres/Redis/HTTP deps, load balancers will route to a broken instance. Documented `TODO(readiness)` (LOW-4, 2026-05-24). | `services/tilemap-service/src/http/health.rs:60` | CLOSED as not-a-defect 2026-11-13 round 8: `readyz()==livez()` is documented and deliberate (module doc + `TODO(readiness)` LOW-4); the HTTP server builds no DB/pool/deps — the only `reqwest` use is in CLI harness subcommands. When Phase 4+ adds deps, the readiness check goes where the TODO points. |
 
 ## P1 — structural
 
@@ -50,9 +50,9 @@
 | P1-5 | 7 contract-declared gRPC methods return `UNIMPLEMENTED` — the largest known functional gap in the Rust surface. Tracked by design (two-way test asserts the list), blockers named (DP-C5 migration state machine, `npc_binding` DDL design gap). Closing needs design decisions, not a code sweep. | `crates/dp-control-plane/src/lib.rs:71`; `tests/surface.rs::every_unimplemented_method_says_so_and_no_other_does` | NEEDS-DECISION (re-verified 2026-11-13; still 7 entries; GetTierPolicy has left the list - now SERVED) |
 | P1-6 | `YamlGuardrail` implemented but bound by no production service; the workspace `Cargo.toml` comment claims roleplay-service / world-service bind it — grep finds zero uses outside its own crate. Canon writes in production are unguarded or guarded elsewhere (unverified either way). | `crates/contracts-prompt/src/canon_guardrail.rs:181`; `crates/dp-kernel/src/canon_cache.rs:416,425` (`NoOpGuardrail`/`StubRejectGuardrail`, also unbound) | NEEDS-DECISION (re-verified 2026-11-13; still 0 production uses outside its own crate) |
 | P1-7 | 835 broken relative links out of 13,759 in `docs/` (6.1%). 242 trace to one refactor (knowledge-service extraction/neo4j files moved, docs never updated); 595 in `docs/sessions/` alone. The session archive is the project's memory; agents follow pointers into deleted code. | `docs/sessions/SESSION_ARCHIVE.md` → `../plans/2026-08-09-knowledge-architecture-refactor.md` (moved to `.ai-factory/archive/plans/`), → `../../services/knowledge-service/app/extraction/llm_entity_extractor.py` (missing) | OPEN (re-measured 2026-11-13 round 9: 152/13,693 broken, 1.1%; 55 in docs/sessions/; 649 fixed this round — 645 links re-pointed to their true target, 4 dead-file links unlinked; the cited refactor-plan link is among the fixed, now re-pointed to `.ai-factory/archive/plans/`; remaining 152 are deleted files with no successor, Windows paths, and placeholders) |
-| P1-8 | Progress SSOTs stale: `docs/MILESTONE.md` last updated 2026-08-08 (~3 months before HEAD) although AGENTS.md declares it the SSOT; `docs/sessions/SESSION_HANDOFF.md` latest in-content date 2026-09-04 (~2 months stale). | `docs/MILESTONE.md:7`; `docs/sessions/SESSION_HANDOFF.md` (max date 2026-09-04) | STALE (re-verified 2026-11-13; half fixed - SESSION_HANDOFF current to 2026-11-12; MILESTONE still 2026-08-08) |
+| P1-8 | Progress SSOTs stale: `docs/MILESTONE.md` last updated 2026-08-08 (~3 months before HEAD) although AGENTS.md declares it the SSOT; `docs/sessions/SESSION_HANDOFF.md` latest in-content date 2026-09-04 (~2 months stale). | `docs/MILESTONE.md:7`; `docs/sessions/SESSION_HANDOFF.md` (max date 2026-09-04) | STALE (re-verified 2026-11-13; SESSION_HANDOFF current through the rounds 3-10 merges; MILESTONE still 2026-08-08 — needs the owner's call on refresh vs retire) |
 | P1-9 | `CHANGELOG.md` `[Unreleased]` completely empty while HEAD is a feature commit (`440fe02`) and the last release section is `[0.1.0-rc.1] - 2026-09-06` — ~2 months of work unrecorded. | `CHANGELOG.md` (`[Unreleased]` subsections blank) | verified |
-| P1-10 | No GitHub Action pinned to a commit SHA anywhere (0 of 147 `uses:`); `dtolnay/rust-toolchain@master` (floating branch) in 3 places. The repo's own `dep-pinning-lint` pins Docker `FROM` digests but does not scan `uses:` at all, so this is unenforced. | `.github/workflows/foundation-ci.yml:87`, `gates.yml:100,260`; `scripts/dep-pinning-lint.sh:9` | OPEN (re-verified 2026-11-13; 147 uses:, 0 pinned to a SHA; rust-toolchain@master x3 at foundation-ci.yml:89, gates.yml:100,260) |
+| P1-10 | No GitHub Action pinned to a commit SHA anywhere (0 of 147 `uses:`); `dtolnay/rust-toolchain@master` (floating branch) in 3 places. The repo's own `dep-pinning-lint` pins Docker `FROM` digests but does not scan `uses:` at all, so this is unenforced. | `.github/workflows/foundation-ci.yml:87`, `gates.yml:100,260`; `scripts/dep-pinning-lint.sh:9` | FIXED 2026-11-13 round 5 (a941ef88, merged 60ea3105): 147/147 `uses:` pinned to full 40-hex SHAs with `# version` comments; drift unified (checkout v4->v7, setup-python v5/v6->v7, rust-toolchain master->stable, setup-go v5->v7); actionlint exit 0. Fork CI run is the remaining proof (cannot run from the sandbox). |
 | P1-11 | Migration-idempotency validator does not walk `contracts/migrations/glossary/` — exactly where the non-idempotent statements live: bare `CREATE TABLE` + 4 bare `CREATE INDEX` in `0001_canon_change_history.up.sql`. | `scripts/migration-idempotency-validator.py:75-77` (TREES covers only `per_reality` + `migrations/meta`); `contracts/migrations/glossary/0001_canon_change_history.up.sql:35,65,68,72,77` | verified |
 
 ## P2 — maintainability
@@ -69,8 +69,8 @@
 | P2-8 | `packages/` has zero tests (api-types, auth-client, design-tokens, i18n all 0 test files); two of those packages are empty skeletons (`export {};`) yet declared as dependencies of frontend-game. | `packages/api-types/src/index.ts:14`, `packages/design-tokens/src/index.ts`, `frontend-game/package.json:26,28` | OPEN (re-verified 2026-11-13; still 0 test files; both skeletons still export {};) |
 | P2-9 | Deprecated `ChapterEditorPage` (1,405 lines, `DEPRECATED — DO NOT EDIT` banner) is still the default edit route; its 15 legacy-only capabilities have no Studio equivalent enforced by deletion. | `frontend/src/pages/ChapterEditorPage.tsx:2`; `frontend/src/App.tsx:156` | OPEN (re-verified 2026-11-13; still 1405 lines, still the default edit route at frontend/src/App.tsx:156) |
 | P2-10 | God-file API layers (hand-written, not generated): `frontend/src/features/knowledge/api.ts` 2,053 lines, `books/api.ts` 1,146, `composition/api.ts` 1,009. | `frontend/src/features/*/api.ts` | OPEN (re-verified 2026-11-13; line counts exact as registered) |
-| P2-11 | `:latest` images in the tracked compose (`mailhog:latest`, `languagetool:latest`, `pandoc/core:latest`) plus floating majors (`postgres:16`, `redis:7-alpine`); the repo's own Dockerfile comments forbid the same class for `apache/age:latest`. | `infra/docker-compose.yml:140,2130,2163` | STALE (re-verified 2026-11-13; :latest x3 intact, but postgres:16 / redis:7-alpine moved out of the main compose; floating major now loreweave/postgres-pgvector:18 at :33) |
-| P2-12 | 14 of 52 compose services have no `healthcheck:` (minio, mailhog, frontend, cms-frontend, otel-collector, tempo, grafana, …); `depends_on:` without healthchecks lets dependents start against not-ready backends. | `infra/docker-compose.yml` | OPEN (re-verified 2026-11-13; 52 services, 14 without healthcheck - exact) |
+| P2-11 | `:latest` images in the tracked compose (`mailhog:latest`, `languagetool:latest`, `pandoc/core:latest`) plus floating majors (`postgres:16`, `redis:7-alpine`); the repo's own Dockerfile comments forbid the same class for `apache/age:latest`. | `infra/docker-compose.yml:140,2130,2163` | FIXED 2026-11-13 round 6 (0bc87955, merged 60ea3105): the 3 `:latest` pinned (mailhog by digest, languagetool 6.8, pandoc/core 3.11); 0 `:latest` image refs remain under `infra/` (the 2 remaining matches are comments). |
+| P2-12 | 14 of 52 compose services have no `healthcheck:` (minio, mailhog, frontend, cms-frontend, otel-collector, tempo, grafana, …); `depends_on:` without healthchecks lets dependents start against not-ready backends. | `infra/docker-compose.yml` | FIXED for all probeable services 2026-11-13 round 6 (0bc87955, merged 60ea3105): 19 real healthchecks added (main 9, observability 6, meta-ha 3, redis-cache 1); 8 left without for stated reasons (no probeable endpoint: orphan-scanner, composition-worker, translation-worker, worker-infra, otel-collector, slo-budget-calculator, alert-recorder, minio-bootstrap one-shot). No live red->green observation — the sandbox cannot start containers; probes verified by source + image contents + compose config. |
 | P2-13 | 9 of 14 workflows have zero `timeout-minutes` on any job (default GitHub timeout 6h); the repo's `timeout-discipline-lint` only checks HTTP-client timeouts in code, not workflow timeouts. | `conformance-ci.yml`, `foundation-ci.yml`, `gates.yml` (partial), `oss-release.yml`, `python-*.yml`, `domain-db-smoke.yml`, `dep-vuln.yml`, `game-subtree-ci.yml`, `visual-snapshots-bake.yml` | agent-reported |
 | P2-14 | 20 duplicated PNGs across `eval/compare-*` dirs (5 md5 groups × 4 identical copies); orphaned baseline `eval/baselines/v5.10.json` referenced by 0 files; compare dirs consumed by no live script (2026-05 planning docs only). | `eval/compare-v2.1e/…`, `eval/baselines/v5.10.json` | STALE (re-verified 2026-11-13; counts moved: 275 PNGs, 79 md5 dup groups, 179 files) |
 | P2-15 | Service count prose is one behind: AGENTS.md, CONTRIBUTING.md, README.md and docs/ARCHITECTURE.md say 47 services, `ls services/` = 48. (Historical mentions in archived RUN-STATE docs left as-is.) | `AGENTS.md:67`, `CONTRIBUTING.md:6`, `README.md:317`, `docs/ARCHITECTURE.md:9,69` | verified |
@@ -84,7 +84,7 @@
 | P2-23 | Dead code: `crates/world-gen/src/zonegen.rs:194` `blended_height_with_owner` (zero callers, kept alive by `#[allow(dead_code)]`); `FakeBackend` test double (13 `.unwrap()`) ships in the library with zero users outside its own tests. | `crates/world-gen/src/zonegen.rs:194`, `crates/dp-kernel/src/canon_cache.rs:467–612` | OPEN (re-verified 2026-11-13) |
 | P2-24 | `tests/e2e/registry/*.ps1` smoke scripts appear unwired — 10+ scripts not referenced by any workflow. | `tests/e2e/registry/` | OPEN (re-verified 2026-11-13) |
 | P2-25 | `.gitignore` gaps: `.terraform/` + `*.tfstate` (an `infra/terraform/` tree exists), `.DS_Store`, `coverage/` (only `coverage.xml`/`htmlcov/` ignored). Latent, nothing tracked yet. | `.gitignore`, `infra/terraform/` | OPEN (re-verified 2026-11-13) |
-| P2-26 | 60 `cargo check` warnings in the workspace (all "missing documentation" on public items + 2 `cargo fix` suggestions), 53 of them in `world-service`. Warnings, not errors — `cargo check` passes. Found during verification (2026-11-12, `make ci-local` rerun after protoc install). | `services/world-service/src/rebuild/event_source.rs:187,201`, `crates/meta-rs/src/routing.rs:118,125,126`, `services/commit-service` (2), `crates/world-gen` (2) | OPEN (re-verified 2026-11-13) |
+| P2-26 | 60 `cargo check` warnings in the workspace (all "missing documentation" on public items + 2 `cargo fix` suggestions), 53 of them in `world-service`. Warnings, not errors — `cargo check` passes. Found during verification (2026-11-12, `make ci-local` rerun after protoc install). | `services/world-service/src/rebuild/event_source.rs:187,201`, `crates/meta-rs/src/routing.rs:118,125,126`, `services/commit-service` (2), `crates/world-gen` (2) | FIXED 2026-11-13 round 10 (1a8e9fa6, merged 60ea3105): `cargo check --workspace --all-targets` re-measured 60 lib warnings + 3 test-target warnings (63 total) -> 0 after the fix; no behavior change. |
 | P2-27 | `.githooks/pre-commit` is tracked non-executable (mode 100644), so git ignores it on a fresh clone and NO commit ever runs the repo's gate hook — the "enforced for everyone" claim in the hook's own header is false. Found during verification (2026-11-12: `git commit` printed "hook was ignored because it's not set as executable"). Second half found when the round-2 commit ran the hook: it invoked 8 `#!/usr/bin/env bash` lint scripts via `sh`, so on any dash-`sh` system it died at `set -o pipefail` (`language-rule-lint.sh:33`) and no commit could land. Fix: `chmod +x` + `sh` → `bash` on the 8 invocations. | `.githooks/pre-commit` | verified |
 
 ## P3 — hygiene
@@ -95,7 +95,7 @@
 | P3-2 | Dead exports: `LoginResult`/`PasswordProblem` (`packages/auth-client/src/index.ts:102,219`), `isPlainTextMessage` (`frontend/src/api.ts:122`), `LanguageDir`/`LanguageEntry` (`frontend/src/lib/languages.ts`). | as listed | STALE (re-verified 2026-11-13; isPlainTextMessage has a live caller at frontend/src/api.ts:169 - not dead; the other dead exports stand) |
 | P3-3 | `crates/dp/Cargo.toml:4` — `edition = "2021"` while the workspace declares 2024 and 27 of 28 other members inherit it; also doesn't inherit `authors`/`license`/`publish`. No comment explains the exception. | `crates/dp/Cargo.toml:4` | OPEN (re-verified 2026-11-13) |
 | P3-4 | `crates/foundation-model/Cargo.toml` — `stateright = "0.31"` is the only member dependency bypassing `[workspace.dependencies]` pinning. | `crates/foundation-model/Cargo.toml` | OPEN (re-verified 2026-11-13) |
-| P3-5 | Only 4 of 21 crates declare `#![forbid(unsafe_code)]`; no production `unsafe` exists today, so this is a missing guardrail, not a live risk. | `crates/dp-control-plane`, `crates/dp`, `crates/meta-rs`, `crates/sim-core` | STALE (re-verified 2026-11-13; denominator is 23 crates, not 21) |
+| P3-5 | Only 4 of 21 crates declare `#![forbid(unsafe_code)]`; no production `unsafe` exists today, so this is a missing guardrail, not a live risk. | `crates/dp-control-plane`, `crates/dp`, `crates/meta-rs`, `crates/sim-core` | FIXED 2026-11-13 round 10 (1a8e9fa6, merged 60ea3105): 22 of 23 crates under `crates/` now declare `#![forbid(unsafe_code)]` (was 4); breaker-core excluded by design — the attribute breaks its intentional loom bite test (proven by experiment); production unsafe still zero. Remaining gap: tilemap/travel/roleplay services + the `loreweave_llm` SDK (outside the `crates/` scope). |
 | P3-6 | Dead script `scripts/qc5-arm1b-five-runs.sh` — zero references repo-wide (only `.git/index` mentions the name). One-off QC script; delete or keep deliberately. | `scripts/qc5-arm1b-five-runs.sh` | OPEN (re-verified 2026-11-13) |
 | P3-7 | Lint duplication across three surfaces: `observability-inventory-lint` in two workflow matrices; `language-rule-lint` in `lint-foundation.yml` and again in `foundation-ci.yml`. No single owner list. | `lint.yml`, `lint-foundation.yml`, `foundation-ci.yml` | OPEN (re-verified 2026-11-13) |
 | P3-8 | `lint.yml` matrix silently skips missing scripts (`if [ -f ... ] … skipping`) — a renamed/deleted lint reports success. The exact "scope never reaches it" non-vacuity shape AGENTS.md warns about. | `.github/workflows/lint.yml` | OPEN (re-verified 2026-11-13) |
@@ -169,6 +169,56 @@
     revision ordering has no monotonic `seq` - book-service `listRevisions`
     orders by `created_at DESC, id DESC`.
 
+## Rounds 3-10 reconciliation (2026-11-13/14, HEAD `60ea3105`)
+
+- Scope: rounds 3-10 fixed the items below, each on its own branch from
+  `fac8291f`, each red->green verified by its agent and re-verified by the
+  recovery coordinator (target tests re-run personally before merge).
+  All 8 branches merged to main with merge commits (`867ce151`,
+  `28c452aa`, `e8d7c0cc`, `ed21b261`, `61a3617b`, `7f4d24a1`, `1117326d`,
+  `60ea3105`); the FE live-audit branch `audit/frontend-live`
+  (`1a0d2ce4`, FL-1/FL-3/FL-4) is NOT merged here — the parent verifies
+  and merges it.
+- Round 3 (Python, `06aae3af`): F1 root-scene `story_order` NULL, F9
+  autofix rule-ID paths dropped, F11 string-criticals crash — all fixed
+  with regression tests; 11/11 re-run green by the coordinator against
+  the real Postgres. Bounded ruff/bandit/semgrep sweep: nothing
+  demonstrable found (223 sampled SQL-interpolation sites all use fixed
+  literals + `$n` params; wildcard CORS is real but gateway-guarded and
+  needs an owner decision).
+- Round 4 (frontend, `94caccc8`): F15 critic hint corrected in the
+  component defaultValue + all 18 locales (ru translated, others echo);
+  7 dead files deleted (owner-approved, 0 references re-verified);
+  dep manifest fixed (3 unlisted added, 3 unused removed). DefaultModelsCard
+  suite 13/13 green. Three more 0-ref files found (`AudioOverview.tsx`,
+  `SchemaEditor.tsx`, `useAccountUsage.ts`) — deletion needs owner approval.
+- Round 5 (workflows, `a941ef88`): P1-10 fixed, 147/147 `uses:` pinned
+  to full SHAs (16 SHAs double-resolved via `git ls-remote`); drift
+  unified incl. extra `setup-go` v5->v7; actionlint clean.
+- Round 6 (infra, `0bc87955`): P0-1, P2-11, P2-12 fixed. 258 fallbacks ->
+  bare `${VAR}` + `.env.example` (130 vars); 3 `:latest` pinned; 19 real
+  healthchecks added. `docker compose config` resolves clean. No live
+  healthcheck observation possible (sandbox cannot start containers).
+- Round 7 (tests, `8c63e1ce`): all 127 assertion-free Python candidates
+  bitten — 93 proven non-vacuous, 3 proven vacuous and fixed (2 test
+  files), 30 are `@pytest_asyncio.fixture`s named `test_user`, 1 K27-stale
+  skip. No test deleted.
+- Round 8 (security, `90630383`): P0-2 fixed, definitions 9 -> 6; P0-4
+  verified NOT a defect; gitleaks re-run 26 hits, 0 real leaks (1 test
+  RSA key fixture noted for a future round: generate at test time).
+- Round 9 (contracts, `02135ddf`): P1-7 improved 801/13,697 -> 152/13,693
+  (649 fixed). Drift census (script kept as scratch): 11 specs, 133
+  paths, 0 spec-only paths, 336 undocumented live operations, 7 method
+  mismatches — NOT fixed; documenting them is a backfill program needing
+  a plan/owner decision. 17 HTTP services have no spec.
+- Round 10 (Rust, `1a8e9fa6`): P3-5 fixed (forbid in 22 of 23 crates);
+  P2-26 fixed (63 warnings -> 0). Advisories triaged: jsonwebtoken
+  upgrade (closes 2) and serde_yaml -> saphyr migration are deferred
+  with stated reasons; `deny.toml` allow-list + license fields are an
+  owner policy decision. Full world-gen lib suite (445 tests) not run to
+  completion — killed after ~21 min for sandbox slowness; 45-test subset
+  green, compile green.
+
 ## Visual audit of the composition workspace (2026-11-13, HEAD 04716f37)
 
 - Scope: the studio's workspace panels (dock rail, floating windows,
@@ -230,6 +280,14 @@
 
 ## Closed in this audit
 
+- Rounds 3-10 (2026-11-13/14, merged to main at `60ea3105`): P0-1, P0-2,
+  P1-10, P2-11, P2-12 (probeable services), P2-26, P3-5, F1, F9, F11,
+  F15 fixed with red->green evidence; P0-4 closed as not-a-defect; P1-7
+  improved 801 -> 152 broken links; 3 proven-vacuous Python tests fixed
+  out of 127 bite-checked candidates (93 proven non-vacuous, 30 fixtures,
+  1 stale skip); contract drift census done (336 undocumented live ops
+  recorded, not fixed — see "Needs a decision"). Details per round in
+  the "Rounds 3-10 reconciliation" section above.
 - P1-9 (empty `[Unreleased]`) — partial: HEAD feature recorded; earlier unreleased work since `0.1.0-rc.1` still unrecorded (shallow clone has no history to reconstruct it from).
 - P1-11 (migration validator gap) — validator extended to walk `contracts/migrations/glossary/` (floor 1); the 5 violations in `0001_canon_change_history.up.sql` (1 bare `CREATE TABLE` + 4 bare `CREATE INDEX`) made idempotent. Red→green evidence: pre-fix run FAILed with 5 violations; post-fix validator PASSes 144 files across 3 trees, self-test OK.
 - P2-13 (workflow timeouts) — `timeout-minutes` added to all 55 jobs in all 14 workflow files (30 for scans/smoke, 60 for test/build jobs, 120 for nightly/release-heavy jobs); YAML re-parsed after edit, 55/55 jobs covered (incl. 2 jobs in `lint-foundation.yml` found by a second pass).
@@ -241,8 +299,10 @@
 
 ## Needs a decision (not closable by an audit)
 
-- P0-1: dev credentials in compose — replace with `${VAR}` without literal fallbacks + `.env.example` (breaks `docker compose up` with no setup), or formally mark the file dev-only? This changes the local-dev flow; needs the owner's call.
-- P0-2: `_guard_throwaway` dedup — touches the safety helper whose failure once deleted all books; needs a careful refactor + the db-safety gate's own tests, not a drive-by.
 - P1-5: the 7 UNIMPLEMENTED gRPC methods wait on DP-C5 design (migration state machine, `npc_binding` DDL) — design work, not a fix.
 - P1-6: `YamlGuardrail` unbound — either bind it in roleplay-service / world-service or delete it and correct the workspace comment.
+- P1-8 (second half): `docs/MILESTONE.md` still 2026-08-08 — refresh it to the current state, or retire it as a historical document and point at SESSION_HANDOFF as the live status?
+- Spec backfill: 336 undocumented live operations + 7 method mismatches (round 9 census) — a backfill program (glossary-style conformance test per service + allowlist), starting with composition (197) and books (74)?
+- Frontend: delete the 3 extra 0-ref files (`AudioOverview.tsx`, `SchemaEditor.tsx`, `useAccountUsage.ts`) proven dead in round 4?
+- Rust: `deny.toml` allow-list + license fields on 4 unlicensed crates; jsonwebtoken upgrade (closes 2 advisories); serde_yaml -> saphyr migration (closes the unmaintained-warning advisory)?
 - P1-1/P1-2: frontend lint expansion — enabling rules surfaces ~157 `any`s + 53 stale suppressions; a cleanup in its own right.
