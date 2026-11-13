@@ -22,7 +22,7 @@ Glossary đã giải bài toán "customizable" cho **node identity** (genre·kin
 | Mặt | Trạng thái | Bằng chứng |
 |---|---|---|
 | Tenancy / isolation | Chắc | Mọi node Neo4j có `user_id` + `project_id`; safety wrapper K11.4 ép mọi query bind `$user_id` ([app/db/neo4j_helpers.py](../../services/knowledge-service/app/db/neo4j_helpers.py)); index prefix `user_id`. Không thấy IDOR. |
-| Temporal + provenance | **Đã implement** (phần khó nhất) | `valid_from`/`valid_until` trên relations & facts; `:ExtractionSource` + edge `:EVIDENCED_BY(source_id=chapter_id)`; event có `event_order`/`chronological_order` ([app/db/neo4j_repos/relations.py](../../services/knowledge-service/app/db/neo4j_repos/relations.py), `provenance.py`, `events.py`). |
+| Temporal + provenance | **Implemented** (the hardest part) | `valid_from`/`valid_until` on relations & facts; `:ExtractionSource` + edge `:EVIDENCED_BY(source_id=chapter_id)`; event has `event_order`/`chronological_order` ([app/db/neo4j_repos/relations.py](../../services/knowledge-service/app/db/graph_repos/relations.py), `provenance.py`, `events.py`). |
 | Two-layer anchor | Có | Node neo về glossary qua `glossary_entity_id`. |
 | Edge predicate mở | Linh hoạt | Predicate là free string (normalize snake_case), lưu `:RELATES_TO {predicate}`. |
 | Project abstraction | Có | `knowledge_projects` có `project_type` (book/translation/code/general) + `book_id` optional + derivative projects. |

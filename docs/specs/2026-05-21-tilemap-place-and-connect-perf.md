@@ -12,7 +12,7 @@
 
 ## 1. Problem
 
-[`services/tilemap-service/src/engine/object_manager.rs:102-202`](services/tilemap-service/src/engine/object_manager.rs#L102-L202)
+[`services/tilemap-service/src/engine/object_manager.rs:102-202`](../../services/tilemap-service/src/engine/object_manager.rs#L102-L202)
 runs **two flood-fill-sized passes per candidate** inside the hot loop:
 
 ```rust
@@ -52,12 +52,12 @@ to well under 30 s, with the next dominant cost surfacing in
 ### Non-goals
 
 - **Do not** change the placement output. The golden test
-  ([`tests/determinism.rs`](services/tilemap-service/tests/determinism.rs)
+  ([`tests/determinism.rs`](../../services/tilemap-service/tests/determinism.rs)
   `golden_baseline_byte_identical`) must pass with **no rebaseline**.
 - **Do not** touch `would_seal_a_gap` or `find_access_path` internals — they
   are correct, the fix is in *how often* they are called.
 - **Do not** rewrite the `nearest_object_distance` oracle refresh
-  ([object_manager.rs:189-199](services/tilemap-service/src/engine/object_manager.rs#L189-L199))
+  ([object_manager.rs:189-199](../../services/tilemap-service/src/engine/object_manager.rs#L189-L199))
   in this task — O(map_tiles) per placement = ~30M ops total at 256², a
   second-class concern. Open a separate deferred item if it surfaces as a
   bottleneck after this fix.
@@ -132,7 +132,7 @@ in the worst case; better in every realistic case.
 
 The current algorithm returns `argmax over { valid candidates } of
 (score, -flat_index)` — the candidate with the highest score; ties resolved
-to the lowest flat index ([object_manager.rs:165-169](services/tilemap-service/src/engine/object_manager.rs#L165-L169)).
+to the lowest flat index ([object_manager.rs:165-169](../../services/tilemap-service/src/engine/object_manager.rs#L165-L169)).
 
 The new algorithm sorts survivors by `(score desc, flat asc)`, then returns
 the first survivor that passes the expensive validation. Define:
@@ -170,7 +170,7 @@ including the `nearest_object_distance` oracle refresh.
 
 - All 13 `object_manager::tests::*` (the unit tests in object_manager.rs)
 - All `TreasurePlacer` tests in
-  [`engine/modificators/treasure_placer.rs`](services/tilemap-service/src/engine/modificators/treasure_placer.rs)
+  [`engine/modificators/treasure_placer.rs`](../../services/tilemap-service/src/engine/modificators/treasure_placer.rs)
 - The golden test `golden_baseline_byte_identical` — **the load-bearing
   end-to-end gate.**
 - `ac4_same_seed_yields_byte_identical_tilemap`

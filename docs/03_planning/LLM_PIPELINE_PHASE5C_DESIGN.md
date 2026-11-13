@@ -22,7 +22,7 @@
 
 ### Non-goals
 
-- **Caller migration** (book-service [media.go:449](services/book-service/internal/api/media.go#L449), video-gen-service [generate.py:158](services/video-gen-service/app/routers/generate.py)). Both currently call upstream directly via http.Client — migration to SDK is Phase 5e (after 5d's video_gen lands).
+- **Caller migration** (book-service [media.go:449](../../services/book-service/internal/api/media.go#L449), video-gen-service [generate.py:158](../../services/video-gen-service/app/routers/generate.py)). Both currently call upstream directly via http.Client — migration to SDK is Phase 5e (after 5d's video_gen lands).
 - **Gateway-side URL→MinIO download**. Caller owns its storage bucket (matches chat-service voice precedent).
 - **video_gen operation**. Same shape but different upstream path (`/v1/video/generations`); ship 5d separately.
 - **Streaming (progressive image preview)**. The OpenAI spec is request-response; no provider implements streaming image gen via this contract.
@@ -59,11 +59,11 @@ JobOperation:
 
 | Slot | Has `image_gen`? | File |
 |---|---|---|
-| openapi `JobOperation` enum | ✅ since Phase 2b | [openapi.yaml](contracts/api/llm-gateway/v1/openapi.yaml) |
-| migrate.go `llm_jobs.operation` CHECK constraint | ✅ since Phase 2b | [migrate.go:97-102 + ALTER:154-158](services/provider-registry-service/internal/migrate/migrate.go#L97) |
-| jobs_handler.go `validJobOperations` map | ✅ since Phase 2b | [jobs_handler.go:33-34](services/provider-registry-service/internal/api/jobs_handler.go) |
-| SDK `JobOperation` Literal | ✅ since Phase 4a-α | [models.py:119-125](sdks/python/loreweave_llm/models.py#L119) |
-| notification-service op label map | ✅ already mapped to "Image gen" | [consumer.go:95 + consumer_test.go:104](services/notification-service/internal/consumer/consumer.go) |
+| openapi `JobOperation` enum | ✅ since Phase 2b | [openapi.yaml](../../contracts/api/llm-gateway/v1/openapi.yaml) |
+| migrate.go `llm_jobs.operation` CHECK constraint | ✅ since Phase 2b | [migrate.go:97-102 + ALTER:154-158](../../services/provider-registry-service/internal/migrate/migrate.go#L97) |
+| jobs_handler.go `validJobOperations` map | ✅ since Phase 2b | [jobs_handler.go:33-34](../../services/provider-registry-service/internal/api/jobs_handler.go) |
+| SDK `JobOperation` Literal | ✅ since Phase 4a-α | [models.py:119-125](../../sdks/python/loreweave_llm/models.py#L119) |
+| notification-service op label map | ✅ already mapped to "Image gen" | [consumer.go:95 + consumer_test.go:104](../../services/notification-service/internal/consumer/consumer.go) |
 
 **What IS new this cycle:**
 - 3 schema definitions: `ImageGenInput` + `ImageGenResult` + `ImageGenDataItem`
@@ -702,7 +702,7 @@ Parallel to `worker_audio_test.go`:
 - `TestClassifyImageError_RateLimitedTyped` / `_AuthFailedFrom401` / `_Permanent400IsUpstreamError` / `_Transient5xx` — typed upstream classification (reuse Phase 5a helpers)
 - `TestImageJobOperations_AlsoInValidJobOperations` — image_gen is in `validJobOperations` map + migrate.go CHECK + openapi enum (5-place sync invariant grep, mirrors `TestAudioJobOperations_AlsoInValidJobOperations` from Phase 5a; all 4 non-SDK slots are already populated per §2.1 — this test pins they stay populated, not that we add them)
 - `TestImageJobOperations_Disjoint` (Fix #2) — `imageJobOperations ∩ streamableOperations = ∅` AND `imageJobOperations ∩ audioJobOperations = ∅`. Mirrors Phase 5a's `TestStreamableAudio_Disjoint`. Catches dispatch-ambiguity regressions where someone adds `image_gen` to the wrong map.
-- `TestIsStreamableOperation_RejectsNonStreamable[image_gen]` (Fix #7) — existing test in [worker_test.go:41-58](services/provider-registry-service/internal/jobs/worker_test.go#L41) already covers this; this cycle UPDATES the comment block (line 44 "These ops exist in openapi.JobOperation but don't go through the chat-streaming machinery — they need their own adapters") to reflect 5c-α reality ("ops with non-chat-streaming dispatch — audio + image route via their own whitelist maps in worker.go ordering"). No new test.
+- `TestIsStreamableOperation_RejectsNonStreamable[image_gen]` (Fix #7) — existing test in [worker_test.go:41-58](../../services/provider-registry-service/internal/jobs/worker_test.go#L41) already covers this; this cycle UPDATES the comment block (line 44 "These ops exist in openapi.JobOperation but don't go through the chat-streaming machinery — they need their own adapters") to reflect 5c-α reality ("ops with non-chat-streaming dispatch — audio + image route via their own whitelist maps in worker.go ordering"). No new test.
 
 ### 4.3 Handler tests (`jobs_router_test.go` — NEW cases)
 
@@ -846,7 +846,7 @@ curl -I <data[0].url>
 ## 8. Phase 5d/5e/5f preview (Path B sequencing)
 
 - **5d** — `video_gen` adapter + SDK + openapi. Same shape as 5c-α but POSTs to `/v1/video/generations`. Async pattern identical. Likely L (smaller because content-policy detection / multi-image are not concerns for video).
-- **5e** — caller migration. book-service [media.go:449](services/book-service/internal/api/media.go#L449) (Go — needs Go SDK or thin shim); video-gen-service [generate.py:158](services/video-gen-service/app/routers/generate.py) (Python — uses Python SDK). Likely XL.
+- **5e** — caller migration. book-service [media.go:449](../../services/book-service/internal/api/media.go#L449) (Go — needs Go SDK or thin shim); video-gen-service [generate.py:158](../../services/video-gen-service/app/routers/generate.py) (Python — uses Python SDK). Likely XL.
 - **5f** — video-gen-service deletion. Remove `services/video-gen-service/` + compose entry + api-gateway-bff `/v1/video-gen/*` routes. FE switches to calling unified gateway via SDK or BFF facade. Likely M (mostly delete + small FE PR).
 
 By 5f close, the unified gateway invariant covers chat (4a) + extraction (4a-β) + translation (4c) + audio STT/TTS (5a) + image_gen (5c-α) + video_gen (5d). All external generation flows through `POST /v1/llm/jobs` (or `/v1/llm/stream` for streaming).

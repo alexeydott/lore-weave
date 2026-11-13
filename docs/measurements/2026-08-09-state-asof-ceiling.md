@@ -2,7 +2,7 @@
 
 > **Under test:** `GET /internal/books/{book_id}/state?as_of=N` (glossary-service, plan T5)
 > and its KAL exposure `GET /v1/kal/books/{book_id}/state?as_of=N` (knowledge-gateway, T6).
-> **Plan:** [`docs/plans/2026-08-09-knowledge-architecture-refactor.md`](../plans/2026-08-09-knowledge-architecture-refactor.md) T8
+> **Plan:** [`docs/plans/2026-08-09-knowledge-architecture-refactor.md`](../../.ai-factory/archive/plans/2026-08-09-knowledge-architecture-refactor.md) T8
 > **Harness:** `scripts/state-asof-live-smoke.sh` (QC-1) — the numbers below are printed by
 > its `PERF` block, and the query plan by `EXPLAIN (ANALYZE, BUFFERS)` against the same book.
 

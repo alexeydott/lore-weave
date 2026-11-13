@@ -1,6 +1,6 @@
 # Vector backup and restore drill — 2026-08-10
 
-> **Gate:** plan [T25](../plans/2026-08-09-knowledge-architecture-refactor.md) — *"Vectors are
+> **Gate:** plan [T25](../../.ai-factory/archive/plans/2026-08-09-knowledge-architecture-refactor.md) — *"Vectors are
 > **durable primary data** (decision T4) — restored, never recomputed, because per-project BYOK
 > means re-embedding spends **the user's** budget… **an untested restore is not a backup.**"*
 

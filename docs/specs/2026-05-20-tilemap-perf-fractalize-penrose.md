@@ -19,7 +19,7 @@ now shows pain.
 
 ### 1.1 #016 — `fractalize::scatter_and_connect`
 
-[`services/tilemap-service/src/engine/placement/fractalize.rs:89`](services/tilemap-service/src/engine/placement/fractalize.rs#L89)
+[`services/tilemap-service/src/engine/placement/fractalize.rs:89`](../../services/tilemap-service/src/engine/placement/fractalize.rs#L89)
 
 ```rust
 // Greedy scatter — keep a tile only if it is farther than the coverage
@@ -46,7 +46,7 @@ distance is discarded.
 
 ### 1.2 #018 — `penrose::assign_zone_tiles`
 
-[`services/tilemap-service/src/engine/placement/penrose.rs:95-104`](services/tilemap-service/src/engine/placement/penrose.rs#L95-L104)
+[`services/tilemap-service/src/engine/placement/penrose.rs:95-104`](../../services/tilemap-service/src/engine/placement/penrose.rs#L95-L104)
 
 ```rust
 for y in 0..grid.height {
@@ -90,8 +90,8 @@ engine (each cycle currently waits 10+ min for a continent test).
    completes in well under 1 s (current: dominant chunk of the 8–11 min total).
 3. **Preserve byte-identical output** — both deferred items explicitly note
    "output stays identical"; the golden test
-   ([`golden_baseline_byte_identical`](services/tilemap-service/tests/determinism.rs#L251))
-   and AC-4 ([`ac4_same_seed_yields_byte_identical_tilemap`](services/tilemap-service/tests/determinism.rs#L85))
+   ([`golden_baseline_byte_identical`](../../services/tilemap-service/tests/determinism.rs#L251))
+   and AC-4 ([`ac4_same_seed_yields_byte_identical_tilemap`](../../services/tilemap-service/tests/determinism.rs#L85))
    must pass unchanged (no rebaseline).
 4. **No new public API surface** — these are pure-internal algorithm swaps.
 
@@ -220,8 +220,8 @@ build) is **not** on the hot path — leave it unchanged.
 
 ### 5.1 Existing tests that must stay green (no rebaseline)
 
-- `golden_baseline_byte_identical` ([tests/determinism.rs:251](services/tilemap-service/tests/determinism.rs#L251))
-- `ac4_same_seed_yields_byte_identical_tilemap` ([tests/determinism.rs:85](services/tilemap-service/tests/determinism.rs#L85))
+- `golden_baseline_byte_identical` ([tests/determinism.rs:251](../../services/tilemap-service/tests/determinism.rs#L251))
+- `ac4_same_seed_yields_byte_identical_tilemap` ([tests/determinism.rs:85](../../services/tilemap-service/tests/determinism.rs#L85))
 - All existing unit tests in `fractalize.rs` and `penrose.rs`
 - All existing harness/integration tests
 
@@ -315,7 +315,7 @@ do not need to wire the LLM harness for this task.
 
 ### 9.1 `UniformBuckets<P>` — shared helper
 
-Lives in [`services/tilemap-service/src/engine/placement/spatial.rs`](services/tilemap-service/src/engine/placement/spatial.rs)
+Lives in [`services/tilemap-service/src/engine/placement/spatial.rs`](../../services/tilemap-service/src/engine/placement/spatial.rs)
 (NEW). Two consumers (fractalize, penrose) have genuinely different query
 shapes — fractalize wants "any within radius", penrose wants "nearest with
 tie-break by index". They share the same **storage shape** (uniform 2D grid of

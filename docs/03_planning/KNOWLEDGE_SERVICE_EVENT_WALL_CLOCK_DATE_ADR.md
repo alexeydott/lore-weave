@@ -30,7 +30,7 @@ The current `:Event` schema has no date property. The K17.6 LLM event extractor 
 
 ### 2.1 :Event schema (Neo4j, K11.7)
 
-[`app/db/neo4j_repos/events.py:98-123`](../../services/knowledge-service/app/db/neo4j_repos/events.py#L98-L123). Fields: `id, user_id, project_id, title, canonical_title, summary, chapter_id, chapter_title, event_order, chronological_order, participants, confidence, source_types, evidence_count, mention_count, archived_at, created_at, updated_at`. **No date field.**
+[`app/db/neo4j_repos/events.py:98-123`](../../services/knowledge-service/app/db/graph_repos/events.py#L98-L123). Fields: `id, user_id, project_id, title, canonical_title, summary, chapter_id, chapter_title, event_order, chronological_order, participants, confidence, source_types, evidence_count, mention_count, archived_at, created_at, updated_at`. **No date field.**
 
 ### 2.2 LLM event extractor (K17.6)
 
@@ -40,7 +40,7 @@ The current `:Event` schema has no date property. The K17.6 LLM event extractor 
 
 ### 2.3 Event writer + Cypher upsert
 
-[`merge_event` at events.py:182](../../services/knowledge-service/app/db/neo4j_repos/events.py#L182) — does not accept a date param. `_MERGE_EVENT_CYPHER` does not set any date prop.
+[`merge_event` at events.py:182](../../services/knowledge-service/app/db/graph_repos/events.py#L182) — does not accept a date param. `_MERGE_EVENT_CYPHER` does not set any date prop.
 
 `pass2_writer.py:write_pass2_extraction` calls `merge_event(...)` for each `LLMEventCandidate`; no date is threaded through.
 
@@ -185,7 +185,7 @@ Cypher predicate: `($event_date_from IS NULL OR e.event_date_iso >= $event_date_
 
 ### 5.2 `Event` Pydantic model + Cypher upsert
 
-[`events.py`](../../services/knowledge-service/app/db/neo4j_repos/events.py):
+[`events.py`](../../services/knowledge-service/app/db/graph_repos/events.py):
 
 ```python
 class Event(BaseModel):
