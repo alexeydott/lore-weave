@@ -236,17 +236,18 @@ export function DefaultModelsCard() {
           />
         </div>
         {/* Critic default (#270): the model that SCORES coaching/interview sessions.
-            Same chat-flag role family as planner/composer. evaluate.py refuses to
-            score without it and points the user AT this panel — the row the
-            instruction names must exist. Pick a model that differs from the session
-            actor (a roleplay partner grading its own performance is not a verdict). */}
+            Same chat-flag role family as planner/composer. evaluate.py Gate 2 falls
+            an unset critic back to the account CHAT default and refuses (409) only
+            when no distinct judge resolves — the row the instruction names must exist.
+            Pick a model that differs from the session actor (a roleplay partner
+            grading its own performance is not a verdict). */}
         <div className="mt-4">
           <DefaultModelRow
             capability={CRITIC_ROLE}
             listCapability={CHAT_CAPABILITY}
             label={t('defaultModels.critic', { defaultValue: 'Default critic model' })}
             hint={t('defaultModels.criticHint', {
-              defaultValue: 'Scores practice sessions and audits generated scenes. Optional — unset, scoring falls back to nothing and sessions are not scored. Pick one that differs from your usual chat model.',
+              defaultValue: 'Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session\'s model); if no distinct judge resolves, scoring is refused.',
             })}
             value={defaults[CRITIC_ROLE] ?? null}
             onChange={(id) => void save(CRITIC_ROLE, id)}
