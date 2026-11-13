@@ -9,8 +9,8 @@
 # BUILD_TIME before `docker compose build`); a plain build leaves them 'unknown' and
 # the guard falls back to its timestamp proxy.
 x-build-labels: &build-labels
-  org.loreweave.git_sha: "${GIT_SHA:-unknown}"
-  org.loreweave.build_time: "${BUILD_TIME:-unknown}"
+  org.loreweave.git_sha: "${GIT_SHA}"
+  org.loreweave.build_time: "${BUILD_TIME}"
 
 services:
   postgres:
@@ -40,7 +40,7 @@ services:
       - max_connections=300
     environment:
       POSTGRES_USER: loreweave
-      POSTGRES_PASSWORD: loreweave_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: loreweave_auth
       PGDATA: /var/lib/postgresql/18/docker
     ports:
@@ -110,13 +110,21 @@ services:
       # setting one pair of env vars rotates the server AND every consumer
       # together. A split default here (server hardcoded, clients overridable)
       # would let an operator "set" a new secret that only the clients believed.
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-loreweave}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-loreweave_dev_minio_secret}
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
     ports:
       - "9123:9000"
       - "9124:9001"
     volumes:
       - loreweave_minio:/data
+    healthcheck:
+      # curl IS in this bitnami build (2024.8.3; verified in the image) —
+      # the meta-ha minio (2024.8.17) has none and uses a bash /dev/tcp
+      # probe instead. Do not "fix" this one to match it.
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # Mock audio service (TTS/STT) — optional, activate with: docker compose --profile audio up
   mock-audio-service:
@@ -137,10 +145,19 @@ services:
 
   mailhog:
     restart: unless-stopped
-    image: mailhog/mailhog:latest
+    # Pinned by digest: upstream is effectively unmaintained (v1.0.1,
+    # 2020-08-11) and `latest` will never move again — the digest IS the pin.
+    image: mailhog/mailhog@sha256:8d76a3d4ffa32a3661311944007a415332c4bb855657f4f6c57996405c009bea
     ports:
       - "1148:1025"
       - "8148:8025"
+    healthcheck:
+      # The image ships busybox wget (verified in the image); the API
+      # endpoint proves the app answers, not just the listener.
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/api/v2/messages"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # ── META BRIDGE ──────────────────────────────────────────────────────────
   # The Rust->Go meta-write bridge. `reality_registry` may only be written
@@ -172,11 +189,11 @@ services:
       meta-bridge:
         condition: service_healthy
     environment:
-      ORPHAN_META_DSN: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_meta?sslmode=disable
-      ORPHAN_SHARD_ADMIN_DSN: postgres://loreweave:loreweave_dev@postgres:5432/postgres?sslmode=disable
+      ORPHAN_META_DSN: ${ORPHAN_META_DSN}
+      ORPHAN_SHARD_ADMIN_DSN: ${ORPHAN_SHARD_ADMIN_DSN}
       ORPHAN_SHARD_HOST: pg-shard-0.internal
       ORPHAN_BRIDGE_URL: http://meta-bridge:8090
-      ORPHAN_BRIDGE_TOKEN: ${METAWORKER_BRIDGE_TOKEN:-loreweave_local_dev_bridge_token}
+      ORPHAN_BRIDGE_TOKEN: ${METAWORKER_BRIDGE_TOKEN}
       # Hourly in dev. R04 §12D.7 specifies a NIGHTLY cron in production; an
       # hour here means a developer who breaks a provision sees it the same
       # session instead of the next day.
@@ -221,10 +238,10 @@ services:
       # `…=postgres` parses cleanly and dials a host with no port. Written out
       # after reading the consumer, not the parser.
       PUBLISHER_SHARD_HOST_OVERRIDE: pg-shard-0.internal=postgres:5432
-      META_DB_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_meta?sslmode=disable
+      META_DB_URL: ${META_DB_URL}
       REDIS_URL: redis://redis:6379/0
       SHARD_DB_USER: loreweave
-      SHARD_DB_PASSWORD: loreweave_dev
+      SHARD_DB_PASSWORD: ${SHARD_DB_PASSWORD}
       SHARD_DB_PORT: "5432"
       SHARD_DB_SSLMODE: disable
       PUBLISHER_HTTP_ADDR: ":8080"
@@ -243,6 +260,15 @@ services:
       # `wget /healthz` inside it returns `ok` — so every signal pointed at the
       # publisher being broken except the one that mattered.
       - "8091:8080"
+    healthcheck:
+      # Mirrors the image's own Dockerfile HEALTHCHECK (wget /healthz; the
+      # image installs wget for it). Stated here so the stack definition —
+      # and the audit count — sees it; compose overrides the image check.
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     profiles:
       - game
       - full
@@ -264,11 +290,11 @@ services:
       labels: *build-labels
     environment:
       WORLD_HTTP_BIND: "0.0.0.0:7120"
-      LOREWEAVE_INTERNAL_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
-      PROVISION_META_DSN: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_meta?sslmode=disable
-      PROVISION_SHARD_ADMIN_DSN: postgres://loreweave:loreweave_dev@postgres:5432/postgres?sslmode=disable
+      LOREWEAVE_INTERNAL_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      PROVISION_META_DSN: ${PROVISION_META_DSN}
+      PROVISION_SHARD_ADMIN_DSN: ${PROVISION_SHARD_ADMIN_DSN}
       PROVISION_BRIDGE_URL: http://meta-bridge:8090
-      PROVISION_BRIDGE_TOKEN: ${METAWORKER_BRIDGE_TOKEN:-loreweave_local_dev_bridge_token}
+      PROVISION_BRIDGE_TOKEN: ${METAWORKER_BRIDGE_TOKEN}
       # Where the per-reality databases actually live. NOT `db_host` from
       # `reality_registry` — that column is a LOGICAL shard name pinned by a
       # CHECK to `pg-shard-N.internal`, and `open_reality_pool` builds its
@@ -276,7 +302,7 @@ services:
       # real hostname in that column and watching the constraint refuse it.
       PROVISION_SHARD_HOSTPORT: postgres:5432
       PROVISION_PG_USER: loreweave
-      PROVISION_PG_PASSWORD: loreweave_dev
+      PROVISION_PG_PASSWORD: ${PROVISION_PG_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
@@ -302,11 +328,20 @@ services:
       dockerfile: services/meta-worker/Dockerfile.bridge
       labels: *build-labels
     environment:
-      META_DB_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_meta?sslmode=disable
-      METAWORKER_BRIDGE_TOKEN: ${METAWORKER_BRIDGE_TOKEN:-loreweave_local_dev_bridge_token}
+      META_DB_URL: ${META_DB_URL}
+      METAWORKER_BRIDGE_TOKEN: ${METAWORKER_BRIDGE_TOKEN}
       METAWORKER_BRIDGE_ADDR: "0.0.0.0:8090"
     ports:
       - "8090:8090"
+    healthcheck:
+      # Mirrors the image's own Dockerfile HEALTHCHECK (wget /healthz; the
+      # image installs wget for it). Stated here so the stack definition —
+      # and the audit count — sees it; compose overrides the image check.
+      test: ["CMD", "wget", "-qO-", "http://localhost:8090/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
@@ -332,16 +367,16 @@ services:
     environment:
       HTTP_ADDR: ":8081"
       DATABASE_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_auth?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      JWT_SECRET: ${JWT_SECRET}
       ACCESS_TOKEN_TTL_SECONDS: "7200"
       REFRESH_TOKEN_TTL_SECONDS: "2592000"
       DEV_LOG_EMAIL_TOKENS: "1"
       SMTP_HOST: mailhog
       SMTP_PORT: "1025"
       SMTP_FROM: "LoreWeave <noreply@loreweave.local>"
-      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:5174}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL}
       NOTIFICATION_SERVICE_INTERNAL_URL: http://notification-service:8091
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # WS-1.0 (PO-2) — the deployment KEK that WRAPS each user's DEK. auth-service stores
       # only the wrapped blob; consumers unwrap with the SAME key from their own env, so
       # the plaintext key never crosses the network.
@@ -351,10 +386,10 @@ services:
       # whole scheme. The dev default exists so the local stack boots — it is not a secret.
       # Rotating it? Put the OLD value in DIARY_ENCRYPTION_KEYS_RETIRED or you will orphan
       # every existing user's key.
-      DIARY_ENCRYPTION_KEY: ${DIARY_ENCRYPTION_KEY:-loreweave_local_dev_diary_kek_change_me}
-      DIARY_ENCRYPTION_KEYS_RETIRED: ${DIARY_ENCRYPTION_KEYS_RETIRED:-}
+      DIARY_ENCRYPTION_KEY: ${DIARY_ENCRYPTION_KEY}
+      DIARY_ENCRYPTION_KEYS_RETIRED: ${DIARY_ENCRYPTION_KEYS_RETIRED}
       # Q-GATE (public MCP): gate mcp_api_keys creation behind this flag (kill-switch).
-      PUBLIC_MCP_ENABLED: ${PUBLIC_MCP_ENABLED:-false}
+      PUBLIC_MCP_ENABLED: ${PUBLIC_MCP_ENABLED}
       # D-PMCP-SELFCONFIRM-ROUTES — Tier-W confirm replay (self-confirm + human-approve)
       # POSTs {URL}/v1/<domain>/actions/confirm with the internal token. Absent vars
       # leave that domain non-executable (AUTH_CONFIRM_DOMAIN_UNROUTABLE). See
@@ -367,16 +402,16 @@ services:
       KNOWLEDGE_SERVICE_URL: http://knowledge-service:8092
       PROVIDER_REGISTRY_SERVICE_URL: http://provider-registry-service:8085
       # Phase 6c — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       # Admin-JWT issuance (admin CMS / D-GKA-SYSTEM-TIER-ADMIN). Disabled unless a
       # signing key is provided. DEV/self-hosted: set ADMIN_JWT_LOCAL_PRIVATE_KEY_PEM
       # (a base64-or-PEM RSA private key — see infra/gen-admin-dev-keys.ps1); PROD:
       # set KMS_ADMIN_SIGNING_KEY_ID instead (key never leaves KMS). The issuer/audit
       # secrets are dev defaults, only used when issuance is enabled.
-      ADMIN_JWT_LOCAL_PRIVATE_KEY_PEM: ${ADMIN_JWT_LOCAL_PRIVATE_KEY_PEM:-}
-      KMS_ADMIN_SIGNING_KEY_ID: ${KMS_ADMIN_SIGNING_KEY_ID:-}
-      ADMIN_TOKEN_ISSUER_SECRET: ${ADMIN_TOKEN_ISSUER_SECRET:-dev_admin_issuer_secret_distinct_32chars!}
-      ADMIN_AUDIT_HMAC_KEY: ${ADMIN_AUDIT_HMAC_KEY:-dev_admin_audit_hmac_key_at_least_32chars}
+      ADMIN_JWT_LOCAL_PRIVATE_KEY_PEM: ${ADMIN_JWT_LOCAL_PRIVATE_KEY_PEM}
+      KMS_ADMIN_SIGNING_KEY_ID: ${KMS_ADMIN_SIGNING_KEY_ID}
+      ADMIN_TOKEN_ISSUER_SECRET: ${ADMIN_TOKEN_ISSUER_SECRET}
+      ADMIN_AUDIT_HMAC_KEY: ${ADMIN_AUDIT_HMAC_KEY}
     depends_on:
       postgres:
         condition: service_healthy
@@ -401,35 +436,35 @@ services:
     environment:
       HTTP_ADDR: ":8082"
       DATABASE_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_book?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      JWT_SECRET: ${JWT_SECRET}
       # MCP fan-out /review-impl — dedicated confirm-token signing secret (split
       # from JWT_SECRET so the Tier-W confirm HMAC key has a distinct blast radius).
-      CONFIRM_TOKEN_SIGNING_SECRET: ${CONFIRM_TOKEN_SIGNING_SECRET:-loreweave_local_dev_confirm_signing_secret_change_me_32chars}
+      CONFIRM_TOKEN_SIGNING_SECRET: ${CONFIRM_TOKEN_SIGNING_SECRET}
       BOOKS_STORAGE_BUCKET: loreweave-dev-books
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-loreweave}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-loreweave_dev_minio_secret}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_USE_SSL: "false"
-      MINIO_EXTERNAL_URL: ${MINIO_EXTERNAL_URL:-http://localhost:9123}
+      MINIO_EXTERNAL_URL: ${MINIO_EXTERNAL_URL}
       SHARING_INTERNAL_URL: http://sharing-service:8083
       # Phase 5e-β.2 — PROVIDER_REGISTRY_SERVICE_URL dropped (audio.go was
       # its last consumer; now migrated to use llmgw SDK via LLM_GATEWAY_INTERNAL_URL).
       LLM_GATEWAY_INTERNAL_URL: http://provider-registry-service:8085
       USAGE_BILLING_SERVICE_URL: http://usage-billing-service:8086
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # EPUB V2 rollout: local compose is opt-in; production keeps this
       # explicitly managed until shadow evidence promotes it to default.
-      EPUB_IMPORT_V2_MODE: ${EPUB_IMPORT_V2_MODE:-opt_in}
-      EPUB_IMPORT_ASSET_RETENTION_HOURS: ${EPUB_IMPORT_ASSET_RETENTION_HOURS:-168}
+      EPUB_IMPORT_V2_MODE: ${EPUB_IMPORT_V2_MODE}
+      EPUB_IMPORT_ASSET_RETENTION_HOURS: ${EPUB_IMPORT_ASSET_RETENTION_HOURS}
       AUTH_SERVICE_INTERNAL_URL: http://auth-service:8081
       # C5 / SD-C5 (P-12) — diary encryption-at-rest. MUST be the SAME value as auth-service's
       # DIARY_ENCRYPTION_KEY: auth WRAPS each per-user DEK under this KEK, book-service UNWRAPS with
       # it. A dedicated key (never JWT_SECRET). Rotating? Add the OLD value to
       # DIARY_ENCRYPTION_KEYS_RETIRED on EVERY service at once or you orphan diaries.
-      DIARY_ENCRYPTION_KEY: ${DIARY_ENCRYPTION_KEY:-loreweave_local_dev_diary_kek_change_me}
-      DIARY_ENCRYPTION_KEYS_RETIRED: ${DIARY_ENCRYPTION_KEYS_RETIRED:-}
+      DIARY_ENCRYPTION_KEY: ${DIARY_ENCRYPTION_KEY}
+      DIARY_ENCRYPTION_KEYS_RETIRED: ${DIARY_ENCRYPTION_KEYS_RETIRED}
       # Phase 6c — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -452,12 +487,12 @@ services:
       labels: *build-labels
     environment:
       PORT: "8093"
-      COMPOSITION_DB_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_composition
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      COMPOSITION_DB_URL: ${COMPOSITION_DB_URL}
+      JWT_SECRET: ${JWT_SECRET}
       # MCP fan-out /review-impl — dedicated confirm-token signing secret (split
       # from the envelope internal token so the Tier-W confirm HMAC key is distinct).
-      CONFIRM_TOKEN_SIGNING_SECRET: ${CONFIRM_TOKEN_SIGNING_SECRET:-loreweave_local_dev_confirm_signing_secret_change_me_32chars}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      CONFIRM_TOKEN_SIGNING_SECRET: ${CONFIRM_TOKEN_SIGNING_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       REDIS_URL: redis://redis:6379
       # M4 decouple — the API enqueues batch ops only when this is on. MUST match
       # the composition-worker's flag (same env var): API on / worker off enqueues
@@ -468,24 +503,24 @@ services:
       # effect, so they only run if the worker consumes — a false default left them
       # pending forever. The batch endpoints (decompose/generate/stitch) become 202+poll
       # (the FE already polls GET /jobs/{id}).
-      COMPOSITION_WORKER_ENABLED: ${COMPOSITION_WORKER_ENABLED:-true}
+      COMPOSITION_WORKER_ENABLED: ${COMPOSITION_WORKER_ENABLED}
       # close-21-28 D-G5-DRIVE-EXEC — rules-mode propose auto-compiles its parsed arcs inline
       # (deterministic, $0, idempotent). Platform default ON (PO-decided 2026-07-16): rules mode is a
       # deterministic transcription with nothing to review between propose and compile, so structure_node>0
       # becomes a consequence of a governance-driven rules propose instead of a coin-flip on a weak agent
       # chaining a second plan_compile call (S06 DR-G5-REROLL). Set FALSE to restore a propose→review step.
-      PLANFORGE_RULES_AUTOCOMPILE: ${PLANFORGE_RULES_AUTOCOMPILE:-true}
+      PLANFORGE_RULES_AUTOCOMPILE: ${PLANFORGE_RULES_AUTOCOMPILE}
       # D-PLANFORGE-PROPOSE-BLIND — the deploy CEILING for propose-existing-state grounding (OQ-2).
       # Default FALSE: the richer cast/spine/systems grounding is gated behind the A/B eval and fails
       # closed. effective = AND(this, the per-run ground_on_existing flag). Flip TRUE org-wide once the
       # eval proves grounding improves the plan.
-      PLANFORGE_GROUND_ON_EXISTING_ALLOWED: ${PLANFORGE_GROUND_ON_EXISTING_ALLOWED:-true}
+      PLANFORGE_GROUND_ON_EXISTING_ALLOWED: ${PLANFORGE_GROUND_ON_EXISTING_ALLOWED}
       # W5 motif-conformance — the per-scene producer (judge each generated scene vs
       # its bound motif) + the calibrated label. ENABLED 2026-06-28 (the W5 judge gate
       # is satisfied: kappa 1.0 / 0.762 ≥ thresholds). Single-local-judge, so the FE
       # still surfaces an advisory note; flip CALIBRATED off to fall back to 'unverified'.
-      MOTIF_CONFORMANCE_ENABLED: ${MOTIF_CONFORMANCE_ENABLED:-true}
-      MOTIF_CONFORMANCE_CALIBRATED: ${MOTIF_CONFORMANCE_CALIBRATED:-true}
+      MOTIF_CONFORMANCE_ENABLED: ${MOTIF_CONFORMANCE_ENABLED}
+      MOTIF_CONFORMANCE_CALIBRATED: ${MOTIF_CONFORMANCE_CALIBRATED}
       # Platform motif/arc embedding model (RECONCILE D2 — the shared/system "library"
       # tier is embedded in ONE platform space so cross-user cosine is comparable). It is a
       # BYOK-as-platform credential: a bge-m3 user_model owned by the reserved platform-owner
@@ -493,19 +528,19 @@ services:
       # values below are seeded by scripts/seed_platform_embed_model.sh (copies the local
       # bge-m3 credential under the reserved owner). PROD: point these at a real platform
       # account's embed model. Unset ⇒ the shared library degrades to genre (honest, no crash).
-      MOTIF_EMBED_MODEL_SOURCE: ${MOTIF_EMBED_MODEL_SOURCE:-user_model}
-      MOTIF_EMBED_OWNER_ID: ${MOTIF_EMBED_OWNER_ID:-00000000-0000-4000-8000-000000000001}
-      MOTIF_EMBED_MODEL_REF: ${MOTIF_EMBED_MODEL_REF:-00000000-0000-4000-8000-0000000e0001}
+      MOTIF_EMBED_MODEL_SOURCE: ${MOTIF_EMBED_MODEL_SOURCE}
+      MOTIF_EMBED_OWNER_ID: ${MOTIF_EMBED_OWNER_ID}
+      MOTIF_EMBED_MODEL_REF: ${MOTIF_EMBED_MODEL_REF}
       LOG_LEVEL: INFO
       # S2 — long-chapter state-compress threshold (chars of raw story-so-far
       # before the packer compresses the older portion). Default 6000; overridable.
-      PACK_COMPRESS_RECENT_THRESHOLD_CHARS: ${PACK_COMPRESS_RECENT_THRESHOLD_CHARS:-6000}
+      PACK_COMPRESS_RECENT_THRESHOLD_CHARS: ${PACK_COMPRESS_RECENT_THRESHOLD_CHARS}
       # Internal service URLs — consumed by the M3 client wrappers.
       KNOWLEDGE_INTERNAL_URL: http://knowledge-service:8092
       GLOSSARY_INTERNAL_URL: http://glossary-service:8088
       BOOK_INTERNAL_URL: http://book-service:8082
       LLM_GATEWAY_INTERNAL_URL: http://provider-registry-service:8085
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -534,34 +569,34 @@ services:
       labels: *build-labels
     command: ["python", "-m", "app.worker"]
     environment:
-      COMPOSITION_DB_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_composition
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      COMPOSITION_DB_URL: ${COMPOSITION_DB_URL}
+      JWT_SECRET: ${JWT_SECRET}
       # MCP fan-out /review-impl — dedicated confirm-token signing secret (split
       # from the envelope internal token so the Tier-W confirm HMAC key is distinct).
-      CONFIRM_TOKEN_SIGNING_SECRET: ${CONFIRM_TOKEN_SIGNING_SECRET:-loreweave_local_dev_confirm_signing_secret_change_me_32chars}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      CONFIRM_TOKEN_SIGNING_SECRET: ${CONFIRM_TOKEN_SIGNING_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       REDIS_URL: redis://redis:6379
       LOG_LEVEL: INFO
       # Must match composition-service (default TRUE 2026-06-28 — the Tier-W motif jobs
       # require a consuming worker; see the API block).
-      COMPOSITION_WORKER_ENABLED: ${COMPOSITION_WORKER_ENABLED:-true}
+      COMPOSITION_WORKER_ENABLED: ${COMPOSITION_WORKER_ENABLED}
       # W5 motif-conformance — mirror the API (the worker's conformance_run job +
       # any producer path reads these). ENABLED 2026-06-28 (gate satisfied).
-      MOTIF_CONFORMANCE_ENABLED: ${MOTIF_CONFORMANCE_ENABLED:-true}
-      MOTIF_CONFORMANCE_CALIBRATED: ${MOTIF_CONFORMANCE_CALIBRATED:-true}
+      MOTIF_CONFORMANCE_ENABLED: ${MOTIF_CONFORMANCE_ENABLED}
+      MOTIF_CONFORMANCE_CALIBRATED: ${MOTIF_CONFORMANCE_CALIBRATED}
       # Platform motif/arc embedding model — MUST mirror the API (the worker re-embeds on
       # its own retrieve/back-fill path). See the composition-service block for the contract.
-      MOTIF_EMBED_MODEL_SOURCE: ${MOTIF_EMBED_MODEL_SOURCE:-user_model}
-      MOTIF_EMBED_OWNER_ID: ${MOTIF_EMBED_OWNER_ID:-00000000-0000-4000-8000-000000000001}
-      MOTIF_EMBED_MODEL_REF: ${MOTIF_EMBED_MODEL_REF:-00000000-0000-4000-8000-0000000e0001}
+      MOTIF_EMBED_MODEL_SOURCE: ${MOTIF_EMBED_MODEL_SOURCE}
+      MOTIF_EMBED_OWNER_ID: ${MOTIF_EMBED_OWNER_ID}
+      MOTIF_EMBED_MODEL_REF: ${MOTIF_EMBED_MODEL_REF}
       # Same internal service URLs as the API — the worker re-resolves pack context
       # (book/glossary/knowledge) + the internal-auth LLM for the compute half.
       KNOWLEDGE_INTERNAL_URL: http://knowledge-service:8092
       GLOSSARY_INTERNAL_URL: http://glossary-service:8088
       BOOK_INTERNAL_URL: http://book-service:8082
       LLM_GATEWAY_INTERNAL_URL: http://provider-registry-service:8085
-      PACK_COMPRESS_RECENT_THRESHOLD_CHARS: ${PACK_COMPRESS_RECENT_THRESHOLD_CHARS:-6000}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      PACK_COMPRESS_RECENT_THRESHOLD_CHARS: ${PACK_COMPRESS_RECENT_THRESHOLD_CHARS}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -580,11 +615,11 @@ services:
     environment:
       HTTP_ADDR: ":8083"
       DATABASE_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_sharing?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      JWT_SECRET: ${JWT_SECRET}
       BOOK_SERVICE_INTERNAL_URL: http://book-service:8082
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # Phase 6c — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -616,10 +651,10 @@ services:
       CHAT_SERVICE_INTERNAL_URL: http://chat-service:8090
       # nudge (WS-3.6) delivers a content-free reminder via notification-service (:8091, as every other
       # service addresses it); without this it no-ops.
-      NOTIFICATION_SERVICE_INTERNAL_URL: ${NOTIFICATION_SERVICE_INTERNAL_URL:-http://notification-service:8091}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
-      SCHEDULER_TICK_INTERVAL: ${SCHEDULER_TICK_INTERVAL:-60s}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      NOTIFICATION_SERVICE_INTERNAL_URL: ${NOTIFICATION_SERVICE_INTERNAL_URL}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      SCHEDULER_TICK_INTERVAL: ${SCHEDULER_TICK_INTERVAL}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -646,9 +681,9 @@ services:
       BOOK_SERVICE_INTERNAL_URL: http://book-service:8082
       SHARING_SERVICE_INTERNAL_URL: http://sharing-service:8083
       TRANSLATION_SERVICE_INTERNAL_URL: http://translation-service:8087
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # Phase 6c — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -676,12 +711,12 @@ services:
     environment:
       HTTP_ADDR: ":8099"
       DATABASE_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_agent_registry?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
-      ADMIN_JWT_PUBLIC_KEY_PEM: ${ADMIN_JWT_PUBLIC_KEY_PEM:-}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_JWT_PUBLIC_KEY_PEM: ${ADMIN_JWT_PUBLIC_KEY_PEM}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # DECISION-1 — dedicated AES-GCM vault key for MCP-server secrets (blast-radius
       # split from JWT_SECRET). Optional in dev (falls back to JWT_SECRET).
-      AGENT_REGISTRY_VAULT_KEY: ${AGENT_REGISTRY_VAULT_KEY:-loreweave_local_dev_agent_registry_vault_key_change_me_32}
+      AGENT_REGISTRY_VAULT_KEY: ${AGENT_REGISTRY_VAULT_KEY}
       # D-REG-BOOK-GRANT — book-service for E0 grant checks on book-tier writes.
       # Empty disables book-tier (they 501); set it to enable grant-gated book tier.
       BOOK_SERVICE_INTERNAL_URL: http://book-service:8082
@@ -689,8 +724,8 @@ services:
       # to internal/loopback/metadata (prod posture). In the dev stack we register
       # in-cluster MCP servers (agent-registry's own /mcp) to live-smoke the overlay/
       # scan/egress paths, so allow internal targets here. DEFAULT OFF (prod-safe).
-      AGENT_REGISTRY_ALLOW_INTERNAL_MCP: ${AGENT_REGISTRY_ALLOW_INTERNAL_MCP:-1}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      AGENT_REGISTRY_ALLOW_INTERNAL_MCP: ${AGENT_REGISTRY_ALLOW_INTERNAL_MCP}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -713,13 +748,13 @@ services:
     environment:
       HTTP_ADDR: ":8085"
       DATABASE_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_provider_registry?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
-      ADMIN_JWT_PUBLIC_KEY_PEM: ${ADMIN_JWT_PUBLIC_KEY_PEM:-}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_JWT_PUBLIC_KEY_PEM: ${ADMIN_JWT_PUBLIC_KEY_PEM}
       # MCP fan-out /review-impl — dedicated confirm-token signing secret (split
       # from JWT_SECRET so the Tier-W confirm HMAC key has a distinct blast radius).
-      CONFIRM_TOKEN_SIGNING_SECRET: ${CONFIRM_TOKEN_SIGNING_SECRET:-loreweave_local_dev_confirm_signing_secret_change_me_32chars}
+      CONFIRM_TOKEN_SIGNING_SECRET: ${CONFIRM_TOKEN_SIGNING_SECRET}
       USAGE_BILLING_SERVICE_URL: http://usage-billing-service:8086
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # S-SETTINGS (MCP fan-out) — settings MCP server's profile tools call
       # auth-service's token-gated /internal/users/{id}/full-profile here (each
       # service owns its DB — no cross-service SQL). Optional; empty disables only
@@ -728,14 +763,14 @@ services:
       # Phase 2c — async LLM job terminal events publish to
       # `loreweave.events` topic exchange. Empty/unset = NoopNotifier
       # (caller polls GET /v1/llm/jobs/{id}; no broker dependency).
-      RABBITMQ_URL: amqp://loreweave:loreweave_dev@rabbitmq:5672/
+      RABBITMQ_URL: ${RABBITMQ_URL}
       # Phase 5e-β.2 — MinIO config for audio_gen URL-mode staging.
       # When unset, audio_gen URL mode disables (b64_json still works).
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-loreweave}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-loreweave_dev_minio_secret}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_USE_SSL: "false"
-      MINIO_EXTERNAL_URL: ${MINIO_EXTERNAL_URL:-http://localhost:9123}
+      MINIO_EXTERNAL_URL: ${MINIO_EXTERNAL_URL}
       AUDIO_CACHE_BUCKET: loreweave-audio-cache
       # E5B rerank is now BYOK (D-RERANK-NOT-BYOK): /internal/rerank resolves the
       # user's rerank model from provider-registry like /internal/embed — no
@@ -747,21 +782,21 @@ services:
       # waits forever). 300s is generous — real models stream tokens
       # within seconds; 300s of upstream silence ≈ certainly dead.
       # Unset / "0" disables (preserves the historical no-timeout path).
-      LLM_GATEWAY_STREAM_IDLE_TIMEOUT_S: ${LLM_GATEWAY_STREAM_IDLE_TIMEOUT_S:-300}
+      LLM_GATEWAY_STREAM_IDLE_TIMEOUT_S: ${LLM_GATEWAY_STREAM_IDLE_TIMEOUT_S}
       # Phase 6a — spend-guardrail estimator tuning knobs. Optional;
       # code defaults apply when unset (token-count estimation, not
       # money limits). See LLM_PIPELINE_PHASE6A_DESIGN.md §3.6.
-      MAX_OUTPUT_TOKENS_DEFAULT: ${MAX_OUTPUT_TOKENS_DEFAULT:-4096}
-      EXTRACTION_OUTPUT_CEILING: ${EXTRACTION_OUTPUT_CEILING:-8192}
-      SYSTEM_PROMPT_TOKEN_ESTIMATE: ${SYSTEM_PROMPT_TOKEN_ESTIMATE:-1024}
+      MAX_OUTPUT_TOKENS_DEFAULT: ${MAX_OUTPUT_TOKENS_DEFAULT}
+      EXTRACTION_OUTPUT_CEILING: ${EXTRACTION_OUTPUT_CEILING}
+      SYSTEM_PROMPT_TOKEN_ESTIMATE: ${SYSTEM_PROMPT_TOKEN_ESTIMATE}
       # Phase 6b — transient-retry budget for a worker job. Optional; the
       # code default (3) applies when unset.
-      JOB_MAX_RETRIES: ${JOB_MAX_RETRIES:-3}
+      JOB_MAX_RETRIES: ${JOB_MAX_RETRIES}
       # S3a (G5) — per-provider concurrency governor + circuit-breaker on the
       # jobs-worker path. REDIS_URL enables it (unset = governance off). Tunables
       # have code defaults; set to override for the autonomous batch.
       REDIS_URL: redis://redis:6379
-      GOVERNOR_CLOUD_MAX: ${GOVERNOR_CLOUD_MAX:-8}
+      GOVERNOR_CLOUD_MAX: ${GOVERNOR_CLOUD_MAX}
       # LLM re-arch Phase 1 Commit 3 — the durable work queue is now the gate:
       # a job's per-kind semaphore (local→1) serialises BEFORE Process, so the
       # governor inside Process never sees >1 concurrent local call → no acquire
@@ -769,20 +804,20 @@ services:
       # (was 600000, the interim acquire-or-die mitigation) is REVERTED to the
       # 30s code default (D-REVERT-GOVERNOR-ACQUIRE-BANDAID) — overridable if ever
       # needed. The queue, not a long acquire wait, is what stops the cascade.
-      LLM_JOB_QUEUE_ENABLED: ${LLM_JOB_QUEUE_ENABLED:-true}
-      BREAKER_THRESHOLD: ${BREAKER_THRESHOLD:-5}
-      BREAKER_COOLDOWN_S: ${BREAKER_COOLDOWN_S:-30}
+      LLM_JOB_QUEUE_ENABLED: ${LLM_JOB_QUEUE_ENABLED}
+      BREAKER_THRESHOLD: ${BREAKER_THRESHOLD}
+      BREAKER_COOLDOWN_S: ${BREAKER_COOLDOWN_S}
       # S4b (decision C) — usage outbox relay → Redis streams (reuses REDIS_URL).
       # Streams: campaign-service (S4d) consumes :campaign_usage; usage-billing
       # (S4c) consumes :usage. MAXLEN bounds each (G8).
-      USAGE_STREAM: ${USAGE_STREAM:-loreweave:events:usage}
-      CAMPAIGN_USAGE_STREAM: ${CAMPAIGN_USAGE_STREAM:-loreweave:events:campaign_usage}
-      USAGE_STREAM_MAXLEN: ${USAGE_STREAM_MAXLEN:-100000}
-      CAMPAIGN_USAGE_STREAM_MAXLEN: ${CAMPAIGN_USAGE_STREAM_MAXLEN:-50000}
+      USAGE_STREAM: ${USAGE_STREAM}
+      CAMPAIGN_USAGE_STREAM: ${CAMPAIGN_USAGE_STREAM}
+      USAGE_STREAM_MAXLEN: ${USAGE_STREAM_MAXLEN}
+      CAMPAIGN_USAGE_STREAM_MAXLEN: ${CAMPAIGN_USAGE_STREAM_MAXLEN}
       # Phase 6c — OpenTelemetry trace export. Unset = no-op tracer (the
       # service still boots). Set it + bring up the `observability` profile
       # to wire tracing to the collector; see the otel-collector block.
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -811,14 +846,14 @@ services:
     environment:
       HTTP_ADDR: ":8086"
       DATABASE_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_usage_billing?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
-      ADMIN_JWT_PUBLIC_KEY_PEM: ${ADMIN_JWT_PUBLIC_KEY_PEM:-}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_JWT_PUBLIC_KEY_PEM: ${ADMIN_JWT_PUBLIC_KEY_PEM}
       # LLM payload encryption key (LOG-5 / P0-3) — DEDICATED, distinct from
       # JWT_SECRET, so rotating the JWT can't render logged prompts undecryptable
       # and a JWT leak doesn't expose them. >=32 chars; fail-to-start if unset or
       # equal to JWT_SECRET. Set a real value in prod (.env).
-      LLM_PAYLOAD_ENCRYPTION_KEY: ${LLM_PAYLOAD_ENCRYPTION_KEY:-loreweave_local_dev_llm_payload_key_change_me_32c}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      LLM_PAYLOAD_ENCRYPTION_KEY: ${LLM_PAYLOAD_ENCRYPTION_KEY}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # Phase 6a — spend-guardrail default budgets (USD). REQUIRED — the
       # service fails to start if unset (no hardcoded literal, billing
       # ADR P5). Effectively-unlimited for the test/UAT environment.
@@ -827,22 +862,22 @@ services:
       # the largest round "unlimited" default that does not overflow the
       # seed INSERT. RESERVATION_TTL is the leaked-hold sweeper horizon;
       # the code default (45m) exceeds the longest job timeout.
-      GUARDRAIL_DEFAULT_DAILY_USD: ${GUARDRAIL_DEFAULT_DAILY_USD:-99000000}
-      GUARDRAIL_DEFAULT_MONTHLY_USD: ${GUARDRAIL_DEFAULT_MONTHLY_USD:-99000000}
-      RESERVATION_TTL: ${RESERVATION_TTL:-45m}
+      GUARDRAIL_DEFAULT_DAILY_USD: ${GUARDRAIL_DEFAULT_DAILY_USD}
+      GUARDRAIL_DEFAULT_MONTHLY_USD: ${GUARDRAIL_DEFAULT_MONTHLY_USD}
+      RESERVATION_TTL: ${RESERVATION_TTL}
       # Phase 6a-β — Subsystem B platform free-tier allowance (USD). REQUIRED
       # — the service fails to start if unset (no DDL default, billing ADR
       # P5). Generous for the test/UAT environment so it never gates.
       # Same numeric(16,8) ceiling as the guardrail budgets above.
-      PLATFORM_FREE_TIER_USD: ${PLATFORM_FREE_TIER_USD:-99000000}
+      PLATFORM_FREE_TIER_USD: ${PLATFORM_FREE_TIER_USD}
       # S4c — usage audit stream consumer. Consumes the S4b loreweave:events:usage
       # stream (provider-registry relay) → usage_logs audit. Unset REDIS_URL = no
       # consumer (the /record streaming path still works).
       REDIS_URL: redis://redis:6379
-      USAGE_STREAM: ${USAGE_STREAM:-loreweave:events:usage}
-      USAGE_CONSUMER_GROUP: ${USAGE_CONSUMER_GROUP:-usage-biller}
+      USAGE_STREAM: ${USAGE_STREAM}
+      USAGE_CONSUMER_GROUP: ${USAGE_CONSUMER_GROUP}
       # Phase 6c — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -862,7 +897,7 @@ services:
     image: rabbitmq:3.13-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: loreweave
-      RABBITMQ_DEFAULT_PASS: loreweave_dev
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
     ports:
       - "5795:5672"
       - "15795:15672"
@@ -891,10 +926,10 @@ services:
       labels: *build-labels
     environment:
       DATABASE_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_translation
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      JWT_SECRET: ${JWT_SECRET}
       # MCP fan-out /review-impl — dedicated confirm-token signing secret (split
       # from the envelope internal token so the Tier-W confirm HMAC key is distinct).
-      CONFIRM_TOKEN_SIGNING_SECRET: ${CONFIRM_TOKEN_SIGNING_SECRET:-loreweave_local_dev_confirm_signing_secret_change_me_32chars}
+      CONFIRM_TOKEN_SIGNING_SECRET: ${CONFIRM_TOKEN_SIGNING_SECRET}
       BOOK_SERVICE_INTERNAL_URL: http://book-service:8082
       PROVIDER_REGISTRY_SERVICE_URL: http://provider-registry-service:8085
       # Phase 4c-α: SDK install. Same host as legacy URL but separate
@@ -909,9 +944,9 @@ services:
       # service in this file; lore-enrichment only reached the gateway because its config
       # hard-defaults the URL. Consumers read entity knowledge through the KAL (INV-KAL).
       KNOWLEDGE_GATEWAY_URL: http://knowledge-gateway:3000
-      RABBITMQ_URL: amqp://loreweave:loreweave_dev@rabbitmq:5672/
+      RABBITMQ_URL: ${RABBITMQ_URL}
       NOTIFICATION_SERVICE_INTERNAL_URL: http://notification-service:8091
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # M5c: consume glossary change events (Redis Stream) to flag stale translations.
       REDIS_URL: redis://redis:6379
       # LLM re-arch Phase 2b: event-driven decouple of translation (v2 text/block +
@@ -919,23 +954,23 @@ services:
       # consumer + sweeper and the worker takes the submit-and-release branch.
       # Default ON (2026-06-12): review-cleared + live-smoked (block round-trip, V3
       # loop, stuck-resume sweeper). Set to false to revert to the synchronous path.
-      TRANSLATION_DECOUPLE_ENABLED: ${TRANSLATION_DECOUPLE_ENABLED:-true}
+      TRANSLATION_DECOUPLE_ENABLED: ${TRANSLATION_DECOUPLE_ENABLED}
       # P5 — fair scheduling. MUST match the worker's flag: in the decoupled path the
       # llm_terminal_consumer runs HERE (API container) and releases the chapter's WFQ
       # slot at finalize (_check_job_completion), so the per-owner cap only bounds
       # in-flight LLM concurrency when P5 is on in BOTH containers. (Same worker/API
       # coupling as TRANSLATION_DECOUPLE_ENABLED.) Default OFF.
-      P5_SCHED_ENABLED: ${P5_SCHED_ENABLED:-true}
-      P5_OWNER_CAP: ${P5_OWNER_CAP:-5}
-      P5_GLOBAL_BUDGET: ${P5_GLOBAL_BUDGET:-0}
+      P5_SCHED_ENABLED: ${P5_SCHED_ENABLED}
+      P5_OWNER_CAP: ${P5_OWNER_CAP}
+      P5_GLOBAL_BUDGET: ${P5_GLOBAL_BUDGET}
       # CACHE/M6 raw-output offload (D-RAWCACHE-MINIO-OFFLOAD): cold-archive the bulky
       # verbatim raw_response to MinIO. OPTIONAL — a blank MINIO_SECRET_KEY disables it,
       # so the service boots fine without object storage; set the secret to enable the sweep.
-      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-loreweave}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-loreweave_dev_minio_secret}
-      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
-      MINIO_BUCKET: ${TRANSLATION_RAW_BUCKET:-lw-extraction-raw}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_USE_SSL: ${MINIO_USE_SSL}
+      MINIO_BUCKET: ${TRANSLATION_RAW_BUCKET}
       PORT: "8087"
     depends_on:
       postgres:
@@ -967,8 +1002,8 @@ services:
       labels: *build-labels
     environment:
       DATABASE_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_campaign
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       BOOK_SERVICE_INTERNAL_URL: http://book-service:8082
       TRANSLATION_SERVICE_INTERNAL_URL: http://translation-service:8087
       KNOWLEDGE_SERVICE_INTERNAL_URL: http://knowledge-service:8092
@@ -979,7 +1014,7 @@ services:
       PORT: "8095"
       # D-CAMPAIGN-BESTEFFORT-EMIT-REDIS — stuck-`dispatched` self-heal window.
       # Overridable for live-smokes (default 900s = 15 min).
-      STUCK_DISPATCH_TIMEOUT_S: ${STUCK_DISPATCH_TIMEOUT_S:-900}
+      STUCK_DISPATCH_TIMEOUT_S: ${STUCK_DISPATCH_TIMEOUT_S}
     depends_on:
       postgres:
         condition: service_healthy
@@ -1010,8 +1045,8 @@ services:
       labels: *build-labels
     environment:
       DATABASE_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_jobs
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # Projection consumer reads loreweave:events:jobs. Reconnect loop tolerates
       # redis startup races, so redis is NOT a hard depends_on.
       REDIS_URL: redis://redis:6379
@@ -1019,8 +1054,8 @@ services:
       # P5 — read-only fair-scheduling observability for the GUI ("N queued behind your
       # cap"). MUST mirror the owning services' P5_SCHED_ENABLED / P5_OWNER_CAP (the
       # fairness endpoint reads the same p5:* Redis keys those services write).
-      P5_SCHED_ENABLED: ${P5_SCHED_ENABLED:-true}
-      P5_OWNER_CAP: ${P5_OWNER_CAP:-5}
+      P5_SCHED_ENABLED: ${P5_SCHED_ENABLED}
+      P5_OWNER_CAP: ${P5_OWNER_CAP}
     depends_on:
       postgres:
         condition: service_healthy
@@ -1044,10 +1079,10 @@ services:
       labels: *build-labels
     environment:
       DATABASE_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_translation
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      JWT_SECRET: ${JWT_SECRET}
       # MCP fan-out /review-impl — dedicated confirm-token signing secret (split
       # from the envelope internal token so the Tier-W confirm HMAC key is distinct).
-      CONFIRM_TOKEN_SIGNING_SECRET: ${CONFIRM_TOKEN_SIGNING_SECRET:-loreweave_local_dev_confirm_signing_secret_change_me_32chars}
+      CONFIRM_TOKEN_SIGNING_SECRET: ${CONFIRM_TOKEN_SIGNING_SECRET}
       BOOK_SERVICE_INTERNAL_URL: http://book-service:8082
       PROVIDER_REGISTRY_SERVICE_URL: http://provider-registry-service:8085
       # Phase 4c-α: SDK install. Same host as legacy URL.
@@ -1060,20 +1095,20 @@ services:
       KNOWLEDGE_GATEWAY_URL: http://knowledge-gateway:3000
       # M4a: V3 knowledge layer (relations → pronoun/honorific). Empty disables it.
       KNOWLEDGE_SERVICE_INTERNAL_URL: http://knowledge-service:8092
-      RABBITMQ_URL: amqp://loreweave:loreweave_dev@rabbitmq:5672/
+      RABBITMQ_URL: ${RABBITMQ_URL}
       NOTIFICATION_SERVICE_INTERNAL_URL: http://notification-service:8091
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       REDIS_URL: redis://redis:6379
       # LLM re-arch Phase 2b: must match the API's flag — the worker takes the
       # submit-and-release branch only when this is on. Default ON (2026-06-12).
-      TRANSLATION_DECOUPLE_ENABLED: ${TRANSLATION_DECOUPLE_ENABLED:-true}
+      TRANSLATION_DECOUPLE_ENABLED: ${TRANSLATION_DECOUPLE_ENABLED}
       # P5 — fair scheduling (per-tenant WFQ). OFF by default → legacy direct fan-out.
       # ON ⇒ the coordinator enqueues chapter units into the per-owner WFQ and the
       # dispatcher loop releases them round-robin (≤ cap in-flight per owner), so one
       # owner's giant job can't monopolize the chapter-worker fleet.
-      P5_SCHED_ENABLED: ${P5_SCHED_ENABLED:-true}
-      P5_OWNER_CAP: ${P5_OWNER_CAP:-5}
-      P5_GLOBAL_BUDGET: ${P5_GLOBAL_BUDGET:-0}
+      P5_SCHED_ENABLED: ${P5_SCHED_ENABLED}
+      P5_OWNER_CAP: ${P5_OWNER_CAP}
+      P5_GLOBAL_BUDGET: ${P5_GLOBAL_BUDGET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -1097,10 +1132,10 @@ services:
     environment:
       HTTP_ADDR: ":8088"
       DATABASE_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_glossary?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      JWT_SECRET: ${JWT_SECRET}
       AUTH_SERVICE_URL: http://auth-service:8081
       BOOK_SERVICE_URL: http://book-service:8082
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # DEFERRED-044: the C5 wiki-from-KG renderer reads an entity's KG
       # neighbourhood from knowledge-service when this is set, and degrades to a
       # name/kind/attributes-only body when unset (no hard dependency — so no
@@ -1122,12 +1157,12 @@ services:
       # feature dormant. Recovery-critical (PO 2026-06-07), so wired in the stack.
       REDIS_URL: redis://redis:6379
       # Phase 6c — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       # D-GKA-SYSTEM-TIER-ADMIN — SPKI/PKIX PEM of the platform admin-signing key
       # (public half of the auth-service KMS key). When set, the System-tier admin
       # write endpoints verify an RS256 admin JWT against it; unset → they fail
       # closed (503). Optional — the rest of the service runs without it.
-      ADMIN_JWT_PUBLIC_KEY_PEM: ${ADMIN_JWT_PUBLIC_KEY_PEM:-}
+      ADMIN_JWT_PUBLIC_KEY_PEM: ${ADMIN_JWT_PUBLIC_KEY_PEM}
     depends_on:
       postgres:
         condition: service_healthy
@@ -1154,25 +1189,25 @@ services:
       labels: *build-labels
     environment:
       HTTP_PORT: "8088"
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      JWT_SECRET: ${JWT_SECRET}
       # Phase 5e-α: SDK reads PROVIDER_REGISTRY_INTERNAL_URL (Settings
       # field). Legacy PROVIDER_REGISTRY_URL removed per /review-impl(DESIGN)
       # MED#2 — was only used by the deleted resolve_credentials() flow.
       PROVIDER_REGISTRY_INTERNAL_URL: http://provider-registry-service:8085
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # Phase 6c-γ — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       USAGE_BILLING_SERVICE_URL: http://usage-billing-service:8086
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-loreweave}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-loreweave_dev_minio_secret}
-      MINIO_EXTERNAL_URL: ${MINIO_EXTERNAL_URL:-http://localhost:9123}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_EXTERNAL_URL: ${MINIO_EXTERNAL_URL}
       # LLM re-arch Phase 3 M5 — decoupled video-gen. DB + Redis back the
       # job-row + terminal-event path; the flag (default false) keeps the
       # inline 201 path verbatim until the worker is turned on.
-      VIDEO_GEN_DB_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_video_gen
+      VIDEO_GEN_DB_URL: ${VIDEO_GEN_DB_URL}
       REDIS_URL: redis://redis:6379
-      VIDEO_GEN_DECOUPLE_ENABLED: ${VIDEO_GEN_DECOUPLE_ENABLED:-false}
+      VIDEO_GEN_DECOUPLE_ENABLED: ${VIDEO_GEN_DECOUPLE_ENABLED}
     depends_on:
       postgres:
         condition: service_healthy
@@ -1199,19 +1234,19 @@ services:
       labels: *build-labels
     command: ["python", "-m", "app.worker"]
     environment:
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      JWT_SECRET: ${JWT_SECRET}
       PROVIDER_REGISTRY_INTERNAL_URL: http://provider-registry-service:8085
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       USAGE_BILLING_SERVICE_URL: http://usage-billing-service:8086
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-loreweave}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-loreweave_dev_minio_secret}
-      MINIO_EXTERNAL_URL: ${MINIO_EXTERNAL_URL:-http://localhost:9123}
-      VIDEO_GEN_DB_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_video_gen
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_EXTERNAL_URL: ${MINIO_EXTERNAL_URL}
+      VIDEO_GEN_DB_URL: ${VIDEO_GEN_DB_URL}
       REDIS_URL: redis://redis:6379
       # Must match video-gen-service: the worker resumes only jobs the API submits.
-      VIDEO_GEN_DECOUPLE_ENABLED: ${VIDEO_GEN_DECOUPLE_ENABLED:-false}
+      VIDEO_GEN_DECOUPLE_ENABLED: ${VIDEO_GEN_DECOUPLE_ENABLED}
     depends_on:
       postgres:
         condition: service_healthy
@@ -1242,14 +1277,14 @@ services:
       # Observability: INFO surfaces the per-turn agent-behavior logs (advertised tool
       # surface, tool decisions) — the monitor for "why did the agent do/refuse X" bugs.
       # Override to WARNING for a quiet prod deploy.
-      LOG_LEVEL: "${CHAT_LOG_LEVEL:-INFO}"
+      LOG_LEVEL: "${CHAT_LOG_LEVEL}"
       # F12 (measured 2026-07-21) — hot-seed token budget. LOWERED 4000→2000: warm-cache A/B
       # showed ~17-24% smaller prefix/turn, no extra discovery passes, no quality loss, still
       # fully cache-hitting. 0 restores the ORIGINAL index-only design; 4000 the prior default.
-      LW_HOT_SEED_TOKEN_BUDGET: "${LW_HOT_SEED_TOKEN_BUDGET:-2000}"
+      LW_HOT_SEED_TOKEN_BUDGET: "${LW_HOT_SEED_TOKEN_BUDGET}"
       # F12 A/B (lazy skills) — on ⇒ NO full L2 skill bodies (surface/router/workflow-binding);
       # model uses the L1 index + load_skill. Measures the ~5-12K skills-lever cut.
-      LW_LAZY_ALL_SKILLS: "${LW_LAZY_ALL_SKILLS:-off}"
+      LW_LAZY_ALL_SKILLS: "${LW_LAZY_ALL_SKILLS}"
       # oneshot-deadvertise (2026-07-25) — how a completed one-shot create (kg_project_create
       # once its project exists) is kept off the agent surface: off|existence|session|per_turn.
       # MEASURED winner = session (57→1 attempts, ~5x fewer tokens; see config.py).
@@ -1258,10 +1293,10 @@ services:
       # the model pulls a body with `load_skill`). A lever with no way to reach the container is
       # not a lever — the A/B needs to flip it WITHOUT a rebuild, so the two arms differ by this
       # and nothing else.
-      SKILL_ROUTER_PRELOAD: "${SKILL_ROUTER_PRELOAD:-true}"
+      SKILL_ROUTER_PRELOAD: "${SKILL_ROUTER_PRELOAD}"
       # DQ-T90 arms (b) and (a). Both default to the shipped behaviour so the CONTROL is
       # unchanged; each arm is one env var so the three runs differ by one thing at a time.
-      SKILL_CONTRASTIVE_DESC: "${SKILL_CONTRASTIVE_DESC:-true}"
+      SKILL_CONTRASTIVE_DESC: "${SKILL_CONTRASTIVE_DESC}"
       # DQ-T88 (a) — replay prior turns' tool RESULTS into the turn, bounded (2 kB/result,
       # 16 kB/turn, ids preserved through the trim). DEFAULT FALSE: the owner's correction
       # is that results are not stored BECAUSE they are large, so the bound makes replay
@@ -1272,11 +1307,11 @@ services:
       # `docker compose run --service-ports`, which puts the container on the network but
       # does NOT take over the compose service name the gateway routes to — so that batch
       # measured the STOPPED service and produced 3 errors and zero replay log lines.
-      REPLAY_PRIOR_TOOL_RESULTS: "${REPLAY_PRIOR_TOOL_RESULTS:-false}"
-      ROUTER_MAX_ADDITIONS: "${ROUTER_MAX_ADDITIONS:-0}"
-      ONESHOT_DEADVERTISE_MODE: "${ONESHOT_DEADVERTISE_MODE:-session}"
-      RAIL_ACTION_GATE_MODE: "${RAIL_ACTION_GATE_MODE:-done_suppress}"
-      T5_INTENT_GATE_ENABLED: "${T5_INTENT_GATE_ENABLED:-false}"
+      REPLAY_PRIOR_TOOL_RESULTS: "${REPLAY_PRIOR_TOOL_RESULTS}"
+      ROUTER_MAX_ADDITIONS: "${ROUTER_MAX_ADDITIONS}"
+      ONESHOT_DEADVERTISE_MODE: "${ONESHOT_DEADVERTISE_MODE}"
+      RAIL_ACTION_GATE_MODE: "${RAIL_ACTION_GATE_MODE}"
+      T5_INTENT_GATE_ENABLED: "${T5_INTENT_GATE_ENABLED}"
       # CP-2.7 / CP-3 — which runtime serves a turn. `false` is the LEGACY arm, which is this
       # effort's CONTROL GROUP (spec §7): with it off the advertise chokepoint returns before it
       # reads anything new, and every row is byte-identical to before the arm existed.
@@ -1284,39 +1319,39 @@ services:
       # 🔴 It had no compose entry at all until 2026-08-09, which means the new arm had **no
       # deployment path** — the flag existed in `config.py` and nothing could set it. A switch
       # nobody can reach is the same shape as a function nobody calls.
-      AGENTRUNTIME_ARM: "${AGENTRUNTIME_ARM:-false}"
+      AGENTRUNTIME_ARM: "${AGENTRUNTIME_ARM}"
       # Context Budget Law T4 (story_state Core Memory Block) + T6/D13a (reversible
       # dup-read collapse). Default OFF; flip on (with T5) for the compaction A/B —
       # T4's degraded-safety-net only fires when T5 gates grounding to empty, D13a only
       # fires on a compaction pass. See docs/eval/context-budget/.
-      STORY_STATE_BLOCK_ENABLED: "${STORY_STATE_BLOCK_ENABLED:-false}"
-      COMPACT_COLLAPSE_DUPLICATES_ENABLED: "${COMPACT_COLLAPSE_DUPLICATES_ENABLED:-false}"
+      STORY_STATE_BLOCK_ENABLED: "${STORY_STATE_BLOCK_ENABLED}"
+      COMPACT_COLLAPSE_DUPLICATES_ENABLED: "${COMPACT_COLLAPSE_DUPLICATES_ENABLED}"
       # DQ-T56 — the whole-turn ceiling, in seconds. The default matches app/config.py; it is
       # surfaced here so an operator can widen it (a deployment whose model legitimately thinks
       # longer than 15 minutes) or disable it with 0, without a rebuild. NOT the idle-read cap:
       # LLM_STREAM_IDLE_READ_TIMEOUT_S stays 0 deliberately and is a different mechanism.
-      LLM_TURN_CEILING_S: "${LLM_TURN_CEILING_S:-900}"
+      LLM_TURN_CEILING_S: "${LLM_TURN_CEILING_S}"
       DATABASE_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_chat
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      JWT_SECRET: ${JWT_SECRET}
       PROVIDER_REGISTRY_INTERNAL_URL: http://provider-registry-service:8085
       USAGE_BILLING_SERVICE_URL: http://usage-billing-service:8086
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-loreweave}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-loreweave_dev_minio_secret}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET: lw-chat
       MINIO_USE_SSL: "false"
-      MINIO_EXTERNAL_URL: ${MINIO_EXTERNAL_URL:-http://localhost:9123}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      MINIO_EXTERNAL_URL: ${MINIO_EXTERNAL_URL}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # R3 (D-PROACTIVE-DELIVERY) — the content-free proactive check-in push sink (best-effort).
       NOTIFICATION_SERVICE_INTERNAL_URL: http://notification-service:8091
       # WS-1.0 (review-impl) — the SAME deployment KEK auth-service uses to WRAP each DEK.
       # This consumer unwraps the DEK with it to decrypt the user's private content, so a
       # value here that differs from auth-service's is a total decrypt failure. Rotations
       # must add the old value to DIARY_ENCRYPTION_KEYS_RETIRED on EVERY service at once.
-      DIARY_ENCRYPTION_KEY: ${DIARY_ENCRYPTION_KEY:-loreweave_local_dev_diary_kek_change_me}
-      DIARY_ENCRYPTION_KEYS_RETIRED: ${DIARY_ENCRYPTION_KEYS_RETIRED:-}
+      DIARY_ENCRYPTION_KEY: ${DIARY_ENCRYPTION_KEY}
+      DIARY_ENCRYPTION_KEYS_RETIRED: ${DIARY_ENCRYPTION_KEYS_RETIRED}
       # Phase 6c-γ — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       REDIS_URL: redis://redis:6379
       KNOWLEDGE_SERVICE_URL: http://knowledge-service:8092
       # ai-gateway P0: TOOLS (definitions + MCP execute) go through the gateway;
@@ -1366,7 +1401,7 @@ services:
       labels: *build-labels
     environment:
       AI_GATEWAY_PORT: "8210"
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       KNOWLEDGE_MCP_URL: http://knowledge-service:8092/mcp
       GLOSSARY_MCP_URL: http://glossary-service:8088/mcp
       # MCP fan-out COMPOSE B — federate every domain MCP provider via env (C-GW:
@@ -1382,9 +1417,9 @@ services:
       # REG-P2-03 — per-user federation overlay. Default OFF ⇒ the catalog is
       # byte-identical to today; set true to merge a user's registered MCP servers
       # (from agent-registry) over the static System catalog under a u_/b_ prefix.
-      REGISTRY_OVERLAY_ENABLED: ${REGISTRY_OVERLAY_ENABLED:-false}
+      REGISTRY_OVERLAY_ENABLED: ${REGISTRY_OVERLAY_ENABLED}
       AGENT_REGISTRY_INTERNAL_URL: http://agent-registry-service:8099
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       knowledge-service:
         condition: service_healthy
@@ -1413,23 +1448,23 @@ services:
       labels: *build-labels
     environment:
       MCP_PUBLIC_GATEWAY_PORT: "8211"
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       AI_GATEWAY_URL: http://ai-gateway:8210
       # P1: resolve real keys via auth-service credential store.
       AUTH_SERVICE_URL: http://auth-service:8081
-      PUBLIC_MCP_ENABLED: ${PUBLIC_MCP_ENABLED:-false}
+      PUBLIC_MCP_ENABLED: ${PUBLIC_MCP_ENABLED}
       # P5 OAuth (S9 audience binding): the edge verifies third-party OAuth access
       # tokens LOCALLY (RS256 via auth-service /oauth/jwks) and pins the audience.
       # MCP_RESOURCE_URL MUST equal auth-service's OAUTH_RESOURCE (defaults to
       # <PUBLIC_APP_URL>/mcp on both sides) or an audience-confused token is rejected.
-      MCP_RESOURCE_URL: ${MCP_RESOURCE_URL:-http://localhost:5174/mcp}
-      OAUTH_ISSUER: ${OAUTH_ISSUER:-loreweave-mcp-oauth}
+      MCP_RESOURCE_URL: ${MCP_RESOURCE_URL}
+      OAUTH_ISSUER: ${OAUTH_ISSUER}
       # P3 (PUB-8): per-key rate-limit counter store. Unset → limiter disabled (dev).
       REDIS_URL: redis://redis:6379
       # DEV/SMOKE static credential (optional). Empty = disabled (real keys via auth).
-      MCP_PUBLIC_TEST_KEY: ${MCP_PUBLIC_TEST_KEY:-}
-      MCP_PUBLIC_TEST_USER_ID: ${MCP_PUBLIC_TEST_USER_ID:-}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      MCP_PUBLIC_TEST_KEY: ${MCP_PUBLIC_TEST_KEY}
+      MCP_PUBLIC_TEST_USER_ID: ${MCP_PUBLIC_TEST_USER_ID}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       ai-gateway:
         condition: service_healthy
@@ -1457,24 +1492,24 @@ services:
       # T38 B8 — entity knowledge is read through the KAL (INV-KAL).
       KNOWLEDGE_GATEWAY_URL: http://knowledge-gateway:3000
       PORT: "8092"
-      KNOWLEDGE_DB_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_knowledge
-      GLOSSARY_DB_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_glossary
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      KNOWLEDGE_DB_URL: ${KNOWLEDGE_DB_URL}
+      GLOSSARY_DB_URL: ${GLOSSARY_DB_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # WS-1.0 (review-impl) — the SAME deployment KEK auth-service uses to WRAP each DEK.
       # This consumer unwraps the DEK with it to decrypt the user's private content, so a
       # value here that differs from auth-service's is a total decrypt failure. Rotations
       # must add the old value to DIARY_ENCRYPTION_KEYS_RETIRED on EVERY service at once.
-      DIARY_ENCRYPTION_KEY: ${DIARY_ENCRYPTION_KEY:-loreweave_local_dev_diary_kek_change_me}
-      DIARY_ENCRYPTION_KEYS_RETIRED: ${DIARY_ENCRYPTION_KEYS_RETIRED:-}
+      DIARY_ENCRYPTION_KEY: ${DIARY_ENCRYPTION_KEY}
+      DIARY_ENCRYPTION_KEYS_RETIRED: ${DIARY_ENCRYPTION_KEYS_RETIRED}
       # KM5 (D-KM5-M3) — SPKI/PKIX PEM (or base64) of the platform admin-signing
       # key's public half (same value glossary-service gets). When set, the System-
       # tier admin write endpoints + the /mcp/admin server verify an RS256 admin JWT
       # against it; unset → admin is disabled (callers 503). DEV keys via
       # infra/gen-admin-dev-keys.ps1; PROD = the public half of the auth-service KMS key.
-      ADMIN_JWT_PUBLIC_KEY_PEM: ${ADMIN_JWT_PUBLIC_KEY_PEM:-}
+      ADMIN_JWT_PUBLIC_KEY_PEM: ${ADMIN_JWT_PUBLIC_KEY_PEM}
       # Phase 6c-γ — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       REDIS_URL: redis://redis:6379
       LOG_LEVEL: INFO
       # K11.1 — Neo4j connection (Track 2). Defaults to the in-compose
@@ -1483,9 +1518,9 @@ services:
       # K11.2 driver init fail-fasts on an unreachable URI, hence the
       # `depends_on: neo4j` below. Override NEO4J_URI= (empty) for a
       # deliberate Track-1-only run without the neo4j container.
-      NEO4J_URI: ${NEO4J_URI:-bolt://neo4j:7687}
-      NEO4J_USER: ${NEO4J_USER:-neo4j}
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-loreweave_dev_neo4j}
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USER: ${NEO4J_USER}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       # T25a / OD-2 — the vector secondary's DSN. DEFAULT-OFF ON PURPOSE, and the default
       # is byte-identical to the old behaviour: unset, `get_vector_store()` returns a plain
       # `Neo4jVectorStore` and the service never opens a second database. Setting it turns
@@ -1499,7 +1534,7 @@ services:
       #
       #   docker compose -f docker-compose.yml -f docker-compose.knowledge-pg.yml up -d knowledge-pg
       #   KNOWLEDGE_VECTOR_DB_URL=postgresql://loreweave:loreweave_dev@knowledge-pg:5432/loreweave_knowledge_vectors
-      KNOWLEDGE_VECTOR_DB_URL: ${KNOWLEDGE_VECTOR_DB_URL:-}
+      KNOWLEDGE_VECTOR_DB_URL: ${KNOWLEDGE_VECTOR_DB_URL}
       # T25 ③ step 2 — the vector READ cutover, a DEPLOY CEILING (rule 4). One migration
       # state for one deployment: per-book would make two books' results incomparable and
       # `vector_shadow_read_overlap` meaningless, and a run param would let one request cut
@@ -1516,10 +1551,10 @@ services:
       # Defaulting to the pre-cutover value also means adding this line changes no behaviour,
       # which is the property T25c wanted and did not have: that variable defaulted to empty,
       # a container was recreated without it two days later, and the soak stopped silently.
-      KNOWLEDGE_VECTOR_READ_PRIMARY: ${KNOWLEDGE_VECTOR_READ_PRIMARY:-neo4j}
+      KNOWLEDGE_VECTOR_READ_PRIMARY: ${KNOWLEDGE_VECTOR_READ_PRIMARY}
       # T54 — the AGE graph. SAME instance as the vector DSN above: knowledge-pg runs
       # loreweave/postgres-knowledge:18, which T42b built to carry both `age` and `vector`.
-      KNOWLEDGE_AGE_DB_URL: ${KNOWLEDGE_AGE_DB_URL:-}
+      KNOWLEDGE_AGE_DB_URL: ${KNOWLEDGE_AGE_DB_URL}
       # §8.1 made AGE the code default; `infra/.env` PINS it for the shared stack, so the
       # backend is STATED rather than inherited (§8.1: "code default + env pin on dev").
       #
@@ -1534,7 +1569,7 @@ services:
       # Empty means "the operator did not choose", which is what `${VAR:-}` means everywhere
       # else too; `db.graph_backend.configured_backend` then resolves it from what the
       # deployment has actually provisioned. Set it in your `.env` to pin one.
-      KNOWLEDGE_GRAPH_BACKEND: ${KNOWLEDGE_GRAPH_BACKEND:-}
+      KNOWLEDGE_GRAPH_BACKEND: ${KNOWLEDGE_GRAPH_BACKEND}
       # D-GLOSSARY-KG-MIRROR-HAS-NO-RECONCILER — the scheduled mirror sweep always
       # DETECTS (see knowledge_glossary_mirror_missing); this decides whether it also
       # CLOSES what it finds by re-emitting through glossary-service's outbox.
@@ -1549,7 +1584,7 @@ services:
       # EMPTY STRING when the variable is unset, which a `str` field accepts and a `bool`
       # field does not: pydantic raises `bool_parsing` on "" and the service refuses to
       # start. Copied blindly, this line took knowledge-service down on the next restart.
-      KNOWLEDGE_MIRROR_AUTO_REPAIR: ${KNOWLEDGE_MIRROR_AUTO_REPAIR:-false}
+      KNOWLEDGE_MIRROR_AUTO_REPAIR: ${KNOWLEDGE_MIRROR_AUTO_REPAIR}
       # Pass-2 precision filter — NO env config (D-WX-PRECISION-FILTER-MODEL-ARCH).
       # Was a hardcoded env UUID of one user's model, submitted as user_model scoped
       # to the request's user → 404 for every other user → decoupled fold stall (D-WX
@@ -1560,23 +1595,23 @@ services:
       # Cycle 73d — entity recovery (3-tier glossary→hints→LLM). OFF by
       # default until eval validates the +F1 win justifies +latency.
       # Override to claude-4.7-opus UUID to enable.
-      KNOWLEDGE_EXTRACTION_ENTITY_RECOVERY_MODEL_REF: ${KNOWLEDGE_EXTRACTION_ENTITY_RECOVERY_MODEL_REF:-}
-      KNOWLEDGE_EXTRACTION_ENTITY_RECOVERY_MODEL_SOURCE: ${KNOWLEDGE_EXTRACTION_ENTITY_RECOVERY_MODEL_SOURCE:-user_model}
-      KNOWLEDGE_EXTRACTION_ENTITY_RECOVERY_MAX_BATCH: ${KNOWLEDGE_EXTRACTION_ENTITY_RECOVERY_MAX_BATCH:-5}
+      KNOWLEDGE_EXTRACTION_ENTITY_RECOVERY_MODEL_REF: ${KNOWLEDGE_EXTRACTION_ENTITY_RECOVERY_MODEL_REF}
+      KNOWLEDGE_EXTRACTION_ENTITY_RECOVERY_MODEL_SOURCE: ${KNOWLEDGE_EXTRACTION_ENTITY_RECOVERY_MODEL_SOURCE}
+      KNOWLEDGE_EXTRACTION_ENTITY_RECOVERY_MAX_BATCH: ${KNOWLEDGE_EXTRACTION_ENTITY_RECOVERY_MAX_BATCH}
       # Cycle 73e — Pass2 writer autocreate (Tier B). OFF by default
       # until eval validates the realized-F1 lift justifies the graph-
       # pollution risk. Tier A.1 (chapter name repair) + A.2 (anchor
       # pre-check) always run; only Tier B (MERGE new :Entity with
       # auto_created=true, kind=concept) is gated. Cap defaults 20/ch.
       # Override ENABLED=true to enable; MAX_PER_CHAPTER tunes the cap.
-      KNOWLEDGE_EXTRACTION_WRITER_AUTOCREATE_ENABLED: ${KNOWLEDGE_EXTRACTION_WRITER_AUTOCREATE_ENABLED:-false}
-      KNOWLEDGE_EXTRACTION_WRITER_AUTOCREATE_MAX_PER_CHAPTER: ${KNOWLEDGE_EXTRACTION_WRITER_AUTOCREATE_MAX_PER_CHAPTER:-20}
+      KNOWLEDGE_EXTRACTION_WRITER_AUTOCREATE_ENABLED: ${KNOWLEDGE_EXTRACTION_WRITER_AUTOCREATE_ENABLED}
+      KNOWLEDGE_EXTRACTION_WRITER_AUTOCREATE_MAX_PER_CHAPTER: ${KNOWLEDGE_EXTRACTION_WRITER_AUTOCREATE_MAX_PER_CHAPTER}
       # wiki-llm M1 (option A) — read the authored de-bias BookProfile from
       # lore-enrichment over the internal token to shape the wiki-gen prompt.
       LORE_ENRICHMENT_SERVICE_URL: http://lore-enrichment-service:8093
       # wiki-llm M6 — batch wiki-generation consumer. OFF by default (spends
       # tokens); set true to drain loreweave:events:wiki-gen and generate.
-      WIKI_GEN_ENABLED: ${KNOWLEDGE_WIKI_GEN_ENABLED:-false}
+      WIKI_GEN_ENABLED: ${KNOWLEDGE_WIKI_GEN_ENABLED}
     depends_on:
       postgres:
         condition: service_healthy
@@ -1620,14 +1655,14 @@ services:
       labels: *build-labels
     environment:
       PORT: "3000"
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # Dual-auth user mode (FE via the BFF): validate the platform HS256 JWT (same secret
       # glossary/knowledge use) + grant-check the book against book-service before forwarding.
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      JWT_SECRET: ${JWT_SECRET}
       BOOK_SERVICE_URL: http://book-service:8082
       GLOSSARY_SERVICE_URL: http://glossary-service:8088
       KNOWLEDGE_SERVICE_URL: http://knowledge-service:8092
-      KG_TEMPORAL_ENABLED: ${KG_TEMPORAL_ENABLED:-true}
+      KG_TEMPORAL_ENABLED: ${KG_TEMPORAL_ENABLED}
       LOG_LEVEL: INFO
     depends_on:
       glossary-service:
@@ -1659,9 +1694,9 @@ services:
       labels: *build-labels
     environment:
       PORT: "8093"
-      LORE_ENRICHMENT_DB_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_lore_enrichment
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      LORE_ENRICHMENT_DB_URL: ${LORE_ENRICHMENT_DB_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # Read-dependency URLs — C1 wires the clients; defaults match in-net svc names.
       KNOWLEDGE_SERVICE_URL: http://knowledge-service:8092
       GLOSSARY_SERVICE_URL: http://glossary-service:8088
@@ -1671,17 +1706,17 @@ services:
       # Unified Job Control Plane P5 — per-owner concurrent-job cap (the enrichment runner
       # is synchronous in-process, so the lane `lore-enrichment:job` caps concurrent jobs;
       # at cap → 429). Default OFF until live-smoked → then default on.
-      P5_SCHED_ENABLED: ${P5_SCHED_ENABLED:-true}
-      P5_OWNER_CAP: ${P5_OWNER_CAP:-5}
-      P5_LEASE_TTL_MS: ${P5_LEASE_TTL_MS:-3600000}
+      P5_SCHED_ENABLED: ${P5_SCHED_ENABLED}
+      P5_OWNER_CAP: ${P5_OWNER_CAP}
+      P5_LEASE_TTL_MS: ${P5_LEASE_TTL_MS}
       # C18 — OpenTelemetry trace export (mirrors api-gateway-bff / the other
       # FastAPI services). Empty default → setup_tracing is a no-op (dev). Set to
       # the collector endpoint to enable tracing.
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       # Compose slice 3 (mode F) — MinIO object storage for uploaded files.
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-loreweave}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-loreweave_dev_minio_secret}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET: lore-enrichment-uploads
       MINIO_USE_SSL: "false"
     depends_on:
@@ -1713,21 +1748,21 @@ services:
       labels: *build-labels
     command: ["python", "-m", "app.worker"]
     environment:
-      LORE_ENRICHMENT_DB_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_lore_enrichment
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      LORE_ENRICHMENT_DB_URL: ${LORE_ENRICHMENT_DB_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       KNOWLEDGE_SERVICE_URL: http://knowledge-service:8092
       GLOSSARY_SERVICE_URL: http://glossary-service:8088
       BOOK_SERVICE_URL: http://book-service:8082
       PROVIDER_REGISTRY_INTERNAL_URL: http://provider-registry-service:8085
       REDIS_URL: redis://redis:6379
-      RESUME_CONSUMER_ENABLED: ${RESUME_CONSUMER_ENABLED:-true}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      RESUME_CONSUMER_ENABLED: ${RESUME_CONSUMER_ENABLED}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       # The reaper's orphan-object sweep (D-COMPOSE-S3-UPLOAD-REAPER) deletes row-less
       # MinIO objects, so the worker needs the SAME bucket config as the service.
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-loreweave}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-loreweave_dev_minio_secret}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET: lore-enrichment-uploads
       MINIO_USE_SSL: "false"
     # LE-062: the worker is a headless consumer (no HTTP server), so override the
@@ -1758,9 +1793,9 @@ services:
       dockerfile: services/learning-service/Dockerfile
     environment:
       PORT: "8094"
-      LEARNING_DB_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_learning
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      LEARNING_DB_URL: ${LEARNING_DB_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       REDIS_URL: redis://redis:6379
       LOG_LEVEL: INFO
     depends_on:
@@ -1787,7 +1822,7 @@ services:
       labels: *build-labels
     environment:
       WORKER_TASKS: "outbox-relay,outbox-cleanup,import-processor"
-      EVENTS_DB_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_events
+      EVENTS_DB_URL: ${EVENTS_DB_URL}
       REDIS_URL: redis://redis:6379
       # C4 (K14): glossary added so the relay ships glossary.entity_updated
       # rows (aggregate_type='glossary' → stream loreweave:events:glossary)
@@ -1811,7 +1846,7 @@ services:
       # in the approval tx and DELIVERED to notification-service (NOTIFICATION_SERVICE_URL
       # below), replacing the fire-and-forget POST. translation + composition already
       # emit 'notification' rows on their existing outboxes (same delivery path).
-      OUTBOX_SOURCES: "book:postgres://loreweave:loreweave_dev@postgres:5432/loreweave_book,translation:postgres://loreweave:loreweave_dev@postgres:5432/loreweave_translation,chat:postgres://loreweave:loreweave_dev@postgres:5432/loreweave_chat,glossary:postgres://loreweave:loreweave_dev@postgres:5432/loreweave_glossary,knowledge:postgres://loreweave:loreweave_dev@postgres:5432/loreweave_knowledge,composition:postgres://loreweave:loreweave_dev@postgres:5432/loreweave_composition,campaign:postgres://loreweave:loreweave_dev@postgres:5432/loreweave_campaign,lore_enrichment:postgres://loreweave:loreweave_dev@postgres:5432/loreweave_lore_enrichment,video_gen:postgres://loreweave:loreweave_dev@postgres:5432/loreweave_video_gen,learning:postgres://loreweave:loreweave_dev@postgres:5432/loreweave_learning,auth:postgres://loreweave:loreweave_dev@postgres:5432/loreweave_auth"
+      OUTBOX_SOURCES: ${OUTBOX_SOURCES}
       # D-C-PRODUCER-OUTBOX — where the relay delivers notification-typed outbox rows.
       NOTIFICATION_SERVICE_URL: http://notification-service:8091
       # Phase B (§10.1): bumped 7→30 days. glossary now also feeds
@@ -1819,19 +1854,19 @@ services:
       # source outbox rows + event_log is the replay backstop so a learning-
       # service outage can be backfilled (ReplayCorrections, D#049).
       OUTBOX_CLEANUP_RETAIN_DAYS: "30"
-      BOOK_DB_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_book
+      BOOK_DB_URL: ${BOOK_DB_URL}
       PANDOC_URL: http://pandoc-server:3030
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-loreweave}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-loreweave_dev_minio_secret}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET: loreweave-dev-books
       BOOK_SERVICE_URL: http://book-service:8082
       # 26 IX-12 — import tail decompiles imported prose into spec scenes + writes back source_scene_id.
       COMPOSITION_SERVICE_URL: http://composition-service:8093
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
-      RABBITMQ_URL: amqp://loreweave:loreweave_dev@rabbitmq:5672/
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      RABBITMQ_URL: ${RABBITMQ_URL}
       # Phase 6c — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -1853,16 +1888,16 @@ services:
       dockerfile: services/worker-ai/Dockerfile
       labels: *build-labels
     environment:
-      KNOWLEDGE_DB_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_knowledge
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      KNOWLEDGE_DB_URL: ${KNOWLEDGE_DB_URL}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # WS-1.0 (review-impl) — the SAME deployment KEK auth-service uses to WRAP each DEK.
       # This consumer unwraps the DEK with it to decrypt the user's private content, so a
       # value here that differs from auth-service's is a total decrypt failure. Rotations
       # must add the old value to DIARY_ENCRYPTION_KEYS_RETIRED on EVERY service at once.
-      DIARY_ENCRYPTION_KEY: ${DIARY_ENCRYPTION_KEY:-loreweave_local_dev_diary_kek_change_me}
-      DIARY_ENCRYPTION_KEYS_RETIRED: ${DIARY_ENCRYPTION_KEYS_RETIRED:-}
+      DIARY_ENCRYPTION_KEY: ${DIARY_ENCRYPTION_KEY}
+      DIARY_ENCRYPTION_KEYS_RETIRED: ${DIARY_ENCRYPTION_KEYS_RETIRED}
       # Phase 6c-γ — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       KNOWLEDGE_SERVICE_URL: http://knowledge-service:8092
       BOOK_SERVICE_URL: http://book-service:8082
       # C13 — glossary-service internal base URL (entities/by-ids for pinning +
@@ -1896,33 +1931,33 @@ services:
       # BOTH app.main (consumer + sweeper) and runner.py (the branch) so worker +
       # consumer stay coherent. Default ON (2026-06-12): review-cleared + live-smoked
       # (5-chapter run, recovery/filter fan-outs, 0 double-spend). false ⇒ sync path.
-      EXTRACTION_DECOUPLE_ENABLED: ${EXTRACTION_DECOUPLE_ENABLED:-true}
+      EXTRACTION_DECOUPLE_ENABLED: ${EXTRACTION_DECOUPLE_ENABLED}
       # Unified Job Control Plane P1 — the decoupled-extraction terminal consumer runs
       # on the shared loreweave_jobs.BaseTerminalConsumer (ExtractTerminalConsumer).
       # Default ON (2026-06-15): live extraction E2E confirmed entity→trio→persist on
       # the SDK consumer (real chapter, 23 entities/27 relations, items_processed 0→1
       # bill-once, group/consumer-name continuity `worker-ai-extract-resume`). Set false
       # to fall back to the legacy functional consume_llm_terminal_stream if needed.
-      EXTRACTION_CONSUMER_USE_SDK: ${EXTRACTION_CONSUMER_USE_SDK:-true}
+      EXTRACTION_CONSUMER_USE_SDK: ${EXTRACTION_CONSUMER_USE_SDK}
       # Cycle 73d — entity recovery OFF by default; eval-validate first.
-      WORKER_AI_ENTITY_RECOVERY_MODEL_REF: ${WORKER_AI_ENTITY_RECOVERY_MODEL_REF:-}
-      WORKER_AI_ENTITY_RECOVERY_MODEL_SOURCE: ${WORKER_AI_ENTITY_RECOVERY_MODEL_SOURCE:-user_model}
-      WORKER_AI_ENTITY_RECOVERY_MAX_BATCH: ${WORKER_AI_ENTITY_RECOVERY_MAX_BATCH:-5}
+      WORKER_AI_ENTITY_RECOVERY_MODEL_REF: ${WORKER_AI_ENTITY_RECOVERY_MODEL_REF}
+      WORKER_AI_ENTITY_RECOVERY_MODEL_SOURCE: ${WORKER_AI_ENTITY_RECOVERY_MODEL_SOURCE}
+      WORKER_AI_ENTITY_RECOVERY_MAX_BATCH: ${WORKER_AI_ENTITY_RECOVERY_MAX_BATCH}
       # Cycle 73h — Prometheus /metrics endpoint on dedicated port.
       # Set to 0 to disable (e.g. when running multiple worker replicas
       # on the same host that would collide on the port).
-      METRICS_PORT: "${WORKER_AI_METRICS_PORT:-8094}"
+      METRICS_PORT: "${WORKER_AI_METRICS_PORT}"
       # B2 follow-up — global env knob for writer autocreate.  Mirrors the
       # knowledge-service value so both services share one .env toggle.
-      KNOWLEDGE_EXTRACTION_WRITER_AUTOCREATE_ENABLED: ${KNOWLEDGE_EXTRACTION_WRITER_AUTOCREATE_ENABLED:-false}
+      KNOWLEDGE_EXTRACTION_WRITER_AUTOCREATE_ENABLED: ${KNOWLEDGE_EXTRACTION_WRITER_AUTOCREATE_ENABLED}
       # Unified Job Control Plane P5 — fair scheduling / per-tenant concurrency (the
       # noisy-neighbor fix). The PULL substrate: the poll loop iterates owners round-robin
       # and gates each decoupled chunk with a per-owner in-flight cap (acquire/release on
       # the lane `knowledge:extraction`). Default OFF until live-smoked → then default on.
       # redis_url falls back to the code default (redis://redis:6379) — no separate env.
-      P5_SCHED_ENABLED: ${P5_SCHED_ENABLED:-true}
-      P5_OWNER_CAP: ${P5_OWNER_CAP:-5}
-      P5_LEASE_TTL_MS: ${P5_LEASE_TTL_MS:-3600000}
+      P5_SCHED_ENABLED: ${P5_SCHED_ENABLED}
+      P5_OWNER_CAP: ${P5_OWNER_CAP}
+      P5_LEASE_TTL_MS: ${P5_LEASE_TTL_MS}
     depends_on:
       postgres:
         condition: service_healthy
@@ -1931,6 +1966,16 @@ services:
     ports:
       # Cycle 73h — Prometheus scrape target on 8226 (host) → 8094 (container).
       - "8226:8094"
+    healthcheck:
+      # Worker-ai has no /health endpoint — the /metrics server (Cycle 73h)
+      # is its only HTTP surface, so the probe hits that. Same python-urllib
+      # shape as the other Python services here. Assumes the default
+      # METRICS_PORT=8094; METRICS_PORT=0 disables the server (and this check).
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8094/metrics')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -1949,13 +1994,13 @@ services:
     environment:
       HTTP_ADDR: ":8089"
       DATABASE_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_statistics?sslmode=disable
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       REDIS_URL: redis://redis:6379
       BOOK_SERVICE_INTERNAL_URL: http://book-service:8082
       AUTH_SERVICE_INTERNAL_URL: http://auth-service:8081
       REFRESH_INTERVAL: "600"
       # Phase 6c — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -1984,14 +2029,14 @@ services:
     environment:
       HTTP_ADDR: ":8091"
       DATABASE_URL: postgres://loreweave:loreweave_dev@postgres:5432/loreweave_notification?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # Phase 2d — consume async LLM job terminal events from
       # `loreweave.events` topic and persist as notifications rows.
       # Empty/unset disables the consumer (REST API stays usable).
-      RABBITMQ_URL: amqp://loreweave:loreweave_dev@rabbitmq:5672/
+      RABBITMQ_URL: ${RABBITMQ_URL}
       # Phase 6c — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -2039,9 +2084,9 @@ services:
       JOBS_SERVICE_URL: http://jobs-service:8096
       # PUBLIC MCP edge — /mcp (unversioned) → mcp-public-gateway (external-agent entry).
       MCP_PUBLIC_GATEWAY_URL: http://mcp-public-gateway:8211
-      RABBITMQ_URL: amqp://loreweave:loreweave_dev@rabbitmq:5672/
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # FE→MCP-tool bridge (D-W10-ARC-CONFORMANCE-DEEP-FE) — the BFF's
       # /v1/ai/tools/execute controller validates the FE's JWT then forwards a
       # whitelisted federated tool call to ai-gateway's /internal/tools/execute
@@ -2056,7 +2101,7 @@ services:
       # own fail-closed guard was the only thing that ever noticed.
       LW_WS_REDIS_URL: redis://redis:6379
       # Phase 6c-γ — OpenTelemetry trace export (see provider-registry-service).
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     depends_on:
       auth-service:
         condition: service_healthy
@@ -2127,7 +2172,7 @@ services:
 
 
   languagetool:
-    image: erikvl87/languagetool:latest
+    image: erikvl87/languagetool:6.8
     # restart policy added 2026-05-31: the service block existed but the
     # container was never started (same class as the translation-worker gap),
     # so the editor grammar check 500'd. unless-stopped keeps it alive across
@@ -2160,7 +2205,7 @@ services:
 
   pandoc-server:
     restart: unless-stopped
-    image: pandoc/core:latest
+    image: pandoc/core:3.11
     entrypoint: ["pandoc-server"]
     ports:
       - "3030:3030"
@@ -2182,7 +2227,7 @@ services:
         # reachable through a single port/domain (ngrok, LAN IP, prod domain, ...) —
         # a non-empty absolute value here bakes a fixed host into the JS bundle,
         # which breaks the moment the app is served from any other origin.
-        VITE_API_BASE: ${VITE_API_BASE:-}
+        VITE_API_BASE: ${VITE_API_BASE}
     depends_on:
       api-gateway-bff:
         condition: service_started
@@ -2212,6 +2257,13 @@ services:
         condition: service_healthy
     ports:
       - "5174:80"
+    healthcheck:
+      # nginx:alpine ships busybox wget; fetching / proves the server
+      # serves the built app (this container serves static files only).
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     # profiles:
     #   - v2
 
@@ -2229,11 +2281,18 @@ services:
       args:
         # Same reasoning as frontend's VITE_API_BASE above — relative, proxied
         # by this container's own nginx.conf /v1/ block.
-        VITE_API_BASE: ${VITE_API_BASE:-}
+        VITE_API_BASE: ${VITE_API_BASE}
     depends_on:
       - api-gateway-bff
     ports:
       - "5175:80"
+    healthcheck:
+      # nginx:alpine ships busybox wget; fetching / proves the server
+      # serves the built app (this container serves static files only).
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # ── K11.1 — Neo4j for the Track 2/3 knowledge graph ───────────────────
   # Default-on: Tracks 1-3 are feature-complete and the graph (entities,
@@ -2249,7 +2308,7 @@ services:
     restart: unless-stopped
     image: neo4j:2026.03-community
     environment:
-      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-loreweave_dev_neo4j}
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
       NEO4J_PLUGINS: '["apoc"]'
       # Memory ceilings — community edition has soft caps but
       # explicit values keep dev machines stable.
@@ -2313,6 +2372,14 @@ services:
     volumes:
       - ./otel/tempo.yaml:/etc/tempo/tempo.yaml:ro
       - loreweave_tempo:/var/tempo
+    healthcheck:
+      # The image ships busybox wget (verified in the image). /ready is
+      # Tempo's readiness endpoint on the configured http_listen_port 3200.
+      test: ["CMD", "wget", "-qO-", "http://localhost:3200/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     profiles:
       - observability
       - full
@@ -2331,6 +2398,14 @@ services:
       - "3200:3000"
     depends_on:
       - tempo
+    healthcheck:
+      # The image ships curl (verified in the image). /api/health answers
+      # {"database":"ok"} once Grafana is up.
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     profiles:
       - observability
       - full
@@ -2357,14 +2432,14 @@ services:
       # binary actually consumes (`LOREWEAVE_INTERNAL_TOKEN`). Setting
       # `LOREWEAVE_INTERNAL_TOKEN` on the HOST has NO effect — compose
       # always rewrites from `INTERNAL_SERVICE_TOKEN`.
-      LOREWEAVE_INTERNAL_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      LOREWEAVE_INTERNAL_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       TILEMAP_HTTP_BIND: "0.0.0.0:7100"
       # CORS origins for browser smoke (Session D V0 demo, spec AC-FG-13).
       # Comma-separated; defaults to the frontend-game origin on :5176
       # (was :5174 until that port collided with the main `frontend`).
       # Prod goes through api-gateway-bff (single-origin per spec §8).
-      LOREWEAVE_CORS_ORIGINS: ${LOREWEAVE_CORS_ORIGINS:-http://localhost:5176}
-      RUST_LOG: ${RUST_LOG:-info,tilemap_service=debug}
+      LOREWEAVE_CORS_ORIGINS: ${LOREWEAVE_CORS_ORIGINS}
+      RUST_LOG: ${RUST_LOG}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:7100/livez"]
       interval: 10s
@@ -2407,17 +2482,17 @@ services:
       labels: *build-labels
     environment:
       DATABASE_URL: postgresql://loreweave:loreweave_dev@postgres:5432/loreweave_roleplay
-      JWT_SECRET: ${JWT_SECRET:-loreweave_local_dev_jwt_secret_change_me_32chars}
+      JWT_SECRET: ${JWT_SECRET}
       # Compose rewrites INTERNAL_SERVICE_TOKEN → the binary-facing name
       # (tilemap convention); setting LOREWEAVE_INTERNAL_TOKEN on the host has
       # no effect.
-      LOREWEAVE_INTERNAL_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      LOREWEAVE_INTERNAL_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       CHAT_SERVICE_URL: http://chat-service:8090
       ROLEPLAY_HTTP_BIND: "0.0.0.0:7110"
       # Defaults to the frontend-game origin on :5176 (was :5174 until that
       # port collided with the main `frontend`).
-      LOREWEAVE_CORS_ORIGINS: ${LOREWEAVE_CORS_ORIGINS:-http://localhost:5176}
-      RUST_LOG: ${RUST_LOG:-info,roleplay_service=debug}
+      LOREWEAVE_CORS_ORIGINS: ${LOREWEAVE_CORS_ORIGINS}
+      RUST_LOG: ${RUST_LOG}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:7110/livez"]
       interval: 10s
@@ -2446,11 +2521,11 @@ services:
       PORT: "2567"
       # Dev auth token — EchoRoom.onAuth checks options.jwt against this.
       # Same env name convention as tilemap-service for cross-service consistency.
-      LOREWEAVE_INTERNAL_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_token}
+      LOREWEAVE_INTERNAL_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # CORS for matchmaking HTTP endpoint (POST /matchmake/<room>);
       # WS upgrade itself doesn't preflight. Default = the frontend-game
       # origin :5176 (was :5174 until it collided with the main `frontend`).
-      LOREWEAVE_CORS_ORIGINS: ${LOREWEAVE_CORS_ORIGINS:-http://localhost:5176}
+      LOREWEAVE_CORS_ORIGINS: ${LOREWEAVE_CORS_ORIGINS}
       NODE_ENV: production
       # ── `F2`/`F1` — what ChannelRoom needs to serve a real subject ────────
       #
@@ -2460,16 +2535,16 @@ services:
       # map in `E4` broke nothing here — there was nothing to break.
       LW_WORLD_SERVICE_URL: http://world-service:7120
       LW_CHANNEL_REDIS_URL: redis://redis:6379
-      LW_CHANNEL_REALITY_ID: ${LW_CHANNEL_REALITY_ID:-}
-      LW_CHANNEL_ID: ${LW_CHANNEL_ID:-1}
+      LW_CHANNEL_REALITY_ID: ${LW_CHANNEL_REALITY_ID}
+      LW_CHANNEL_ID: ${LW_CHANNEL_ID}
       # The dev identity, and it has NO default on purpose (`F1`). It used to be
       # invented from four characters of the shared token, so every session on
       # the box was one "user" — and after E3 it was not a `user_ref_id` at all,
       # so the subject lookup refused it. Supply a real one, or dev auth fails
       # closed; the binding still comes from the control plane, so a dev user
       # with no grant drives nobody.
-      LW_WS_DEV_ALLOW_STATIC: ${LW_WS_DEV_ALLOW_STATIC:-}
-      LW_WS_DEV_USER_REF_ID: ${LW_WS_DEV_USER_REF_ID:-}
+      LW_WS_DEV_ALLOW_STATIC: ${LW_WS_DEV_ALLOW_STATIC}
+      LW_WS_DEV_USER_REF_ID: ${LW_WS_DEV_USER_REF_ID}
       # WS handshake ticket store REDEEMER side (control #1, HIGH-2) — the
       # `assertWsAuthConfig` startup gate in ws/auth.ts refuses to run with
       # NODE_ENV=production and this unset, since that combination means the

@@ -67,6 +67,31 @@ cd lore-weave
 cd infra && docker compose up --build
 ```
 
+**Environment file — copy it before the first `up`.** The compose file
+carries no inline defaults: every setting resolves from the environment,
+and the dev defaults live in `infra/.env.example`. Copy it to `infra/.env`
+(git-ignored; the example is tracked) before starting the stack:
+
+```bash
+cp infra/.env.example infra/.env
+```
+
+Without `.env`, compose warns about each unset variable, substitutes empty
+strings, and services fail fast on the missing values — Postgres, for
+example, refuses an empty password. That failure is the check working, not
+a bug: set the values in `.env`, do not put defaults back into the compose
+file. Two deliberate exceptions: `RUST_LOG` is the shared default `info`
+(roleplay-service and tilemap-service used to carry service-specific debug
+filters, which one `.env` value cannot hold), and `DATABASE_URL` stays a
+literal in the compose file because it carries one value per service under
+a shared name — a single `.env` entry would point every service at the same
+database. The dev database password is a matched set: changing
+`POSTGRES_PASSWORD` in `.env` also means changing the password embedded in
+those `DATABASE_URL` literals. The other compose files
+(`docker-compose.observability.yml`, `docker-compose.meta-ha.yml`,
+`docker-compose.knowledge-pg.yml`) still carry their own inline defaults;
+they are out of scope of this change.
+
 UI at **http://localhost:5174** · gateway `:3123` · admin CMS `:5175`.
 
 > `:5174` serves the **baked** nginx production build. Rebuild the image to see frontend changes — a
