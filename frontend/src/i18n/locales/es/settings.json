@@ -562,7 +562,7 @@
     "composer": "Compositor predeterminado",
     "composerHint": "El modelo que escribe tu prosa cuando un libro no tiene un modelo propio. Configúralo con cuidado: la generación es el proceso más costoso y nada consumirá tus créditos de modelo de chat en tu nombre.",
     "critic": "Modelo crítico predeterminado",
-    "criticHint": "Puntúa las sesiones de práctica y audita las escenas generadas. Opcional: si no se establece, la puntuación no ocurre y las sesiones no se evalúan. Elige uno que difiera de tu modelo de chat habitual.",
+    "criticHint": "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.",
     "distill": "Modelo destilador predeterminado",
     "distillHint": "Convierte los chats «termina mi día» en el diario diario. Opcional: si no se establece, usa tu modelo de chat predeterminado. Elige un modelo SIN razonamiento: un modelo de razonamiento solo emite razonamiento y destila un diario vacío.",
     "propagated": "{{n}} chats existentes movidos al nuevo predeterminado",

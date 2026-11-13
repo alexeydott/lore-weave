@@ -562,7 +562,7 @@
     "composer": "デフォルトの執筆モデル",
     "composerHint": "本に独自のモデルが設定されていない場合、本文を執筆するモデルです。慎重に設定してください。生成プロセスは最もコストがかかる作業であり、チャットモデルのトークンが意図せず消費される可能性があるためです。",
     "critic": "デフォルトのクリティックモデル",
-    "criticHint": "練習セッションの採点と生成シーンの監査を行います。任意 — 未設定の場合、採点は行われず、セッションは採点されません。普段のチャットモデルとは異なるものを選んでください。",
+    "criticHint": "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.",
     "distill": "デフォルトのディスティラーモデル",
     "distillHint": "「今日を終える」チャットを日記に変換します。任意 — 未設定の場合、デフォルトのチャットモデルが使われます。推論 (reasoning) なしのモデルを選んでください: 推論モデルは推論だけを出力し、空の日記が生成されます。",
     "propagated": "既存の {{n}} 件のチャットを新しいデフォルトに移動しました",
