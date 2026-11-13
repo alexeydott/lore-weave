@@ -112,7 +112,7 @@ mature — done or deliberately parked.** The remaining leverage is **one layer 
 *retrieval*.** The single highest-value gap is that the automatic per-turn grounding path
 (`passages.py`) is still *"vector search wearing a graph label"*: it does vector → hub/recency
 penalty → MMR and **never traverses the graph**, even though the real traversal primitives
-(`find_relations_2hop` at [`relations.py:731`](../../services/knowledge-service/app/db/neo4j_repos/relations.py),
+(`find_relations_2hop` at [`relations.py:731`](../../services/knowledge-service/app/db/graph_repos/relations.py),
 `get_project_subgraph` at `relations.py:1028`) already exist and are unused by retrieval. That is the
 self-identified `AW-2` gap, and it's assembly — not invention.
 
@@ -147,7 +147,7 @@ The original M1 assumed primitives are wired where they aren't. Five corrections
    addition (grounding-request DTO + chat-service populating book_id/chapter_id + threading to the
    selector). **M1 splits: M1a (graph expansion) ships alone; M1b becomes its own small cross-service
    slice, sized honestly — not folded into "one pass."**
-2. **Use the right primitive.** `find_relations_for_entity` ([`relations.py:611`](../../services/knowledge-service/app/db/neo4j_repos/relations.py))
+2. **Use the right primitive.** `find_relations_for_entity` ([`relations.py:611`](../../services/knowledge-service/app/db/graph_repos/relations.py))
    is a genuine **1-hop, both-directions, project-scoped, confidence + archived-peer filtered**
    traversal — the correct anchor for M1a. Do **not** "trim `find_relations_2hop`" (that one is
    2-hop, outgoing-only, and *mandates* `hop1_types`).

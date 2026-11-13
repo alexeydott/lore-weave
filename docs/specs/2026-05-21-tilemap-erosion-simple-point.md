@@ -12,7 +12,7 @@
 
 ## 1. Problem
 
-[`erode_zone`](services/tilemap-service/src/engine/modificators/obstacle_placer.rs#L100-L135)
+[`erode_zone`](../../services/tilemap-service/src/engine/modificators/obstacle_placer.rs#L100-L135)
 peels wall-adjacent `Open` tiles to `Obstacle`, each gated by a per-tile
 `would_seal_a_gap` flood fill:
 

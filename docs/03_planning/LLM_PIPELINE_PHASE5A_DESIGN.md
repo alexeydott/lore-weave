@@ -178,7 +178,7 @@ SttResult:
 
 ### 3.1 Gateway `Adapter` interface extension
 
-[`services/provider-registry-service/internal/provider/adapters.go`](services/provider-registry-service/internal/provider/adapters.go)
+[`services/provider-registry-service/internal/provider/adapters.go`](../../services/provider-registry-service/internal/provider/adapters.go)
 
 ```go
 type Adapter interface {
@@ -229,7 +229,7 @@ var ErrOperationNotSupported = errors.New("operation not supported by this provi
 3. `POST {baseURL}/v1/audio/transcriptions` with `Authorization: Bearer <secret>`
 4. Parse JSON: `{text, language, duration}`
 5. Return `TranscribeOutput{Text, Language, DurationMs: round(duration*1000)}`, `Usage{}` (Whisper has no token usage)
-6. Reuses helper logic from existing [`server.go:1949 verifySTT`](services/provider-registry-service/internal/api/server.go#L1949) (extract WAV-build skipped — verify uses synthetic silence; production fetches real audio)
+6. Reuses helper logic from existing [`server.go:1949 verifySTT`](../../services/provider-registry-service/internal/api/server.go#L1949) (extract WAV-build skipped — verify uses synthetic silence; production fetches real audio)
 
 **Speak**:
 1. `POST {baseURL}/v1/audio/speech` JSON: `{model, input: text, voice, speed, response_format: format}` with `Authorization` + `Accept: application/octet-stream`
@@ -246,7 +246,7 @@ Both methods return `ErrOperationNotSupported`. No HTTP call.
 
 ### 3.4 Worker dispatch — `audioJobWorker`
 
-[`services/provider-registry-service/internal/jobs/worker.go`](services/provider-registry-service/internal/jobs/worker.go)
+[`services/provider-registry-service/internal/jobs/worker.go`](../../services/provider-registry-service/internal/jobs/worker.go)
 
 Today `streamableOperations` whitelists chat-shape ops; everything else fails with `LLM_OPERATION_NOT_SUPPORTED`. Phase 5a adds:
 
@@ -279,7 +279,7 @@ Worker dispatch in `processJob`:
 
 ### 3.5 SSE handler — `/v1/llm/stream` branches on operation
 
-[`services/provider-registry-service/internal/api/server.go`](services/provider-registry-service/internal/api/server.go) `streamHandler` (or whatever the current name is — to verify in BUILD).
+[`services/provider-registry-service/internal/api/server.go`](../../services/provider-registry-service/internal/api/server.go) `streamHandler` (or whatever the current name is — to verify in BUILD).
 
 Pseudocode:
 ```go
@@ -497,7 +497,7 @@ chat-service          provider-registry              OpenAI
 
 ### 5.1 Adapter-level (Go unit tests)
 
-[`services/provider-registry-service/internal/provider/adapters_test.go`](services/provider-registry-service/internal/provider/adapters_test.go)
+[`services/provider-registry-service/internal/provider/adapters_test.go`](../../services/provider-registry-service/internal/provider/adapters_test.go)
 
 | Test | Asserts |
 |---|---|
@@ -514,7 +514,7 @@ chat-service          provider-registry              OpenAI
 
 ### 5.2 Worker-level (Go unit tests)
 
-[`services/provider-registry-service/internal/jobs/worker_test.go`](services/provider-registry-service/internal/jobs/worker_test.go)
+[`services/provider-registry-service/internal/jobs/worker_test.go`](../../services/provider-registry-service/internal/jobs/worker_test.go)
 
 | Test | Asserts |
 |---|---|
@@ -539,7 +539,7 @@ chat-service          provider-registry              OpenAI
 
 ### 5.4 SDK Python (pytest)
 
-[`sdks/python/tests/test_audio.py`](sdks/python/tests/test_audio.py) — NEW
+[`sdks/python/tests/test_audio.py`](../../sdks/python/tests/test_audio.py) — NEW
 
 | Test | Asserts |
 |---|---|

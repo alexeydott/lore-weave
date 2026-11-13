@@ -47,7 +47,7 @@ Must be done before starting K10:
 
 - **D2-01** Add Neo4j v2026.01 to docker-compose
 - **D2-03** Neo4j schema init (constraints, vector indexes, composite indexes)
-- **D2-04** Provider-registry embedding capability — extend the existing BYOK adapter layer to invoke embedding endpoints. **No self-hosted embedding service.** Embeddings come from whichever provider the user has registered (LM Studio `/v1/embeddings`, OpenAI `text-embedding-3-*`, Ollama `nomic-embed-text`, etc.) — the same BYOK plumbing that already serves LLM calls. provider-registry already classifies models with capability `"embedding"` ([adapters.go:220](services/provider-registry-service/internal/provider/adapters.go#L220)); D2-04 is the small extension to actually invoke them.
+- **D2-04** Provider-registry embedding capability — extend the existing BYOK adapter layer to invoke embedding endpoints. **No self-hosted embedding service.** Embeddings come from whichever provider the user has registered (LM Studio `/v1/embeddings`, OpenAI `text-embedding-3-*`, Ollama `nomic-embed-text`, etc.) — the same BYOK plumbing that already serves LLM calls. provider-registry already classifies models with capability `"embedding"` ([adapters.go:220](../../services/provider-registry-service/internal/provider/adapters.go#L220)); D2-04 is the small extension to actually invoke them.
 - **D3-00** Idempotency layer (canonicalization + deterministic IDs + source_event_id)
 
 Plus Track 1 must be complete:
