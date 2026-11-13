@@ -23,6 +23,8 @@
 //   - Q-L6-2: 10K cap per replica — enforced gateway-side, not here.
 //   - Q-L6-3: foundation owns server + envelope only; no browser lib.
 
+
+#![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
 //! # contracts-ws

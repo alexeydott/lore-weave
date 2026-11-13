@@ -21,6 +21,9 @@
 //! roleplay-service is the first consumer (built on it day one). tilemap/world
 //! migrate opportunistically when next touched — not a forced refactor.
 
+
+#![forbid(unsafe_code)]
+
 pub mod auth;
 pub mod config;
 pub mod db;

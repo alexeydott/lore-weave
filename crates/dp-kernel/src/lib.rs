@@ -99,6 +99,9 @@
 //! may be reshaped within `dp-kernel` between cycles — prefer the root
 //! re-exports.
 
+
+#![forbid(unsafe_code)]
+
 pub mod aggregate;
 pub mod canon_cache;
 pub mod channel;

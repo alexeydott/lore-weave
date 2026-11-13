@@ -34,10 +34,12 @@ use crate::server::state::AppState;
 pub struct GrantRequest {
     /// WHO drives. Opaque; the only user reference in the binding.
     pub user_ref_id: Uuid,
+    /// The reality the binding lives in.
     pub reality_id: Uuid,
     /// The per-reality actor identity. Deliberately unconstrained here — its FK
     /// lives in the per-reality database, which is `034`'s reason 3.
     pub actor_id: Uuid,
+    /// Why the grant is made; recorded on the binding.
     #[serde(default)]
     pub reason: Option<String>,
 }
@@ -45,28 +47,35 @@ pub struct GrantRequest {
 /// `POST /internal/v1/actor-control/revoke`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct RevokeRequest {
+    /// The reality the binding lives in.
     pub reality_id: Uuid,
+    /// The actor whose binding is revoked.
     pub actor_id: Uuid,
     /// Optional CAS. When present the revoke applies only while this user still
     /// holds the binding; otherwise `409`. A caller acting on a stale character
     /// list MUST send it, or it will revoke whoever took over instead.
     #[serde(default)]
     pub expected_user_ref_id: Option<Uuid>,
+    /// Why the revoke is made; recorded on the binding.
     #[serde(default)]
     pub reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// The outcome of a grant or revoke, with the binding it acted on.
 pub struct ControlResponse {
     /// `granted` · `already_granted` · `revoked` · `already_revoked`.
     pub outcome: &'static str,
+    /// The reality the binding lives in.
     pub reality_id: Uuid,
+    /// The actor the outcome is about.
     pub actor_id: Uuid,
 }
 
 /// `POST /internal/v1/actors`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateActorRequest {
+    /// The reality the actor is created in.
     pub reality_id: Uuid,
     /// Optional. Omit and the registry ALLOCATES the island id — which is the
     /// normal path and the reason the registry is the SSOT for that number.
@@ -87,7 +96,9 @@ pub struct CreateActorRequest {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// The created (or adopted) actor's identities.
 pub struct CreateActorResponse {
+    /// The reality the actor lives in.
     pub reality_id: Uuid,
     /// The PLATFORM identity — what a binding points at.
     pub actor_id: Uuid,
@@ -195,6 +206,7 @@ pub async fn revoke_control(
 /// authenticated session. A public edge would make `user_ref_id` an oracle.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SubjectRequest {
+    /// The reality to resolve the subject in.
     pub reality_id: Uuid,
     /// WHOSE binding to resolve. The transport takes this from the redeemed WS
     /// ticket, never from anything the client sent — `SEALED-SUBJECT`.
@@ -204,7 +216,9 @@ pub struct SubjectRequest {
 /// What the caller drives, or `null`.
 #[derive(Debug, Clone, Serialize)]
 pub struct SubjectResponse {
+    /// The reality the subject was resolved in.
     pub reality_id: Uuid,
+    /// The user the subject was resolved for.
     pub user_ref_id: Uuid,
     /// `None` = this user drives nobody in this reality. A normal answer for a
     /// spectator and for the instant after a revoke, which is why it is a
@@ -216,7 +230,9 @@ pub struct SubjectResponse {
 /// The two spellings of the actor, as [`crate::actor_control_flow::Subject`].
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct SubjectBody {
+    /// The PLATFORM identity — what a binding points at.
     pub actor_id: Uuid,
+    /// The ISLAND identity — what the simulation acts on.
     pub entity_id: i64,
 }
 

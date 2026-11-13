@@ -243,27 +243,56 @@ pub struct NodeDecl {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SeedReject {
     /// `place.missing_decl` — a `Domain` with no place declaration.
-    MissingPlaceDecl { node: i64 },
+    MissingPlaceDecl {
+        /// The declaration's node id.
+        node: i64,
+    },
     /// `place.invalid_place_type_for_channel_tier` — a place on a node whose
     /// kind is not `Domain`. The rule id keeps its name: an id is a contract,
     /// and the words inside it are not (`SPG-R14`).
-    PlaceOnNonDomain { node: i64, kind: &'static str },
+    PlaceOnNonDomain {
+        /// The node the place was declared on.
+        node: i64,
+        /// The node's actual kind.
+        kind: &'static str,
+    },
     /// Two declarations claiming one id.
-    DuplicateNode { node: i64 },
+    DuplicateNode {
+        /// The id claimed by two declarations.
+        node: i64,
+    },
     /// A parent that no declaration defines.
-    UnknownParent { node: i64, parent: i64 },
+    UnknownParent {
+        /// The declaration's node id.
+        node: i64,
+        /// The parent id no declaration defines.
+        parent: i64,
+    },
     /// `map.containment_violation`'s structural half — the depth walk did not
     /// terminate, so the declaration is cyclic. `0019`'s `parent_depth` would
     /// refuse it too; catching it here means refusing before writing.
-    CyclicParent { node: i64 },
+    CyclicParent {
+        /// The node on the cyclic declaration chain.
+        node: i64,
+    },
     /// `DP-Ch1`'s `depth <= 16`, checked before the database has to.
-    TooDeep { node: i64, depth: i32 },
+    TooDeep {
+        /// The declaration's node id.
+        node: i64,
+        /// The declaration depth that exceeded 16.
+        depth: i32,
+    },
     /// `SDF-A19` — the edge is legal and the SCALE is not. `Domain -> World` is
     /// bounded to `Pocket`: 500 holders x 1 024 cells is 512 k nodes against the
     /// 8.19 M an unbounded `Megaplanet` would cost, and a grotto-heaven is what
     /// the genre means by an inner world anyway. It fails HERE, at authoring
     /// time, with a reason -- not at runtime, mid-breakthrough.
-    ScaleViolation { node: i64, scale: Option<&'static str> },
+    ScaleViolation {
+        /// The declaration's node id.
+        node: i64,
+        /// The declared scale, if any.
+        scale: Option<&'static str>,
+    },
     /// `map.containment_violation` proper — the matrix refuses this edge.
     ///
     /// ⚠ THE SCALE HALF IS NOT CHECKED HERE, and that is stated rather than
@@ -273,10 +302,22 @@ pub enum SeedReject {
     /// an author nothing about what they may build. Checking it needs a SCALE on
     /// the declaration, which `NodeDecl` does not carry. That is `SDF-R7`'s row,
     /// and this is where it will hook.
-    ContainmentViolation { node: i64, parent_kind: &'static str, child_kind: &'static str },
+    ContainmentViolation {
+        /// The declaration's node id.
+        node: i64,
+        /// The parent's kind.
+        parent_kind: &'static str,
+        /// The child's kind.
+        child_kind: &'static str,
+    },
     /// A root is a node with no parent. `0019`'s `channels_root_single` permits
     /// exactly one per reality.
-    MultipleRoots { first: i64, second: i64 },
+    MultipleRoots {
+        /// One of the two roots.
+        first: i64,
+        /// The other root.
+        second: i64,
+    },
     /// No root at all — a forest is not a tree.
     NoRoot,
 }

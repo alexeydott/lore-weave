@@ -28,6 +28,9 @@
 //! multi-reality hosting), presets as a scoped DB resource (RLS-D19), and
 //! `forge_override` as an ordered event (§9, needs epoch-switch-as-ingress).
 
+
+#![forbid(unsafe_code)]
+
 mod binding;
 mod epoch;
 mod layer;

@@ -24,6 +24,9 @@
 //! re-export — so the parity suite did not move away from the platform side
 //! that owns the contract.
 
+
+#![forbid(unsafe_code)]
+
 use serde::{Deserialize, Serialize};
 
 /// Lifecycle state of a game entity. Wire format = canonical snake_case.

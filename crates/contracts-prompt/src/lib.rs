@@ -33,6 +33,9 @@
 //! Production wiring replaces `NoOpGuardrail` with [`canon_guardrail::YamlGuardrail`]
 //! transparently — no caller code changes.
 
+
+#![forbid(unsafe_code)]
+
 pub mod canon_guardrail;
 
 pub use canon_guardrail::{

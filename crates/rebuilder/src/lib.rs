@@ -49,6 +49,9 @@
 //! - The L3.H catastrophic admin-cli command itself (DPS 3 of this cycle).
 //! - The L3.E daily integrity-checker / drift detection — cycle 15 L3.E/F.
 
+
+#![forbid(unsafe_code)]
+
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 

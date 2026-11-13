@@ -46,6 +46,9 @@
 //!   arm-set over the golden fixtures; a new arm+event with no fixture is unchecked
 //!   (shared with the C2 `full_delta` battery).
 
+
+#![forbid(unsafe_code)]
+
 use dp_kernel::{EventEnvelope, ProjectionUpdate, VerificationMeta};
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
