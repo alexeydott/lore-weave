@@ -79,6 +79,37 @@ def merge_refine_output(before: dict[str, Any], patch: dict[str, Any], revision:
                 if m.get("id") == mid:
                     mechanics[i] = new_m
                     break
+        elif p == "layers.variables":
+            new_vars = patch.get(p)
+            if new_vars is None:
+                new_vars = (patch.get("layers") or {}).get("variables")
+            if new_vars is None:
+                continue
+            out.setdefault("layers", {})["variables"] = new_vars
+        elif p.startswith("arcs["):
+            aid = p.split("[", 1)[1].rstrip("]")
+            new_arc = patch.get(p)
+            if new_arc is None and isinstance(patch.get("arcs"), list):
+                new_arc = next((a for a in patch["arcs"] if a.get("id") == aid), None)
+            if new_arc is None:
+                continue
+            arcs = out.setdefault("arcs", [])
+            for i, a in enumerate(arcs):
+                if a.get("id") == aid:
+                    arcs[i] = new_arc
+                    break
+        elif p == "charter":
+            new_charter = patch.get(p)
+            if new_charter is None:
+                continue
+            out["charter"] = new_charter
+        elif p == "meta.open_questions":
+            new_oq = patch.get(p)
+            if new_oq is None:
+                new_oq = (patch.get("meta") or {}).get("open_questions")
+            if new_oq is None:
+                continue
+            out.setdefault("meta", {})["open_questions"] = new_oq
     return out
 
 
