@@ -213,11 +213,14 @@
   a plan/owner decision. 17 HTTP services have no spec.
 - Round 10 (Rust, `1a8e9fa6`): P3-5 fixed (forbid in 22 of 23 crates);
   P2-26 fixed (63 warnings -> 0). Advisories triaged: jsonwebtoken
-  upgrade (closes 2) and serde_yaml -> saphyr migration are deferred
-  with stated reasons; `deny.toml` allow-list + license fields are an
-  owner policy decision. Full world-gen lib suite (445 tests) not run to
-  completion — killed after ~21 min for sandbox slowness; 45-test subset
-  green, compile green.
+  upgrade (closes 2) remains deferred with stated reasons; serde_yaml
+  -> saphyr migration DONE 2026-11-14 (merged `b6dc06be`, closes the
+  unmaintained-warning advisory RUSTSEC-2024-0449); quinn-udp bumped
+  0.5.14 -> 0.5.16 (merged `82f894cf`, closes RUSTSEC-2026-0538).
+  `deny.toml` allow-list + license fields are an owner policy decision.
+  Full world-gen lib suite (445 tests) ran to completion 2026-11-14:
+  442 passed, 1 failed (render baseline drift, pre-existing,
+  sandbox-environment), 2 ignored.
 
 ## Visual audit of the composition workspace (2026-11-13, HEAD 04716f37)
 
@@ -304,5 +307,5 @@
 - P1-8 (second half): `docs/MILESTONE.md` still 2026-08-08 — refresh it to the current state, or retire it as a historical document and point at SESSION_HANDOFF as the live status?
 - Spec backfill: 336 undocumented live operations + 7 method mismatches (round 9 census) — a backfill program (glossary-style conformance test per service + allowlist), starting with composition (197) and books (74)?
 - Frontend: delete the 3 extra 0-ref files (`AudioOverview.tsx`, `SchemaEditor.tsx`, `useAccountUsage.ts`) proven dead in round 4?
-- Rust: `deny.toml` allow-list + license fields on 4 unlicensed crates; jsonwebtoken upgrade (closes 2 advisories); serde_yaml -> saphyr migration (closes the unmaintained-warning advisory)?
+- Rust: `deny.toml` allow-list + license fields on 4 unlicensed crates; jsonwebtoken upgrade (closes 2 advisories)? (serde_yaml -> saphyr migration DONE 2026-11-14, merged `b6dc06be`.)
 - P1-1/P1-2: frontend lint expansion — enabling rules surfaces ~157 `any`s + 53 stale suppressions; a cleanup in its own right.

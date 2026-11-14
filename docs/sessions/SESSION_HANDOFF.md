@@ -1,5 +1,14 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## ▶ MERGES: QUINN-UDP + SERDE-SAPHYR, 2026-11-14 — main `5f84d719` → `b6dc06be`
+
+Both branches merged `--no-ff` and verified by the main agent with independent re-runs (not the coordinators' logs):
+- `audit/dep-vuln-quinn-udp` (`2c628869`, `Cargo.lock` only) merged as `82f894cf`: quinn-udp 0.5.14 → 0.5.16, RUSTSEC-2026-0538 closed. Main-agent verification: `cargo audit` on the branch 0 vulnerabilities + 1 allowed warning (unsafe-libyaml); `cargo check -p world-service` exit 0; post-merge audit on main 0 vulnerabilities + 1 allowed warning.
+- `audit/serde-yaml-saphyr` (`8ed897a0`) merged as `b6dc06be`: serde_yaml → serde-saphyr 2.1.1, RUSTSEC-2024-0449 closed. Main-agent verification: 0 mentions of serde_yaml/unsafe-libyaml in `.rs`/`Cargo.toml`/`Cargo.lock`; the `contracts/api/books/v1/openapi.yaml` duplicate-responses merge checked against the raw main file — last-wins preserved; `cargo test` on all 7 YAML-touching crates re-run: 661 passed, 0 failed, 2 ignored (91 suites), matching the coordinator's claim exactly; `cargo check` on the 4 direct crates on merged main exit 0 (50.95s). `Cargo.lock` auto-merged cleanly (quinn-udp 0.5.16 + serde-saphyr both present).
+- Merged main audit (same three `--ignore` flags): 0 vulnerabilities, 0 warnings — the literal "0 vulnerabilities" state. (`cargo audit` prints yanked-check network errors in this sandbox; the verdict is exit 0 with no advisory lines.)
+- World-gen lib suite ran to completion on main in this sandbox (2026-11-14): 442 passed, 1 failed, 2 ignored. The failure is `render_output_is_byte_identical_baseline` (relief/realistic hash drift), deterministic, pre-existing on main (code + hash consistent as committed in `440fe026`; the audit touched world-gen only via the round-10 `forbid(unsafe_code)` attribute), and CI never runs this test (foundation-ci excludes world-gen). Recorded as a known sandbox-environment finding; the baseline was NOT re-captured.
+NEXT: push on a fresh one-time PAT (advise revoke), watch fork CI.
+
 ## ▶ SERDE_YAML → SERDE-SAPHYR MIGRATION, 2026-11-14 — branch `audit/serde-yaml-saphyr`, base `5f84d719`
 
 `serde_yaml 0.9.34+deprecated` is GONE from the Rust workspace. Target is `serde-saphyr 2.1.1`
