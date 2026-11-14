@@ -7,7 +7,7 @@
 //!
 //! Same architectural pattern as cycle 18's `dependencies` mirror: the
 //! canonical `inventory.yaml` file is parsed Go-side (Go has yaml.v3 in
-//! its module graph already; Rust does not ship `serde_yaml` in the
+//! its module graph already; Rust does not ship `serde_saphyr` in the
 //! workspace dep set for non-meta-rs crates). Rust services consume the
 //! inventory via:
 //!

@@ -6,7 +6,7 @@
 //! ## Why JSON-only on the Rust side
 //!
 //! The canonical `matrix.yaml` file is parsed Go-side (Go has yaml.v3 in
-//! its module graph already; Rust does not have `serde_yaml` in the
+//! its module graph already; Rust does not have `serde_saphyr` in the
 //! workspace dep set). Rust services consume the matrix via:
 //!
 //! 1. JSON dump produced by the Go loader at service-bootstrap, OR

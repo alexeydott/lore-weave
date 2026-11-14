@@ -39,4 +39,7 @@ path = "src/bin/progression_pin.rs"
 # reads it to BUILD the document it feeds the loader. A real parser: the source
 # half of the same check learned this the hard way, where a line-oriented reader
 # mis-attributed every section's key to the previous type.
-serde_yaml = "0.9"
+serde-saphyr = "2"
+# The contract is read into an untyped tree (serde_json::Value is serde-saphyr's
+# documented untyped target — it has no Value type of its own).
+serde_json = { workspace = true }

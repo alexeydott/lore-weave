@@ -83,7 +83,7 @@ impl Allowlist {
 
     /// Parse + validate an in-memory YAML payload.
     pub fn parse(raw: &[u8]) -> Result<Self, MetaError> {
-        let f: AllowlistFile = serde_yaml::from_slice(raw)
+        let f: AllowlistFile = serde_saphyr::from_slice(raw)
             .map_err(|e| MetaError::ConfigInvalid(format!("unmarshal allowlist: {e}")))?;
         if f.version != 1 {
             return Err(MetaError::ConfigInvalid(format!(
@@ -174,7 +174,7 @@ impl Allowlist {
     pub fn from_entries(entries: Vec<AllowlistEntry>) -> Result<Self, MetaError> {
         // Re-use parse logic via a synthetic doc to keep validation centralized.
         let f = AllowlistFile { version: 1, entries };
-        let raw = serde_yaml::to_string(&serde_json::json!({
+        let raw = serde_saphyr::to_string(&serde_json::json!({
             "version": f.version,
             "entries": f.entries.iter().map(|e| {
                 serde_json::json!({

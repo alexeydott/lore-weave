@@ -27,7 +27,7 @@
 //! only add ways for this test to fail for reasons that are not its subject.
 
 use ruleset_loader::{Layer, LoadError, parse_layer};
-use serde_yaml::Value;
+use serde_json::Value;
 
 const CONTRACT: &str = "../../contracts/ruleset/authorable-surface.v1.yaml";
 
@@ -35,11 +35,11 @@ fn contract() -> Value {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(CONTRACT);
     let text = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("REACH: cannot read the contract at {path:?}: {e}"));
-    serde_yaml::from_str(&text).expect("the contract is valid YAML")
+    serde_saphyr::from_str(&text).expect("the contract is valid YAML")
 }
 
 fn seq<'a>(v: &'a Value, key: &str) -> &'a Vec<Value> {
-    v.get(key).and_then(Value::as_sequence).unwrap_or_else(|| panic!("`{key}:` is not a list"))
+    v.get(key).and_then(Value::as_array).unwrap_or_else(|| panic!("`{key}:` is not a list"))
 }
 
 fn s(v: &Value, key: &str) -> String {
@@ -55,7 +55,7 @@ fn s(v: &Value, key: &str) -> String {
 fn sample(field: &Value) -> String {
     let ty = s(field, "type");
     let bare = ty.trim_start_matches("Option<").trim_end_matches('>').to_string();
-    if let Some(set) = field.get("closed_set").and_then(Value::as_sequence) {
+    if let Some(set) = field.get("closed_set").and_then(Value::as_array) {
         if let Some(first) = set.first().and_then(Value::as_str) {
             return format!("\"{first}\"");
         }

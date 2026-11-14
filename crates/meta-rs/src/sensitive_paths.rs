@@ -48,7 +48,7 @@ impl SensitivePaths {
 
     /// Parse + validate an in-memory YAML payload.
     pub fn parse(raw: &[u8]) -> Result<Self, MetaError> {
-        let f: SensitivePathsFile = serde_yaml::from_slice(raw)
+        let f: SensitivePathsFile = serde_saphyr::from_slice(raw)
             .map_err(|e| MetaError::ConfigInvalid(format!("unmarshal: {e}")))?;
         if f.version != 1 {
             return Err(MetaError::ConfigInvalid(format!(

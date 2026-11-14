@@ -157,8 +157,8 @@ tower = { workspace = true }
 # stated in its own file's header, whereas this reads a document whose nesting a
 # hand-rolled scanner could silently mis-walk — and a conformance gate that
 # reaches nothing is byte-identical to one that passes. Same version as
-# meta-rs/contracts-prompt so the workspace stays on one serde_yaml.
-serde_yaml = "0.9"
+# meta-rs/contracts-prompt so the workspace stays on one serde-saphyr.
+serde-saphyr = "2"
 # 089: pins the BYOK-gateway request shape (HttpEmbeddingProvider) against a stub
 # server without needing provider-registry up (the real round-trip is the deferred
 # live-smoke). Workspace-pinned.
