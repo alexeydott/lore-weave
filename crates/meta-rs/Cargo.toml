@@ -39,7 +39,7 @@ uuid = { workspace = true }
 # contract clean.
 dp = { path = "../dp" }
 thiserror = { workspace = true }
-serde_yaml = "0.9"
+serde-saphyr = "2"
 
 # 5B — SHA-256 over the bearer secret. The capability store keeps only the
 # digest, so a dump of `session_registry` yields no usable capability. RustCrypto

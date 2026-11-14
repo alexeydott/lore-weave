@@ -10,7 +10,7 @@
 //! The cycle-25 interface lives in `dp-kernel` to keep the core dependency
 //! surface small. The full implementation needs:
 //!
-//! - YAML loader (`serde_yaml`) — not needed by every dp-kernel consumer.
+//! - YAML loader (`serde_saphyr`) — not needed by every dp-kernel consumer.
 //! - Rule predicate evaluation that grows over time without rebuilding
 //!   the kernel.
 //! - A separate test surface (rule fixtures, axiom samples).

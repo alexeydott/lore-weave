@@ -1,35 +1,43 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
-## ▶ ROUNDS 3-10 MERGED — FINAL RECONCILIATION, 2026-11-14 — HEAD `60ea3105`
+## ▶ SERDE_YAML → SERDE-SAPHYR MIGRATION, 2026-11-14 — branch `audit/serde-yaml-saphyr`, base `5f84d719`
 
-All 8 round branches (from `fac8291f`) merged to main with merge commits,
-each verified by the recovery coordinator (target tests re-run personally
-before merge): round 3 F1/F9/F11 (`06aae3af`, 11/11 green on real PG),
-round 4 F15 + 7 dead files (`94caccc8`, DefaultModelsCard 13/13),
-round 5 P1-10 (`a941ef88`, 147/147 SHAs, 3 spot-checked via ls-remote),
-round 6 P0-1/P2-11/P2-12 (`0bc87955`, compose config exit 0),
-round 7 bite checks (`8c63e1ce`, 3 fixed tests green),
-round 8 P0-2 (`90630383`, guard tests 18+16 green, db-safety gate exit 0),
-round 9 P1-7 + drift census (`02135ddf`),
-round 10 forbid/warnings (`1a8e9fa6`, actor-hub check exit 0).
-Zero merge conflicts across all 8 merges. Register
-(`docs/deferred/TECH-DEBT-2026-11.md`) updated in the same commit as this
-handoff: P0-1, P0-2, P1-10, P2-11, P2-12, P2-26, P3-5 FIXED; P0-4 closed
-as not-a-defect; P1-7 improved 801 -> 152.
-Merged here by the parent after personal verification (vitest 45/45,
-tsc 0, production build 0). NOT pushed: no token was held at any point; push
-needs a fresh one-time PAT, then fork CI is the real proof (SHA pinning,
-compose changes, and the pgvector-adjacent legs cannot be proven from the
-sandbox). Environment note: the VM was replaced a second time during this
-run (00:44 MSK) — Docker reinstalled from the static tarball into
-`~/.local/bin` (29.9.3), pg-test container recovered from its volume
-backup (data intact: auth 19 / book 40 / composition 112 tables), auth
-:3123 + book :8082 rebuilt and restarted, login + book list re-verified.
-Still open / needs a decision: P1-5, P1-6, MILESTONE refresh-vs-retire,
-spec backfill (336 ops), 3 extra 0-ref frontend files, deny.toml +
-jsonwebtoken + serde_yaml follow-ups — all listed in the register's
-"Needs a decision" section. Upstream PR bodies/comments #318-327 remain
-manual-only (token has no upstream write scope).
+`serde_yaml 0.9.34+deprecated` is GONE from the Rust workspace. Target is `serde-saphyr 2.1.1`
+(on `granit-parser 2.1.0`), NOT the bare `saphyr` crate: `saphyr 0.3.4` has no serde API
+(only `Yaml`/`YamlOwned` trees), so a literal swap would have meant rewriting every serde
+derive into manual tree walks. `serde-saphyr` gives `from_str`/`from_slice`/`to_string`/`Error`,
+denies unsafe code, MSRV 1.89 (= repo pin); it has no `Value` type, so the two test files now
+use `serde_json::Value` (`as_array`/`as_object`/`get(&str)`). `Cargo.lock`: 0 mentions of
+`serde_yaml`/`unsafe-libyaml`; `cargo tree -i unsafe-libyaml` previously resolved ONLY via
+`serde_yaml`. Chain that used to pull it in: `serde_yaml 0.9.34+deprecated` → `unsafe-libyaml 0.2.11`.
+Changed (16 files): the 4 manifests (`serde_yaml = "0.9"` → `serde-saphyr = "2"`),
+call sites in `crates/contracts-prompt/src/canon_guardrail.rs`,
+`crates/meta-rs/src/allowlist.rs`, `sensitive_paths.rs`, `transitions.rs`, doc-comment
+mentions in `crates/dp-kernel` (no dep, no code use there), the two test files
+(`crates/ruleset-loader/tests/authorable_surface.rs`,
+`services/world-service/tests/route_conformance.rs`), plus ONE contract fix:
+`contracts/api/books/v1/openapi.yaml` op `startNewFB2Import` had TWO `responses:` blocks
+(duplicate `'400'`/`'401'`/`'409'`/`'413'` keys); serde_yaml silently last-wins, serde-saphyr
+rejects duplicate keys, so the blocks were merged preserving last-wins semantics (second
+block wins for `'409'`/`'413'`; `'202'` from the first; shadowed `'413'` dropped).
+Verification (all measured 2026-11-14, logs in `~/workspace/logs/lore-weave/saphyr/`):
+`cargo check --workspace --all-targets` Finished in 3m 42s, 0 errors, 0 warnings;
+`cargo test` on all 7 YAML-touching crates: 661 passed, 0 failed (direct 4 crates 500/54
+suites; transitive consumers commit-service, dp-control-plane, foundation-model 161/37
+suites). No test deleted, weakened, or re-timed; no expectation changed (no test asserted
+serde_yaml-specific error text). `cargo audit` (same three `--ignore` flags): the
+unsafe-libyaml unmaintained warning (RUSTSEC-2024-0449) is GONE (0 mentions); exactly 1
+vulnerability remains, quinn-udp 0.5.14 (RUSTSEC-2026-0538) — pre-existing on main, fixed
+on the parallel `audit/dep-vuln-quinn-udp` branch, deliberately NOT duplicated here.
+`cargo clippy` on the 5 touched crates: 25 warnings, all pre-existing in untouched code
+(0 on any edited line, verified by line-level intersect). `rustfmt --check`: pre-existing
+drift identical at HEAD under both rustfmt 1.89.0 and stable 1.99.1, 0 new deviations from
+this change; whole-file reformat deliberately not done. Environment: VM replaced a third
+time 2026-11-14 ~02:26 MSK; worktree + all edits survived, `protoc` was wiped and
+reinstalled (3.21.12, per `foundation-ci.yml`) — `dp-control-plane`'s build.rs needs it.
+NOT merged, NOT pushed: no token held. NEXT: main agent verifies, merges, pushes on a
+fresh one-time PAT (advise revoke), watches fork CI; a literal "0 vulnerabilities" audit
+awaits the quinn-udp merge. Run-state: `~/workspace/logs/lore-weave/saphyr/RUNSTATE.md`.
 
 ## ▶ ROUND 5 — WORKFLOWS/CI PINNING (P1-10), 2026-11-13 — HEAD `fac8291f`, branch `audit/round5-workflows`
 

@@ -68,17 +68,17 @@ fn documented() -> BTreeSet<(String, String)> {
         }
         files += 1;
         let text = std::fs::read_to_string(&path).expect("read spec");
-        let doc: serde_yaml::Value = serde_yaml::from_str(&text)
+        let doc: serde_json::Value = serde_saphyr::from_str(&text)
             .unwrap_or_else(|e| panic!("{path:?} is not parseable YAML: {e}"));
         let paths = doc
             .get("paths")
-            .and_then(|p| p.as_mapping())
+            .and_then(|p| p.as_object())
             .unwrap_or_else(|| panic!("{path:?} declares no `paths:` mapping"));
         for (route, item) in paths {
-            let route = route.as_str().expect("path key is a string");
-            let item = item.as_mapping().unwrap_or_else(|| panic!("{route} is not a mapping"));
+            let route = route.as_str();
+            let item = item.as_object().unwrap_or_else(|| panic!("{route} is not a mapping"));
             for (method, _) in item {
-                let method = method.as_str().unwrap_or_default().to_ascii_lowercase();
+                let method = method.to_ascii_lowercase();
                 if METHODS.contains(&method.as_str()) {
                     out.insert((method, route.to_string()));
                 }
@@ -259,16 +259,16 @@ fn the_contract_and_the_table_agree_on_which_routes_are_gated() {
     // against each other so neither can drift alone.
     let text = std::fs::read_to_string(repo_root().join(SPEC_DIR).join("provisioning.v1.yaml"))
         .expect("read provisioning contract");
-    let doc: serde_yaml::Value = serde_yaml::from_str(&text).expect("parse");
-    let paths = doc.get("paths").and_then(|p| p.as_mapping()).expect("paths");
+    let doc: serde_json::Value = serde_saphyr::from_str(&text).expect("parse");
+    let paths = doc.get("paths").and_then(|p| p.as_object()).expect("paths");
 
     let mut checked = 0usize;
     for spec in ROUTES {
         let item = paths
-            .get(serde_yaml::Value::String(spec.path.to_string()))
+            .get(spec.path)
             .unwrap_or_else(|| panic!("{} is not in the contract", spec.path));
         let op = item
-            .get(serde_yaml::Value::String(spec.method.to_string()))
+            .get(spec.method)
             .unwrap_or_else(|| panic!("{} {} is not in the contract", spec.method, spec.path));
         let secured = op.get("security").is_some();
         assert_eq!(

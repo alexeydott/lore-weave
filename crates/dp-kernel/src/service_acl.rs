@@ -10,7 +10,7 @@
 //!   migration 016 columns).
 //!
 //! The Go side owns the `gopkg.in/yaml.v3` loader for cycle-6 file shape;
-//! the Rust side loads the matrix via [`Matrix::from_str`] (serde_yaml).
+//! the Rust side loads the matrix via [`Matrix::from_str`].
 //! Tests below load the same `matrix.yaml` literal so any divergence
 //! between Go + Rust shows up on the very next cargo run.
 

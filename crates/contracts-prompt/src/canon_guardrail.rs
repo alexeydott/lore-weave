@@ -59,7 +59,7 @@ pub enum Predicate {
     ForbidsRegex {
         /// Forbidden pattern (substring match for V1; full regex left
         /// for a future variant when an explicit regex dep is added —
-        /// `serde_yaml` already pulls a heavy graph; we keep the V1
+        /// `serde_saphyr` already pulls a heavy graph; we keep the V1
         /// surface to substring to avoid further bloat).
         pattern: String,
     },
@@ -127,7 +127,7 @@ pub enum RuleSetLoadError {
     #[error("canon_guardrail: read manifest: {0}")]
     Io(#[from] std::io::Error),
     #[error("canon_guardrail: parse YAML: {0}")]
-    Parse(#[from] serde_yaml::Error),
+    Parse(#[from] serde_saphyr::Error),
     #[error("canon_guardrail: unsupported manifest version {got} (expected 1)")]
     UnsupportedVersion { got: u32 },
     #[error("canon_guardrail: empty rule set (must declare at least one rule)")]
@@ -141,7 +141,7 @@ pub enum RuleSetLoadError {
 impl RuleSet {
     /// Parses a YAML manifest from the supplied bytes.
     pub fn parse(bytes: &[u8]) -> Result<Self, RuleSetLoadError> {
-        let raw: Self = serde_yaml::from_slice(bytes)?;
+        let raw: Self = serde_saphyr::from_slice(bytes)?;
         raw.validate()
     }
 
