@@ -2262,7 +2262,7 @@ services:
     healthcheck:
       # nginx:alpine ships busybox wget; fetching / proves the server
       # serves the built app (this container serves static files only).
-      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -2291,7 +2291,7 @@ services:
     healthcheck:
       # nginx:alpine ships busybox wget; fetching / proves the server
       # serves the built app (this container serves static files only).
-      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
       interval: 10s
       timeout: 5s
       retries: 3
