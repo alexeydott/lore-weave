@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { Preview, Decorator } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -36,6 +37,16 @@ const withProviders: Decorator = (Story) => {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
+  // Mirror the app's default theme (dark): ThemeProvider toggles the
+  // `.dark` class on <html> and Tailwind's `dark:` variant is class-based.
+  // Without it stories render with dark-theme CSS variables on light
+  // `dark:`-less backgrounds — foreground text invisible on white.
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+    return () => {
+      document.documentElement.classList.remove('dark');
+    };
+  }, []);
   return (
     <MockAuthProvider>
       <QueryClientProvider client={qc}>

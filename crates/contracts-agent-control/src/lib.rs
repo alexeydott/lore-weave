@@ -11,6 +11,9 @@
 //! the executive today (roleplay is a producer; game-server is TypeScript). Added when a Rust
 //! consumer needs it.
 
+
+#![forbid(unsafe_code)]
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

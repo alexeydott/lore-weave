@@ -1,7 +1,7 @@
 import pathlib, re
-raw = re.search(r"```\n(.*?)\n```", pathlib.Path(
-    r"d:/Works/source/lore-weave/docs/plans/2026-08-12-frontend-journey-loop-GOAL.md"
-).read_text(encoding="utf-8"), re.S).group(1)
+GOAL = (pathlib.Path(__file__).resolve().parents[1]
+        / "docs" / "plans" / "2026-08-12-frontend-journey-loop-GOAL.md")
+raw = re.search(r"```\n(.*?)\n```", GOAL.read_text(encoding="utf-8"), re.S).group(1)
 new = re.sub(r"\s+", " ", raw).lower()   # collapse the wrapping
 
 proven = [

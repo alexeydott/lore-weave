@@ -41,11 +41,11 @@ Captain Brave's aliases array is **not consulted by the canonical-id derivation*
 
 ### 2.1 canonicalize_entity_name + entity_canonical_id
 
-[`services/knowledge-service/app/db/neo4j_repos/canonical.py`](../../services/knowledge-service/app/db/neo4j_repos/canonical.py) — pure functions, no I/O. Honorifics tuple (longest-first), lowercase, strip punctuation, collapse whitespace. Hash key shape `v{ver}:{user_id}:{project_id||'global'}:{kind}:{canonical}` truncated to 32 hex chars.
+[`services/knowledge-service/app/db/neo4j_repos/canonical.py`](../../services/knowledge-service/app/db/graph_repos/canonical.py) — pure functions, no I/O. Honorifics tuple (longest-first), lowercase, strip punctuation, collapse whitespace. Hash key shape `v{ver}:{user_id}:{project_id||'global'}:{kind}:{canonical}` truncated to 32 hex chars.
 
 ### 2.2 merge_entity (extraction-side upsert)
 
-[`entities.py:181-220`](../../services/knowledge-service/app/db/neo4j_repos/entities.py#L181-L220). `MERGE (e:Entity {id: $id}) ON CREATE/ON MATCH`. The `$id` is computed by the caller from `entity_canonical_id`. **One direct caller**: `resolve_or_merge_entity` in [`app/extraction/entity_resolver.py:125+`](../../services/knowledge-service/app/extraction/entity_resolver.py#L125).
+[`entities.py:181-220`](../../services/knowledge-service/app/db/graph_repos/entities.py#L181-L220). `MERGE (e:Entity {id: $id}) ON CREATE/ON MATCH`. The `$id` is computed by the caller from `entity_canonical_id`. **One direct caller**: `resolve_or_merge_entity` in [`app/extraction/entity_resolver.py:125+`](../../services/knowledge-service/app/extraction/entity_resolver.py#L125).
 
 ### 2.3 resolve_or_merge_entity
 
@@ -58,7 +58,7 @@ Captain Brave's aliases array is **not consulted by the canonical-id derivation*
 
 ### 2.4 merge_entities (surgery)
 
-[`entities.py:1819+`](../../services/knowledge-service/app/db/neo4j_repos/entities.py#L1819). Multi-step Cypher: collect source's edges → batch-rewire to target → glossary anchor pre-clear → `DETACH DELETE` source. Returns a target Entity model. Source's aliases become `target.aliases + source.aliases` via the existing union logic. **One direct caller**: [`routers/public/entities.py:459`](../../services/knowledge-service/app/routers/public/entities.py#L459) (the user-facing `POST /merge-into/{other_id}` endpoint).
+[`entities.py:1819+`](../../services/knowledge-service/app/db/graph_repos/entities.py#L1819). Multi-step Cypher: collect source's edges → batch-rewire to target → glossary anchor pre-clear → `DETACH DELETE` source. Returns a target Entity model. Source's aliases become `target.aliases + source.aliases` via the existing union logic. **One direct caller**: [`routers/public/entities.py:459`](../../services/knowledge-service/app/routers/public/entities.py#L459) (the user-facing `POST /merge-into/{other_id}` endpoint).
 
 ### 2.5 What the audit confirms
 

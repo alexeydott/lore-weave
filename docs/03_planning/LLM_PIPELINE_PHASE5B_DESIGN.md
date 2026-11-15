@@ -298,7 +298,7 @@ Update the function docstring + error-message hint to point at the new SDK metho
 
 **Client instantiation pattern — match sibling stream_service.py (Fix #9):**
 
-The existing sibling [stream_service.py:68](services/chat-service/app/services/stream_service.py#L68) creates a fresh `Client(base_url=..., auth_mode='internal', internal_token=..., user_id=user_id)` per call. Voice path aligns with this — per-call instantiation, not a singleton. Connection-pool churn (one httpx pool init per voice turn) is a known cost; deviating to a singleton would be a NEW pattern requiring its own justification + reviewer attention. If pool churn ever profiles as a hot path, lift to a singleton THEN, with rationale.
+The existing sibling [stream_service.py:68](../../services/chat-service/app/services/stream_service.py#L68) creates a fresh `Client(base_url=..., auth_mode='internal', internal_token=..., user_id=user_id)` per call. Voice path aligns with this — per-call instantiation, not a singleton. Connection-pool churn (one httpx pool init per voice turn) is a known cost; deviating to a singleton would be a NEW pattern requiring its own justification + reviewer attention. If pool churn ever profiles as a hot path, lift to a singleton THEN, with rationale.
 
 **STT replacement** (`_transcribe_audio`):
 ```python
@@ -325,7 +325,7 @@ return result.text, result.duration_ms
 
 `_transcribe_audio` signature drops `stt_model_name` (no longer needed — gateway resolves via `model_ref` → user_model row).
 
-**Dead-code removal (Fix #11):** lines 215, 220-223 of [voice_stream_service.py](services/chat-service/app/services/voice_stream_service.py#L215) currently resolve `stt_creds.provider_model_name` and `tts_creds.provider_model_name` for the legacy proxy path. After migration these are dead — DELETE the `provider.resolve()` calls and the `stt_model_name` / `tts_model_name` locals. Caller surface for `_transcribe_audio` and `_generate_tts_chunks` drops both args. Save a regression by adding a grep-lock test: `tests/test_voice_no_dead_resolution.py` asserts `provider.resolve` is NOT called in the voice path.
+**Dead-code removal (Fix #11):** lines 215, 220-223 of [voice_stream_service.py](../../services/chat-service/app/services/voice_stream_service.py#L215) currently resolve `stt_creds.provider_model_name` and `tts_creds.provider_model_name` for the legacy proxy path. After migration these are dead — DELETE the `provider.resolve()` calls and the `stt_model_name` / `tts_model_name` locals. Caller surface for `_transcribe_audio` and `_generate_tts_chunks` drops both args. Save a regression by adding a grep-lock test: `tests/test_voice_no_dead_resolution.py` asserts `provider.resolve` is NOT called in the voice path.
 
 **TTS replacement** (`_generate_tts_chunks`):
 ```python
@@ -383,7 +383,7 @@ Drop the `httpx` import from this module's voice path (still imported elsewhere 
 
 ### 3.1 Sequence — voice send (chat-service → gateway → OpenAI Whisper)
 
-> **Path note (Fix #16):** the diagram shows logical hops. chat-service routes via SDK `auth_mode="internal"` → `/internal/llm/jobs` (X-Internal-Token + `user_id` query param). The handler-side change in T7 covers BOTH `/v1/llm/jobs` (JWT) AND `/internal/llm/jobs` (internal token) because they share `doSubmitJob` ([jobs_handler.go:71](services/provider-registry-service/internal/api/jobs_handler.go#L71)).
+> **Path note (Fix #16):** the diagram shows logical hops. chat-service routes via SDK `auth_mode="internal"` → `/internal/llm/jobs` (X-Internal-Token + `user_id` query param). The handler-side change in T7 covers BOTH `/v1/llm/jobs` (JWT) AND `/internal/llm/jobs` (internal token) because they share `doSubmitJob` ([jobs_handler.go:71](../../services/provider-registry-service/internal/api/jobs_handler.go#L71)).
 
 ```
 FE                chat-service              gateway                 OpenAI
@@ -481,7 +481,7 @@ The synthetic placeholder is `v1/responses` — an OpenAI roadmap path NOT in th
 
 **Net test delta:** −4 deleted + 3 rewritten (no count change) + 2 new rows = net −2 tests vs. the earlier "delete 9" plan, which preserves the regression-locks that matter.
 
-**proxy_router_test.go (Fix #10):** [proxy_router_test.go:111](services/provider-registry-service/internal/api/proxy_router_test.go#L111) — before T17, read the containing test function and classify:
+**proxy_router_test.go (Fix #10):** [proxy_router_test.go:111](../../services/provider-registry-service/internal/api/proxy_router_test.go#L111) — before T17, read the containing test function and classify:
 - If the test exercises ROUTE-MATCHING / JWT-AUTH MECHANICS with `v1/audio/speech` as an arbitrary target → swap to `v1/responses`.
 - If the test specifically asserts "audio paths reach `doProxy`" → delete and add to `TestDoProxyDeprecatedPathsReturn410`.
 
@@ -543,7 +543,7 @@ Total: ≈16 code files + 3 doc files (was 15+3 → +1 for SDK errors.py + new c
 | Q1 | Should `audio_url` mode be removed once chat-service migrates? | Keep in parallel for 5b (CLARIFY answer). Track as `D-PHASE5B-SSRF-GUARD-DEAD-CODE` for a future delete-if-still-no-caller cycle. |
 | Q2 | What if Whisper rejects the multipart file due to filename-extension mismatch? | `audioFilenameFromContentType()` (Phase 5a) handles that — it picks the right `.webm/.mp3/...` filename based on Content-Type. Bytes mode reuses it. |
 | Q3 | What if chat-service sends >25MB audio? | THREE enforcement points: (a) FE limits before upload; (b) handler `http.MaxBytesReader` rejects with 413 + `LLM_AUDIO_TOO_LARGE` (Fix #1); (c) adapter belt-and-suspenders check. |
-| Q4 | TTS — chat-service still does sentence-level chunking + N TTS calls. Is this still optimal vs. one big TTS call? | YES. Sentence-level lets us interleave `audio-skip` events for code blocks ([useAutoTTS.ts:148](frontend/src/features/chat/hooks/useAutoTTS.ts#L148)). Single-shot TTS would lose this. |
+| Q4 | TTS — chat-service still does sentence-level chunking + N TTS calls. Is this still optimal vs. one big TTS call? | YES. Sentence-level lets us interleave `audio-skip` events for code blocks ([useAutoTTS.ts:148](../../frontend/src/features/chat/hooks/useAutoTTS.ts#L148)). Single-shot TTS would lose this. |
 | Q5 | What about `D-PHASE5A-LIVE-SMOKE`? | Closes ONLY IF the QC-phase live smoke runs AND passes against a registered OpenAI whisper-1 + tts-1 (per §7 acceptance criteria). If the smoke is skipped or fails, the deferred item REMAINS OPEN (Fix #14). |
 | Q6 | What happens to a 25MB audio in the worker goroutine if the user calls DELETE /v1/llm/jobs/{id}? | Worker uses `bgCtx := context.Background()` — cancel handler flips DB state but can't reach the goroutine's ctx. Bytes stay in the goroutine closure for up to `SttJobTimeout = 5min`. Under sustained-cancel usage (10 cancels in a row) ≈250MB RAM pinned for 5min. **Accepted-and-documented** as `D-PHASE5B-CANCEL-NO-OP-AUDIO-RAM`. Phase 6 worker-context hardening will thread a cancel-registry; deferring is the pragmatic choice for 5b (Fix #6). |
 

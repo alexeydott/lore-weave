@@ -52,6 +52,12 @@
   "guidedCueStart": "Crea tu primera escena, escribe tu apertura y pulsa Generar — o continúa desde el cursor en el editor.",
   "guidedStart": "Empezar a escribir",
   "compose": "Componer",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
+  },
   "cowriter": "Coescritor",
   "cw": {
     "insert": "Insertar como borrador",
@@ -100,7 +106,8 @@
     "stale": "El cursor se ha movido; inténtalo de nuevo.",
     "need_editor": "El editor se está cargando todavía.",
     "streaming": "Escribiendo… deja que termine la continuación actual.",
-    "pending_ghost": "Acepta o descarta la sugerencia actual antes de comenzar otra."
+    "pending_ghost": "Acepta o descarta la sugerencia actual antes de comenzar otra.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "Ritmos",
   "beatsheet": {
@@ -583,6 +590,8 @@
   "threadKind_question": "pregunta",
   "threadKind_mice_thread": "hilo",
   "threadPaid": "pagado",
+  "threadEditAria": "Editar promesa",
+  "threadArchiveAria": "Archivar promesa",
   "threadDropped": "abandonado",
   "noThreads": "Aún no hay hilos.",
   "noOpenThreads": "No hay promesas abiertas: todas están pagadas.",
@@ -755,9 +764,9 @@
     "empty": {
       "title": "Tu biblioteca de motivos está lista",
       "body": "Los motivos son estructuras de trama reutilizables. El planificador elige uno por capítulo para que, incluso con un modelo pequeño, escribas una escena sólida. Ya tienes 12 motivos iniciales: tu-tiên y báo-thù.",
+      "notThemes": "Son formas ESTRUCTURALES de trama para el planificador, no un rastreador de las imágenes o los temas recurrentes de tu propia historia: nada aquí sigue un símbolo a lo largo de tus capítulos.",
       "browseSystem": "Explorar los 12 iniciales",
-      "hint": "No se necesitan tokens: crear un motivo a mano es gratis.",
-      "notThemes": "Son formas ESTRUCTURALES de trama para el planificador, no un rastreador de las imágenes o los temas recurrentes de tu propia historia: nada aquí sigue un símbolo a lo largo de tus capítulos."
+      "hint": "No se necesitan tokens: crear un motivo a mano es gratis."
     },
     "facet": {
       "tier": "Nivel",
@@ -1651,7 +1660,8 @@
   "canonConflictKeepTheirs": "Mantener la suya",
   "canonConflictReapply": "Reaplicar mi edición en la v{{v}}",
   "canonConflictTitle": "Esta regla ha cambiado en otro lugar; tu borrador se mantiene abajo.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} activo(s)",
     "branchHint": "Lo que el canon sabe justo antes de esta rama",
     "branchToggle": "Canon en la rama",
@@ -1846,8 +1856,6 @@
     "preview_more": "…y {{n}} más",
     "preview_blank": "se eliminará una línea en blanco"
   },
-  "threadEditAria": "Editar promesa",
-  "threadArchiveAria": "Archivar promesa",
   "qualityReasons": {
     "context_limit": "Límite de contexto del modelo excedido.",
     "network": "Error de red del proveedor.",

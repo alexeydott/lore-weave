@@ -70,6 +70,9 @@
 // time this round a number was advanced instead of re-derived.
 // `D-311` argues the hub's SDK IS its public crate surface; a page a plugin
 // author cannot open is not on it.
+
+#![forbid(unsafe_code)]
+
 mod actor;
 pub mod fold;
 mod ordinal;

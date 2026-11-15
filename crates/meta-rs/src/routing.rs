@@ -115,6 +115,7 @@ impl RealityRouting {
 /// than the wire does invites a caller to depend on something the wire drops.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TierPolicyRow {
+    /// The aggregate type the tier policy applies to.
     pub aggregate_type: String,
     /// `T0`..`T3`, as stored. NOT parsed into a tier enum here: `meta-rs` is
     /// the meta-database crate and `dp`'s tier taxonomy is `dp`'s — depending
@@ -122,7 +123,9 @@ pub struct TierPolicyRow {
     /// same reasoning that keeps `dp` out of this crate's dependency list).
     /// The CHECK constraint on the column is what closes the set.
     pub declared_tier: String,
+    /// The schema version this policy entry was registered at.
     pub schema_version: u32,
+    /// The feature that owns the aggregate type.
     pub feature_owner: String,
 }
 

@@ -562,7 +562,7 @@
     "composer": "Standard-Composer",
     "composerHint": "Das Modell, das deine Prosa schreibt, wenn ein Buch kein eigenes Modell hat. Wähle dies bewusst – die Generierung ist der kostspieligste Prozess hier, und es wird kein Chat-Modell in deinem Namen auf deine Kosten verbraucht.",
     "critic": "Standard-Kritikermodell",
-    "criticHint": "Bewertet Übungssitzungen und prüft generierte Szenen. Optional — ohne ihn findet keine Bewertung statt und Sitzungen werden nicht benotet. Wählen Sie ein Modell, das sich von Ihrem üblichen Chatmodell unterscheidet.",
+    "criticHint": "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.",
     "distill": "Standard-Destillermodell",
     "distillHint": "Verwandelt „Beende meinen Tag“-Chats in das tägliche Tagebuch. Optional — ohne ihn wird Ihr Standard-Chatmodell verwendet. Wählen Sie ein Modell OHNE Reasoning: ein Reasoning-Modell gibt nur Reasoning aus und destilliert ein leeres Tagebuch.",
     "propagated": "{{n}} bestehende Chats auf die neue Voreinstellung umgestellt",

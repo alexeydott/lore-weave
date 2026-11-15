@@ -1,6 +1,6 @@
 # pgvectorscale dimension ceiling — 2026-08-10
 
-> **Gate:** plan [T21](../plans/2026-08-09-knowledge-architecture-refactor.md) — *"Verify
+> **Gate:** plan [T21](../../.ai-factory/archive/plans/2026-08-09-knowledge-architecture-refactor.md) — *"Verify
 > pgvectorscale dims > 2000. **Blocks T22.**"*
 > **Stop condition 2:** *"T21 shows pgvectorscale cannot index 2560/3072 → the vector plan
 > changes."*

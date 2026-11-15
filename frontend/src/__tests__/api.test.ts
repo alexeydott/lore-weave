@@ -255,11 +255,31 @@ describe('apiJson', () => {
 
   it('still surfaces a Go http.Error plain-text message (the fix must not swallow those)', async () => {
     // services/agent-registry-service/internal/api/oauth.go:146 — http.Error(w, "database
-    // unavailable", 503). Suppressing ALL non-JSON bodies would have regressed 24 such sites
+    // unavailable", 503). Suppressing ALL non-JSON bodies would have regressed 20 such sites
     // to a bare "Service Unavailable".
     mockRawFetch(503, 'database unavailable', 'Service Unavailable');
     const err = await apiJson('/v1/x').catch((e) => e as Error);
     expect(err.message).toBe('database unavailable');
+  });
+
+  it('does NOT surface Go http.NotFound boilerplate as the message (FL-1)', async () => {
+    // Live, with only auth-service behind /v1, every unrouted call 404s with Go's
+    // router-default body "404 page not found" — and the BooksPage banner plus the
+    // AssistantPage full-screen error rendered that verbatim, telling the author
+    // the PAGE does not exist. It is framework boilerplate, not a message: fall
+    // back to the status text like every other non-JSON body.
+    mockRawFetch(404, '404 page not found', 'Not Found');
+    const err = await apiJson('/v1/books').catch((e) => e as Error);
+    expect(err.message).toBe('Not Found');
+    expect((err as Error & { body?: { message?: unknown } }).body?.message).toBeUndefined();
+  });
+
+  it('still surfaces a plain-text message that merely starts with digits (not its status code)', async () => {
+    // Only the body's OWN status code marks it as boilerplate: "3 retries
+    // exhausted" on a 503 is a real message, not a status line.
+    mockRawFetch(503, '3 retries exhausted', 'Service Unavailable');
+    const err = await apiJson('/v1/x').catch((e) => e as Error);
+    expect(err.message).toBe('3 retries exhausted');
   });
 
   it('suppresses a long non-JSON body even without markup (a dumped page/stack, not a sentence)', async () => {

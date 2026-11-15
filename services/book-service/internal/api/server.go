@@ -1423,7 +1423,17 @@ func (s *Server) uploadCover(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "BOOK_INVALID_LIFECYCLE", "book not active")
 		return
 	}
+	// G120 — cap the request body BEFORE parsing: ParseMultipartForm's arg
+	// bounds only the in-memory part (the rest spools to disk), so without
+	// MaxBytesReader an unbounded body fills disk and the io.ReadAll below
+	// reads it all into memory. Same pattern as the import handlers.
+	r.Body = http.MaxBytesReader(w, r.Body, (10<<20)+multipartOverhead)
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			writeError(w, http.StatusRequestEntityTooLarge, "FILE_TOO_LARGE", "cover exceeds 10 MB limit")
+			return
+		}
 		writeError(w, http.StatusBadRequest, "BOOK_VALIDATION_ERROR", "invalid multipart")
 		return
 	}
@@ -1891,7 +1901,16 @@ func (s *Server) createChapter(w http.ResponseWriter, r *http.Request) {
 		s.createChapterRecord(w, r.Context(), caller, owner, bookID, in.Title, filename, in.OriginalLanguage, in.SortOrder, in.Body, "seed from editor", true)
 		return
 	default:
+		// G120 — cap the body BEFORE parsing (see uploadCover): without
+		// MaxBytesReader the 50 MB arg bounds only RAM, the rest spools to
+		// disk, and the io.ReadAll below reads the whole file into memory.
+		r.Body = http.MaxBytesReader(w, r.Body, (50<<20)+multipartOverhead)
 		if err := r.ParseMultipartForm(50 << 20); err != nil {
+			var maxBytesErr *http.MaxBytesError
+			if errors.As(err, &maxBytesErr) {
+				writeError(w, http.StatusRequestEntityTooLarge, "FILE_TOO_LARGE", "chapter exceeds 50 MB limit")
+				return
+			}
 			writeError(w, http.StatusBadRequest, "BOOK_VALIDATION_ERROR", "invalid multipart")
 			return
 		}

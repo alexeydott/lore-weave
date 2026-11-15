@@ -139,6 +139,14 @@ services:
       - "127.0.0.1:18008:8008"
     tmpfs:
       - /var/lib/postgresql/data
+    healthcheck:
+      # pg_isready ships with the Postgres binaries in the spilo image.
+      # (Patroni also serves /health on :8008; pg_isready is the certain,
+      # repo-standard Postgres probe, so it is used here.)
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - lw-meta
 
@@ -173,6 +181,14 @@ services:
       - "127.0.0.1:18009:8008"
     tmpfs:
       - /var/lib/postgresql/data
+    healthcheck:
+      # pg_isready ships with the Postgres binaries in the spilo image.
+      # (Patroni also serves /health on :8008; pg_isready is the certain,
+      # repo-standard Postgres probe, so it is used here.)
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - lw-meta
 
@@ -207,6 +223,14 @@ services:
       - "127.0.0.1:18010:8008"
     tmpfs:
       - /var/lib/postgresql/data
+    healthcheck:
+      # pg_isready ships with the Postgres binaries in the spilo image.
+      # (Patroni also serves /health on :8008; pg_isready is the certain,
+      # repo-standard Postgres probe, so it is used here.)
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - lw-meta
 

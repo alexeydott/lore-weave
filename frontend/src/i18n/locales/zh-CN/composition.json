@@ -52,6 +52,12 @@
   "guidedCueStart": "创建你的第一个场景，然后编写开场并点击“生成” — 或者在编辑器中从光标处“继续”。",
   "guidedStart": "开始写作",
   "compose": "创作",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
+  },
   "cowriter": "共同作者",
   "cw": {
     "insert": "作为草稿插入",
@@ -100,7 +106,8 @@
     "stale": "光标已移动 — 请重试。",
     "need_editor": "编辑器正在加载中。",
     "streaming": "正在写作……请等待当前续写完成。",
-    "pending_ghost": "在开始新的建议之前，请先接受或舍弃当前的建议。"
+    "pending_ghost": "在开始新的建议之前，请先接受或舍弃当前的建议。",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "情节节拍",
   "beatsheet": {
@@ -583,6 +590,8 @@
   "threadKind_question": "悬念",
   "threadKind_mice_thread": "情节线",
   "threadPaid": "已完成",
+  "threadEditAria": "编辑承诺",
+  "threadArchiveAria": "归档承诺",
   "threadDropped": "已放弃",
   "noThreads": "暂无情节线。",
   "noOpenThreads": "暂无进行中的承诺 —— 全部已完成。",
@@ -755,9 +764,9 @@
     "empty": {
       "title": "您的模组库已准备就绪",
       "body": "情节模组是可复用的情节结构。规划器会为每章选择一个模组，因此即使是简单的模型也能写出扎实的场景。这里已有 12 个入门模组 — 包括“奇遇”和“复仇”。",
+      "notThemes": "这些是供规划器使用的结构性情节模型，而不是追踪你故事中反复出现的意象或主题的工具——这里没有任何功能会跨章节追踪某个象征。",
       "browseSystem": "浏览 12 个入门模组",
-      "hint": "无需消耗 Token — 手动构建模组是免费的。",
-      "notThemes": "这些是供规划器使用的结构性情节模型，而不是追踪你故事中反复出现的意象或主题的工具——这里没有任何功能会跨章节追踪某个象征。"
+      "hint": "无需消耗 Token — 手动构建模组是免费的。"
     },
     "facet": {
       "tier": "层级",
@@ -1651,7 +1660,8 @@
   "canonConflictKeepTheirs": "保留对方的修改",
   "canonConflictReapply": "将我的编辑重新应用到 v{{v}}",
   "canonConflictTitle": "此规则已在别处更改 —— 您的草稿将保留在下方。",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} 个生效",
     "branchHint": "在此分支前，正典已知的信息",
     "branchToggle": "分支处正典状态",
@@ -1846,8 +1856,6 @@
     "preview_more": "…还有 {{n}} 处",
     "preview_blank": "将删除一个空行"
   },
-  "threadEditAria": "编辑承诺",
-  "threadArchiveAria": "归档承诺",
   "qualityReasons": {
     "context_limit": "超出模型上下文限制。",
     "network": "提供商网络错误。",

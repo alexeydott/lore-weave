@@ -834,7 +834,7 @@ mod tests {
             ce(0x2001, "world.climate"),
             ce(0x2002, "world.gravity"),
         ];
-        let mut deps = deps_for_test(entries.clone(), "en-US");
+        let deps = deps_for_test(entries.clone(), "en-US");
         // Simulate that the first run has already populated the projection.
         let mut prior: HashSet<Uuid> = HashSet::new();
         prior.insert(Uuid::from_u128(0x2001));
@@ -886,7 +886,7 @@ mod tests {
             ce(0x5003, "rule.combat"),
             ce(0x5004, "lore.x"),
         ];
-        let mut deps = deps_for_test(entries, "en-US");
+        let deps = deps_for_test(entries, "en-US");
         // Fail on the 4th write (0-indexed 3).
         *deps.projection_writer.fail_on_write.borrow_mut() = Some(3);
         let mut seeder = RealitySeeder::new(deps);

@@ -562,7 +562,7 @@
     "composer": "Composer default",
     "composerHint": "Model yang menulis prosa Anda ketika sebuah buku tidak memiliki model sendiri. Atur dengan cermat — pembuatan teks adalah hal yang paling memakan biaya di sini, dan tidak ada yang akan menghabiskan kuota model chat Anda atas nama Anda.",
     "critic": "Model kritikus bawaan",
-    "criticHint": "Menilai sesi latihan dan mengaudit adegan yang dihasilkan. Opsional — tanpa ini, penilaian tidak terjadi dan sesi tidak dinilai. Pilih yang berbeda dari model obrolan biasa Anda.",
+    "criticHint": "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.",
     "distill": "Model penyuling bawaan",
     "distillHint": "Mengubah obrolan \"akhari hariku\" menjadi diary harian. Opsional — tanpa ini, memakai model obrolan bawaan Anda. Pilih model TANPA reasoning: model reasoning hanya mengeluarkan reasoning dan menyuling diary kosong.",
     "propagated": "{{n}} obrolan yang ada dipindahkan ke bawaan baru",

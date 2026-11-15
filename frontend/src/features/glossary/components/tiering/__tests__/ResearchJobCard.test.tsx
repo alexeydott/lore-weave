@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import { ResearchJobCard } from '../ResearchJobCard';
-import type { ResearchJob, ResearchJobStatus } from '../../researchApi';
+import type { ResearchJob, ResearchJobStatus } from '../../../researchApi';
 
 const mkJob = (over: Partial<ResearchJob> & { status: ResearchJobStatus }): ResearchJob => ({
   job_id: 'j1',

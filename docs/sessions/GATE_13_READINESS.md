@@ -24,12 +24,12 @@
 | 2 | Send chat message in that project | — | ⚠ **NEEDS HUMAN** (UI + live backend) |
 | 3 | Verify Mode 3 context block in system prompt | Unit tests prove block shape; live verification pending | ⚠ **NEEDS HUMAN** (visual inspection of live output) |
 | 4 | L3 passages appear for semantic queries | Unit tests prove selector logic; live verification pending | ⚠ **NEEDS HUMAN** (needs real embedded passages) |
-| 5 | Mode 3 uses 20-message history (not 50) | `test_recent_message_count_is_20` ([test_mode_full.py:246](services/knowledge-service/tests/unit/test_mode_full.py#L246)) + `_RECENT_MESSAGE_COUNT = 20` constant | ✅ **AUTOMATED** |
+| 5 | Mode 3 uses 20-message history (not 50) | `test_recent_message_count_is_20` ([test_mode_full.py:246](../../services/knowledge-service/tests/unit/test_mode_full.py#L246)) + `_RECENT_MESSAGE_COUNT = 20` constant | ✅ **AUTOMATED** |
 | 6 | Negative facts prevent inconsistency | Unit tests prove `<negative>` facts render; live "character reveals secret" test pending | ⚠ **NEEDS HUMAN** (conversational test) |
 | 7 | Disable extraction → Mode 2 works again | `test_static_mode.py` covers Mode 2; dispatcher in `builder.py` routes by `project.extraction_enabled` | ✅ **AUTOMATED** (dispatcher routing tested; live toggle verification pending) |
 | 8 | Re-enable extraction → Mode 3 works, picks up pending events | K14 event consumer tests cover chapter.saved/chapter.deleted; extraction_pending repo tests cover dispatch | 🟡 **PARTIAL** (components tested; full end-to-end live re-run needed) |
 | 9 | Cross-user isolation (T18) | 127 cross-user-guard assertions across 19 test files (unit + integration). Every repo query takes `user_id` and every integration test has a `user_b` counter-example that must not see `user_a`'s data. | ✅ **AUTOMATED** (thoroughly) |
-| 10 | Chaos: stop Neo4j mid-chat → Mode 2 fallback (C01) | `test_neo4j_failure_degrades_to_mode2_shape` ([test_mode_full.py:188](services/knowledge-service/tests/unit/test_mode_full.py#L188)) — L2 throws RuntimeError("neo4j down") → builder still produces valid Mode 3 block minus facts | ✅ **AUTOMATED** (unit-level; live chaos run pending) |
+| 10 | Chaos: stop Neo4j mid-chat → Mode 2 fallback (C01) | `test_neo4j_failure_degrades_to_mode2_shape` ([test_mode_full.py:188](../../services/knowledge-service/tests/unit/test_mode_full.py#L188)) — L2 throws RuntimeError("neo4j down") → builder still produces valid Mode 3 block minus facts | ✅ **AUTOMATED** (unit-level; live chaos run pending) |
 | 11 | Cost tracking: run a small extraction, verify billing matches | K10.4 cost-cap repo tests + K17.12 rate limiter tests cover unit behavior | ⚠ **NEEDS HUMAN** (needs real provider invoice for cross-check) |
 | 12 | Quality eval: golden set passes thresholds | K17.9.1 migration table just landed (Cycle 9); K17.9 harness not yet built | ⏸ **BLOCKED** (K17.9 harness implementation is the prerequisite — not in Track 2 close-out scope) |
 

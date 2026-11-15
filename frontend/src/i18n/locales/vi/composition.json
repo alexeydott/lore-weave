@@ -52,6 +52,12 @@
   "guidedCueStart": "Tạo cảnh đầu tiên, viết đoạn mở đầu rồi nhấn Tạo — hoặc Tiếp tục từ con trỏ trong trình soạn thảo.",
   "guidedStart": "Bắt đầu viết",
   "compose": "Soạn",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
+  },
   "cowriter": "Đồng tác giả",
   "cw": {
     "insert": "Chèn làm bản nháp",
@@ -100,7 +106,8 @@
     "stale": "Con trỏ đã di chuyển — hãy thử lại.",
     "need_editor": "Trình chỉnh sửa vẫn đang tải.",
     "streaming": "Đang viết… hãy để phần tiếp theo hiện tại hoàn tất.",
-    "pending_ghost": "Hãy chấp nhận hoặc loại bỏ gợi ý hiện tại trước khi bắt đầu một gợi ý khác."
+    "pending_ghost": "Hãy chấp nhận hoặc loại bỏ gợi ý hiện tại trước khi bắt đầu một gợi ý khác.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "Nhịp",
   "beatsheet": {
@@ -583,6 +590,8 @@
   "threadKind_question": "câu hỏi",
   "threadKind_mice_thread": "mạch",
   "threadPaid": "đã trả",
+  "threadEditAria": "Sửa lời hứa",
+  "threadArchiveAria": "Lưu trữ lời hứa",
   "threadDropped": "đã bỏ",
   "noThreads": "Chưa có mạch nào.",
   "noOpenThreads": "Không còn lời hứa nào chưa trả.",
@@ -755,9 +764,9 @@
     "empty": {
       "title": "Thư viện motif của bạn đã sẵn sàng",
       "body": "Motif là các khuôn mẫu cốt truyện có thể tái sử dụng. Trình lập kế hoạch sẽ chọn một motif cho mỗi chương để ngay cả một mô hình nhỏ cũng có thể tạo nên một cảnh phim vững chắc. Đã có sẵn 12 motif khởi đầu — tu tiên và báo thù.",
+      "notThemes": "Đây là các khuôn hình cốt truyện mang tính CẤU TRÚC dành cho bộ lập kế hoạch, không phải công cụ theo dõi hình ảnh hay chủ đề lặp lại trong truyện của bạn — không có gì ở đây đi theo một biểu tượng xuyên suốt các chương.",
       "browseSystem": "Xem 12 motif khởi đầu",
-      "hint": "Không cần token — tự xây dựng motif là hoàn toàn miễn phí.",
-      "notThemes": "Đây là các khuôn hình cốt truyện mang tính CẤU TRÚC dành cho bộ lập kế hoạch, không phải công cụ theo dõi hình ảnh hay chủ đề lặp lại trong truyện của bạn — không có gì ở đây đi theo một biểu tượng xuyên suốt các chương."
+      "hint": "Không cần token — tự xây dựng motif là hoàn toàn miễn phí."
     },
     "facet": {
       "tier": "Tier",
@@ -1651,7 +1660,8 @@
   "canonConflictKeepTheirs": "Giữ bản của họ",
   "canonConflictReapply": "Áp dụng lại chỉnh sửa của tôi lên v{{v}}",
   "canonConflictTitle": "Quy tắc này đã thay đổi ở nơi khác — bản thảo của bạn được giữ lại bên dưới.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} đang hoạt động",
     "branchHint": "Những gì chính văn đã biết ngay trước nhánh này",
     "branchToggle": "Chính văn tại nhánh",
@@ -1846,8 +1856,6 @@
     "preview_more": "…và {{n}} nữa",
     "preview_blank": "dòng trống sẽ bị xóa"
   },
-  "threadEditAria": "Sửa lời hứa",
-  "threadArchiveAria": "Lưu trữ lời hứa",
   "qualityReasons": {
     "context_limit": "Vượt giới hạn ngữ cảnh mô hình.",
     "network": "Lỗi mạng nhà cung cấp.",

@@ -33,6 +33,9 @@
 //!
 //! Exit 0 = pinned, 1 = refused, 2 = usage.
 
+
+#![forbid(unsafe_code)]
+
 use std::path::{Path, PathBuf};
 
 use ruleset_core::{LAW_VERSION, RULESET_SCHEMA_VERSION};

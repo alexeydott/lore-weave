@@ -130,6 +130,10 @@ func TestGetBookAccess_ReturnsOwnerToGranteeOnly(t *testing.T) {
 	if body["owner_user_id"] != owner.String() {
 		t.Fatalf("owner_user_id: got %q want %q", body["owner_user_id"], owner.String())
 	}
+	// A grantee sees the book's lifecycle (E0-1 consumers gate on it).
+	if body["lifecycle_state"] != "active" {
+		t.Fatalf("grantee lifecycle_state: got %q want %q", body["lifecycle_state"], "active")
+	}
 
 	// A non-grantee (none) must NOT get owner_user_id — no owner/existence oracle.
 	s.resolveBook = func(_ context.Context, _, _ uuid.UUID) (GrantLevel, uuid.UUID, string, error) {
@@ -143,6 +147,12 @@ func TestGetBookAccess_ReturnsOwnerToGranteeOnly(t *testing.T) {
 	_ = json.Unmarshal(rr2.Body.Bytes(), &body2)
 	if _, ok := body2["owner_user_id"]; ok {
 		t.Fatalf("owner_user_id leaked to a non-grantee: %v", body2)
+	}
+	// R4: a non-grantee must NOT learn the book's lifecycle either — an
+	// existing book would otherwise be distinguishable from a missing one
+	// ("active"/"trashed" vs ""), the same oracle class as owner/kind.
+	if body2["lifecycle_state"] != "" {
+		t.Fatalf("lifecycle_state leaked to a non-grantee: %q — a stranger can probe any book id and learn its state", body2["lifecycle_state"])
 	}
 }
 

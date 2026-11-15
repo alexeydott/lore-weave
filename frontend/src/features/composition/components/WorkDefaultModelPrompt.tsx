@@ -72,12 +72,12 @@ export function WorkDefaultModelPrompt({ bookId }: { bookId: string }) {
         patch: patchForRole(settings as Record<string, unknown>, CHAT_CAPABILITY, accountDefault),
       });
       toast.success(
-        t('compose.workDefault.applied', {
+        t('workDefault.applied', {
           defaultValue: 'Модель по умолчанию для этой книги установлена',
         }),
       );
     } catch (e) {
-      toast.error((e as Error).message || t('compose.workDefault.apply_failed', { defaultValue: 'Не удалось применить' }));
+      toast.error((e as Error).message || t('workDefault.apply_failed', { defaultValue: 'Не удалось применить' }));
     }
   };
 
@@ -95,7 +95,7 @@ export function WorkDefaultModelPrompt({ bookId }: { bookId: string }) {
       className="flex flex-wrap items-center gap-2 border-b border-amber-500/30 bg-amber-500/5 px-2 py-1.5 text-[11px] text-muted-foreground"
     >
       <span className="min-w-0 flex-1">
-        {t('compose.workDefault.prompt', {
+        {t('workDefault.prompt', {
           defaultValue: 'Для этой книги не задана модель соавтора. Применить вашу чат-модель по умолчанию?',
         })}
       </span>
@@ -105,7 +105,7 @@ export function WorkDefaultModelPrompt({ bookId }: { bookId: string }) {
         onClick={() => void apply()}
         className="shrink-0 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 font-medium text-primary hover:bg-primary/20"
       >
-        {t('compose.workDefault.apply', { defaultValue: 'Use my default chat model' })}
+        {t('workDefault.apply', { defaultValue: 'Use my default chat model' })}
       </button>
       <button
         type="button"

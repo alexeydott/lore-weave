@@ -38,11 +38,11 @@ project setting (K21.12) lands in Cycle B alongside its chat-service consumer.
 
 - **The LLM gateway already supports tool-calling.** [`loreweave_llm` `StreamRequest`](../../sdks/python/loreweave_llm/models.py) carries `tools` + `tool_choice`; `ToolCallEvent` is a first-class stream event; the gateway rejects tools for non-supporting providers (`LLM_TOOLS_NOT_SUPPORTED_FOR_PROVIDER`). **This benefits Cycle B, not A** — but it means K21's plan note "use LiteLLM's function_calling" is obsolete (LiteLLM was retired in the Phase 4-6 refactor).
 - **Every executor target exists** as a repo function:
-  - `memory_search` → `find_passages_by_vector` ([passages.py:333](../../services/knowledge-service/app/db/neo4j_repos/passages.py#L333)) — takes a **pre-embedded vector**, so the executor must embed the query first (mirrors `drawers.py`).
-  - `memory_recall_entity` → `find_entities_by_name` ([entities.py:624](../../services/knowledge-service/app/db/neo4j_repos/entities.py#L624)) then `get_entity_with_relations` ([entities.py:1458](../../services/knowledge-service/app/db/neo4j_repos/entities.py#L1458)).
-  - `memory_timeline` → `list_events_filtered` ([events.py:539](../../services/knowledge-service/app/db/neo4j_repos/events.py#L539)).
-  - `memory_remember` → `merge_fact` ([facts.py:165](../../services/knowledge-service/app/db/neo4j_repos/facts.py#L165)).
-  - `memory_forget` → `invalidate_fact` ([facts.py:326](../../services/knowledge-service/app/db/neo4j_repos/facts.py#L326)).
+  - `memory_search` → `find_passages_by_vector` ([passages.py:333](../../services/knowledge-service/app/db/graph_repos/passages.py#L333)) — takes a **pre-embedded vector**, so the executor must embed the query first (mirrors `drawers.py`).
+  - `memory_recall_entity` → `find_entities_by_name` ([entities.py:624](../../services/knowledge-service/app/db/graph_repos/entities.py#L624)) then `get_entity_with_relations` ([entities.py:1458](../../services/knowledge-service/app/db/graph_repos/entities.py#L1458)).
+  - `memory_timeline` → `list_events_filtered` ([events.py:539](../../services/knowledge-service/app/db/graph_repos/events.py#L539)).
+  - `memory_remember` → `merge_fact` ([facts.py:165](../../services/knowledge-service/app/db/graph_repos/facts.py#L165)).
+  - `memory_forget` → `invalidate_fact` ([facts.py:326](../../services/knowledge-service/app/db/graph_repos/facts.py#L326)).
 - **Internal-auth pattern:** `require_internal_token` ([internal_auth.py:8](../../services/knowledge-service/app/middleware/internal_auth.py#L8)); internal routers are flat `app/routers/internal_*.py` files.
 - `merge_fact`'s `source_type` is a free Neo4j list property — **no CHECK constraint**, so `source_type='llm_tool_call'` needs no migration.
 - `FACT_TYPES` is a closed `Literal` — `decision · preference · milestone · negation`.

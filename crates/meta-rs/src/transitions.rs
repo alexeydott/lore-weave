@@ -61,7 +61,7 @@ impl TransitionGraph {
 
     /// Parse + validate an in-memory YAML payload.
     pub fn parse(raw: &[u8]) -> Result<Self, MetaError> {
-        let f: TransitionsFile = serde_yaml::from_slice(raw).map_err(|e| {
+        let f: TransitionsFile = serde_saphyr::from_slice(raw).map_err(|e| {
             MetaError::ConfigInvalid(format!("unmarshal transitions: {e}"))
         })?;
         if f.version != 1 {

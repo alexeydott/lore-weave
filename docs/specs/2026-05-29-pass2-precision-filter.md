@@ -597,12 +597,12 @@ Test in c72_compare must explicitly print all 4 gates with PASS/FAIL.
 
 **Spec gains a new "Measurement validity caveat" subsection:**
 
-> The c72 ship table reports FILTER-OUTPUT F1 (what `apply_precision_filter` returns), not Neo4j-realized F1 (what `pass2_writer` actually persists). These diverge because the writer enforces relation referential integrity ([services/knowledge-service/app/extraction/pass2_writer.py:204](services/knowledge-service/app/extraction/pass2_writer.py#L204)) — relations whose subject/object entity isn't merged get auto-skipped.
+> The c72 ship table reports FILTER-OUTPUT F1 (what `apply_precision_filter` returns), not Neo4j-realized F1 (what `pass2_writer` actually persists). These diverge because the writer enforces relation referential integrity ([services/knowledge-service/app/extraction/pass2_writer.py:204](../../services/knowledge-service/app/extraction/pass2_writer.py#L204)) — relations whose subject/object entity isn't merged get auto-skipped.
 >
 > **Implications:**
 > - Filter dropping entity X → writer auto-skips relations involving X → "relation precision lift" measured by the filter judge is PARTLY a cascade from entity filter, not a pure relation-prompt effect.
 > - Events do NOT cascade: filter-dropped entity X stays as a STRING in event `participants` array (untyped, no FK). Net effect: precision filter on entity creates a small orphan-participant signal on events. Measured by filter judge as supported (the participant string is still in the text); user-visible as Neo4j Event nodes with participants that don't link to any :Entity node.
-> - Facts have no entity reference at all (per [services/knowledge-service/app/extraction/pass2_writer.py:282](services/knowledge-service/app/extraction/pass2_writer.py#L282) — subject is intentionally dropped). Filter on facts is moot anyway (D2 excludes facts).
+> - Facts have no entity reference at all (per [services/knowledge-service/app/extraction/pass2_writer.py:282](../../services/knowledge-service/app/extraction/pass2_writer.py#L282) — subject is intentionally dropped). Filter on facts is moot anyway (D2 excludes facts).
 >
 > **Decision:** filter-output F1 is the canonical c72 metric. A Neo4j-realized re-judge is documented as **D-PASS2-FILTER-NEO4J-REALIZED-F1** in deferred items; not blocking c72 ship.
 

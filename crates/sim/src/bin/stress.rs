@@ -1,6 +1,9 @@
 //! S1a stress profiles — ns/step under adversarial mixes + metrics report.
 //! Run `--release`. Numbers land in docs/plans/2026-07-26-sim-core-s1a.md.
 
+
+#![forbid(unsafe_code)]
+
 use std::sync::Arc;
 use std::time::Instant;
 

@@ -149,6 +149,13 @@ export function ThemeProvider({ children, accessToken }: { children: ReactNode; 
     } else {
       document.documentElement.setAttribute('data-theme', prefs.app_theme);
     }
+    // Tailwind is configured with `darkMode: 'class'`, so the `dark:`
+    // variant only fires with a `.dark` class on <html>. `data-theme`
+    // alone switches the CSS variables but leaves every `dark:` utility
+    // dead — in the default dark theme panels stayed `bg-white` while
+    // `--foreground` was near-white and text was invisible.
+    const isDark = prefs.app_theme === 'dark' || prefs.app_theme === 'oled';
+    document.documentElement.classList.toggle('dark', isDark);
   }, [prefs.app_theme]);
 
   // Load from API on mount (if authenticated)

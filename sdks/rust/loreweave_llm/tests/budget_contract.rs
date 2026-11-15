@@ -94,7 +94,7 @@ fn the_truncated_finish_reason_matches_the_contract() {
 }
 
 #[test]
-fn the_builder_can_actually_SET_the_budget_it_normalises() {
+fn the_builder_can_actually_set_the_budget_it_normalises() {
     // S7 — `max_tokens` was declared on the struct, defaulted to `None`, and `normalize`
     // already handled `Some(0)`. What did not exist was any way to SET it: measured
     // 2026-08-01, no Rust service in the repo passed an output cap, because there was no

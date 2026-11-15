@@ -31,7 +31,7 @@
 
 ### Non-goals
 
-- **Caller migration** (video-gen-service [generate.py:158](services/video-gen-service/app/routers/generate.py)). 5e work.
+- **Caller migration** (video-gen-service [generate.py:158](../../services/video-gen-service/app/routers/generate.py)). 5e work.
 - **video-gen-service deletion** + api-gateway-bff `/v1/video-gen/*` route retirement. 5f work.
 - **Multi-video (n>1)**. CLARIFY chose n=1; defer to a follow-up if a real caller surfaces. Handler + adapter both reject `n != 1` with `LLM_INVALID_REQUEST`.
 - **Video edits / variations**. Different OpenAI endpoints; defer to a hypothetical 5d-β.
@@ -73,7 +73,7 @@ JobOperation:
 | SDK `JobOperation` Literal | ❌ | ADD Literal entry |
 | notification-service op label map | ❌ | ADD label entry |
 
-This is the wider work that 5c-α dodged via Phase 2b reservation. All 5 entries are 1-line additions; the DB migration is an additive `ALTER TABLE llm_jobs DROP/ADD CONSTRAINT` block following the existing Phase 4a-β pattern in [migrate.go:150-158](services/provider-registry-service/internal/migrate/migrate.go#L150).
+This is the wider work that 5c-α dodged via Phase 2b reservation. All 5 entries are 1-line additions; the DB migration is an additive `ALTER TABLE llm_jobs DROP/ADD CONSTRAINT` block following the existing Phase 4a-β pattern in [migrate.go:150-158](../../services/provider-registry-service/internal/migrate/migrate.go#L150).
 
 New schemas:
 
@@ -880,8 +880,8 @@ curl -I <data[0].url>
 ## 8. Phase 5e/5f preview
 
 - **5e (XL)** — caller migration. Two callers:
-  - book-service [media.go:449](services/book-service/internal/api/media.go) — Go; image_gen only today (could add video_gen later). Phase 5e migrates the image_gen call to `POST /v1/llm/jobs operation=image_gen`. Go SDK question to be settled (full SDK vs. thin shim).
-  - video-gen-service [generate.py:158](services/video-gen-service/app/routers/generate.py) — Python; calls `/v1/video/generations` directly. Migrates to `Client.generate_video()` via existing Python SDK.
+  - book-service [media.go:449](../../services/book-service/internal/api/media.go) — Go; image_gen only today (could add video_gen later). Phase 5e migrates the image_gen call to `POST /v1/llm/jobs operation=image_gen`. Go SDK question to be settled (full SDK vs. thin shim).
+  - video-gen-service [generate.py:158](../../services/video-gen-service/app/routers/generate.py) — Python; calls `/v1/video/generations` directly. Migrates to `Client.generate_video()` via existing Python SDK.
 - **5f (M)** — `services/video-gen-service/` deletion. Remove the BFF + compose entry + api-gateway-bff `/v1/video-gen/*` routes. FE switches to calling unified gateway via SDK or BFF facade.
 
 By 5f close: every external LLM/audio/image/video flows through `POST /v1/llm/jobs` (or `/v1/llm/stream` for streaming). Unified gateway invariant fully realized.

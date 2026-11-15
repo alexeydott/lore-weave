@@ -50,7 +50,7 @@ deferrals: this register exists so they cannot be lost a second time, **not** to
 deferring them.
 
 > ✅ **All three are now genuinely closed — 2026-08-09, Phase 0 of
-> [the knowledge-architecture plan](../../plans/2026-08-09-knowledge-architecture-refactor.md).**
+> [the knowledge-architecture plan](../../../.ai-factory/archive/plans/2026-08-09-knowledge-architecture-refactor.md).**
 > The difference from the first "already closed" is the point: each row above cites a **test that
 > fails without the fix** and a **live smoke run against a rebuilt binary on a real stack**, and each
 > quotes what the pre-fix code actually did — a paid machine-translation call bought on deleted

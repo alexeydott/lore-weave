@@ -38,6 +38,7 @@ use super::event_source::{GlobalCursor, GlobalEventSource};
 /// "Page the reality's events in global order" — abstracted so the
 /// orchestration is unit-testable without a DB.
 pub trait GlobalSource {
+    /// Fetch up to `batch_size` events strictly after `cursor` (`None` = from the start), in global order.
     fn events_after(
         &self,
         cursor: Option<&GlobalCursor>,
@@ -58,7 +59,9 @@ impl GlobalSource for GlobalEventSource {
 /// Summary of a global-order rebuild, mirroring the per-aggregate stats' counts.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GlobalStats {
+    /// Events read from the log and fanned through the projections.
     pub events_replayed: u64,
+    /// Projection updates written to the target table.
     pub updates_applied: u64,
 }
 

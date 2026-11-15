@@ -52,6 +52,12 @@
   "guidedCueStart": "Créez votre première scène, puis écrivez votre ouverture et Générer — ou Continuez depuis votre curseur dans l'éditeur.",
   "guidedStart": "Commencer à écrire",
   "compose": "Composer",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
+  },
   "cowriter": "Co-auteur",
   "cw": {
     "insert": "Insérer comme brouillon",
@@ -100,7 +106,8 @@
     "stale": "Le curseur a bougé — réessayez.",
     "need_editor": "L'éditeur est en cours de chargement.",
     "streaming": "Écriture en cours… laissez la suite actuelle se terminer.",
-    "pending_ghost": "Acceptez ou rejetez la suggestion actuelle avant d'en commencer une autre."
+    "pending_ghost": "Acceptez ou rejetez la suggestion actuelle avant d'en commencer une autre.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "Battements",
   "beatsheet": {
@@ -583,6 +590,8 @@
   "threadKind_question": "question",
   "threadKind_mice_thread": "fil",
   "threadPaid": "réglé",
+  "threadEditAria": "Modifier la promesse",
+  "threadArchiveAria": "Archiver la promesse",
   "threadDropped": "abandonné",
   "noThreads": "Aucun fil conducteur pour le moment.",
   "noOpenThreads": "Aucune promesse ouverte — tout est réglé.",
@@ -755,9 +764,9 @@
     "empty": {
       "title": "Votre bibliothèque de motifs est prête",
       "body": "Les motifs sont des structures narratives réutilisables. Le planificateur en choisit un par chapitre pour que même un modèle simple produise une scène solide. 12 motifs de départ sont déjà présents — tu-tiên et báo-thù.",
+      "notThemes": "Ce sont des formes de intrigue STRUCTURELLES pour le planificateur, pas un suivi des images ou des thèmes récurrents de votre propre histoire — rien ici ne suit un symbole au fil de vos chapitres.",
       "browseSystem": "Parcourir les 12 modèles",
-      "hint": "Aucun jeton requis — créer un motif à la main est gratuit.",
-      "notThemes": "Ce sont des formes de intrigue STRUCTURELLES pour le planificateur, pas un suivi des images ou des thèmes récurrents de votre propre histoire — rien ici ne suit un symbole au fil de vos chapitres."
+      "hint": "Aucun jeton requis — créer un motif à la main est gratuit."
     },
     "facet": {
       "tier": "Niveau",
@@ -1651,7 +1660,8 @@
   "canonConflictKeepTheirs": "Garder la leur",
   "canonConflictReapply": "Réappliquer ma modification sur la v{{v}}",
   "canonConflictTitle": "Cette règle a été modifiée ailleurs — votre brouillon est conservé ci-dessous.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} actif(s)",
     "branchHint": "Ce que le canon sait juste avant cette branche",
     "branchToggle": "Canon à la branche",
@@ -1846,8 +1856,6 @@
     "preview_more": "…et {{n}} de plus",
     "preview_blank": "une ligne vide sera supprimée"
   },
-  "threadEditAria": "Modifier la promesse",
-  "threadArchiveAria": "Archiver la promesse",
   "qualityReasons": {
     "context_limit": "Limite de contexte du modèle dépassée.",
     "network": "Erreur réseau du fournisseur.",

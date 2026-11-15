@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""migration-idempotency-validator — non-idempotent SQL in EITHER migration tree.
+"""migration-idempotency-validator — non-idempotent SQL in ANY migration tree.
 
 `scripts/migration-idempotency-validator.sh` is now a thin wrapper around this
 file, the same shape `workflow-gate.sh` → `workflow-gate.py` already has in this
@@ -8,12 +8,15 @@ could not do at all (below). Both CI legs still invoke the `.sh` by name.
 
 WHAT CHANGED, AND WHY EACH CHANGE WAS FORCED BY A MEASUREMENT
 --------------------------------------------------------------
-**1 · It walks BOTH trees.** The shell version's default target set was
+**1 · It walks THREE trees.** The shell version's default target set was
 `contracts/migrations/per_reality` only. `migrations/meta` — 78 files, including
 the ownership migrations `036`/`037` — was walked by nothing. That is `NV-3`,
 and it is the *second* time this exact script has had it: the version before
 2026-08-07 enumerated two filenames while the directory held thirty-eight.
 A glob, per tree, so tomorrow's file is covered by existing.
+The third tree, `contracts/migrations/glossary` (2 files), was added
+2026-11-12 for the same reason: it held the one bare `CREATE TABLE` in the
+repo (`0001_canon_change_history.up.sql`), unwalked by anything.
 
 Widening it found **two real violations on the first run** —
 `036_reality_ownership` creates `idx_reality_registry_owner` without
@@ -71,10 +74,13 @@ REPO = Path(__file__).resolve().parents[1]
 # walk that suddenly finds three files has lost something, and the difference
 # between "found nothing" and "found nearly nothing" is not worth a second
 # failure mode. The numbers are deliberately well below today's counts (39 and
-# 78) so ordinary growth and the occasional deletion never trip them.
+# 78) so ordinary growth and the occasional deletion never trip them. The
+# glossary tree is small (2 files) by design — its floor is 1, so a missing
+# tree still refuses rather than passing on an empty walk.
 TREES: dict[str, int] = {
     "contracts/migrations/per_reality": 20,
     "migrations/meta": 40,
+    "contracts/migrations/glossary": 1,
 }
 
 

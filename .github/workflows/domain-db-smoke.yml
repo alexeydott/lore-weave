@@ -58,6 +58,10 @@ on:
       - "migrations/meta/**"
       - ".github/workflows/domain-db-smoke.yml"
 
+  # Manual trigger: this workflow is path-filtered, so a fix that touches
+  # none of its paths would otherwise never re-run it on the new head.
+  workflow_dispatch:
+
 permissions:
   contents: read
 
@@ -65,6 +69,7 @@ jobs:
   db-smoke:
     name: Domain DB round-trips (book + glossary)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:18-alpine
@@ -80,8 +85,8 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: "1.26.10"
       # Throwaway DB names MUST carry a test marker (…_test). The DB-gated tests run
@@ -129,6 +134,7 @@ jobs:
   meta-db-smoke:
     name: Meta + PII-KMS DB round-trips
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:18-alpine
@@ -144,8 +150,8 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: "1.26.10"
       # Throwaway marker required, same rule as the job above.
@@ -201,6 +207,7 @@ jobs:
   rot1-db-smoke:
     name: Auth · provider-registry · billing · scheduler DB round-trips
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:18-alpine
@@ -225,8 +232,8 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: "1.26.10"
       - name: create throwaway databases

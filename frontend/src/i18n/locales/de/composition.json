@@ -52,6 +52,12 @@
   "guidedCueStart": "Erstelle deine erste Szene, schreibe dann deine Eröffnung und klicke auf „Generieren“ — oder „Weiter“ von deinem Cursor im Editor aus.",
   "guidedStart": "Schreiben starten",
   "compose": "Komponieren",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
+  },
   "cowriter": "Co-Writer",
   "cw": {
     "insert": "Als Entwurf einfügen",
@@ -100,7 +106,8 @@
     "stale": "Der Cursor hat sich bewegt — bitte erneut versuchen.",
     "need_editor": "Der Editor wird noch geladen.",
     "streaming": "Schreibt… bitte warten, bis die aktuelle Fortsetzung abgeschlossen ist.",
-    "pending_ghost": "Akzeptieren oder verwerfen Sie den aktuellen Vorschlag, bevor Sie einen neuen starten."
+    "pending_ghost": "Akzeptieren oder verwerfen Sie den aktuellen Vorschlag, bevor Sie einen neuen starten.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "Beats",
   "beatsheet": {
@@ -583,6 +590,8 @@
   "threadKind_question": "Frage",
   "threadKind_mice_thread": "Thread",
   "threadPaid": "erledigt",
+  "threadEditAria": "Versprechen bearbeiten",
+  "threadArchiveAria": "Versprechen archivieren",
   "threadDropped": "abgebrochen",
   "noThreads": "Noch keine Threads.",
   "noOpenThreads": "Keine offenen Versprechen – alle erledigt.",
@@ -755,9 +764,9 @@
     "empty": {
       "title": "Deine Motiv-Bibliothek ist bereit",
       "body": "Motive sind wiederverwendbare Handlungsstrukturen. Der Planner wählt pro Kapitel eines aus, damit selbst ein kleines Modell eine solide Szene schreibt. 12 Start-Motive sind bereits vorhanden – tu-tiên und báo-thù.",
+      "notThemes": "Dies sind STRUKTURELLE Handlungsformen für den Planer, kein Tracker für wiederkehrende Bilder oder Themen in deiner eigenen Geschichte — nichts hier verfolgt ein Symbol über deine Kapitel hinweg.",
       "browseSystem": "Die 12 Start-Motive durchsuchen",
-      "hint": "Keine Token nötig – das manuelle Erstellen eines Motivs ist kostenlos.",
-      "notThemes": "Dies sind STRUKTURELLE Handlungsformen für den Planer, kein Tracker für wiederkehrende Bilder oder Themen in deiner eigenen Geschichte — nichts hier verfolgt ein Symbol über deine Kapitel hinweg."
+      "hint": "Keine Token nötig – das manuelle Erstellen eines Motivs ist kostenlos."
     },
     "facet": {
       "tier": "Stufe",
@@ -1651,7 +1660,8 @@
   "canonConflictKeepTheirs": "Ihren Entwurf behalten",
   "canonConflictReapply": "Meine Bearbeitung auf v{{v}} erneut anwenden",
   "canonConflictTitle": "Diese Regel wurde an anderer Stelle geändert — Ihr Entwurf bleibt unten erhalten.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} aktiv",
     "branchHint": "Was der Kanon unmittelbar vor diesem Zweig weiß",
     "branchToggle": "Kanon am Zweig",
@@ -1846,8 +1856,6 @@
     "preview_more": "…und {{n}} weitere",
     "preview_blank": "Leerzeile wird gelöscht"
   },
-  "threadEditAria": "Versprechen bearbeiten",
-  "threadArchiveAria": "Versprechen archivieren",
   "qualityReasons": {
     "context_limit": "Kontextlimit des Modells überschritten.",
     "network": "Netzwerkfehler beim Anbieter.",

@@ -53,6 +53,69 @@ vi.mock('@/features/chat/api', () => ({
 import { DefaultModelsCard } from '../DefaultModelsCard';
 import { invalidateUserModelsCache } from '@/components/model-picker';
 
+// F15 (round 4) — the critic hint lied about the backend: it claimed an unset
+// critic means "scoring falls back to nothing and sessions are not scored".
+// evaluate.py (Gate 2, WS-5.10/P5) falls an unset critic back to the account
+// CHAT default and refuses (409) only when no distinct judge resolves. This
+// test is the joint between the user-facing copy and that backend behavior:
+// it reads the shipped locale bundles + the component fallback + the backend
+// router, so a copy/behavior drift on either side goes red here, not in prod.
+// Non-en locales echo the English string per the repo ECHOED practice, except
+// ru which carries a real translation (fac8291f precedent).
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const EXPECTED_CRITIC_HINT_EN =
+  "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.";
+const EXPECTED_CRITIC_HINT_RU =
+  'Оценивает тренировочные сессии и аудитирует сгенерированные сцены. Необязательно — без неё судит ваша чат-модель (когда она отличается от модели сессии); если отдельный судья не находится, оценка не выполняется.';
+
+function localeHint(locale: string): string {
+  const file = resolve(__dirname, '../../../i18n/locales', locale, 'settings.json');
+  const json = JSON.parse(readFileSync(file, 'utf8')) as {
+    defaultModels?: { criticHint?: unknown };
+  };
+  const hint = json.defaultModels?.criticHint;
+  if (typeof hint !== 'string' || !hint) throw new Error(`no defaultModels.criticHint in ${file}`);
+  return hint;
+}
+
+describe('critic hint copy (F15)', () => {
+  it('states the real fallback: unset critic judges with the chat model', () => {
+    const hint = localeHint('en');
+    expect(hint).toBe(EXPECTED_CRITIC_HINT_EN);
+    expect(hint).not.toContain('falls back to nothing');
+    expect(hint).not.toContain('are not scored');
+  });
+
+  it('carries a real Russian translation, other locales echo the English copy', () => {
+    expect(localeHint('ru')).toBe(EXPECTED_CRITIC_HINT_RU);
+    for (const locale of ['ar', 'bn', 'de', 'es', 'fr', 'hi', 'id', 'ja', 'ko', 'ms', 'pt-BR', 'th', 'tr', 'vi', 'zh-CN', 'zh-TW']) {
+      expect(localeHint(locale)).toBe(EXPECTED_CRITIC_HINT_EN);
+    }
+  });
+
+  it('component defaultValue matches the shipped English copy', () => {
+    const tsx = readFileSync(resolve(__dirname, '../DefaultModelsCard.tsx'), 'utf8');
+    // The defaultValue is a single-quoted TS string, so the apostrophe in
+    // "session's" is escaped in source — unescape before comparing.
+    expect(tsx.replaceAll("\\'", "'")).toContain(EXPECTED_CRITIC_HINT_EN);
+    expect(tsx).not.toContain('falls back to nothing');
+  });
+
+  it('backend still falls an unset critic back to the chat default (evaluate.py Gate 2)', () => {
+    const py = readFileSync(
+      resolve(__dirname, '../../../../../services/chat-service/app/routers/evaluate.py'),
+      'utf8',
+    );
+    const criticAt = py.indexOf('get_default_model("critic"');
+    const chatAt = py.indexOf('get_default_model("chat"');
+    expect(criticAt).toBeGreaterThan(-1);
+    expect(chatAt).toBeGreaterThan(criticAt);
+    expect(py).toContain('scoring needs a CRITIC model distinct');
+  });
+});
+
 beforeEach(() => {
   listUserModels.mockReset();
   getDefaults.mockReset();

@@ -52,6 +52,12 @@
   "guidedCueStart": "İlk sahnenizi oluşturun, ardından açılışınızı yazın ve Oluştur deyin — veya editörde imlecinizden Devam edin.",
   "guidedStart": "Yazmaya başla",
   "compose": "Oluştur",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
+  },
   "cowriter": "Yazma ortağı",
   "cw": {
     "insert": "Taslak olarak ekle",
@@ -100,7 +106,8 @@
     "stale": "İmleç hareket etti — tekrar deneyin.",
     "need_editor": "Editör hâlâ yükleniyor.",
     "streaming": "Yazılıyor… mevcut devamlılığın tamamlanmasına izin verin.",
-    "pending_ghost": "Başka bir öneriye başlamadan önce mevcut öneriyi kabul edin veya reddedin."
+    "pending_ghost": "Başka bir öneriye başlamadan önce mevcut öneriyi kabul edin veya reddedin.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "Olay Örgüsü",
   "beatsheet": {
@@ -583,6 +590,8 @@
   "threadKind_question": "soru",
   "threadKind_mice_thread": "iplik",
   "threadPaid": "tamamlandı",
+  "threadEditAria": "Vaadi düzenle",
+  "threadArchiveAria": "Vaadi arşivle",
   "threadDropped": "bırakıldı",
   "noThreads": "Henüz iplik yok.",
   "noOpenThreads": "Açık vaat yok — hepsi tamamlandı.",
@@ -755,9 +764,9 @@
     "empty": {
       "title": "Motif kütüphaneniz hazır",
       "body": "Motiflar yeniden kullanılabilir olay örgüsü kalıplarıdır. Planlayıcı, her bölüm için bir tane seçer; böylece küçük bir model bile sağlam bir sahne yazar. 12 başlangıç motifi zaten burada — tu-tiên ve báo-thù.",
+      "notThemes": "Bunlar planlayıcı için YAPISAL olay örgüsü biçimleridir; kendi hikâyenizdeki yinelenen imgelerin veya temaların izleyicisi değildir — burada hiçbir şey bölümleriniz boyunca bir simgeyi takip etmez.",
       "browseSystem": "12 başlangıç motifine göz at",
-      "hint": "Token gerekmez — bir motifi elle oluşturmak ücretsizdir.",
-      "notThemes": "Bunlar planlayıcı için YAPISAL olay örgüsü biçimleridir; kendi hikâyenizdeki yinelenen imgelerin veya temaların izleyicisi değildir — burada hiçbir şey bölümleriniz boyunca bir simgeyi takip etmez."
+      "hint": "Token gerekmez — bir motifi elle oluşturmak ücretsizdir."
     },
     "facet": {
       "tier": "Seviye",
@@ -1651,7 +1660,8 @@
   "canonConflictKeepTheirs": "Onunkini tut",
   "canonConflictReapply": "Düzenlememi v{{v}} üzerine yeniden uygula",
   "canonConflictTitle": "Bu kural başka bir yerde değişti — taslağınız aşağıda tutuluyor.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} aktif",
     "branchHint": "Bu kırılmadan hemen önce kanonun bildikleri",
     "branchToggle": "Kırılmadaki kanon",
@@ -1846,8 +1856,6 @@
     "preview_more": "…ve {{n}} tane daha",
     "preview_blank": "boş satır silinecek"
   },
-  "threadEditAria": "Vaadi düzenle",
-  "threadArchiveAria": "Vaadi arşivle",
   "qualityReasons": {
     "context_limit": "Model bağlam sınırı aşıldı.",
     "network": "Sağlayıcı ağ hatası.",

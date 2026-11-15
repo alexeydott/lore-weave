@@ -1,5 +1,228 @@
 # ▶▶ NEXT SESSION STARTS HERE
 
+## ▶ MERGES: QUINN-UDP + SERDE-SAPHYR, 2026-11-14 — main `5f84d719` → `b6dc06be`
+
+Both branches merged `--no-ff` and verified by the main agent with independent re-runs (not the coordinators' logs):
+- `audit/dep-vuln-quinn-udp` (`2c628869`, `Cargo.lock` only) merged as `82f894cf`: quinn-udp 0.5.14 → 0.5.16, RUSTSEC-2026-0538 closed. Main-agent verification: `cargo audit` on the branch 0 vulnerabilities + 1 allowed warning (unsafe-libyaml); `cargo check -p world-service` exit 0; post-merge audit on main 0 vulnerabilities + 1 allowed warning.
+- `audit/serde-yaml-saphyr` (`8ed897a0`) merged as `b6dc06be`: serde_yaml → serde-saphyr 2.1.1, RUSTSEC-2024-0449 closed. Main-agent verification: 0 mentions of serde_yaml/unsafe-libyaml in `.rs`/`Cargo.toml`/`Cargo.lock`; the `contracts/api/books/v1/openapi.yaml` duplicate-responses merge checked against the raw main file — last-wins preserved; `cargo test` on all 7 YAML-touching crates re-run: 661 passed, 0 failed, 2 ignored (91 suites), matching the coordinator's claim exactly; `cargo check` on the 4 direct crates on merged main exit 0 (50.95s). `Cargo.lock` auto-merged cleanly (quinn-udp 0.5.16 + serde-saphyr both present).
+- Merged main audit (same three `--ignore` flags): 0 vulnerabilities, 0 warnings — the literal "0 vulnerabilities" state. (`cargo audit` prints yanked-check network errors in this sandbox; the verdict is exit 0 with no advisory lines.)
+- World-gen lib suite ran to completion on main in this sandbox (2026-11-14): 442 passed, 1 failed, 2 ignored. The failure is `render_output_is_byte_identical_baseline` (relief/realistic hash drift), deterministic, pre-existing on main (code + hash consistent as committed in `440fe026`; the audit touched world-gen only via the round-10 `forbid(unsafe_code)` attribute), and CI never runs this test (foundation-ci excludes world-gen). Recorded as a known sandbox-environment finding; the baseline was NOT re-captured.
+NEXT: push on a fresh one-time PAT (advise revoke), watch fork CI.
+
+## ▶ SERDE_YAML → SERDE-SAPHYR MIGRATION, 2026-11-14 — branch `audit/serde-yaml-saphyr`, base `5f84d719`
+
+`serde_yaml 0.9.34+deprecated` is GONE from the Rust workspace. Target is `serde-saphyr 2.1.1`
+(on `granit-parser 2.1.0`), NOT the bare `saphyr` crate: `saphyr 0.3.4` has no serde API
+(only `Yaml`/`YamlOwned` trees), so a literal swap would have meant rewriting every serde
+derive into manual tree walks. `serde-saphyr` gives `from_str`/`from_slice`/`to_string`/`Error`,
+denies unsafe code, MSRV 1.89 (= repo pin); it has no `Value` type, so the two test files now
+use `serde_json::Value` (`as_array`/`as_object`/`get(&str)`). `Cargo.lock`: 0 mentions of
+`serde_yaml`/`unsafe-libyaml`; `cargo tree -i unsafe-libyaml` previously resolved ONLY via
+`serde_yaml`. Chain that used to pull it in: `serde_yaml 0.9.34+deprecated` → `unsafe-libyaml 0.2.11`.
+Changed (16 files): the 4 manifests (`serde_yaml = "0.9"` → `serde-saphyr = "2"`),
+call sites in `crates/contracts-prompt/src/canon_guardrail.rs`,
+`crates/meta-rs/src/allowlist.rs`, `sensitive_paths.rs`, `transitions.rs`, doc-comment
+mentions in `crates/dp-kernel` (no dep, no code use there), the two test files
+(`crates/ruleset-loader/tests/authorable_surface.rs`,
+`services/world-service/tests/route_conformance.rs`), plus ONE contract fix:
+`contracts/api/books/v1/openapi.yaml` op `startNewFB2Import` had TWO `responses:` blocks
+(duplicate `'400'`/`'401'`/`'409'`/`'413'` keys); serde_yaml silently last-wins, serde-saphyr
+rejects duplicate keys, so the blocks were merged preserving last-wins semantics (second
+block wins for `'409'`/`'413'`; `'202'` from the first; shadowed `'413'` dropped).
+Verification (all measured 2026-11-14, logs in `~/workspace/logs/lore-weave/saphyr/`):
+`cargo check --workspace --all-targets` Finished in 3m 42s, 0 errors, 0 warnings;
+`cargo test` on all 7 YAML-touching crates: 661 passed, 0 failed (direct 4 crates 500/54
+suites; transitive consumers commit-service, dp-control-plane, foundation-model 161/37
+suites). No test deleted, weakened, or re-timed; no expectation changed (no test asserted
+serde_yaml-specific error text). `cargo audit` (same three `--ignore` flags): the
+unsafe-libyaml unmaintained warning (RUSTSEC-2024-0449) is GONE (0 mentions); exactly 1
+vulnerability remains, quinn-udp 0.5.14 (RUSTSEC-2026-0538) — pre-existing on main, fixed
+on the parallel `audit/dep-vuln-quinn-udp` branch, deliberately NOT duplicated here.
+`cargo clippy` on the 5 touched crates: 25 warnings, all pre-existing in untouched code
+(0 on any edited line, verified by line-level intersect). `rustfmt --check`: pre-existing
+drift identical at HEAD under both rustfmt 1.89.0 and stable 1.99.1, 0 new deviations from
+this change; whole-file reformat deliberately not done. Environment: VM replaced a third
+time 2026-11-14 ~02:26 MSK; worktree + all edits survived, `protoc` was wiped and
+reinstalled (3.21.12, per `foundation-ci.yml`) — `dp-control-plane`'s build.rs needs it.
+NOT merged, NOT pushed: no token held. NEXT: main agent verifies, merges, pushes on a
+fresh one-time PAT (advise revoke), watches fork CI; a literal "0 vulnerabilities" audit
+awaits the quinn-udp merge. Run-state: `~/workspace/logs/lore-weave/saphyr/RUNSTATE.md`.
+
+## ▶ ROUND 5 — WORKFLOWS/CI PINNING (P1-10), 2026-11-13 — HEAD `fac8291f`, branch `audit/round5-workflows`
+
+P1-10 FIXED in this commit: 0 of 147 `uses:` refs in `.github/workflows/`
+were pinned to a SHA; now **147/147 are pinned to a full 40-hex commit
+SHA** with a `# v7`-style version comment. Version drift unified first:
+`actions/checkout` v4 (8) → v7, `actions/setup-python` v5 (8) / v6 (4) →
+v7, `dtolnay/rust-toolchain` `master` (3) → `stable`, plus extra drift
+found by this round — `actions/setup-go` v5 (2) → v7. No other drifted
+action found; 16 distinct action pins total. Verification: YAML parses on
+all 14 workflow files; actionlint 1.7.12 clean on all 14 (baseline at HEAD
+was also clean); every SHA re-resolved independently with `git ls-remote`
+against the action's public repo, 16/16 match (peeled commit used for
+annotated tags); P2-13 rechecked — 0 jobs without `timeout-minutes`.
+PENDING, not verifiable from this sandbox: a full CI run on the fork after
+push (a wrong SHA breaks the workflow outright, so the fork run is the
+real proof). Register row P1-10 still reads OPEN — the coordinator marks
+it fixed. Round-5 analysis items NOT addressed here: path-filtered
+workflow verdicts, flaky-leg triage, `workflow_dispatch` coverage,
+reusable-workflow duplication. NEXT: push this branch on a fresh token,
+watch fork CI, then continue with round 6.
+
+## ▶ LIVE FRONTEND AUDIT (test account), 2026-11-13 — worktree `~/workspace/projects/lore-weave-fe-audit`, HEAD `fac8291f`
+
+Multi-round LIVE audit of the frontend with the real test account
+(`claude-test@loreweave.dev`, see `docs/dev/LOCAL_TEST_ENV.md`). R1 walked
+all 26 primary routes through the real UI login (26 screenshots in
+`~/workspace/logs/lore-weave/fe-live-audit/`): login works end-to-end,
+every route renders its shell + honest empty/error states. R2 (FEATURE_INDEX
+cross-check): 43 index rows = 43 `frontend/src/features/` folders, no
+stubbed/claimed-but-unimplemented flows found. R3 (knip + i18n + TODO
+sweep): i18n parity OK (36 namespaces × 17 locales), 2 TODOs in `src/`
+(both benign), knip reports 7 files with zero references and 3 unused
+dependencies — triaged in the audit report, NOT deleted here. Fixes committed as `1a0d2ce4` on `audit/frontend-live`, merged here:
+- FL-1 (`frontend/src/api.ts`, `frontend/src/__tests__/api.test.ts`):
+  `apiJson` surfaced Go's router-default body `404 page not found` verbatim
+  as the user error (BooksPage banner, AssistantPage full-screen error).
+  New `isStatusCodeBoilerplate` excludes bodies that are just their own
+  status code; all 20 Go `http.Error` sites write sentences and still
+  surface. Red→green via an in-memory esbuild harness (vitest itself could
+  not start — see below): 1 FAIL before, ALL PASS after. Verified LIVE
+  2026-11-13 ~16:31 by the recovery run: with only auth-service behind
+  `/v1`, the BooksPage banner reads "Not Found" (screenshot
+  `~/workspace/logs/lore-weave/fe-live-audit/fl1-books.png`); the Display
+  Name round-trip via the Settings UI works ("Claude Test" →
+  "Claude Test UI" → "Claude Test").
+- FL-3 (`docs/dev/LOCAL_TEST_ENV.example.md`): the register curl documented
+  `"name"`, which the endpoint ignores (it reads `display_name`) — accounts
+  seeded from it have NULL `display_name`. One-word fix.
+- FL-4 (3 test files): stale `import type` paths to non-existent modules
+  (`frontend/src/features/chat/components/__tests__/TranslationReviewCard.test.tsx`,
+  `frontend/src/features/glossary/components/tiering/__tests__/ResearchJobCard.test.tsx`,
+  `frontend/src/features/notifications/components/__tests__/NotificationItem.test.tsx`).
+  Invisible to `tsc` (tests excluded) and erased at runtime. Red→green via
+  a temp `tsconfig.audit.json` (deleted after): TS2307 3 → 0, total errors
+  2433 → 2430 (the rest is pre-existing test-tree type noise).
+Not fixed here: FL-2 Google Fonts CDN (`frontend/index.html:18-20`) fails
+offline — fonts need self-hosting, unfetchable from this sandbox.
+SANDBOX RECOVERED 2026-11-13 ~18:26; the recovery run rebuilt the live
+stack on a container PG16 (:5432) after the VM replacement wiped the old
+scratch clusters (new test-account IDs in `docs/dev/LOCAL_TEST_ENV.md` §3).
+R1b DONE 2026-11-13 ~16:40 with real book-service data (book
+"Audit Test Book 2", chapter "Chapter One"): b10–b22 all render real data
+or honest empty/error states; b17/b18 failed transiently in the walk run
+(blank page, frame detached) and both pass on a clean retry — not a
+defect. The walk's sidebar "User" label is a shim artifact (the shim
+routes only `/v1/auth/*`, not `/v1/account/*`; auth-service serves the
+profile with 200 directly). Full report:
+`~/workspace/logs/lore-weave/fe-live-audit/REPORT.md`. Branch
+`audit/frontend-live` to be created for this change set; run the real
+`vitest run src/__tests__/api.test.ts` + the 3 touched test files +
+`tsc --noEmit` + `pnpm build` before committing. Do NOT merge to main —
+the parent verifies and merges.
+
+## ▶ TECH-DEBT AUDIT, NEW MULTI-ROUND PASS 2026-11-13 — HEAD `04716f37`, ≥10 rounds, fix+commit
+
+Owner ordered a new audit of the fork (≥10 rounds, fix what is found and
+commit it; existing defects only, nothing invented). Round 1 (this commit's
+register update): every still-open register item re-verified at HEAD
+`04716f37` in four read-only passes — **40 OPEN / 8 STALE / 2
+NEEDS-DECISION (P1-5, P1-6) / 0 FIXED by rounds 1–3**; counts corrected
+in the register (P0-1 fallbacks 70 → 211/115 cred-ish, P0-2 13 → 8 files,
+P2-14 dup PNGs 20 → 179 files, P2-21 64,768 → 77,888 hits, P2-2 grew
+10 → 12). Codex cross-check: 6 of 15 upstream-PR findings are PRESENT in
+the fork (F1 reorder NULL wipe, F7 non-PDF import replay, F9 autofix
+rule-ID paths, F11 string criticals crash, F12 streamer zero counters,
+F15 critic hint lie) — the round 2/3/4 fix candidates. Visual audit of
+the composition workspace (owner's priority: the workspace-panel mess)
+ran on Storybook + MockAuthProvider — no live stack in the sandbox, no
+`docs/dev/LOCAL_TEST_ENV.md`, so no real test-account login; 8 new
+stories + Playwright screenshots. Three findings, all FIXED in this
+commit (see the register's Visual audit section): VA-1 tab labels were
+i18next error strings (`compose`/`canonview` were objects in
+`composition.json` — renamed to `workDefault`/`canonAtChapter` in all 18
+locales, string labels added, `panelLabels.test.ts` guards all 25 ids);
+VA-2 the dark theme was dead app-wide (Tailwind `darkMode: 'class'` but
+nothing ever added `.dark` — `ThemeProvider` now toggles it,
+`ThemeProvider.test.tsx` guards it, re-screenshots readable); VA-3 the
+picker menu (`z-30`) hid under floating windows (`z-40..49`) — now
+`z-[60]`. Verification: new tests red→green, affected suites 65/65,
+`tsc` clean, `eslint` clean on touched files, `i18n:check` passes,
+full frontend vitest + production build (see commit message for the
+counts). Round 2 (Go: F7 + F12 streamer half + bounded staticcheck /
+gosec / revive sweep) is in flight on branch `audit/round2-go` — do NOT
+commit its files from this tree until it is reviewed and merged.
+Upstream side: owner created the pgvector PR as letuhao/lore-weave
+**#329** (`fix/pgvector-0.8.7`). Normalized bodies for #318–327 and the
+heads-up comments are ready in `~/workspace/logs/lore-weave/` but CANNOT
+be applied via API: the available token returns 403 on both PATCH and
+POST to letuhao/lore-weave (re-tested 2026-11-13 ~15:12); paste manually
+or supply a token scoped to letuhao/lore-weave (Pull requests + Issues
+write). The token's stated purpose (until CI passes on the 8 PRs) is
+done — CI fully ran, verdict delivered 2026-11-13 ~14:45 — owner may
+revoke it; a fresh one is needed for the next fork push.
+
+## ▶ TECH-DEBT AUDIT 2026-11-12 — HEAD `440fe02`, rounds 1+2 pushed as `d4cc915`, round 3 in this commit
+
+Four read-only passes (Rust+Go, TS+Python, infra/CI/security, docs/tests/eval)
++ a verification pass. Register: `docs/deferred/TECH-DEBT-2026-11.md`
+(4 P0, 11 P1, 27 P2, 14 P3; 7 items verified clean). Round 1 (commit
+`ac1fe4f`): migration validator now walks `contracts/migrations/glossary/`
+and the 5 bare statements there are idempotent; `timeout-minutes` on all
+55 jobs in all 14 workflows; service count 47 → 48 (4 files); HEAD feature
+recorded in `CHANGELOG.md` `[Unreleased]` (partial — earlier unreleased
+work since `0.1.0-rc.1` still unrecorded); 3 personal-Windows-path links
+in the LLM-migration ADR replaced; `.githooks/pre-commit` mode fixed
+(P2-27). Round 2 (commit `d4cc915`): all 10 RED gates from the first full run
+fixed — i18n 7 keys, generation-guard 60th caller, llm-budget literal,
+language-bias `hardSplit`, pytest/pydantic-ai/docker/protoc installed,
+guard-redability 18/18, db-ensure-bite static-only; second full run
+**136 GREEN / 0 RED / 28 SKIP, exit 0**; `make ci-local` PASS; frontend
+build PASS. The 28 live gates stay SKIP by design: no live stack in the
+sandbox (containers cannot start there — `setns` denied), and the 2
+bare-runnable live gates refuse an empty store. Rounds 1+2 pushed to origin
+main 2026-11-12 20:02 (`440fe02` → `d4cc915`, verified via `ls-remote`).
+Round 3 (this commit): CI failures on the pushed `d4cc915` — dep-vuln Go leg
+(`GO-2026-6859`, go-version 1.26.10 → 1.26.11; verified red→green locally),
+dep-vuln Rust leg (`event-listener` 5.4.2, `rustix` 1.1.6, `spin` 0.9.9;
+`RUSTSEC-2026-0459` triaged to `--ignore`, no in-range fix exists —
+newest sqlx 0.9.0 caps libsqlite3-sys <0.38.0, patch needs >=0.39.0;
+`cargo audit` exit 0, `cargo check --workspace --locked` exit 0), and the
+`knowledge-service` docker build (`PGVECTOR_VERSION` 0.8.6 → 0.8.7, PGDG
+dropped 0.8.6; the build itself cannot be verified in this sandbox), and
+`lint-foundation` timeouts — `agentruntime-census` and
+`agentruntime-falsification` hit the 10-minute `timeout-minutes` (added in
+round 1) while doing real work; both scripts were timed locally
+(census 3427s / 57:07, falsification 1284s / 21:24, sandbox is slower than
+a GitHub runner so these are upper bounds) and the timeouts raised to 120
+and 60 with the measurements recorded as comments in the workflow.
+Pushed rounds 3 (3595ae93 + cd8228c4 + 3e5c1d46) to origin main 2026-11-12
+~23:09 (`d4cc915` → `3e5c1d46`, verified via `ls-remote`; first push
+attempt failed on a connection reset, retry succeeded). CI for 3e5c1d46:
+dep-vuln success, python-integration-tests success (knowledge-service
+build with pgvector 0.8.7 passed), lint / Game subtree / python-unit /
+conformance success — but foundation-ci FAILED on the DB live-smoke job:
+`go test publisher live-smoke` in tests/integration died with `go: updates
+to go.mod needed; go mod tidy`. Cause was this round's own archive-worker
+bump: tests/integration replaces archive-worker locally, so MVS picks the
+new brotli/compress/x/crypto versions, but tests/integration/go.mod still
+pinned the old ones and `go test` runs `-mod=readonly`. Fixed in this
+commit by `go mod tidy` in tests/integration (only the three versions
+moved). Re-pushed as b43714a8; CI for it fully green 7/7 (lint, dep-vuln,
+Game subtree, conformance-ci, foundation-ci, gates, lint-foundation).
+Follow-up in this commit: the three path-filtered workflows
+(python-integration-tests, python-unit-tests, domain-db-smoke) did not run
+on b43714a8, and the owner asked to verify them on the current head
+anyway. They had no `workflow_dispatch`, so a manual trigger was
+impossible; added bare `workflow_dispatch:` to each (same pattern as
+gates.yml / dep-vuln.yml) — the push itself triggers them, since each
+workflow lists its own file in its push paths. The owner keeps the
+one-time token valid until CI is green, then revokes it.
+Needs a decision before closing: P0-1 hardcoded dev credentials in
+`infra/docker-compose.yml`, P0-2 `_guard_throwaway` inline copies (13 files),
+P1-5 seven UNIMPLEMENTED gRPC methods (DP-C5 design), P1-6 unbound
+`YamlGuardrail`, P1-1/P1-2 frontend lint expansion.
+
 ## ▶ KNOWLEDGE-ARCHITECTURE REFACTOR IS CLOSED — merged from `refactor/entity-lifecycle` (2026-08-31)
 
 Two plans finished and were merged into this branch. Neither is in flight; both are countable

@@ -38,13 +38,27 @@ def _dsn() -> str | None:
     return os.environ.get("TEST_KNOWLEDGE_DB_URL")
 
 
-def _guard_throwaway(dsn: str) -> None:
+def _guard_throwaway(
+    dsn: str,
+    *,
+    var_name: str = "TEST_KNOWLEDGE_DB_URL",
+    destroys: str = "This fixture TRUNCATEs tables — point it at a disposable DB, never the real loreweave_knowledge.",
+) -> None:
+    """Refuse a DSN whose database name carries no throwaway marker.
+
+    Single home of the throwaway predicate for this service's DB tests:
+    other modules in this tree (e.g. test_neo4j_to_age_migration_live)
+    import this function instead of defining their own copy, so the
+    marker set cannot drift between call sites. `var_name` / `destroys`
+    only tune the refusal message so it names the caller's own env var
+    and destructive action; the accept/refuse decision never depends on
+    them.
+    """
     db = dsn.rsplit("/", 1)[-1].split("?", 1)[0]
     if not _THROWAWAY.search(db):
         raise RuntimeError(
-            f"REFUSING: TEST_KNOWLEDGE_DB_URL database {db!r} is not a throwaway DB "
-            "(the name must contain test/smoke/audit/…). This fixture TRUNCATEs tables — "
-            "point it at a disposable DB, never the real loreweave_knowledge."
+            f"REFUSING: {var_name} database {db!r} is not a throwaway DB "
+            f"(the name must contain test/smoke/audit/…). {destroys}"
         )
 
 

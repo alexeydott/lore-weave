@@ -37,6 +37,9 @@
 //! a determinism liability to audit"*) and only ever CARRIES the digest;
 //! producing one from canonical bytes needs `blake3` and is this crate's job.
 
+
+#![forbid(unsafe_code)]
+
 mod canon;
 mod classification;
 mod combat;

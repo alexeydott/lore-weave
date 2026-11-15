@@ -11,6 +11,9 @@
 //! world-gen name --in map.json --out named.json --archetype wuxia --svg map.svg
 //! ```
 
+
+#![forbid(unsafe_code)]
+
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;

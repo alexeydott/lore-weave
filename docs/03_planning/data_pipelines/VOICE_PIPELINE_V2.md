@@ -118,7 +118,7 @@ Vercel Workflow was evaluated and rejected for two reasons:
 
 ### 3.3 How It Extends the Existing Pipeline
 
-The current `send_message` endpoint in [messages.py](services/chat-service/app/routers/messages.py) does:
+The current `send_message` endpoint in [messages.py](../../../services/chat-service/app/routers/messages.py) does:
 
 ```python
 # Current text chat flow (messages.py + stream_service.py):

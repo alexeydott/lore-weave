@@ -52,6 +52,12 @@
   "guidedCueStart": "Buat adegan pertama Anda, lalu tulis pembukaan dan Generate — atau Lanjutkan dari kursor Anda di editor.",
   "guidedStart": "Mulai menulis",
   "compose": "Susun",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
+  },
   "cowriter": "Co-writer",
   "cw": {
     "insert": "Masukkan sebagai draf",
@@ -100,7 +106,8 @@
     "stale": "Kursor berpindah — coba lagi.",
     "need_editor": "Editor sedang memuat.",
     "streaming": "Sedang menulis… biarkan kelanjutan saat ini selesai.",
-    "pending_ghost": "Terima atau buang saran saat ini sebelum memulai yang lain."
+    "pending_ghost": "Terima atau buang saran saat ini sebelum memulai yang lain.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "Beat",
   "beatsheet": {
@@ -583,6 +590,8 @@
   "threadKind_question": "pertanyaan",
   "threadKind_mice_thread": "thread",
   "threadPaid": "selesai",
+  "threadEditAria": "Edit janji",
+  "threadArchiveAria": "Arsipkan janji",
   "threadDropped": "ditinggalkan",
   "noThreads": "Belum ada thread.",
   "noOpenThreads": "Tidak ada janji yang terbuka — semua sudah selesai.",
@@ -755,9 +764,9 @@
     "empty": {
       "title": "Perpustakaan motif Anda sudah siap",
       "body": "Motif adalah bentuk plot yang dapat digunakan kembali. Planner akan memilih satu per bab sehingga model kecil sekalipun dapat menulis adegan yang solid. 12 motif awal sudah tersedia — tu-tiên dan báo-thù.",
+      "notThemes": "Ini adalah bentuk plot STRUKTURAL untuk perencana, bukan pelacak citra atau tema berulang dalam cerita Anda sendiri — tidak ada di sini yang mengikuti sebuah simbol lintas bab Anda.",
       "browseSystem": "Jelajahi 12 motif awal",
-      "hint": "Tidak butuh token — membangun motif secara manual itu gratis.",
-      "notThemes": "Ini adalah bentuk plot STRUKTURAL untuk perencana, bukan pelacak citra atau tema berulang dalam cerita Anda sendiri — tidak ada di sini yang mengikuti sebuah simbol lintas bab Anda."
+      "hint": "Tidak butuh token — membangun motif secara manual itu gratis."
     },
     "facet": {
       "tier": "Tingkat",
@@ -1651,7 +1660,8 @@
   "canonConflictKeepTheirs": "Simpan milik mereka",
   "canonConflictReapply": "Terapkan kembali suntingan saya ke v{{v}}",
   "canonConflictTitle": "Aturan ini berubah di tempat lain — draf Anda tetap disimpan di bawah.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} aktif",
     "branchHint": "Apa yang diketahui kanon tepat sebelum cabang ini",
     "branchToggle": "Kanon pada cabang",
@@ -1846,8 +1856,6 @@
     "preview_more": "…dan {{n}} lagi",
     "preview_blank": "baris kosong akan dihapus"
   },
-  "threadEditAria": "Edit janji",
-  "threadArchiveAria": "Arsipkan janji",
   "qualityReasons": {
     "context_limit": "Batas konteks model terlampaui.",
     "network": "Kesalahan jaringan penyedia.",

@@ -52,6 +52,12 @@
   "guidedCueStart": "أنشئ مشهدك الأول، ثم اكتب مقدمتك واضغط على «توليد» — أو «المتابعة من موقع المؤشر» في المحرر.",
   "guidedStart": "ابدأ الكتابة",
   "compose": "تأليف",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
+  },
   "cowriter": "المؤلف المساعد",
   "cw": {
     "insert": "إدراج كمسودة",
@@ -100,7 +106,8 @@
     "stale": "تحرك المؤشر — حاول مرة أخرى.",
     "need_editor": "المحرر لا يزال قيد التحميل.",
     "streaming": "جاري الكتابة... انتظر حتى ينتهي الجزء الحالي.",
-    "pending_ghost": "يجب قبول الاقتراح الحالي أو رفضه قبل البدء في اقتراح آخر."
+    "pending_ghost": "يجب قبول الاقتراح الحالي أو رفضه قبل البدء في اقتراح آخر.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "الإيقاعات",
   "beatsheet": {
@@ -583,6 +590,8 @@
   "threadKind_question": "سؤال",
   "threadKind_mice_thread": "خيط",
   "threadPaid": "مدفوع",
+  "threadEditAria": "تعديل الوعد",
+  "threadArchiveAria": "أرشفة الوعد",
   "threadDropped": "متروك",
   "noThreads": "لا توجد خيوط بعد.",
   "noOpenThreads": "لا توجد وعود مفتوحة — الكل مدفوع.",
@@ -755,9 +764,9 @@
     "empty": {
       "title": "مكتبة الأنماط جاهزة",
       "body": "الأنماط هي أشكال حبكة قابلة لإعادة الاستخدام. يختار المخطط نمطًا واحدًا لكل فصل، لذا حتى النماذج الصغيرة تكتب مشهدًا متماسكًا. هناك 12 نمطًا أساسيًا جاهزة بالفعل — tu-tiên و báo-thù.",
+      "notThemes": "هذه أشكال حبكة بنيوية للمخطِّط، وليست أداة لتتبع الصور أو الثيمات المتكررة في قصتك — لا شيء هنا يتتبع رمزًا عبر فصولك.",
       "browseSystem": "تصفح الأنماط الـ 12 الأساسية",
-      "hint": "لا حاجة للرموز — بناء النمط يدويًا مجاني.",
-      "notThemes": "هذه أشكال حبكة بنيوية للمخطِّط، وليست أداة لتتبع الصور أو الثيمات المتكررة في قصتك — لا شيء هنا يتتبع رمزًا عبر فصولك."
+      "hint": "لا حاجة للرموز — بناء النمط يدويًا مجاني."
     },
     "facet": {
       "tier": "المستوى",
@@ -1651,7 +1660,8 @@
   "canonConflictKeepTheirs": "الإبقاء على مسودتهم",
   "canonConflictReapply": "إعادة تطبيق تعديلي على الإصدار v{{v}}",
   "canonConflictTitle": "تغيرت هذه القاعدة في مكان آخر — سيتم الاحتفاظ بمسودتك أدناه.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} نشطة",
     "branchHint": "ما يعرفه المسار الأصلي قبل هذا الفرع مباشرة",
     "branchToggle": "المسار الأصلي عند الفرع",
@@ -1846,8 +1856,6 @@
     "preview_more": "…و{{n}} أخرى",
     "preview_blank": "سيُحذف سطر فارغ"
   },
-  "threadEditAria": "تعديل الوعد",
-  "threadArchiveAria": "أرشفة الوعد",
   "qualityReasons": {
     "context_limit": "تم تجاوز حد سياق النموذج.",
     "network": "خطأ في شبكة المزود.",

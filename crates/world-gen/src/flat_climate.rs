@@ -515,19 +515,6 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 // threshold location, then blend center-biome and other-biome colors by
 // a smoothstep curve over the normalized distance to the threshold.
 
-/// Half-width of the temperature blend band, in °C. Threshold crossings within
-/// ±this distance are blended. 1.5°C ≈ 2.5% of the typical [-20, 40] range.
-/// Tested at 0.5°C 2026-05-24 to mitigate regression under v4 eval; reverted
-/// to 1.5°C after upgrading eval to ecotone-aware scoring (v4.3) — ecotones
-/// at full spec width are now recognized as legitimate biome transitions
-/// rather than penalized as "wrong biome" pixels.
-const BLEND_TEMP: f32 = 1.5;
-
-/// Half-width of the precipitation blend band, in mm/yr. 75 mm/yr ≈ 2.5%
-/// of the typical [0, 3000] range — comparable %-band to BLEND_TEMP.
-/// See BLEND_TEMP doc-comment for history of 75 → 25 → 75 round trip.
-const BLEND_PRECIP: f32 = 75.0;
-
 /// **v5** — per-pixel COLOR (RGB) using Köppen classifier with lapse override.
 ///
 /// Mirrors [`pixel_biome`]'s decision tree but returns the Köppen color

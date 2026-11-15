@@ -1871,23 +1871,42 @@ class OutlineRepo:
         A chapter with no position of its own yields NULL (propagated) rather than a
         fabricated 0 — an unknown slot must not claim to be the book's first.
         NOT version-bumped — story_order is a system-maintained ordinal, not a user field.
-        project_id-scoped, so the renumber can never leave this Work."""
+        project_id-scoped, so the renumber can never leave this Work.
+
+        ROOT scenes (`parent_id IS NULL`) still belong to a chapter — the DB CHECK
+        requires `chapter_id` on a scene — so their base is NOT the (absent) parent:
+        when the parent has no slot, the base falls back to the story_order of the
+        chapter node carrying the scene's own `chapter_id`. A root scene with no
+        chapter node in this project has no slot to claim and still yields NULL
+        (the same honest-unknown rule as a chapter with no position). The index
+        stays the sibling index (`row_number()` over the parent's children), so a
+        chapter's scenes keep `chapter.slot + i` exactly as before this change."""
         await c.execute(
             """
             WITH base AS (
               SELECT story_order AS b FROM outline_node
                WHERE id = $2 AND project_id = $1
             ), ordered AS (
-              SELECT id, (row_number() OVER (ORDER BY rank COLLATE "C", id) - 1) AS idx
+              SELECT id, chapter_id, (row_number() OVER (ORDER BY rank COLLATE "C", id) - 1) AS idx
               FROM outline_node
               WHERE project_id = $1 AND parent_id IS NOT DISTINCT FROM $2
                 AND kind = 'scene' AND NOT is_archived
+            ), based AS (
+              SELECT o.id, o.idx,
+                     COALESCE(
+                       (SELECT b FROM base),
+                       (SELECT ch.story_order FROM outline_node ch
+                         WHERE ch.project_id = $1 AND ch.kind = 'chapter'
+                           AND ch.chapter_id = o.chapter_id AND NOT ch.is_archived
+                         ORDER BY ch.created_at LIMIT 1)
+                     ) AS b
+              FROM ordered o
             )
             UPDATE outline_node n
-            SET story_order = (SELECT b FROM base) + o.idx, updated_at = now()
-            FROM ordered o
-            WHERE n.id = o.id AND n.project_id = $1
-              AND n.story_order IS DISTINCT FROM ((SELECT b FROM base) + o.idx)
+            SET story_order = based.b + based.idx, updated_at = now()
+            FROM based
+            WHERE n.id = based.id AND n.project_id = $1
+              AND n.story_order IS DISTINCT FROM (based.b + based.idx)
             """,
             project_id, parent_id,
         )

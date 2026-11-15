@@ -1,6 +1,6 @@
 # Vector backend recall and latency — 2026-08-10
 
-> **Gate:** plan [T24](../plans/2026-08-09-knowledge-architecture-refactor.md) — *"Neo4j HNSW vs
+> **Gate:** plan [T24](../../.ai-factory/archive/plans/2026-08-09-knowledge-architecture-refactor.md) — *"Neo4j HNSW vs
 > pgvector vs StreamingDiskANN vs halfvec, same corpus, recall@k + latency. **Bite:** halfvec must
 > measurably lose recall somewhere; if it never does, the harness is not measuring."*
 

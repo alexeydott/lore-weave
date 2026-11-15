@@ -184,6 +184,7 @@ mod pin_column_tests {
 pub struct GlobalCursor {
     /// RFC3339 micros, matching [`EventEnvelope::recorded_at`].
     pub recorded_at: String,
+    /// The event's id; the second half of the global order key.
     pub event_id: Uuid,
 }
 
@@ -198,6 +199,7 @@ pub struct GlobalEventSource {
 }
 
 impl GlobalEventSource {
+    /// Build a reader for a reality's events in global order.
     pub fn new(pool: Arc<PgPool>, handle: Handle, reality_id: Uuid) -> Self {
         Self {
             pool,

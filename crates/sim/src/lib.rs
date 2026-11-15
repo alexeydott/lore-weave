@@ -1,6 +1,9 @@
 //! Test/chaos harness for `sim-core` (S1a slice): the [`TestDomain`] toy
 //! domain the property tests and bench drive.
 
+
+#![forbid(unsafe_code)]
+
 use std::collections::BTreeMap;
 
 use sim_core::{

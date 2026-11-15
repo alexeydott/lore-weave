@@ -166,7 +166,13 @@ async def test_publish_best_effort_swallows_redis_errors():
     inv.publish("l0", uuid4())
     # Awaiting the drained task must not raise — it was a best-effort
     # publish and the exception is swallowed + logged inside _send.
-    await asyncio.gather(*list(inv._pending_publishes), return_exceptions=True)
+    # R7: gather(return_exceptions=True) alone masks a task that raised —
+    # the swallow must be asserted on the task OUTCOME, or a _send that
+    # lets the redis error escape still passes this test.
+    results = await asyncio.gather(*list(inv._pending_publishes), return_exceptions=True)
+    assert all(r is None for r in results), (
+        f"best-effort publish let a redis error escape _send: {results!r}"
+    )
 
 
 @pytest.mark.asyncio

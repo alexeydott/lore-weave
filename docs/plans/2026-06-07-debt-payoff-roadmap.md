@@ -82,7 +82,7 @@ Order is flexible — if you'd rather front-load value, do K17 first. The cheap 
 - `anchor_score` (already set; two-layer `weighted_score = raw_score * anchor_score`).
 - `glossary_entity_id` anchor (already set; read path keeps only anchored hits).
 
-**The gap:** nothing WRITES `embedding_{dim}` / `embedding_model`. The merge cypher ([entities.py:205](../../services/knowledge-service/app/db/neo4j_repos/entities.py#L205)) never sets them. EmbeddingClient → provider-registry `/internal/embed` exists ([embedding_client.py](../../services/knowledge-service/app/clients/embedding_client.py)); dimension probe exists. So K17 is the producer that ties them together.
+**The gap:** nothing WRITES `embedding_{dim}` / `embedding_model`. The merge cypher ([entities.py:205](../../services/knowledge-service/app/db/graph_repos/entities.py#L205)) never sets them. EmbeddingClient → provider-registry `/internal/embed` exists ([embedding_client.py](../../services/knowledge-service/app/clients/embedding_client.py)); dimension probe exists. So K17 is the producer that ties them together.
 
 **Open questions for CLARIFY (the load-bearing design decision):**
 1. **Trigger point** — three options:

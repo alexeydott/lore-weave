@@ -92,7 +92,18 @@ describe('splitScopeChunks (the selection-edit 8000-char ceiling)', () => {
     const chunks = splitScopeChunks(para);
     expect(chunks.length).toBe(2);
     for (const c of chunks) expect(c.length).toBeLessThanOrEqual(8000);
-    expect(chunks.join(' ')).toBe(para);
+    // Segments join back verbatim: the split is exactly lossless.
+    expect(chunks.join('')).toBe(para);
+  });
+
+  it('hard-splits a spaceless CJK paragraph per character (ML-3)', () => {
+    // No spaces at all: the old split(' ') kept this as one "word" and the
+    // chunk went over the 8000 ceiling, so the endpoint 422d.
+    const para = '这是一个很长的中文段落'.repeat(800); // 8800 chars, no spaces
+    const chunks = splitScopeChunks(para);
+    expect(chunks.length).toBe(2);
+    for (const c of chunks) expect(c.length).toBeLessThanOrEqual(8000);
+    expect(chunks.join('')).toBe(para);
   });
 });
 

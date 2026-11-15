@@ -31,7 +31,7 @@ docker compose -f infra/docker-compose.yml up -d
 # then register at http://localhost:5174/register, or:
 curl -X POST http://localhost:3123/v1/auth/register \
   -H 'Content-Type: application/json' \
-  -d '{"email":"<YOUR_TEST_EMAIL>","password":"<YOUR_TEST_PASSWORD>","name":"<YOUR_TEST_NAME>"}'
+  -d '{"email":"<YOUR_TEST_EMAIL>","password":"<YOUR_TEST_PASSWORD>","display_name":"<YOUR_TEST_NAME>"}'
 ```
 
 Pick your own values. Do not reuse a password you use anywhere real — this one will sit in plaintext

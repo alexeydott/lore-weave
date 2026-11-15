@@ -52,6 +52,12 @@
   "guidedCueStart": "Cipta babak pertama anda, kemudian tulis pembukaan dan Jana — atau Sambung dari kursor anda dalam editor.",
   "guidedStart": "Mula menulis",
   "compose": "Gubah",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
+  },
   "cowriter": "Co-writer",
   "cw": {
     "insert": "Masukkan sebagai draf",
@@ -100,7 +106,8 @@
     "stale": "Kursor telah beralih — cuba lagi.",
     "need_editor": "Editor masih sedang dimuatkan.",
     "streaming": "Sedang menulis… biarkan kesinambungan semasa selesai.",
-    "pending_ghost": "Terima atau buang cadangan semasa sebelum memulakan yang lain."
+    "pending_ghost": "Terima atau buang cadangan semasa sebelum memulakan yang lain.",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "Rentak",
   "beatsheet": {
@@ -583,6 +590,8 @@
   "threadKind_question": "persoalan",
   "threadKind_mice_thread": "benang",
   "threadPaid": "selesai",
+  "threadEditAria": "Sunting janji",
+  "threadArchiveAria": "Arkibkan janji",
   "threadDropped": "ditinggalkan",
   "noThreads": "Tiada benang lagi.",
   "noOpenThreads": "Tiada janji terbuka — semua telah selesai.",
@@ -755,9 +764,9 @@
     "empty": {
       "title": "Perpustakaan motif anda sudah sedia",
       "body": "Motif adalah bentuk plot yang boleh digunakan semula. Perancang akan memilih satu bagi setiap bab supaya walaupun model kecil, ia tetap menghasilkan babak yang mantap. 12 motif permulaan sudah tersedia — tu-tiên dan báo-thù.",
+      "notThemes": "Ini ialah bentuk plot BERSTRUKTUR untuk perancang, bukan penjejak imej atau tema berulang dalam cerita anda sendiri — tiada apa-apa di sini yang menjejaki simbol merentasi bab anda.",
       "browseSystem": "Teroka 12 permulaan",
-      "hint": "Tiada token diperlukan — membina motif secara manual adalah percuma.",
-      "notThemes": "Ini ialah bentuk plot BERSTRUKTUR untuk perancang, bukan penjejak imej atau tema berulang dalam cerita anda sendiri — tiada apa-apa di sini yang menjejaki simbol merentasi bab anda."
+      "hint": "Tiada token diperlukan — membina motif secara manual adalah percuma."
     },
     "facet": {
       "tier": "Tahap",
@@ -1651,7 +1660,8 @@
   "canonConflictKeepTheirs": "Simpan milik mereka",
   "canonConflictReapply": "Guna semula suntingan saya pada v{{v}}",
   "canonConflictTitle": "Peraturan ini telah berubah di tempat lain — draf anda dikekalkan di bawah.",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} aktif",
     "branchHint": "Apa yang diketahui kanon sejurus sebelum cabang ini",
     "branchToggle": "Kanon pada cabang",
@@ -1846,8 +1856,6 @@
     "preview_more": "…dan {{n}} lagi",
     "preview_blank": "baris kosong akan dipadam"
   },
-  "threadEditAria": "Sunting janji",
-  "threadArchiveAria": "Arkibkan janji",
   "qualityReasons": {
     "context_limit": "Had konteks model dilepasi.",
     "network": "Ralat rangkaian penyedia.",

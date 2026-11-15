@@ -76,6 +76,13 @@ services:
       - --web.enable-lifecycle
       - --web.console.libraries=/usr/share/prometheus/console_libraries
       - --web.console.templates=/usr/share/prometheus/consoles
+    healthcheck:
+      # The image ships busybox wget (verified in the image). /-/healthy
+      # answers 200 once Prometheus is up.
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # ───────────────────────────────────────────────────────────────────
   # Prometheus HA — replica B (identical scrape, different prom_replica label)
@@ -105,6 +112,13 @@ services:
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=30d
       - --web.enable-lifecycle
+    healthcheck:
+      # The image ships busybox wget (verified in the image). /-/healthy
+      # answers 200 once Prometheus is up.
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # ───────────────────────────────────────────────────────────────────
   # Loki — self-hosted (Q-L7F-1)
@@ -123,6 +137,14 @@ services:
       - ./loki/retention.yaml:/etc/loki/retention.yaml:ro
       - loki-data:/loki
     command: -config.file=/etc/loki/loki.yaml
+    healthcheck:
+      # The image ships busybox wget (verified in the image). /ready
+      # answers 200 once Loki is ready to receive.
+      test: ["CMD", "wget", "-qO-", "http://localhost:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   # ───────────────────────────────────────────────────────────────────
   # Vector — log shipper (Q-L7F-1, defense-in-depth scrubber)
@@ -146,6 +168,14 @@ services:
       - /var/log/lw:/var/log/lw:ro
     depends_on:
       - loki
+    healthcheck:
+      # The image ships busybox wget (verified in the image). The remote
+      # control API is disabled in this config, but the prometheus_exporter
+      # sink serves /metrics on :9598 — a real answer from the process.
+      test: ["CMD", "wget", "-qO-", "http://localhost:9598/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # ───────────────────────────────────────────────────────────────────
   # Grafana — visualization
@@ -172,6 +202,14 @@ services:
       - prom-a
       - prom-b
       - loki
+    healthcheck:
+      # The image ships curl (verified in the image). /api/health answers
+      # {"database":"ok"} once Grafana is up.
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   # ───────────────────────────────────────────────────────────────────
   # Alertmanager — RAID cycle 34 L7.J (Q-L7C-1 PagerDuty V1)
@@ -205,6 +243,13 @@ services:
       - '--cluster.listen-address='
     depends_on:
       - alert-recorder
+    healthcheck:
+      # The image ships busybox wget (verified in the image). /-/healthy
+      # answers 200 once Alertmanager is up.
+      test: ["CMD", "wget", "-qO-", "http://localhost:9093/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # ───────────────────────────────────────────────────────────────────
   # slo-budget-calculator — RAID cycle 34 L7.I (Q-L7-1 SEPARATE service)

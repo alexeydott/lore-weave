@@ -52,6 +52,12 @@
   "guidedCueStart": "最初のシーンを作成し、書き出しを入力して「生成」、またはエディタでカーソル位置から「続きを書く」。",
   "guidedStart": "執筆を開始",
   "compose": "執筆",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
+  },
   "cowriter": "共筆",
   "cw": {
     "insert": "下書きとして挿入",
@@ -100,7 +106,8 @@
     "stale": "カーソルが移動しました — もう一度お試しください。",
     "need_editor": "エディタを読み込み中です。",
     "streaming": "執筆中… 現在の続きが完了するまでお待ちください。",
-    "pending_ghost": "次の提案を開始する前に、現在の提案を承認するか破棄してください。"
+    "pending_ghost": "次の提案を開始する前に、現在の提案を承認するか破棄してください。",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "ビート",
   "beatsheet": {
@@ -583,6 +590,8 @@
   "threadKind_question": "謎",
   "threadKind_mice_thread": "筋",
   "threadPaid": "回収済み",
+  "threadEditAria": "約束を編集",
+  "threadArchiveAria": "約束をアーカイブ",
   "threadDropped": "破棄",
   "noThreads": "伏線はまだありません。",
   "noOpenThreads": "未回収の約束はありません。",
@@ -755,9 +764,9 @@
     "empty": {
       "title": "モチーフライブラリの準備ができました",
       "body": "モチーフは再利用可能なプロットの型です。プランナーは1章につき1つのモチーフを選択するため、簡単な構成でも堅実なシーンを描くことができます。12個のスターターモチーフが用意されています — tu-tiên と báo-thù。",
+      "notThemes": "これはプランナー向けの構造的なプロット型であり、あなたの物語に繰り返し現れるイメージやテーマを追跡するものではありません。章をまたいで象徴を追う機能はここにはありません。",
       "browseSystem": "12個のスターターを閲覧する",
-      "hint": "トークンは不要です。手動でのモチーフ作成は無料です。",
-      "notThemes": "これはプランナー向けの構造的なプロット型であり、あなたの物語に繰り返し現れるイメージやテーマを追跡するものではありません。章をまたいで象徴を追う機能はここにはありません。"
+      "hint": "トークンは不要です。手動でのモチーフ作成は無料です。"
     },
     "facet": {
       "tier": "ティア",
@@ -1651,7 +1660,8 @@
   "canonConflictKeepTheirs": "相手の変更を維持",
   "canonConflictReapply": "私の編集を v{{v}} に再適用",
   "canonConflictTitle": "このルールは他の場所で変更されました。あなたのドラフトは以下に保持されます。",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} 件のアクティブな不整合",
     "branchHint": "この分岐の直前における正史の状態",
     "branchToggle": "分岐時点の正史",
@@ -1846,8 +1856,6 @@
     "preview_more": "…ほか {{n}} 件",
     "preview_blank": "空行を削除します"
   },
-  "threadEditAria": "約束を編集",
-  "threadArchiveAria": "約束をアーカイブ",
   "qualityReasons": {
     "context_limit": "モデルのコンテキスト上限を超えました。",
     "network": "プロバイダーのネットワークエラー。",

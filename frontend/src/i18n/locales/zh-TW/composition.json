@@ -52,6 +52,12 @@
   "guidedCueStart": "建立第一個場景，寫下開頭再按「生成」 — 或在編輯器中從游標處「繼續書寫」。",
   "guidedStart": "開始書寫",
   "compose": "撰寫",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
+  },
   "cowriter": "共筆",
   "cw": {
     "insert": "插入為草稿",
@@ -100,7 +106,8 @@
     "stale": "游標已移動 — 請重試。",
     "need_editor": "編輯器仍在載入中。",
     "streaming": "正在寫作…請等待目前的內容寫完。",
-    "pending_ghost": "在開始下一個建議前，請先接受或捨棄目前的建議。"
+    "pending_ghost": "在開始下一個建議前，請先接受或捨棄目前的建議。",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "節拍",
   "beatsheet": {
@@ -583,6 +590,8 @@
   "threadKind_question": "懸念",
   "threadKind_mice_thread": "線索",
   "threadPaid": "已回收",
+  "threadEditAria": "編輯承諾",
+  "threadArchiveAria": "封存承諾",
   "threadDropped": "已放棄",
   "noThreads": "尚無伏筆。",
   "noOpenThreads": "沒有未回收的承諾。",
@@ -755,9 +764,9 @@
     "empty": {
       "title": "您的母題庫已準備就緒",
       "body": "母題是可重複使用的情節結構。規劃器會為每章挑選一個母題，因此即使是簡單的模型也能寫出紮實的場景。這裡已有 12 個入門母題 — 例如：tu-tiên 與 báo-thù。",
+      "notThemes": "這些是供規劃器使用的結構性情節模型，而不是追蹤你故事中反覆出現的意象或主題的工具——這裡沒有任何功能會跨章節追蹤某個象徵。",
       "browseSystem": "瀏覽 12 個入門母題",
-      "hint": "無需消耗 Token — 手動建立母題是免費的。",
-      "notThemes": "這些是供規劃器使用的結構性情節模型，而不是追蹤你故事中反覆出現的意象或主題的工具——這裡沒有任何功能會跨章節追蹤某個象徵。"
+      "hint": "無需消耗 Token — 手動建立母題是免費的。"
     },
     "facet": {
       "tier": "層級",
@@ -1651,7 +1660,8 @@
   "canonConflictKeepTheirs": "保留對方的修改",
   "canonConflictReapply": "將我的編輯重新套用至 v{{v}}",
   "canonConflictTitle": "此規則已在其他地方變更 — 您的草稿將保留在下方。",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}} 個生效中",
     "branchHint": "在此分支前，正典所知曉的內容",
     "branchToggle": "分支處的正典狀態",
@@ -1846,8 +1856,6 @@
     "preview_more": "…還有 {{n}} 處",
     "preview_blank": "將刪除一個空行"
   },
-  "threadEditAria": "編輯承諾",
-  "threadArchiveAria": "封存承諾",
   "qualityReasons": {
     "context_limit": "超出模型上下文限制。",
     "network": "供應商網路錯誤。",

@@ -2,6 +2,9 @@
 //! single island, TestDomain). std::Instant only measures the harness, never
 //! enters kernel state. Run `--release` for the real number.
 
+
+#![forbid(unsafe_code)]
+
 use std::sync::Arc;
 use std::time::Instant;
 

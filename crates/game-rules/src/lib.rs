@@ -39,5 +39,8 @@
 //! byte-identical outputs, on any machine — which is what makes replaying a
 //! committed encounter a recovery model instead of a hope.
 
+
+#![forbid(unsafe_code)]
+
 pub mod combat;
 pub mod stats;

@@ -52,6 +52,12 @@
   "guidedCueStart": "আপনার প্রথম দৃশ্যটি তৈরি করুন, তারপর সূচনা লিখুন এবং Generate করুন — অথবা এডিটরে কার্সার থেকে Continue করুন।",
   "guidedStart": "লেখা শুরু করুন",
   "compose": "কম্পোজ",
+  "workDefault": {
+    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
+    "apply": "Use my default chat model",
+    "applied": "Default model for this book has been set",
+    "apply_failed": "Failed to apply"
+  },
   "cowriter": "কো-রাইটার",
   "cw": {
     "insert": "খসড়া হিসেবে ইনসার্ট করুন",
@@ -100,7 +106,8 @@
     "stale": "কার্সার সরে গেছে — আবার চেষ্টা করুন।",
     "need_editor": "এডিটরটি এখনও লোড হচ্ছে।",
     "streaming": "লেখা হচ্ছে… বর্তমান অংশটি শেষ হতে দিন।",
-    "pending_ghost": "অন্যটি শুরু করার আগে বর্তমান প্রস্তাবটি গ্রহণ বা বর্জন করুন।"
+    "pending_ghost": "অন্যটি শুরু করার আগে বর্তমান প্রস্তাবটি গ্রহণ বা বর্জন করুন।",
+    "open_coauthor_settings": "Open the co-writer chat"
   },
   "beats": "বিটস",
   "beatsheet": {
@@ -583,6 +590,8 @@
   "threadKind_question": "প্রশ্ন",
   "threadKind_mice_thread": "থ্রেড",
   "threadPaid": "সম্পন্ন",
+  "threadEditAria": "প্রতিশ্রুতি সম্পাদনা করুন",
+  "threadArchiveAria": "প্রতিশ্রুতি সংরক্ষণ করুন",
   "threadDropped": "ছেড়ে দেওয়া হয়েছে",
   "noThreads": "এখনও কোনো থ্রেড নেই।",
   "noOpenThreads": "কোনো খোলা প্রতিশ্রুতি নেই — সব সম্পন্ন হয়েছে।",
@@ -755,9 +764,9 @@
     "empty": {
       "title": "আপনার Motif লাইব্রেরি প্রস্তুত",
       "body": "Motif হলো পুনরায় ব্যবহারযোগ্য প্লট কাঠামো। প্ল্যানার প্রতিটি অধ্যায়ের জন্য একটি করে বেছে নেয় যাতে একটি ছোট মডেলও একটি শক্তিশালী দৃশ্য তৈরি করতে পারে। ১২টি স্টার্টার Motif এখানে আছে — tu-tiên এবং báo-thù।",
+      "notThemes": "এগুলি পরিকল্পনাকারীর জন্য কাঠামোগত প্লট-আকৃতি, আপনার নিজের গল্পের পুনরাবৃত্ত চিত্রকল্প বা থিমের ট্র্যাকার নয় — এখানে কিছুই আপনার অধ্যায় জুড়ে কোনো প্রতীক অনুসরণ করে না।",
       "browseSystem": "১২টি স্টার্টার দেখুন",
-      "hint": "কোনো টোকেন প্রয়োজন নেই — হাতে তৈরি করা Motif সম্পূর্ণ ফ্রি।",
-      "notThemes": "এগুলি পরিকল্পনাকারীর জন্য কাঠামোগত প্লট-আকৃতি, আপনার নিজের গল্পের পুনরাবৃত্ত চিত্রকল্প বা থিমের ট্র্যাকার নয় — এখানে কিছুই আপনার অধ্যায় জুড়ে কোনো প্রতীক অনুসরণ করে না।"
+      "hint": "কোনো টোকেন প্রয়োজন নেই — হাতে তৈরি করা Motif সম্পূর্ণ ফ্রি।"
     },
     "facet": {
       "tier": "স্তর",
@@ -1651,7 +1660,8 @@
   "canonConflictKeepTheirs": "তাদেরটি রাখুন",
   "canonConflictReapply": "v{{v}} সংস্করণে আমার এডিটটি পুনরায় প্রয়োগ করুন",
   "canonConflictTitle": "এই নিয়মটি অন্য কোথাও পরিবর্তিত হয়েছে — আপনার ড্রাফটটি নিচে রাখা হয়েছে।",
-  "canonview": {
+  "canonview": "Canon as of",
+  "canonAtChapter": {
     "active": "{{n}}টি সক্রিয়",
     "branchHint": "এই শাখাটি আসার ঠিক আগে ক্যানন কী জানে",
     "branchToggle": "শাখা অনুযায়ী ক্যানন",
@@ -1846,8 +1856,6 @@
     "preview_more": "…আরও {{n}}টি",
     "preview_blank": "ফাঁকা লাইন মুছে ফেলা হবে"
   },
-  "threadEditAria": "প্রতিশ্রুতি সম্পাদনা করুন",
-  "threadArchiveAria": "প্রতিশ্রুতি সংরক্ষণ করুন",
   "qualityReasons": {
     "context_limit": "মডেলের প্রসঙ্গসীমা অতিক্রম করেছে।",
     "network": "প্রদানকারীর নেটওয়ার্ক ত্রুটি।",

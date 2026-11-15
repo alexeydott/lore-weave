@@ -39,8 +39,8 @@ Steps 2-4 are pure logic — no service state — but live inside knowledge-serv
 | [`app/extraction/llm_relation_extractor.py`](../../services/knowledge-service/app/extraction/llm_relation_extractor.py) | `loreweave_extraction/extractors/relation.py` | Pure |
 | [`app/extraction/llm_event_extractor.py`](../../services/knowledge-service/app/extraction/llm_event_extractor.py) | `loreweave_extraction/extractors/event.py` | Pure |
 | [`app/extraction/llm_fact_extractor.py`](../../services/knowledge-service/app/extraction/llm_fact_extractor.py) | `loreweave_extraction/extractors/fact.py` | Pure |
-| [`app/db/neo4j_repos/canonical.py`](../../services/knowledge-service/app/db/neo4j_repos/canonical.py) `canonicalize_entity_name` + `canonicalize_text` + `entity_canonical_id` + `HONORIFICS` | `loreweave_extraction/canonical.py` | Misclassified — these are pure ID-derivation utilities, not Neo4j IO. The Neo4j `merge_entity` etc. functions stay in the repo file. |
-| [`app/db/neo4j_repos/relations.py`](../../services/knowledge-service/app/db/neo4j_repos/relations.py) `relation_id` | `loreweave_extraction/canonical.py` | Same — pure deterministic hash |
+| [`app/db/neo4j_repos/canonical.py`](../../services/knowledge-service/app/db/graph_repos/canonical.py) `canonicalize_entity_name` + `canonicalize_text` + `entity_canonical_id` + `HONORIFICS` | `loreweave_extraction/canonical.py` | Misclassified — these are pure ID-derivation utilities, not Neo4j IO. The Neo4j `merge_entity` etc. functions stay in the repo file. |
+| [`app/db/neo4j_repos/relations.py`](../../services/knowledge-service/app/db/graph_repos/relations.py) `relation_id` | `loreweave_extraction/canonical.py` | Same — pure deterministic hash |
 | Pass 2 high-level orchestration (the `_run_pipeline` flow inside [`pass2_orchestrator.py`](../../services/knowledge-service/app/extraction/pass2_orchestrator.py)) | `loreweave_extraction/pass2.py` `extract_pass2(...)` | Pure — calls extractors + aggregates candidates |
 | Test files for the 4 extractors + pass2_orchestrator (5 files) | `sdks/python/tests/test_extraction/` | Tests follow the code |
 

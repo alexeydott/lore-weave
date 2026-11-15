@@ -64,6 +64,9 @@
 //! - **Compile-error UI snapshots** — `trybuild` skeleton is ready in the
 //!   test dir; full UI files land in cycle 21 alongside auto-dispatch.
 
+
+#![forbid(unsafe_code)]
+
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};

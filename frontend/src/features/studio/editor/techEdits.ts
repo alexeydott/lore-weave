@@ -27,17 +27,29 @@ export const SELECTION_CEILING = 8000;
 
 /** Split AI-scope text into ≤ SELECTION_CEILING chunks at paragraph (\n\n)
  *  boundaries; a single oversized paragraph degrades to a hard split at
- *  spaces. Pure — unit-tested alongside the transforms. */
+ *  script-aware segment boundaries. Pure — unit-tested alongside the
+ *  transforms.
+ *
+ *  ML-3: the split must not assume spaces. The old space-only split kept a
+ *  spaceless CJK paragraph as ONE "word" longer than the ceiling, so the chunk
+ *  went over it and the endpoint 422d — the exact failure this chunking exists
+ *  to prevent. Segments are: one CJK character each (Han/hiragana/katakana/
+ *  hangul carry no spaces, so they count per character), letter/mark/digit
+ *  runs elsewhere, whitespace runs, and single other characters. Joining the
+ *  segments restores the input exactly. */
+const SEGMENT_RE =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]|[\p{L}\p{M}\p{N}]+|\s+|[^\p{L}\p{M}\p{N}\s]/gu;
+
 export function splitScopeChunks(text: string): string[] {
   const hardSplit = (part: string): string[] => {
     if (part.length <= SELECTION_CEILING) return [part];
     const out: string[] = [];
     let cur = '';
-    for (const word of part.split(' ')) {
-      const candidate = cur ? cur + ' ' + word : word;
+    for (const seg of part.match(SEGMENT_RE) ?? []) {
+      const candidate = cur + seg;
       if (candidate.length > SELECTION_CEILING && cur) {
         out.push(cur);
-        cur = word;
+        cur = seg;
       } else {
         cur = candidate;
       }

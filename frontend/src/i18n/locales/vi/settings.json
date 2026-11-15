@@ -562,7 +562,7 @@
     "composer": "Trình soạn thảo mặc định",
     "composerHint": "Mô hình sẽ viết văn xuôi cho bạn khi một cuốn sách không có mô hình riêng. Hãy thiết lập một cách cẩn thận — việc tạo nội dung là tác vụ tốn kém nhất ở đây, và sẽ không có gì tiêu tốn hạn mức mô hình chat của bạn thay cho bạn cả.",
     "critic": "Mô hình phê bình mặc định",
-    "criticHint": "Chấm điểm các phiên luyện tập và kiểm toán các cảnh được tạo. Tùy chọn — không đặt thì không chấm điểm và các phiên không được đánh giá. Chọn mô hình khác với mô hình chat bạn thường dùng.",
+    "criticHint": "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.",
     "distill": "Mô hình chưng cất mặc định",
     "distillHint": "Biến các đoạn chat \"kết thúc ngày của tôi\" thành nhật ký hàng ngày. Tùy chọn — không đặt thì dùng mô hình chat mặc định của bạn. Chọn mô hình KHÔNG suy luận: mô hình suy luận chỉ phát ra suy luận và chưng cất ra nhật ký trống.",
     "propagated": "Đã chuyển {{n}} đoạn chat hiện có sang mặc định mới",

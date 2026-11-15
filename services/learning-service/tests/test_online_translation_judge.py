@@ -122,17 +122,47 @@ def _quality_event(**payload_over):
 async def test_hook_noop_when_disabled(monkeypatch):
     import app.config as cfg
     monkeypatch.setattr(cfg.settings, "online_translation_judge_enabled", False)
+    # R7: "must not attempt a judge" was unverified — the hook's best-effort
+    # except swallows any failure, so a hook that attempted the judge anyway
+    # still passed. Pin the attempt itself: neither the SDK build nor the
+    # judge start may run.
+    started: list[str] = []
+    monkeypatch.setattr(
+        "app.clients.llm_client.build_judge_sdk", lambda **k: started.append("sdk")
+    )
+
+    async def _never_start(*a, **k):
+        started.append("start")
+
+    monkeypatch.setattr(
+        "app.judges.decoupled_judge.start_translation_judge", _never_start
+    )
     ev = _quality_event(source_text="x", translated_text="y")
     # Must not raise / not attempt a judge (no model, disabled).
     await _maybe_judge_translation(ev, ev.payload, "ct", pool=None)
+    assert started == [], "disabled hook attempted the judge instead of staying inert"
 
 
 async def test_hook_noop_when_no_texts(monkeypatch):
     import app.config as cfg
     monkeypatch.setattr(cfg.settings, "online_translation_judge_enabled", True)
     monkeypatch.setattr(cfg.settings, "online_judge_model_ref", "gemma-judge")
+    # R7: same hole as the disabled case — the best-effort except swallows a
+    # judge attempt that fails, so "inert" was unverified. Pin the attempt.
+    started: list[str] = []
+    monkeypatch.setattr(
+        "app.clients.llm_client.build_judge_sdk", lambda **k: started.append("sdk")
+    )
+
+    async def _never_start(*a, **k):
+        started.append("start")
+
+    monkeypatch.setattr(
+        "app.judges.decoupled_judge.start_translation_judge", _never_start
+    )
     ev = _quality_event()  # no source_text/translated_text → inert (M7d-3 feed off)
     await _maybe_judge_translation(ev, ev.payload, "ct", pool=None)
+    assert started == [], "hook without texts attempted the judge instead of staying inert"
 
 
 # M1 (LLM re-arch Phase 3): the hook now STARTS a decoupled judge (durable job-row
