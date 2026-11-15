@@ -53,10 +53,10 @@
   "guidedStart": "ابدأ الكتابة",
   "compose": "تأليف",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "لا يوجد نموذج كاتب مشارك لهذا الكتاب. هل تريد تطبيق نموذج الدردشة الافتراضي لديك؟",
+    "apply": "استخدم نموذج الدردشة الافتراضي لديّ",
+    "applied": "تم تعيين النموذج الافتراضي لهذا الكتاب",
+    "apply_failed": "تعذّر التطبيق"
   },
   "cowriter": "المؤلف المساعد",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "تجاهل",
     "stop": "إيقاف",
     "stale": "تغير التحديد — حاول مرة أخرى.",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "اقترح مشاهد",
+    "scenePlanOnly": "هذا التحديد متاح لاقتراحات المشاهد فقط.",
+    "scenePlanInvalid": "لم يُرجع النموذج مقترحات مشاهد صالحة. حاول مجددًا.",
+    "scenePlanNeedsOutline": "لا توجد مخطط لهذا الفصل بعد. أنشئ خطته أو استخرجها أولًا.",
+    "scenePlanCreateFailed": "تعذّر إنشاء مقترحات المشاهد.",
+    "createScenes": "أنشئ المشاهد المحددة",
+    "applying": "جارٍ الإنشاء…"
   },
   "inline": {
     "mode": "وضع الكتابة",
@@ -107,7 +107,7 @@
     "need_editor": "المحرر لا يزال قيد التحميل.",
     "streaming": "جاري الكتابة... انتظر حتى ينتهي الجزء الحالي.",
     "pending_ghost": "يجب قبول الاقتراح الحالي أو رفضه قبل البدء في اقتراح آخر.",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "افتح محادثة الكاتب المشارك"
   },
   "beats": "الإيقاعات",
   "beatsheet": {
@@ -1660,7 +1660,7 @@
   "canonConflictKeepTheirs": "الإبقاء على مسودتهم",
   "canonConflictReapply": "إعادة تطبيق تعديلي على الإصدار v{{v}}",
   "canonConflictTitle": "تغيرت هذه القاعدة في مكان آخر — سيتم الاحتفاظ بمسودتك أدناه.",
-  "canonview": "Canon as of",
+  "canonview": "القانون المعتمد حتى",
   "canonAtChapter": {
     "active": "{{n}} نشطة",
     "branchHint": "ما يعرفه المسار الأصلي قبل هذا الفرع مباشرة",

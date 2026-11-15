@@ -53,10 +53,10 @@
   "guidedStart": "เริ่มเขียน",
   "compose": "เรียบเรียง",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "ยังไม่ได้ตั้งโมเดลผู้ร่วมเขียนสำหรับหนังสือเล่มนี้ ใช้โมเดลแชทเริ่มต้นของคุณหรือไม่?",
+    "apply": "ใช้โมเดลแชทเริ่มต้นของฉัน",
+    "applied": "ตั้งโมเดลเริ่มต้นของหนังสือเล่มนี้แล้ว",
+    "apply_failed": "ไม่สามารถใช้งานได้"
   },
   "cowriter": "ผู้ช่วยเขียน",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "ยกเลิก",
     "stop": "หยุด",
     "stale": "ข้อความที่เลือกมีการเปลี่ยนแปลง — โปรดลองอีกครั้ง",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "เสนอฉาก",
+    "scenePlanOnly": "การเลือกนี้ใช้ได้เฉพาะการเสนอแนะฉากเท่านั้น",
+    "scenePlanInvalid": "โมเดลไม่ได้ส่งข้อเสนอฉากที่ถูกต้องกลับมา ลองอีกครั้ง",
+    "scenePlanNeedsOutline": "บทนี้ยังไม่มีเค้าโครง ให้สร้างหรือดึงแผนของบทออกมาก่อน",
+    "scenePlanCreateFailed": "สร้างข้อเสนอฉากไม่สำเร็จ",
+    "createScenes": "สร้างฉากที่เลือก",
+    "applying": "กำลังสร้าง…"
   },
   "inline": {
     "mode": "โหมดการเขียน",
@@ -107,7 +107,7 @@
     "need_editor": "ตัวแก้ไขกำลังโหลด",
     "streaming": "กำลังเขียน… โปรดรอให้การเขียนต่อเนื่องปัจจุบันเสร็จสิ้น",
     "pending_ghost": "กรุณายอมรับหรือปฏิเสธคำแนะนำปัจจุบันก่อนเริ่มคำแนะนำใหม่",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "เปิดแชทผู้ร่วมเขียน"
   },
   "beats": "จังหวะเรื่อง",
   "beatsheet": {
@@ -1660,7 +1660,7 @@
   "canonConflictKeepTheirs": "ใช้ฉบับของพวกเขา",
   "canonConflictReapply": "ใช้การแก้ไขของฉันซ้ำลงใน v{{v}}",
   "canonConflictTitle": "กฎนี้มีการเปลี่ยนแปลงที่อื่น — ร่างของคุณจะถูกเก็บไว้ด้านล่าง",
-  "canonview": "Canon as of",
+  "canonview": "แคนนอน ณ วันที่",
   "canonAtChapter": {
     "active": "{{n}} รายการที่ใช้งานอยู่",
     "branchHint": "สิ่งที่เนื้อเรื่องหลักรับรู้ก่อนถึงจุดแยกนี้",

@@ -53,10 +53,10 @@
   "guidedStart": "开始写作",
   "compose": "创作",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "本书尚未设置共同写作模型。要应用你的默认聊天模型吗？",
+    "apply": "使用我的默认聊天模型",
+    "applied": "已设置本书的默认模型",
+    "apply_failed": "应用失败"
   },
   "cowriter": "共同作者",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "舍弃",
     "stop": "停止",
     "stale": "选区已更改 — 请重试。",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "推荐场景",
+    "scenePlanOnly": "此选区仅可用于场景建议。",
+    "scenePlanInvalid": "模型未返回有效的场景提案，请重试。",
+    "scenePlanNeedsOutline": "本章还没有大纲。请先创建或提取章节计划。",
+    "scenePlanCreateFailed": "无法创建场景提案。",
+    "createScenes": "创建所选场景",
+    "applying": "创建中…"
   },
   "inline": {
     "mode": "写作模式",
@@ -107,7 +107,7 @@
     "need_editor": "编辑器正在加载中。",
     "streaming": "正在写作……请等待当前续写完成。",
     "pending_ghost": "在开始新的建议之前，请先接受或舍弃当前的建议。",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "打开共同写作对话"
   },
   "beats": "情节节拍",
   "beatsheet": {
@@ -1660,7 +1660,7 @@
   "canonConflictKeepTheirs": "保留对方的修改",
   "canonConflictReapply": "将我的编辑重新应用到 v{{v}}",
   "canonConflictTitle": "此规则已在别处更改 —— 您的草稿将保留在下方。",
-  "canonview": "Canon as of",
+  "canonview": "截至当前的正史",
   "canonAtChapter": {
     "active": "{{n}} 个生效",
     "branchHint": "在此分支前，正典已知的信息",

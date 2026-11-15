@@ -53,10 +53,10 @@
   "guidedStart": "Mulai menulis",
   "compose": "Susun",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "Tidak ada model co-penulis untuk buku ini. Terapkan model obrolan bawaan Anda?",
+    "apply": "Gunakan model obrolan bawaan saya",
+    "applied": "Model bawaan untuk buku ini sudah diatur",
+    "apply_failed": "Gagal menerapkan"
   },
   "cowriter": "Co-writer",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "Buang",
     "stop": "Berhenti",
     "stale": "Seleksi berubah — coba lagi.",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "Sarankan adegan",
+    "scenePlanOnly": "Pilihan ini hanya tersedia untuk saran adegan.",
+    "scenePlanInvalid": "Model tidak mengembalikan usulan adegan yang valid. Coba lagi.",
+    "scenePlanNeedsOutline": "Bab ini belum memiliki kerangka. Buat atau ekstrak rencananya dulu.",
+    "scenePlanCreateFailed": "Gagal membuat usulan adegan.",
+    "createScenes": "Buat adegan yang dipilih",
+    "applying": "Membuat…"
   },
   "inline": {
     "mode": "Mode menulis",
@@ -107,7 +107,7 @@
     "need_editor": "Editor sedang memuat.",
     "streaming": "Sedang menulis… biarkan kelanjutan saat ini selesai.",
     "pending_ghost": "Terima atau buang saran saat ini sebelum memulai yang lain.",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "Buka obrolan co-penulis"
   },
   "beats": "Beat",
   "beatsheet": {
@@ -1660,7 +1660,7 @@
   "canonConflictKeepTheirs": "Simpan milik mereka",
   "canonConflictReapply": "Terapkan kembali suntingan saya ke v{{v}}",
   "canonConflictTitle": "Aturan ini berubah di tempat lain — draf Anda tetap disimpan di bawah.",
-  "canonview": "Canon as of",
+  "canonview": "Kanon per tanggal",
   "canonAtChapter": {
     "active": "{{n}} aktif",
     "branchHint": "Apa yang diketahui kanon tepat sebelum cabang ini",

@@ -53,10 +53,10 @@
   "guidedStart": "Commencer à écrire",
   "compose": "Composer",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "Aucun modèle de co-auteur n’est défini pour ce livre. Appliquer votre modèle de chat par défaut ?",
+    "apply": "Utiliser mon modèle de chat par défaut",
+    "applied": "Le modèle par défaut de ce livre a été défini",
+    "apply_failed": "Échec de l’application"
   },
   "cowriter": "Co-auteur",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "Rejeter",
     "stop": "Arrêter",
     "stale": "La sélection a changé — réessayez.",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "Proposer des scènes",
+    "scenePlanOnly": "Cette sélection n’est disponible que pour les suggestions de scènes.",
+    "scenePlanInvalid": "Le modèle n’a pas renvoyé de propositions de scènes valides. Réessayez.",
+    "scenePlanNeedsOutline": "Ce chapitre n’a pas encore de plan. Créez ou extrayez d’abord son plan.",
+    "scenePlanCreateFailed": "Impossible de créer les propositions de scènes.",
+    "createScenes": "Créer les scènes sélectionnées",
+    "applying": "Création…"
   },
   "inline": {
     "mode": "Mode d'écriture",
@@ -107,7 +107,7 @@
     "need_editor": "L'éditeur est en cours de chargement.",
     "streaming": "Écriture en cours… laissez la suite actuelle se terminer.",
     "pending_ghost": "Acceptez ou rejetez la suggestion actuelle avant d'en commencer une autre.",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "Ouvrir le chat du co-auteur"
   },
   "beats": "Battements",
   "beatsheet": {
@@ -1660,7 +1660,7 @@
   "canonConflictKeepTheirs": "Garder la leur",
   "canonConflictReapply": "Réappliquer ma modification sur la v{{v}}",
   "canonConflictTitle": "Cette règle a été modifiée ailleurs — votre brouillon est conservé ci-dessous.",
-  "canonview": "Canon as of",
+  "canonview": "Canon à la date du",
   "canonAtChapter": {
     "active": "{{n}} actif(s)",
     "branchHint": "Ce que le canon sait juste avant cette branche",

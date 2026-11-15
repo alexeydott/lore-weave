@@ -53,10 +53,10 @@
   "guidedStart": "Schreiben starten",
   "compose": "Komponieren",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "Für dieses Buch ist kein Co-Autor-Modell festgelegt. Ihr Standard-Chatmodell verwenden?",
+    "apply": "Mein Standard-Chatmodell verwenden",
+    "applied": "Standardmodell für dieses Buch wurde festgelegt",
+    "apply_failed": "Anwenden fehlgeschlagen"
   },
   "cowriter": "Co-Writer",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "Verwerfen",
     "stop": "Stopp",
     "stale": "Die Auswahl hat sich geändert — bitte erneut versuchen.",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "Szenen vorschlagen",
+    "scenePlanOnly": "Diese Auswahl ist nur für Szenenvorschläge verfügbar.",
+    "scenePlanInvalid": "Das Modell hat keine gültigen Szenenvorschläge zurückgegeben. Bitte erneut versuchen.",
+    "scenePlanNeedsOutline": "Dieses Kapitel hat noch keine Gliederung. Erstellen oder extrahieren Sie zuerst seinen Plan.",
+    "scenePlanCreateFailed": "Szenenvorschläge konnten nicht erstellt werden.",
+    "createScenes": "Ausgewählte Szenen erstellen",
+    "applying": "Wird erstellt…"
   },
   "inline": {
     "mode": "Schreibmodus",
@@ -107,7 +107,7 @@
     "need_editor": "Der Editor wird noch geladen.",
     "streaming": "Schreibt… bitte warten, bis die aktuelle Fortsetzung abgeschlossen ist.",
     "pending_ghost": "Akzeptieren oder verwerfen Sie den aktuellen Vorschlag, bevor Sie einen neuen starten.",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "Co-Autor-Chat öffnen"
   },
   "beats": "Beats",
   "beatsheet": {
@@ -1660,7 +1660,7 @@
   "canonConflictKeepTheirs": "Ihren Entwurf behalten",
   "canonConflictReapply": "Meine Bearbeitung auf v{{v}} erneut anwenden",
   "canonConflictTitle": "Diese Regel wurde an anderer Stelle geändert — Ihr Entwurf bleibt unten erhalten.",
-  "canonview": "Canon as of",
+  "canonview": "Kanon zum Stand von",
   "canonAtChapter": {
     "active": "{{n}} aktiv",
     "branchHint": "Was der Kanon unmittelbar vor diesem Zweig weiß",

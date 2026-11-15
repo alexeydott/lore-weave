@@ -53,10 +53,10 @@
   "guidedStart": "Começar a escrever",
   "compose": "Compor",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "Nenhum modelo de coautor definido para este livro. Aplicar seu modelo de chat padrão?",
+    "apply": "Usar meu modelo de chat padrão",
+    "applied": "O modelo padrão deste livro foi definido",
+    "apply_failed": "Falha ao aplicar"
   },
   "cowriter": "Co-escritor",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "Descartar",
     "stop": "Parar",
     "stale": "A seleção mudou — tente novamente.",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "Sugerir cenas",
+    "scenePlanOnly": "Esta seleção está disponível apenas para sugestões de cenas.",
+    "scenePlanInvalid": "O modelo não retornou propostas de cenas válidas. Tente novamente.",
+    "scenePlanNeedsOutline": "Este capítulo ainda não tem esboço. Crie ou extraia o plano dele primeiro.",
+    "scenePlanCreateFailed": "Não foi possível criar as propostas de cenas.",
+    "createScenes": "Criar as cenas selecionadas",
+    "applying": "Criando…"
   },
   "inline": {
     "mode": "Modo de escrita",
@@ -107,7 +107,7 @@
     "need_editor": "O editor ainda está carregando.",
     "streaming": "Escrevendo… aguarde a conclusão da continuação atual.",
     "pending_ghost": "Aceite ou descarte a sugestão atual antes de iniciar outra.",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "Abrir o chat do coautor"
   },
   "beats": "Beats",
   "beatsheet": {
@@ -1660,7 +1660,7 @@
   "canonConflictKeepTheirs": "Manter o deles",
   "canonConflictReapply": "Reaplicar minha edição na v{{v}}",
   "canonConflictTitle": "Esta regra foi alterada em outro lugar — seu rascunho foi mantido abaixo.",
-  "canonview": "Canon as of",
+  "canonview": "Cânone até",
   "canonAtChapter": {
     "active": "{{n}} ativo",
     "branchHint": "O que o cânone sabe imediatamente antes deste desvio",

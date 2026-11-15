@@ -53,10 +53,10 @@
   "guidedStart": "लिखना शुरू करें",
   "compose": "रचना करें",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "इस पुस्तक के लिए कोई सह-लेखक मॉडल सेट नहीं है। क्या आपका डिफ़ॉल्ट चैट मॉडल लागू करें?",
+    "apply": "मेरा डिफ़ॉल्ट चैट मॉडल उपयोग करें",
+    "applied": "इस पुस्तक का डिफ़ॉल्ट मॉडल सेट हो गया",
+    "apply_failed": "लागू नहीं हो सका"
   },
   "cowriter": "को-राइटर",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "हटाएँ",
     "stop": "रोकें",
     "stale": "चयन बदल गया है — फिर से प्रयास करें।",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "दृश्य सुझाएँ",
+    "scenePlanOnly": "यह चयन केवल दृश्य सुझावों के लिए उपलब्ध है।",
+    "scenePlanInvalid": "मॉडल ने मान्य दृश्य सुझाव नहीं लौटाए। फिर प्रयास करें।",
+    "scenePlanNeedsOutline": "इस अध्याय की अभी रूपरेखा नहीं है। पहले इसकी योजना बनाएँ या निकालें।",
+    "scenePlanCreateFailed": "दृश्य सुझाव नहीं बनाए जा सके।",
+    "createScenes": "चुने गए दृश्य बनाएँ",
+    "applying": "बनाया जा रहा है…"
   },
   "inline": {
     "mode": "लेखन मोड",
@@ -107,7 +107,7 @@
     "need_editor": "एडिटर अभी लोड हो रहा है।",
     "streaming": "लिखा जा रहा है… वर्तमान निरंतरता को पूरा होने दें।",
     "pending_ghost": "दूसरा सुझाव शुरू करने से पहले वर्तमान सुझाव को स्वीकार करें या हटा दें।",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "सह-लेखक चैट खोलें"
   },
   "beats": "बीट्स",
   "beatsheet": {
@@ -1660,7 +1660,7 @@
   "canonConflictKeepTheirs": "उनका रखें",
   "canonConflictReapply": "v{{v}} पर अपना संपादन फिर से लागू करें",
   "canonConflictTitle": "यह नियम कहीं और बदल गया है — आपका ड्राफ्ट नीचे रखा गया है।",
-  "canonview": "Canon as of",
+  "canonview": "इस तिथि तक कैनन",
   "canonAtChapter": {
     "active": "{{n}} सक्रिय",
     "branchHint": "इस शाखा से ठीक पहले कैनन में क्या था",

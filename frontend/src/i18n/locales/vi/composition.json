@@ -53,10 +53,10 @@
   "guidedStart": "Bắt đầu viết",
   "compose": "Soạn",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "Chưa đặt mô hình đồng tác giả cho cuốn sách này. Áp dụng mô hình trò chuyện mặc định của bạn?",
+    "apply": "Dùng mô hình trò chuyện mặc định của tôi",
+    "applied": "Đã đặt mô hình mặc định cho cuốn sách này",
+    "apply_failed": "Không thể áp dụng"
   },
   "cowriter": "Đồng tác giả",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "Bỏ",
     "stop": "Dừng",
     "stale": "Vùng chọn đã thay đổi — hãy thử lại.",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "Đề xuất cảnh",
+    "scenePlanOnly": "Phạm vi chọn này chỉ dùng cho việc đề xuất cảnh.",
+    "scenePlanInvalid": "Mô hình không trả về đề xuất cảnh hợp lệ. Hãy thử lại.",
+    "scenePlanNeedsOutline": "Chương này chưa có dàn ý. Hãy tạo hoặc trích xuất dàn ý trước.",
+    "scenePlanCreateFailed": "Không thể tạo đề xuất cảnh.",
+    "createScenes": "Tạo các cảnh đã chọn",
+    "applying": "Đang tạo…"
   },
   "inline": {
     "mode": "Chế độ viết",
@@ -107,7 +107,7 @@
     "need_editor": "Trình chỉnh sửa vẫn đang tải.",
     "streaming": "Đang viết… hãy để phần tiếp theo hiện tại hoàn tất.",
     "pending_ghost": "Hãy chấp nhận hoặc loại bỏ gợi ý hiện tại trước khi bắt đầu một gợi ý khác.",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "Mở trò chuyện đồng tác giả"
   },
   "beats": "Nhịp",
   "beatsheet": {
@@ -1660,7 +1660,7 @@
   "canonConflictKeepTheirs": "Giữ bản của họ",
   "canonConflictReapply": "Áp dụng lại chỉnh sửa của tôi lên v{{v}}",
   "canonConflictTitle": "Quy tắc này đã thay đổi ở nơi khác — bản thảo của bạn được giữ lại bên dưới.",
-  "canonview": "Canon as of",
+  "canonview": "Canon tính đến",
   "canonAtChapter": {
     "active": "{{n}} đang hoạt động",
     "branchHint": "Những gì chính văn đã biết ngay trước nhánh này",

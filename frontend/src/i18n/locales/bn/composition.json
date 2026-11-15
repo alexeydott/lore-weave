@@ -53,10 +53,10 @@
   "guidedStart": "লেখা শুরু করুন",
   "compose": "কম্পোজ",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "এই বইয়ের জন্য কোনো সহ-লেখক মডেল নির্ধারিত হয়নি। আপনার ডিফল্ট চ্যাট মডেল প্রয়োগ করবেন?",
+    "apply": "আমার ডিফল্ট চ্যাট মডেল ব্যবহার করুন",
+    "applied": "এই বইয়ের ডিফল্ট মডেল নির্ধারণ করা হয়েছে",
+    "apply_failed": "প্রয়োগ করা যায়নি"
   },
   "cowriter": "কো-রাইটার",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "বাতিল করুন",
     "stop": "বন্ধ করুন",
     "stale": "নির্বাচনটি পরিবর্তিত হয়েছে — আবার চেষ্টা করুন।",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "দৃশ্যের প্রস্তাব দিন",
+    "scenePlanOnly": "এই নির্বাচন শুধু দৃশ্য-প্রস্তাবের জন্য।",
+    "scenePlanInvalid": "মডেল বৈধ দৃশ্য-প্রস্তাব দেয়নি। আবার চেষ্টা করুন।",
+    "scenePlanNeedsOutline": "এই অধ্যায়ের এখনও রূপরেখা নেই। আগে এর পরিকল্পনা তৈরি বা বের করুন।",
+    "scenePlanCreateFailed": "দৃশ্যের প্রস্তাব তৈরি করা যায়নি।",
+    "createScenes": "নির্বাচিত দৃশ্যগুলো তৈরি করুন",
+    "applying": "তৈরি হচ্ছে…"
   },
   "inline": {
     "mode": "রাইটিং মোড",
@@ -107,7 +107,7 @@
     "need_editor": "এডিটরটি এখনও লোড হচ্ছে।",
     "streaming": "লেখা হচ্ছে… বর্তমান অংশটি শেষ হতে দিন।",
     "pending_ghost": "অন্যটি শুরু করার আগে বর্তমান প্রস্তাবটি গ্রহণ বা বর্জন করুন।",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "সহ-লেখক চ্যাট খুলুন"
   },
   "beats": "বিটস",
   "beatsheet": {
@@ -1660,7 +1660,7 @@
   "canonConflictKeepTheirs": "তাদেরটি রাখুন",
   "canonConflictReapply": "v{{v}} সংস্করণে আমার এডিটটি পুনরায় প্রয়োগ করুন",
   "canonConflictTitle": "এই নিয়মটি অন্য কোথাও পরিবর্তিত হয়েছে — আপনার ড্রাফটটি নিচে রাখা হয়েছে।",
-  "canonview": "Canon as of",
+  "canonview": "তারিখ অনুযায়ী ক্যানন",
   "canonAtChapter": {
     "active": "{{n}}টি সক্রিয়",
     "branchHint": "এই শাখাটি আসার ঠিক আগে ক্যানন কী জানে",
