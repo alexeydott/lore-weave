@@ -709,7 +709,10 @@
    mark wraps the chip in <sup>; the References list has none, so the chip renders
    inline at full size with its "[n] label" text. */
 .citation-chip {
-  color: var(--primary, #6d28d9);
+  /* shadcn tokens are HSL TRIPLETS — wrap in hsl() or the declaration is
+     invalid and silently drops (the chip inherited body text instead of the
+     primary tint). Same fix as the popover below (#user-report 2026-11-16). */
+  color: hsl(var(--primary));
   background: none;
   border: none;
   padding: 0 1px;
@@ -724,10 +727,12 @@
   outline: none;
 }
 .citation-popover {
-  position: absolute;
-  z-index: 50;
-  bottom: 1.4em;
-  left: 0;
+  /* The component portals this into document.body and sets position/top/left/
+     zIndex inline (fixed, z-80 — above every card/dialog). These declarations
+     mirror that reality; the old absolute/z-50 leftovers described the retired
+     inline rendering. */
+  position: fixed;
+  z-index: 80;
   width: max-content;
   max-width: 320px;
   display: flex;
@@ -735,8 +740,13 @@
   gap: 6px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: var(--popover, #1f2937);
-  color: var(--popover-foreground, #f3f4f6);
+  /* --popover/--popover-foreground are shadcn HSL triplets: a raw
+     var(--popover, #1f2937) resolves to "25 7% 11%" which is NOT a color —
+     both declarations dropped and the popover rendered TRANSPARENT, its text
+     visually sliding under the wiki infobox card (the reported z-order bug). */
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border: 1px solid hsl(var(--border));
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
   font-size: 0.82rem;
   line-height: 1.4;
@@ -767,6 +777,12 @@
 .citation-snippet {
   display: block;
   opacity: 0.95;
+  /* A long source excerpt used to balloon the popover to 500px+, laying it
+     over half the article (and past the flip-estimate in CitationChip). Keep
+     the popover compact: ~5 lines visible, the rest scrolls in place. */
+  max-height: 7em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .citation-jump {
   align-self: flex-start;
