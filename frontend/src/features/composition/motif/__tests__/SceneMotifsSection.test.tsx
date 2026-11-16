@@ -23,7 +23,41 @@ beforeEach(() => {
   (motifApi.list as ReturnType<typeof vi.fn>).mockResolvedValue({ motifs: [] });
 });
 
+// NV-6: disabling the three candidate state branches made all three regressions fail
+// (missing loading/empty/error elements); restoring them returned the suite to green.
 describe('SceneMotifsSection', () => {
+  it('shows candidate loading without misreporting an empty library', async () => {
+    vi.mocked(motifApi.list).mockReturnValue(new Promise(() => {}));
+    wrap(<SceneMotifsSection projectId="p" bookId="b" chapterId="c" sceneId="s" token="t" />);
+    expect(await screen.findByTestId('motif-candidates-loading')).toHaveTextContent('motif.binding.candidatesLoading');
+    expect(screen.queryByTestId('motif-candidates-empty')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('motif-candidates-error')).not.toBeInTheDocument();
+    expect(screen.getByText('motif.editor.open')).toBeInTheDocument();
+    expect(motifApi.suggestForChapter).not.toHaveBeenCalled();
+  });
+
+  it('explains how to populate an empty candidate library', async () => {
+    wrap(<SceneMotifsSection projectId="p" bookId="b" chapterId="c" sceneId="s" token="t" />);
+    expect(await screen.findByTestId('motif-candidates-empty')).toHaveTextContent('motif.binding.candidatesEmpty');
+    expect(screen.queryByTestId('motif-candidates-loading')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('motif-candidates-error')).not.toBeInTheDocument();
+    expect(motifApi.suggestForChapter).not.toHaveBeenCalled();
+  });
+
+  it('retries candidate errors and restores the existing manual binder without suggestions', async () => {
+    vi.mocked(motifApi.list).mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ motifs: [{ id: 'm1', name: 'Reversal', code: 'reversal' }] } as Awaited<ReturnType<typeof motifApi.list>>);
+    wrap(<SceneMotifsSection projectId="p" bookId="b" chapterId="c" sceneId="s" token="t" />);
+    const error = await screen.findByTestId('motif-candidates-error');
+    expect(error).toHaveTextContent('motif.binding.candidatesError');
+    expect(screen.queryByTestId('motif-candidates-empty')).not.toBeInTheDocument();
+    fireEvent.click(within(error).getByRole('button', { name: 'motif.suggest.retry' }));
+    await waitFor(() => expect(motifApi.list).toHaveBeenCalledTimes(2));
+    expect(screen.getByText('motif.editor.open')).toBeInTheDocument();
+    expect(screen.queryByTestId('motif-candidates-error')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('motif-candidates-empty')).not.toBeInTheDocument();
+    expect(motifApi.suggestForChapter).not.toHaveBeenCalled();
+  });
+
   it('renders the no-Work state when there is no plan (projectId null)', () => {
     wrap(<SceneMotifsSection projectId={null} bookId="b" chapterId="c" sceneId="s" token="t" />);
     expect(screen.getByTestId('motif-no-work')).toBeInTheDocument();
@@ -39,8 +73,8 @@ describe('SceneMotifsSection', () => {
     const row = await screen.findByTestId('motif-suggest-row');
     expect(row.textContent).toMatch(/Face-slap/);
     expect(row.textContent).toMatch(/82%/);           // score surfaced
-    expect(row.textContent).toMatch(/tension/);        // match_reason surfaced, degraded filtered out
-    expect(motifApi.suggestForChapter).toHaveBeenCalledWith('p', 's', 't');
+    expect(row.textContent).toMatch(/motif.suggest.semanticMatch/);        // match_reason surfaced, degraded filtered out
+    expect(motifApi.suggestForChapter).toHaveBeenCalledWith('p', 's', 't', 5, 'en');
   });
 
   it('surfaces a DEGRADE warning + hides the fake % when the retriever falls back (no silent lie)', async () => {
@@ -54,6 +88,19 @@ describe('SceneMotifsSection', () => {
     // …and the misleading "20%" is NOT presented as a real score
     const row = await screen.findByTestId('motif-suggest-row');
     expect(row.textContent).not.toMatch(/20%/);
+    fireEvent.click(within(screen.getByTestId('motif-suggest-panel')).getByRole('button', { name: 'motif.suggest.retry' }));
+    await waitFor(() => expect(motifApi.suggestForChapter).toHaveBeenCalledTimes(2));
+  });
+
+  it('labels untranslated source text without hiding the candidate', async () => {
+    vi.mocked(motifApi.suggestForChapter).mockResolvedValue({ candidates: [
+      { motif: { id: 'm1', name: 'Source name', code: 'x', text_fallback: true, text_language: 'ru' }, score: 0.8, match_reason: {} },
+    ] } as Awaited<ReturnType<typeof motifApi.suggestForChapter>>);
+    wrap(<SceneMotifsSection projectId="p" bookId="b" chapterId="c" sceneId="s" token="t" />);
+    fireEvent.click(await screen.findByTestId('motif-suggest-toggle'));
+    const row = await screen.findByTestId('motif-suggest-row');
+    expect(row).toHaveTextContent('Source name');
+    expect(row).toHaveTextContent('motif.editor.fallback');
   });
 
   it('splits candidates into two sections — "yours" (U-space) and "the library" (P-space)', async () => {
@@ -71,7 +118,7 @@ describe('SceneMotifsSection', () => {
     // the `section` marker itself is never shown as a "reason" chip on the row (it's the
     // grouping key, not a match reason) — the row shows cosine, not "section".
     const mineRow = within(mine).getByTestId('motif-suggest-row');
-    expect(mineRow.textContent).toMatch(/cosine/);
+    expect(mineRow.textContent).toMatch(/motif.suggest.semanticMatch/);
     expect(mineRow.textContent).not.toMatch(/section/);
   });
 
@@ -88,7 +135,7 @@ describe('SceneMotifsSection', () => {
 
   it('shows a MINE-specific degrade note (not the library one) when your own motifs are unranked', async () => {
     (motifApi.suggestForChapter as ReturnType<typeof vi.fn>).mockResolvedValue({ candidates: [
-      { motif: { id: 'p1', name: 'Mine-Deg', code: 'a' }, score: 0.4, match_reason: { genre: 0.4, cosine: 0, section: 'mine', degraded: true } },
+      { motif: { id: 'p1', name: 'Mine-Deg', code: 'a' }, score: 0.4, match_reason: { genre: 0.4, cosine: 0, section: 'mine', degraded: true, degradation_reason: 'model_unset' } },
       { motif: { id: 'l1', name: 'Lib-OK', code: 'b' }, score: 0.7, match_reason: { cosine: 0.7, section: 'library' } },
     ] });
     wrap(<SceneMotifsSection projectId="p" bookId="b" chapterId="c" sceneId="s" token="t" />);

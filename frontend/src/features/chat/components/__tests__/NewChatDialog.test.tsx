@@ -54,7 +54,7 @@ describe('NewChatDialog (W5 shared ModelPicker)', () => {
 
   it('fetches CHAT-capability models only (reranker-in-chat-picker fix)', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <NewChatDialog open onClose={vi.fn()} onCreate={vi.fn()} />
       </MemoryRouter>,
     );
@@ -67,7 +67,7 @@ describe('NewChatDialog (W5 shared ModelPicker)', () => {
 
   it('preselects the first model (server order = favorites first) when no default is set', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <NewChatDialog open onClose={vi.fn()} onCreate={vi.fn()} />
       </MemoryRouter>,
     );
@@ -77,7 +77,7 @@ describe('NewChatDialog (W5 shared ModelPicker)', () => {
   it('preselects the user default chat model when set and listed', async () => {
     getDefaultsMock.mockResolvedValue({ defaults: { chat: 'chat-2' } });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <NewChatDialog open onClose={vi.fn()} onCreate={vi.fn()} />
       </MemoryRouter>,
     );
@@ -87,7 +87,7 @@ describe('NewChatDialog (W5 shared ModelPicker)', () => {
   it('creates the session with the picked model', async () => {
     const onCreate = vi.fn();
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <NewChatDialog open onClose={vi.fn()} onCreate={onCreate} />
       </MemoryRouter>,
     );

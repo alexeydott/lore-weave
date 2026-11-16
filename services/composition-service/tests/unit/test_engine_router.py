@@ -73,6 +73,7 @@ class StubJobs:
         self.active = []
         self.created = True
         self.job = _job()
+        self.missing = False
         self.updates = []
     async def list_active_for_node(self, p, n): return self.active
     async def create(self, p, **kw):
@@ -81,7 +82,7 @@ class StubJobs:
     async def update_status(self, jid, status, **kw):
         self.updates.append((str(jid), status, kw))
         return self.job
-    async def get(self, jid): return self.job
+    async def get(self, jid): return None if self.missing else self.job
 
 
 class StubCorrections:
@@ -463,6 +464,32 @@ def test_generate_cancels_in_flight_job_s2(ctx):
     jobs.active = [GenerationJob(id=prior, created_by=USER, project_id=PROJECT, book_id=BOOK, operation="x", status="running")]
     c.post(f"/v1/composition/works/{PROJECT}/generate", json=_gen_body())
     assert (str(prior), "cancelled", {}) in [(j, s, k) for j, s, k in jobs.updates]
+
+
+# ── POST /jobs/{job_id}/cancel — a given-up wait must stop the spend ──
+
+def test_cancel_transitions_active_job_cas(ctx):
+    c, _, _, _, jobs, _, _ = ctx
+    jobs.job = _job(status="running", result=None)
+    r = c.post(f"/v1/composition/jobs/{JOB}/cancel")
+    assert r.status_code == 200 and r.json() == {"job_id": str(JOB), "status": "cancelled"}
+    assert jobs.updates == [(str(JOB), "cancelled", {"only_if_active": True})]
+
+
+def test_cancel_terminal_job_conflicts(ctx):
+    c, _, _, _, jobs, _, _ = ctx
+    jobs.job = _job(status="completed")
+    r = c.post(f"/v1/composition/jobs/{JOB}/cancel")
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "JOB_TERMINAL"
+    assert jobs.updates == []
+
+
+def test_cancel_missing_job_404(ctx):
+    c, _, _, _, jobs, _, _ = ctx
+    jobs.missing = True
+    r = c.post(f"/v1/composition/jobs/{uuid.uuid4()}/cancel")
+    assert r.status_code == 404
+    assert jobs.updates == []
 
 
 def test_generate_idempotent_replay_does_not_restream_or_cancel(ctx):
@@ -1055,23 +1082,29 @@ def test_persist_job_404_when_missing(ctx):
 
 
 # ── BE-M4 (3b): GET /works/{pid}/scenes/{node}/suggest-motifs — ranked motif suggest ──
-def test_suggest_motifs_returns_ranked_candidates(ctx, monkeypatch):
-    """The GUI twin of composition_motif_suggest_for_chapter: ranked {motif,score,match_reason}."""
+@pytest.mark.parametrize("kind", ["chapter", "scene"])
+@pytest.mark.parametrize("locale, expected", [(" RU ", "ru"), (None, "en"), ("auto", "en"), ("pt-BR", "pt-br")])
+def test_suggest_motifs_returns_ranked_candidates(ctx, monkeypatch, kind, locale, expected):
+    """Both outline kinds use the real retriever signature, never a manuscript chapter ID."""
+    from unittest.mock import create_autospec
     from app.db.models import Motif, MotifCandidate
-    c = ctx[0]
+    from app.db.repositories.motif_retrieve import MotifRetriever
+
+    c, works, outline, *_ = ctx
+    outline.node = _node().model_copy(update={"kind": kind, "beat_role": "turn", "tension_target": 60})
+    model_ref = str(uuid.uuid4())
+    works.work = _work(settings={"model_roles": {"embedding": {
+        "model_ref": model_ref, "model_source": "user_model"}}})
+    assert not hasattr(works.work, "language")
     motif = Motif(id=uuid.uuid4(), owner_user_id=USER, code="rev.slap", name="Face-slap")
-
-    class _StubRetriever:
-        def __init__(self, pool):
-            pass
-
-        async def retrieve(self, caller_id, **kw):
-            assert kw["project_id"] == PROJECT   # gated Work's project rode through
-            return [MotifCandidate(motif=motif, score=0.82, match_reason={"tension": 1, "cosine": 0.8})]
+    retriever = create_autospec(MotifRetriever, instance=True)
+    retriever.retrieve.return_value = [
+        MotifCandidate(motif=motif, score=0.82, match_reason={"tension": 1, "cosine": 0.8})]
 
     monkeypatch.setattr("app.routers.engine.get_pool", lambda: object())
-    monkeypatch.setattr("app.routers.engine.MotifRetriever", _StubRetriever)
-    r = c.get(f"/v1/composition/works/{PROJECT}/scenes/{NODE}/suggest-motifs?limit=5")
+    monkeypatch.setattr("app.routers.engine.MotifRetriever", lambda pool: retriever)
+    r = c.get(f"/v1/composition/works/{PROJECT}/scenes/{NODE}/suggest-motifs",
+              params={"limit": 5, **({"display_language": locale} if locale is not None else {})})
     assert r.status_code == 200
     body = r.json()
     assert len(body["candidates"]) == 1
@@ -1079,15 +1112,27 @@ def test_suggest_motifs_returns_ranked_candidates(ctx, monkeypatch):
     assert cand["motif"]["name"] == "Face-slap"
     assert cand["score"] == 0.82
     assert "tension" in cand["match_reason"]
+    retriever.retrieve.assert_awaited_once_with(
+        USER, book_id=BOOK, project_id=PROJECT, genre_tags=[], display_language=expected,
+        beat_role="turn", tension=60, limit=5,
+        model_resolution=__import__("app.engine.retrieval_model", fromlist=["RetrievalModel"]).RetrievalModel(
+            ("user_model", model_ref), "book"),
+        query="the run escape",
+    )
 
 
-def test_suggest_motifs_404_for_node_in_another_work(ctx, monkeypatch):
+@pytest.mark.parametrize("kind", ["chapter", "scene"])
+def test_suggest_motifs_404_for_node_in_another_work(ctx, monkeypatch, kind):
     """Per-tool IDOR (via _load_work_node): a node whose project_id != the gated Work → 404."""
     c, _works, outline, *_ = ctx
     # the node resolves to a DIFFERENT project than the URL's PROJECT (reuse the valid _node())
-    outline.node = _node().model_copy(update={"project_id": uuid.uuid4()})
+    outline.node = _node().model_copy(update={"project_id": uuid.uuid4(), "kind": kind})
     monkeypatch.setattr("app.routers.engine.get_pool", lambda: object())
-    monkeypatch.setattr("app.routers.engine.MotifRetriever", lambda pool: None)  # never reached
+
+    def forbidden_retriever(pool):
+        pytest.fail("Cross-project nodes must be rejected before retrieval")
+
+    monkeypatch.setattr("app.routers.engine.MotifRetriever", forbidden_retriever)
     r = c.get(f"/v1/composition/works/{PROJECT}/scenes/{NODE}/suggest-motifs")
     assert r.status_code == 404
 
@@ -1265,3 +1310,21 @@ async def test_critique_with_NO_anchor_reads_the_rules_unwindowed(ctx, monkeypat
     assert r.status_code == 200
     assert canon.as_of_seen == [None], "no position resolved ⇒ the whole enforceable set"
 
+
+
+@pytest.mark.parametrize("kind", ["chapter", "scene"])
+def test_suggest_motifs_locale_cannot_bypass_view_grant(ctx, monkeypatch, kind):
+    from unittest.mock import AsyncMock
+    from app.main import app
+    from app.deps import get_grant_client_dep
+    c, _, outline, *_ = ctx
+    outline.node = _node().model_copy(update={"kind": kind})
+    denied = AsyncMock()
+    denied.resolve_grant.return_value = 0
+    denied.resolve_access.return_value = (0, "active")
+    app.dependency_overrides[get_grant_client_dep] = lambda: denied
+    def forbidden(pool):
+        pytest.fail("Denied callers must never reach retrieval")
+    monkeypatch.setattr("app.routers.engine.MotifRetriever", forbidden)
+    assert c.get(f"/v1/composition/works/{PROJECT}/scenes/{NODE}/suggest-motifs",
+                 params={"display_language": "ru"}).status_code == 404

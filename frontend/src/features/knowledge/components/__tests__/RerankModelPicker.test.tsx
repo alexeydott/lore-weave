@@ -70,7 +70,7 @@ describe('RerankModelPicker (D-RERANK-NOT-BYOK S0b)', () => {
     listUserModelsMock.mockResolvedValue({ items: [RERANK_MODEL] });
     const onChange = vi.fn();
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <RerankModelPicker value={null} onChange={onChange} />
       </MemoryRouter>,
     );
@@ -95,7 +95,7 @@ describe('RerankModelPicker (D-RERANK-NOT-BYOK S0b)', () => {
     expect(RERANK_CAPABILITY).toBe('rerank');
     listUserModelsMock.mockResolvedValue({ items: [] });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <RerankModelPicker value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -108,7 +108,7 @@ describe('RerankModelPicker (D-RERANK-NOT-BYOK S0b)', () => {
     listUserModelsMock.mockResolvedValue({ items: [RERANK_MODEL] });
     const onChange = vi.fn();
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <RerankModelPicker value="rr1" onChange={onChange} />
       </MemoryRouter>,
     );
@@ -120,7 +120,7 @@ describe('RerankModelPicker (D-RERANK-NOT-BYOK S0b)', () => {
   it('shows the empty-state when the user has no rerank-capable models', async () => {
     listUserModelsMock.mockResolvedValue({ items: [] });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <RerankModelPicker value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -136,7 +136,7 @@ describe('RerankModelPicker (D-RERANK-NOT-BYOK S0b)', () => {
   it('renders the AddModelCta register link in the empty-state (BL-1)', async () => {
     listUserModelsMock.mockResolvedValue({ items: [] });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <RerankModelPicker value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -157,7 +157,7 @@ describe('RerankModelPicker (D-RERANK-NOT-BYOK S0b)', () => {
       }),
     );
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <RerankModelPicker value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -171,7 +171,7 @@ describe('RerankModelPicker (D-RERANK-NOT-BYOK S0b)', () => {
   it('renders an orphan row when the saved model left the registry', async () => {
     listUserModelsMock.mockResolvedValue({ items: [] });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <RerankModelPicker value="gone-uuid" onChange={vi.fn()} />
       </MemoryRouter>,
     );

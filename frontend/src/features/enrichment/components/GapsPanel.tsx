@@ -20,7 +20,10 @@ export function GapsPanel() {
   // GlossaryEntityList/TranslationTab/ChaptersTab already use), scoped to this book;
   // re-detect on completion so the gaps list reflects the freshly-extracted entities.
   const [extractOpen, setExtractOpen] = useState(false);
-  const [technique, setTechnique] = useState('recook');
+  // Default to the ACTIVE P1 technique (#user-report 2026-11-10): 'recook' (P3)
+  // is gated OFF (C15) — defaulting to it made every untouched auto-enrich
+  // submit a job the worker refuses, leaving it pending forever.
+  const [technique, setTechnique] = useState('retrieval');
   const [genModel, setGenModel] = useState('');
   const [embedModel, setEmbedModel] = useState('');
   const [maxGaps, setMaxGaps] = useState(3);
@@ -113,9 +116,14 @@ export function GapsPanel() {
               {gaps.map((g) => (
                 <tr key={g.canonical_name} className="hover:bg-secondary/30">
                   <td className="px-3 py-2 font-serif font-medium">{g.canonical_name}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{g.entity_kind}</td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {/* The kind CODE is English ("location") — localize with a
+                        defaultValue fallback so an unknown kind stays readable. */}
+                    {t(`gaps.kinds.${g.entity_kind}`, { defaultValue: g.entity_kind })}
+                  </td>
                   <td className="px-3 py-2 font-mono text-[11px] text-warning">
-                    {g.missing_dimensions.join('·')}
+                    {/* Dimension codes are English ("features") — same fallback rule. */}
+                    {g.missing_dimensions.map((d) => t(`gaps.dims.${d}`, { defaultValue: d })).join('·')}
                   </td>
                   <td className="px-3 py-2">
                     <span className="rounded bg-warning/12 px-1.5 py-0.5 font-mono text-[11px] text-warning">

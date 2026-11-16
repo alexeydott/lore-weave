@@ -108,6 +108,7 @@ class GenerationJobsRepo:
         idempotency_key: str | None = None,
         conn: asyncpg.Connection | None = None,
         model_name: str | None = None,
+        job_id: UUID | None = None,
     ) -> tuple[GenerationJob, bool]:
         """Insert a job. Returns ``(job, created)``.
 
@@ -169,9 +170,9 @@ class GenerationJobsRepo:
                 f"""
                 INSERT INTO generation_job
                   (created_by, project_id, book_id, outline_node_id, operation,
-                   mode, status, input, base_revision_id, idempotency_key)
+                   mode, status, input, base_revision_id, idempotency_key, id)
                 SELECT $1, $2, w.book_id, $3, $4,
-                       $5, $6, $7::jsonb, $8, $9
+                       $5, $6, $7::jsonb, $8, $9, COALESCE($10::uuid, gen_random_uuid())
                 FROM composition_work w
                 WHERE (w.project_id = $2 OR (w.project_id IS NULL AND w.id = $2))
                 ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL
@@ -179,7 +180,7 @@ class GenerationJobsRepo:
                 RETURNING {_SELECT_COLS}
                 """,
                 created_by, project_id, outline_node_id, operation, mode, status,
-                json.dumps(input or {}), base_revision_id, idempotency_key,
+                json.dumps(input or {}), base_revision_id, idempotency_key, job_id,
             )
             if row is not None:
                 job = _row_to_job(row)
@@ -222,6 +223,63 @@ class GenerationJobsRepo:
         async with self._pool.acquire() as c:
             async with c.transaction():  # INSERT + emit_job_event atomic (H1)
                 return await _do(c)
+
+    async def quality_runs(self, project_id, user_id, model_source, model_ref):
+        async with self._pool.acquire() as c:
+            rows = await c.fetch(
+                f"SELECT {_SELECT_COLS} FROM generation_job WHERE project_id=$1 "
+                "AND input->>'owner_user_id'=$2::text AND operation='quality_report_batch' "
+                "AND input->>'model_source'=$3 AND input->>'model_ref'=$4 ORDER BY created_at DESC",
+                project_id, str(user_id), model_source, model_ref)
+        return [_row_to_job(r) for r in rows]
+
+    async def latest_chapter_quality_job(self, project_id, chapter_id):
+        """Latest quality_report job for one chapter, any status.
+
+        Restores the last Critic report after remount/reload (server is the SSOT,
+        not component state). Read rule honored: project-scoped, no created_by
+        filter — the router gates VIEW before calling. Non-terminal rows come
+        back too so a client can resume polling `result.progress`. Batch
+        children (operation='quality_report_batch') are excluded: batch runs
+        surface through /quality-runs instead."""
+        async with self._pool.acquire() as c:
+            row = await c.fetchrow(
+                f"SELECT {_SELECT_COLS} FROM generation_job WHERE project_id=$1 "
+                "AND outline_node_id IS NULL AND operation='quality_report' "
+                "AND input->>'chapter_id'=$2 "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                project_id, str(chapter_id))
+        return _row_to_job(row) if row else None
+
+    async def create_quality_run(self, project_id, user_id, input, key):
+        # Per-user run/spend scope is explicit and server-stamped, distinct from
+        # created_by (the package-wide actor stamp, never a repository scope key).
+        input = {**input, "owner_user_id": str(user_id)}
+        scope = f"quality-run:{project_id}:{user_id}:{input['model_source']}:{input['model_ref']}"
+        async with self._pool.acquire() as c:
+            async with c.transaction():
+                await c.execute("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", scope)
+                row = await c.fetchrow(
+                    f"SELECT {_SELECT_COLS} FROM generation_job WHERE project_id=$1 AND input->>'owner_user_id'=$2::text "
+                    "AND operation='quality_report_batch' AND (idempotency_key=$3 OR input->'submission_keys' ? $3 OR "
+                    "(status IN ('pending','running') AND input->>'model_source'=$4 AND input->>'model_ref'=$5)) "
+                    "ORDER BY created_at DESC LIMIT 1", project_id, str(user_id), key,
+                    input['model_source'], input['model_ref'])
+                if row:
+                    await c.execute(
+                        "UPDATE generation_job SET input=jsonb_set(input,'{submission_keys}', "
+                        "COALESCE(input->'submission_keys','[]'::jsonb) || to_jsonb($2::text)) WHERE id=$1",
+                        row["id"], key)
+                    return _row_to_job(row), False
+                input = {**input, "submission_keys": [key]}
+                return await self.create(project_id, created_by=user_id, operation="quality_report_batch",
+                                         mode="auto", input=input, idempotency_key=key, conn=c)
+
+    async def request_quality_stop(self, job_id):
+        async with self._pool.acquire() as c:
+            await c.execute("UPDATE generation_job SET input=jsonb_set(input,'{stop_requested}','true'::jsonb), "
+                            "updated_at=now() WHERE id=$1 AND operation='quality_report_batch' "
+                            "AND status IN ('pending','running')", job_id)
 
     async def create_unbound(
         self,
@@ -727,6 +785,25 @@ class GenerationJobsRepo:
                 )
                 return job, version
 
+    async def heartbeat(self, job_id: UUID) -> None:
+        # A slow individual LLM call must not be stolen by the idle-job sweeper.
+        async with self._pool.acquire() as c:
+            await c.execute(
+                "UPDATE generation_job SET updated_at = now() WHERE id = $1 AND status = $2",
+                job_id, "running",
+            )
+
+    async def update_progress(self, job_id: UUID, progress: dict[str, Any]) -> None:
+        # Running-only heartbeat: progress cannot resurrect a cancelled/terminal row.
+        async with self._pool.acquire() as c:
+            await c.execute(
+                """UPDATE generation_job
+                   SET result = COALESCE(result, jsonb_build_object()) || $2::jsonb,
+                       updated_at = now()
+                   WHERE id = $1 AND status = $3""",
+                job_id, json.dumps({"progress": progress}), "running",
+            )
+
     async def update_status(
         self,
         job_id: UUID,
@@ -739,6 +816,7 @@ class GenerationJobsRepo:
         target_revision_id: UUID | None = None,
         cost_usd: Decimal | None = None,
         conn: asyncpg.Connection | None = None,
+        only_if_active: bool = False,
     ) -> GenerationJob | None:
         """Transition a job's status and optionally stamp result/critic/refs.
 
@@ -756,12 +834,12 @@ class GenerationJobsRepo:
             target_revision_id = COALESCE($7, target_revision_id),
             cost_usd = COALESCE($8, cost_usd),
             updated_at = now()
-        WHERE id = $1
+        WHERE id = $1 AND (NOT $9::boolean OR status = ANY($10::text[]))
         RETURNING {_SELECT_COLS}
         """
         args = (
             job_id, status, _jsonb(result), _jsonb(critic), llm_job_id,
-            target_chapter_id, target_revision_id, cost_usd,
+            target_chapter_id, target_revision_id, cost_usd, only_if_active, ["pending", "running"],
         )
         async def _do(c: asyncpg.Connection) -> GenerationJob | None:
             row = await c.fetchrow(query, *args)
@@ -835,8 +913,12 @@ class GenerationJobsRepo:
         only on the winning CAS (mirrors the video-gen CAS ``fail``)."""
         query = f"""
         UPDATE generation_job
-           SET status = 'cancelled', updated_at = now()
+           SET status = CASE WHEN operation='quality_report_batch' THEN status ELSE 'cancelled' END,
+               input = CASE WHEN operation='quality_report_batch'
+                       THEN jsonb_set(input,'{{stop_requested}}','true'::jsonb) ELSE input END,
+               updated_at = now()
          WHERE id = $1 AND status = ANY($2::text[])
+           AND NOT (input ? 'batch_parent_id')
         RETURNING {_SELECT_COLS}
         """
         async def _do(c: asyncpg.Connection) -> GenerationJob | None:
@@ -846,7 +928,7 @@ class GenerationJobsRepo:
             job = _row_to_job(row)
             await emit_job_event(
                 c, service=_JOB_SERVICE, job_id=str(job.id),
-                owner_user_id=str(job.created_by), kind=job.operation, status="cancelled",
+                owner_user_id=str(job.created_by), kind=job.operation, status=job.status,
             )
             return job
 

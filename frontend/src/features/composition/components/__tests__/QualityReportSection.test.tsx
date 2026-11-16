@@ -18,8 +18,9 @@ const render_ = (modelRef = 'm') =>
   render(<QualityReportSection projectId="p" chapterId="c" token="t" modelRef={modelRef} />);
 
 const fullReport: QualityReport = {
+  scope: { partial: false, complete: true, synthesis_completed: true },
   critic: { coherence: 4, voice_match: 3, pacing: 5, canon_consistency: 2, violations: [{ rule_id: 'R1', violated: true, span: 'he said', why: 'wrong pronoun' }] },
-  threads: { raised: ['thread-a', 'thread-b'], resolved: ['thread-a'], raised_count: 2, resolved_count: 1 },
+  threads: { selection: { exhaustive: true }, raised: ['thread-a', 'thread-b'], resolved: ['thread-a'], raised_count: 2, resolved_count: 1 },
 };
 
 describe('QualityReportSection', () => {
@@ -66,7 +67,27 @@ describe('QualityReportSection', () => {
     });
     render_();
     expect(screen.getByTestId('quality-threads-na')).toBeTruthy();
-    expect(screen.queryByTestId('quality-threads')).toBeNull();
+    // A partial audit still SHOWS what it observed alongside the failure reason —
+    // hiding the list made a usable partial read as "results vanished".
+    expect(screen.getByTestId('quality-threads').textContent).toContain('thread-a');
+    expect(screen.getByTestId('quality-threads').textContent).toContain('thread-b');
+  });
+
+  it('renders available critic scores beside the partial-coverage reason', () => {
+    state.value = base({
+      ran: true,
+      report: {
+        ...fullReport,
+        scope: { partial: true, complete: false, synthesis_completed: true, windows_total: 1, windows_analyzed: 0 },
+        critic: { ...fullReport.critic, error: 'critic_incomplete' },
+        threads: { ...fullReport.threads, error: 'audit_incomplete' },
+      },
+    });
+    render_();
+    // Scores stay visible; the reason + partial warning name the incompleteness.
+    expect(screen.getByTestId('quality-critic').textContent).toContain('4/5');
+    expect(screen.getByTestId('quality-critic').textContent).toContain('qualityReasons.incomplete');
+    expect(screen.getByTestId('quality-partial')).toBeTruthy();
   });
 
   const _prop = (over: Record<string, unknown> = {}) => ({
@@ -94,6 +115,30 @@ describe('QualityReportSection', () => {
       report: { ...fullReport, critic: { coherence: null, voice_match: null, pacing: null, canon_consistency: null, violations: [], error: 'critic_unavailable' } },
     });
     render_();
-    expect(screen.getByTestId('quality-critic').textContent).toContain('qualityCriticNa');
+    expect(screen.getByTestId('quality-critic').textContent).toContain('qualityReasons.unavailable');
+  });
+});
+
+
+describe('complete quality scope', () => {
+  it('does not mistake missing completion metadata for a clean exhaustive audit', () => {
+    state.value = base({ ran: true, report: { ...fullReport, scope: undefined, threads: { ...fullReport.threads, raised: [], raised_count: 0 } } });
+    render_();
+    expect(screen.queryByText('qualityNoThreads')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('quality-complete')).not.toBeInTheDocument();
+  });
+  it('shows complete only with successful synthesis and preserves more than twelve merged threads', () => {
+    const raised = Array.from({ length: 25 }, (_, i) => 'thread-' + i);
+    state.value = base({ ran: true, report: { ...fullReport, threads: { ...fullReport.threads, selection: { exhaustive: false, max_promises: null, per_call_max_promises: 12 }, raised, raised_count: 25 } } });
+    render_();
+    expect(screen.getByTestId('quality-complete')).toBeInTheDocument();
+    expect(screen.getByTestId('quality-threads')).toHaveTextContent('thread-24');
+    expect(screen.getByTestId('quality-threads-selection').textContent).not.toContain('undefined');
+  });
+  it('shows incomplete synthesis instead of completion', () => {
+    state.value = base({ ran: true, report: { ...fullReport, scope: { partial: true, complete: false, synthesis_completed: false } } });
+    render_();
+    expect(screen.getByTestId('quality-partial')).toHaveTextContent('qualityScope.synthesisPending');
+    expect(screen.queryByTestId('quality-complete')).not.toBeInTheDocument();
   });
 });

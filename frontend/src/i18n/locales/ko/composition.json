@@ -51,12 +51,12 @@
   "guidedCueReady": "도입부를 작성한 후 '생성'을 누르거나, 에디터의 커서 위치에서 '계속하기'를 누르세요.",
   "guidedCueStart": "첫 장면을 만든 다음, 도입부를 작성하고 '생성'을 누르거나 에디터의 커서 위치에서 '계속하기'를 누르세요.",
   "guidedStart": "쓰기 시작",
-  "compose": "Compose",
+  "compose": "구성",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "이 책에 공동 작가 모델이 설정되지 않았습니다. 기본 채팅 모델을 적용할까요?",
+    "apply": "기본 채팅 모델 사용",
+    "applied": "이 책의 기본 모델이 설정되었습니다",
+    "apply_failed": "적용하지 못했습니다"
   },
   "cowriter": "공동 저자",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "버리기",
     "stop": "중단",
     "stale": "선택 영역이 변경되었습니다 — 다시 시도하세요.",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "장면 제안",
+    "scenePlanOnly": "이 선택은 장면 제안에만 사용할 수 있습니다.",
+    "scenePlanInvalid": "모델이 유효한 장면 제안을 반환하지 않았습니다. 다시 시도해 주세요.",
+    "scenePlanNeedsOutline": "이 장에는 아직 개요가 없습니다. 먼저 플랜을 만들거나 추출하세요.",
+    "scenePlanCreateFailed": "장면 제안을 만들지 못했습니다.",
+    "createScenes": "선택한 장면 만들기",
+    "applying": "생성 중…"
   },
   "inline": {
     "mode": "쓰기 모드",
@@ -107,7 +107,7 @@
     "need_editor": "에디터를 불러오는 중입니다.",
     "streaming": "작성 중… 현재 이어지는 내용을 마칠 때까지 기다려 주세요.",
     "pending_ghost": "다른 제안을 시작하기 전에 현재 제안을 수락하거나 거절해 주세요.",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "공동 작가 채팅 열기"
   },
   "beats": "비트",
   "beatsheet": {
@@ -281,6 +281,10 @@
     "deleteFailed": "장소를 삭제하지 못했습니다.",
     "backdropNoChapter": "배경을 설정하려면 장을 여세요."
   },
+  "groundingNoResults": "이 장면의 그래프 맥락을 가져오지 못했습니다. 그래프 자체는 존재할 수 있으며, 장면의 위치, 일치하는 콘텐츠 또는 지식 서비스 오류로 인해 조회가 제한될 수 있습니다.",
+  "groundingNoProject": "이 작품에는 아직 연결된 지식 프로젝트가 없습니다. 이 작품에서는 그라운딩을 사용할 수 없습니다.",
+  "groundingLoadFailed": "그라운딩을 불러오지 못했습니다. 지식 그래프를 변경하기 전에 다시 시도하세요.",
+  "groundingRetry": "그라운딩 다시 시도",
   "grounding": "그라운딩",
   "canon": "설정(Canon)",
   "progress": "진행률",
@@ -378,7 +382,12 @@
     "saveContent": "콘텐츠 저장 (다시 임베딩)",
     "saveMetadata": "상세 정보 저장",
     "saving": "저장 중…",
-    "sourceUrl": "소스 URL (선택 사항)"
+    "sourceUrl": "소스 URL (선택 사항)",
+    "loading": "참고 자료 불러오는 중…",
+    "listError": "참고 자료를 불러오지 못했습니다. 다시 시도하세요.",
+    "inheritedEmbed": "상속된 임베딩 모델 사용",
+    "modelsLoading": "임베딩 모델 불러오는 중…",
+    "modelsError": "임베딩 모델을 불러오지 못했습니다. 다시 시도하세요."
   },
   "progressPanel": {
     "loading": "진행률 로딩 중…",
@@ -581,6 +590,8 @@
   "threadKind_question": "질문",
   "threadKind_mice_thread": "스레드",
   "threadPaid": "완료",
+  "threadEditAria": "약속 편집",
+  "threadArchiveAria": "약속 보관",
   "threadDropped": "중단",
   "noThreads": "스레드가 없습니다.",
   "noOpenThreads": "진행 중인 약속이 없습니다 — 모두 완료되었습니다.",
@@ -753,9 +764,9 @@
     "empty": {
       "title": "모티프 라이브러리가 준비되었습니다",
       "body": "모티프는 재사용 가능한 플롯 구조입니다. 플래너가 장당 하나씩 선택하므로, 작은 모델로도 탄탄한 장면을 쓸 수 있습니다. 12개의 스타터 모티프가 이미 준비되어 있습니다 — tu-tiên 및 báo-thù.",
+      "notThemes": "이것은 플래너를 위한 구조적 플롯 형태이며, 당신의 이야기에서 반복되는 이미지나 주제를 추적하는 도구가 아닙니다 — 여기에는 챕터 전반에서 상징을 따라가는 기능이 없습니다.",
       "browseSystem": "12개의 스타터 둘러보기",
-      "hint": "토큰이 필요하지 않습니다 — 모티프를 직접 만드는 것은 무료입니다.",
-      "notThemes": "이것은 플래너를 위한 구조적 플롯 형태이며, 당신의 이야기에서 반복되는 이미지나 주제를 추적하는 도구가 아닙니다 — 여기에는 챕터 전반에서 상징을 따라가는 기능이 없습니다."
+      "hint": "토큰이 필요하지 않습니다 — 모티프를 직접 만드는 것은 무료입니다."
     },
     "facet": {
       "tier": "등급",
@@ -833,7 +844,10 @@
       "noWork": "이 책의 장면들에 모티프를 연결할 계획을 세워보세요.",
       "committedTitle": "장면 모티프 연결됨",
       "loadError": "장면 모티프를 불러올 수 없습니다.",
-      "sectionTitle": "장면 모티프"
+      "sectionTitle": "장면 모티프",
+      "candidatesLoading": "모티프 불러오는 중…",
+      "candidatesError": "모티프를 불러오지 못했습니다.",
+      "candidatesEmpty": "모티프 라이브러리에서 모티프를 추가하거나 가져온 후 여기로 돌아와 연결하세요."
     },
     "swap": {
       "title": "모티프 교체",
@@ -859,12 +873,26 @@
         "bad": "비트 이탈"
       },
       "rerunNeedsModel": "일치 여부를 다시 확인하려면 모델을 선택하세요",
-      "bindCta": "모티프를 장면에 연결하기 →",
+      "bindCta": "연결할 장면 선택 →",
       "couldNotCheck": "확인 불가",
       "notChecked": "아직 확인되지 않음",
       "notWritten": "아직 작성되지 않음",
       "openScene": "인스펙터에서 이 장면 열기",
-      "written": "작성됨"
+      "written": "작성됨",
+      "noChapter": "장 선택",
+      "chaptersLoading": "장 불러오는 중…",
+      "chaptersError": "장을 불러오지 못했습니다.",
+      "noChapters": "아직 장이 없습니다.",
+      "actionError": "작업이 실패했습니다. 다시 시도하세요.",
+      "running": "실행 중…",
+      "snapshot": "마지막 검사: {{time}}",
+      "status": {
+        "unavailable": "검사할 수 없음",
+        "no_bound_motif": "먼저 모티프를 연결하세요",
+        "motif_unavailable": "모티프를 사용할 수 없음",
+        "no_manuscript_prose": "먼저 본문을 작성하세요",
+        "stale": "오래된 결과 — 다시 검사하세요"
+      }
     },
     "arc": {
       "mobileNotice": "타임라인 그리드는 큰 화면에서 사용할 수 있습니다 — 여기서는 목록 형태로 편집할 수 있습니다.",
@@ -967,7 +995,8 @@
         "error": "아크 제안 순위를 산정할 수 없습니다.",
         "empty": "일치하는 아크 템플릿이 없습니다. 직접 만들거나 이야기를 가져와 분석해 보세요.",
         "mine": "내 것",
-        "span": "{{count}}화"
+        "span": "{{count}}화",
+        "sectionMine": "내 아크"
       },
       "decompile": {
         "open": "챕터를 아크로 그룹화",
@@ -1099,10 +1128,14 @@
       "retry": "재시도",
       "empty": "아직 이 장면에 어울리는 모티프가 없습니다. 라이브러리에 더 많은 모티프를 추가해 보세요.",
       "bind": "연결",
-      "degradedMine": "모티프가 적합도순으로 정렬되지 않았습니다. 설정에서 임베딩 모델을 설정하면 의미론적 유사도에 따라 정렬할 수 있습니다.",
-      "degradedLibrary": "적합도순으로 정렬되지 않았습니다. 공유 라이브러리의 임베딩 모델이 구성되지 않아, 점수가 매겨진 매칭 결과가 아닌 장르별 대체 항목을 보여줍니다.",
+      "degradedMine": "비공개 제안의 의미적 순위를 매길 수 없습니다. 이 책 또는 계정에 적용되는 임베딩 모델이 선택되지 않았습니다.",
+      "degradedLibrary": "공유 라이브러리의 의미적 순위를 매길 수 없습니다. 별도의 플랫폼 임베딩 설정이 완료되지 않았습니다. 책 또는 계정의 모델 설정과는 독립적입니다.",
       "sectionMine": "내 모티프",
-      "sectionLibrary": "라이브러리에서"
+      "sectionLibrary": "라이브러리에서",
+      "rankingUnavailable": "순위를 매길 수 없습니다. 이 제안은 적합도순으로 정렬되지 않았습니다.",
+      "providerUnavailable": "일시적으로 순위를 매길 수 없습니다. 나중에 다시 시도하세요.",
+      "emptyQuery": "제안을 적합도순으로 정렬하려면 이야기의 전제나 장면 텍스트를 추가하세요.",
+      "semanticMatch": "의미적 일치"
     },
     "language": {
       "writtenIn": "작성 언어:",
@@ -1183,29 +1216,28 @@
       "violation": "{{label}}: {{n}}개 순서 오류"
     },
     "editor": {
-      "add": "추가",
-      "beatIntent": "의도",
-      "beatLabel": "비트",
-      "beats": "비트",
-      "conflict": "이 모티프는 다른 곳에서 변경되었습니다. 편집하기 전에 다시 열어 최신 상태를 불러오세요.",
-      "deceived": "속임을 당하는 인물 (쉼표로 구분)",
-      "effects": "효과",
-      "emotion": "감정",
-      "examples": "예시 (작성된 내용)",
-      "gap": "간극",
-      "genres": "장르 (쉼표로 구분)",
-      "kind": "종류",
-      "knows": "아는 인물 (쉼표로 구분)",
-      "name": "이름",
-      "preconditions": "전제 조건",
-      "roleConstraints": "제약 사항",
-      "roleLabel": "레이블",
-      "roles": "역할",
-      "saveError": "저장할 수 없습니다.",
+      "open": "모티프 편집",
+      "title": "장면 모티프",
+      "description": "저장 전까지 변경 사항은 초안에만 남습니다.",
+      "search": "이름 또는 코드로 검색",
+      "motif": "모티프",
+      "freeform": "자유 형식 (모티프 없음)",
+      "preview": "모티프 미리보기",
+      "unresolved": "미지정",
+      "save": "저장",
       "saving": "저장 중…",
-      "scheme": "정보 비대칭",
-      "summary": "요약 (검색용 임베딩)",
-      "tension": "긴장도 (1–5)"
+      "cancel": "취소",
+      "loadError": "모티프 데이터를 불러올 수 없습니다.",
+      "saveError": "저장 실패. 초안이 유지됩니다. 다시 저장하세요.",
+      "partialError": "일부 변경이 저장되었습니다. 다시 저장하여 완료하세요. 취소해도 저장된 변경은 되돌아가지 않습니다.",
+      "discardTitle": "저장하지 않은 변경을 버릴까요?",
+      "discardDescription": "저장하지 않은 초안은 삭제됩니다. 저장된 변경은 여기서 되돌릴 수 없습니다.",
+      "stay": "계속 편집",
+      "discard": "초안 버리기",
+      "fallback": "번역이 없어 {{language}}로 표시합니다.",
+      "contextRequired": "확정된 장면을 선택하세요.",
+      "current": "현재",
+      "dirty": "저장하지 않은 변경"
     },
     "kind": {
       "arcs": "서사 구조 템플릿",
@@ -1628,7 +1660,7 @@
   "canonConflictKeepTheirs": "상대방 수정사항 유지",
   "canonConflictReapply": "v{{v}} 버전에 내 편집 내용 다시 적용",
   "canonConflictTitle": "다른 곳에서 규칙이 변경되었습니다. 작성 중인 초안은 아래에 유지됩니다.",
-  "canonview": "Canon as of",
+  "canonview": "기준 시점의 카논",
   "canonAtChapter": {
     "active": "{{n}}개 활성",
     "branchHint": "이 분기점 직전의 설정 상태",
@@ -1773,6 +1805,13 @@
   "canonConflictCurrent": "현재 (v{{v}}): {{text}}",
   "coverageExtractionFailed": "개요에서 약속된 내용을 읽어오지 못했습니다 (모델 호출 실패 또는 중단됨). 다시 시도하거나 다른 모델을 선택하세요.",
   "coverageScoreFailed": "약속된 내용은 읽어왔으나, 도서 내용과의 일치 여부 점수 산출에 실패했습니다. 다시 시도하세요.",
+  "coverageCorpusIncomplete": "전체 도서를 평가할 수 없습니다. {{count}}개 장의 초안을 읽지 못했습니다. 전체 도서에 대한 판정은 산출되지 않았습니다. 다시 시도하세요.",
+  "coverageCorpusIncomplete_zero": "전체 도서를 평가할 수 없습니다. {{count}}개 장의 초안을 읽지 못했습니다. 전체 도서에 대한 판정은 산출되지 않았습니다. 다시 시도하세요.",
+  "coverageCorpusIncomplete_one": "전체 도서를 평가할 수 없습니다. {{count}}개 장의 초안을 읽지 못했습니다. 전체 도서에 대한 판정은 산출되지 않았습니다. 다시 시도하세요.",
+  "coverageCorpusIncomplete_two": "전체 도서를 평가할 수 없습니다. {{count}}개 장의 초안을 읽지 못했습니다. 전체 도서에 대한 판정은 산출되지 않았습니다. 다시 시도하세요.",
+  "coverageCorpusIncomplete_few": "전체 도서를 평가할 수 없습니다. {{count}}개 장의 초안을 읽지 못했습니다. 전체 도서에 대한 판정은 산출되지 않았습니다. 다시 시도하세요.",
+  "coverageCorpusIncomplete_many": "전체 도서를 평가할 수 없습니다. {{count}}개 장의 초안을 읽지 못했습니다. 전체 도서에 대한 판정은 산출되지 않았습니다. 다시 시도하세요.",
+  "coverageCorpusIncomplete_other": "전체 도서를 평가할 수 없습니다. {{count}}개 장의 초안을 읽지 못했습니다. 전체 도서에 대한 판정은 산출되지 않았습니다. 다시 시도하세요.",
   "lengthAskedDelivered": "~{{target}} 단어를 요청하여 {{actual}} 단어가 생성되었습니다 ({{pct}}%).",
   "lengthOverCeiling": "이 요청은 한 번의 호출로 안정적으로 생성할 수 있는 양을 초과했습니다. 장면을 여러 구절로 나누어 전체 길이를 확보하세요.",
   "techEdit": {
@@ -1817,6 +1856,28 @@
     "preview_more": "…외 {{n}}건",
     "preview_blank": "빈 줄이 삭제됩니다"
   },
-  "threadEditAria": "Edit promise",
-  "threadArchiveAria": "Archive promise"
+  "qualityReasons": {
+    "context_limit": "모델 컨텍스트 한도를 초과했습니다.",
+    "network": "공급자 네트워크 오류입니다.",
+    "unavailable": "공급자를 사용할 수 없습니다.",
+    "reasoning_exhausted": "추론으로 응답 예산이 소진되었습니다.",
+    "truncated": "응답이 잘렸습니다.",
+    "invalid_response": "잘못된 모델 응답입니다.",
+    "manualRetry": "다음 수동 실행에서 다시 시도하세요.",
+    "unknown": "알 수 없는 이유로 품질 분석에 실패했습니다.",
+    "incomplete": "일부 분석 구간이 완료되지 않았습니다.",
+    "synthesis_failed": "분석은 완료되었지만 보고서 종합에 실패했습니다.",
+    "synthesis_invalid_response": "분석은 완료되었지만 종합 과정에서 잘못된 응답이 반환되었습니다.",
+    "audit_only": "서사 흐름 감사만 완료되었습니다. 비평 점수는 사용할 수 없습니다."
+  },
+  "qualityScope": {
+    "partial": "부분 보고서 — 전체 장의 평가가 아닙니다.",
+    "chapter": "처리한 장 구간: {{analyzed}} / {{total}}.",
+    "canon": "선택된 설정 행: {{total}}개 중 {{selected}}개.",
+    "complete": "전체: 장 구간 {{windows}}개, 설정 항목 {{canon}}개 모두 처리, 종합 성공.",
+    "synthesisPending": "최종 종합이 완료되지 않았습니다."
+  },
+  "qualityThreadsSelection": "구간별 선택적 추출이며 전체 목록이 아닙니다. 병합 결과에 전역 제한은 없습니다. 구간당 {{maxPromises}}개, 문구당 {{maxPhraseChars}}자입니다.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "대기 중지 (분석은 계속)"
 }

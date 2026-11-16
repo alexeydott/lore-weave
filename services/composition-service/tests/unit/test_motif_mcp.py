@@ -1613,3 +1613,43 @@ async def test_arc_template_restore_not_archived_denied():
     async with _patched(ArcTemplateRepo=repo):
         with pytest.raises(NotAccessibleError):
             await srv.composition_arc_template_restore(_Ctx(), arc_id=str(uuid.uuid4()))
+
+
+@pytest.mark.parametrize("kind", ["chapter", "scene"])
+@pytest.mark.parametrize("locale, expected", [(" RU ", "ru"), (None, "en"), ("auto", "en")])
+async def test_suggest_display_language_parity(kind, locale, expected):
+    from app.db.models import OutlineNode, MotifCandidate
+    import app.mcp.server as srv
+
+    outline = AsyncMock()
+    outline.get_node.return_value = OutlineNode(
+        id=NODE, created_by=TEST_USER, book_id=BOOK, project_id=PROJECT,
+        kind=kind, rank="a0", title="C", status="empty", version=1)
+    retriever = AsyncMock()
+    retriever.retrieve.return_value = [MotifCandidate(
+        motif=_motif(), score=0.82, match_reason={"section": "library", "cosine": 0.8})]
+    async def get_work(pid):
+        assert pid == PROJECT
+        work = _work()
+        assert not hasattr(work, "language")
+        return work
+    async with _patched(grant_level=1, works_get=get_work, OutlineRepo=outline, MotifRetriever=retriever):
+        res = await srv.composition_motif_suggest_for_chapter(
+            _Ctx(), project_id=str(PROJECT), node_id=str(NODE), display_language=locale)
+    kwargs = retriever.retrieve.await_args.kwargs
+    assert kwargs["display_language"] == expected
+    assert retriever.retrieve.await_args.args == (TEST_USER,)
+    assert kwargs["book_id"] == BOOK and kwargs["project_id"] == PROJECT
+    assert res["candidates"][0]["score"] == 0.82
+    assert res["candidates"][0]["match_reason"]["section"] == "library"
+
+
+async def test_suggest_locale_cannot_bypass_view_grant():
+    import app.mcp.server as srv
+    from loreweave_mcp import NotAccessibleError
+    retriever = AsyncMock()
+    async with _patched(grant_level=0, MotifRetriever=retriever):
+        with pytest.raises(NotAccessibleError):
+            await srv.composition_motif_suggest_for_chapter(
+                _Ctx(), project_id=str(PROJECT), node_id=str(NODE), display_language="ru")
+    retriever.retrieve.assert_not_awaited()

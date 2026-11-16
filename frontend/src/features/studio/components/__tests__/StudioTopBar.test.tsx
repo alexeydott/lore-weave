@@ -7,7 +7,7 @@ import { StudioHostProvider } from '../../host/StudioHostProvider';
 // StudioTopBar now hosts the layout-preset button (uses useStudioHost), so the provider is required.
 const setup = (bookTitle = 'My Book', onOpenQuickOpen = vi.fn(), onOpenGuide = vi.fn()) =>
   render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <StudioHostProvider bookId="b1">
         <StudioTopBar bookId="b1" bookTitle={bookTitle} onOpenQuickOpen={onOpenQuickOpen} onOpenGuide={onOpenGuide} />
       </StudioHostProvider>

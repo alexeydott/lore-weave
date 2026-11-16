@@ -38,6 +38,8 @@ service-bearer seam with a direct internal call.
 
 from __future__ import annotations
 
+from app.engine.retrieval_model import resolve_retrieval_model
+
 import logging
 from decimal import Decimal
 from typing import Annotated, Any, Literal
@@ -104,7 +106,7 @@ from app.db.repositories.structure_templates import (
     StructureTemplateVersionConflict,
 )
 from app.db.repositories.generation_jobs import GenerationJobsRepo
-from app.db.repositories.motif_repo import EndpointsOwnedNotShared, MotifRepo, owns_motif
+from app.db.repositories.motif_repo import EndpointsOwnedNotShared, MotifRepo, owns_motif, normalize_display_language
 from app.engine.exit_state import merge_authored_exit_state
 from app.engine.model_roles import role_ref
 from app.engine.library_translate import (
@@ -4556,6 +4558,7 @@ async def composition_motif_suggest_for_chapter(
         "summary = each candidate's motif is refs only (no roles/beats); full = every field. "
         "score + match_reason are kept at both levels.",
     ] = "summary",  # K37 drain: OUT-2 small-shape default
+    display_language: Annotated[str | None, "Display language; re-words candidates without filtering or re-ranking. Defaults to English."] = None,
 ) -> dict:
     tc = _ctx(ctx)
     works = WorksRepo(get_pool())
@@ -4575,16 +4578,16 @@ async def composition_motif_suggest_for_chapter(
     # shared in the platform space (section='library'). The embed model comes from the Work
     # settings; None ⇒ private motifs degrade to genre (the platform never embeds private).
     work = await works.get(pid)
-    user_model = reference_embed_model(getattr(work, "settings", None)) if work is not None else None
+    model_resolution = await resolve_retrieval_model(tc.user_id, getattr(work, "settings", None))
     candidates = await retriever.retrieve(
         tc.user_id, book_id=meta.book_id, project_id=pid,
         genre_tags=list(getattr(meta, "genre_tags", []) or []),
-        display_language=getattr(meta, "language", None) or "en",
+        display_language=normalize_display_language(display_language) or "en",
         # The node's OWN text + beat_role seed the query (see `node_query_text`); passing
         # None here forced every candidate onto the degrade path with cosine=0.0.
         beat_role=getattr(node, "beat_role", None),
         tension=getattr(node, "tension_target", None), limit=limit,
-        user_model=user_model, query=node_query_text(node),
+        model_resolution=model_resolution, query=node_query_text(node),
     )
     # L1/L2 reference-first on the ranked candidates: project each candidate's (heavy)
     # motif body through the contract, keeping the score + match_reason wrapper. The
@@ -4644,10 +4647,10 @@ async def composition_arc_suggest(
     # (section='library'). The caller's embed model comes from the Work settings; None ⇒
     # their private arcs degrade to genre ranking (the platform never embeds private content).
     work = await works.get(pid)
-    user_model = reference_embed_model(getattr(work, "settings", None)) if work is not None else None
+    model_resolution = await resolve_retrieval_model(tc.user_id, getattr(work, "settings", None))
     candidates = await retriever.retrieve_arcs(
         tc.user_id, book_id=meta.book_id, project_id=pid,
-        premise=premise, genre=genre, limit=limit, user_model=user_model,
+        premise=premise, genre=genre, limit=limit, model_resolution=model_resolution,
     )
     # L1/L2 reference-first on the ranked candidates: project each (heavy) arc_template
     # body through the contract while keeping the score + match_reason wrapper. The
@@ -6098,13 +6101,13 @@ class _ConformanceRunArgs(ForbidExtra):
         Literal["chapter", "arc"],
         Field(description=(
             "WHICH SCOPE, and it decides which other arguments are REQUIRED: 'chapter' needs "
-            "chapter_id; 'arc' needs BOTH arc_id and model_ref (+ model_source). Picking a "
+            "chapter_id and model_ref; 'arc' needs BOTH arc_id and model_ref (+ model_source). Picking a "
             "scope without its partner is refused."
         )),
     ]
     chapter_id: Annotated[
         str | None,
-        Field(description="REQUIRED when scope='chapter' — the chapter to check (a UUID)."),
+        Field(description="REQUIRED when scope='chapter' — the manuscript chapter UUID (not an outline node id)."),
     ] = None
     # BA4 (23): arc-scope conformance diffs the SPEC (structure_node) against the
     # prose — pass `arc_id` (a structure_node id), NOT a template id. "Did the prose
@@ -6161,10 +6164,20 @@ async def composition_conformance_run(ctx: MCPContext, args: _ConformanceRunArgs
         if not args.chapter_id:
             return {"success": False, "error": "chapter_id is required when scope='chapter'"}
         outline = OutlineRepo(get_pool())
-        node = await outline.get_node(_uuid(args.chapter_id, "chapter_id"))
-        # IDOR: the chapter is in the gated Work's project.
-        if node is None or node.project_id != pid:
-            raise uniform_not_accessible()
+        chapter_id = _uuid(args.chapter_id, "chapter_id")
+        # Resolve the manuscript id IN the gated book, not as an outline-node id.
+        try:
+            await get_book_client().get_draft(
+                meta.book_id, chapter_id, mint_service_bearer(tc.user_id, settings.jwt_secret))
+        except BookClientError as exc:
+            if exc.status in (403, 404):
+                raise uniform_not_accessible() from exc
+            return _book_error_result(exc)
+        scenes = await outline.scenes_for_chapter(pid, chapter_id)
+        if not scenes:
+            return {"success": False, "error": "NO_PLANNED_SCENES"}
+        if not args.model_ref:
+            return {"success": False, "error": "model_ref is required when scope='chapter'"}
     else:  # scope == "arc" — the deep overlay job (D-W10-ARC-CONFORMANCE-DEEP-JOB)
         if not args.arc_id:
             return {"success": False, "error": "arc_id is required when scope='arc'"}
@@ -7360,45 +7373,16 @@ async def composition_find_references(
     ] = None,
     limit: Annotated[int, "Max rows per source (counts stay exact)."] = 20,
 ) -> dict:
-    from app.services.agent_native import REFERENCE_SOURCES
+    from app.services.entity_references import find_entity_references
 
     tc = _ctx(ctx)
     bid = _uuid(book_id, "book_id")
     await _gate(tc, bid, GrantLevel.VIEW)
-
-    # No Work resolution here: all eight sources are BOOK-scoped, and the E0 gate above is the
-    # book gate. Resolving a project we would never use was how a book_id ended up in a project slot.
-    pool = get_pool()
     eid = _uuid(entity_id, "entity_id")
-    want = tuple(sources) if sources else REFERENCE_SOURCES
-    cap = max(1, min(int(limit or 20), 100))
-
-    repo = EntityReferencesRepo(pool)
-    out_sources: dict[str, Any] = {}
-    for src in want:
-        try:
-            count, refs = await repo.find(src, book_id=bid, entity_id=eid, limit=cap)
-        except Exception:  # noqa: BLE001 — one source degrades; the rest still answer
-            logger.warning("find_references: source %s failed", src, exc_info=True)
-            out_sources[src] = {"error": "this source could not be read"}
-            continue
-        out_sources[src] = {
-            # EXACT — the agent reasons about the number, and only samples the rows.
-            "count": count,
-            "refs": refs,
-            "has_more": count > len(refs),
-        }
-    return {
-        "book_id": str(bid),
-        "entity_id": str(eid),
-        "sources": out_sources,
-        "_meta": {
-            "note": (
-                "Composition scope only. The prose side is glossary_get_entity (chapter links + "
-                "evidence); the graph side is kg_entity_edge_timeline."
-            ),
-        },
-    }
+    return await find_entity_references(
+        EntityReferencesRepo(get_pool()), book_id=bid, entity_id=eid,
+        sources=sources, limit=limit,
+    )
 
 
 @mcp_server.tool(

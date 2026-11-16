@@ -43,11 +43,12 @@ describe('motifApi.regenerateScene', () => {
     expect(generateAuto.mock.calls[0][1].operation).toBe('regenerate_to_beat');
   });
 
-  it('does NOT re-specify mode/url/model_source — those belong to the shared call', async () => {
+  it('forwards the model descriptor without re-specifying mode or URL', async () => {
     // The delegation is the point: anything this passes is something it can get wrong. `mode`
     // ('auto', without which the endpoint streams SSE) and the 202-poll live in generateAuto.
-    await motifApi.regenerateScene('p1', 'n1', 'model-1', 'tok');
+    await motifApi.regenerateScene('p1', 'n1', 'model-1', 'tok', 'platform_model');
     expect(Object.keys(generateAuto.mock.calls[0][1]).sort())
-      .toEqual(['modelRef', 'operation', 'outlineNodeId']);
+      .toEqual(['modelRef', 'modelSource', 'operation', 'outlineNodeId']);
+    expect(generateAuto.mock.calls[0][1].modelSource).toBe('platform_model');
   });
 });

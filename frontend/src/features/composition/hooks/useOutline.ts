@@ -2,7 +2,7 @@
 // (react-query). T1.1a is the read query; T1.1b adds the tree mutations (rename /
 // add-child / archive / set-status). Reorder + cards mode land in T1.1c/d.
 // Mirrors useCanonRules.
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { compositionApi } from '../api';
 import type { OutlineNode, SceneLink, SceneLinkKind } from '../types';
 
@@ -11,12 +11,10 @@ export function useOutline(projectId: string | undefined, token: string | null, 
     // Key includes the flag so the archived view caches separately from the
     // default view (and a mutation invalidating the base key — without the flag —
     // still refetches both via prefix match).
-    queryKey: ['composition', 'outline', projectId, includeArchived],
+    queryKey: ['composition', 'outline', projectId, includeArchived, token],
     queryFn: () => compositionApi.getOutline(projectId!, token!, includeArchived),
     enabled: !!projectId && !!token,
-    // Toggling the archived view changes the key; keep the prior rows on screen
-    // during the swap so the whole panel (header + toggle) doesn't flash "Loading".
-    placeholderData: keepPreviousData,
+    // Never carry prior rows across project or authorization boundaries.
     select: (d): OutlineNode[] => d.nodes,
   });
 }
@@ -29,10 +27,9 @@ export function useOutline(projectId: string | undefined, token: string | null, 
  */
 export function useSceneLinks(projectId: string | undefined, token: string | null) {
   return useQuery({
-    queryKey: ['composition', 'outline', projectId, false],
+    queryKey: ['composition', 'outline', projectId, false, token],
     queryFn: () => compositionApi.getOutline(projectId!, token!, false),
     enabled: !!projectId && !!token,
-    placeholderData: keepPreviousData,
     select: (d): SceneLink[] => d.scene_links,
   });
 }

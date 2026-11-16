@@ -117,6 +117,12 @@ function _qs(params: Record<string, string | number | undefined>): string {
 }
 
 export const motifApi = {
+  saveSceneMotif(projectId: string, nodeId: string, motifId: string | null, token: string) {
+    return apiJson(`${BASE}/works/${projectId}/outline/${nodeId}/motif`, { method: motifId ? 'PATCH' : 'DELETE', ...(motifId ? { body: JSON.stringify({ motif_id: motifId }) } : {}), token });
+  },
+  saveSceneRole(projectId: string, nodeId: string, roleKey: string, entityId: string | null, token: string) {
+    return apiJson(`${BASE}/works/${projectId}/outline/${nodeId}/motif/role`, { method: 'PATCH', body: JSON.stringify({ role_key: roleKey, entity_id: entityId }), token });
+  },
   // ── library CRUD (W1) ──────────────────────────────────────────────────────
   list(params: MotifListParams, token: string): Promise<{ motifs: Motif[] }> {
     return apiJson<{ motifs: Motif[] }>(`${BASE}/motifs${_qs(params)}`, { token });
@@ -201,8 +207,8 @@ export const motifApi = {
 
   // ── ranked suggest (BE-M4, 3b) — the GUI twin of composition_motif_suggest_for_chapter,
   //    replacing the flat list(scope=all,100) behind SwapMotifPopover (GG-1 Determinism).
-  suggestForChapter(projectId: string, nodeId: string, token: string, limit = 5): Promise<{ candidates: MotifSuggestion[] }> {
-    return apiJson(`${BASE}/works/${projectId}/scenes/${nodeId}/suggest-motifs${_qs({ limit })}`, { token });
+  suggestForChapter(projectId: string, nodeId: string, token: string, limit = 5, display_language?: string): Promise<{ candidates: MotifSuggestion[] }> {
+    return apiJson(`${BASE}/works/${projectId}/scenes/${nodeId}/suggest-motifs${_qs({ limit, display_language })}`, { token });
   },
 
   // ── Tier-W: adopt = clone into YOUR library (R2.8 confirm-token), via the
@@ -560,9 +566,9 @@ export const motifApi = {
    *  thing this passes. The retry instruction itself is server-authored in
    *  `_OPERATION_INSTRUCTIONS` — the drift is a machine verdict, so its wording is not the
    *  client's to phrase. */
-  regenerateScene(projectId: string, outlineNodeId: string, modelRef: string, token: string) {
+  regenerateScene(projectId: string, outlineNodeId: string, modelRef: string, token: string, modelSource: 'user_model' | 'platform_model' = 'user_model') {
     return compositionApi.generateAuto(
-      projectId, { outlineNodeId, modelRef, operation: 'regenerate_to_beat' }, token,
+      projectId, { outlineNodeId, modelRef, modelSource, operation: 'regenerate_to_beat' }, token,
     );
   },
 };

@@ -141,6 +141,10 @@
       "low": "নিম্ন",
       "medium": "মাঝারি",
       "high": "উচ্চ"
+    },
+    "evidence": {
+      "regurgitation_overlap": "উৎস পাঠ্যের সঙ্গে উল্লেখযোগ্য মিল (দীর্ঘতম সাধারণ ক্রম {{lcs_chars}} অক্ষর, {{containment_pct}}% n-গ্রাম আবরণ) — ধার করা শব্দচয়ন পরীক্ষা করুন।",
+      "regurgitation_verbatim": "আউটপুট উৎসের উল্লেখযোগ্য অংশ হুবহু অনুলিপি করেছে (দীর্ঘতম সাধারণ ক্রম {{lcs_chars}} অক্ষর, আউটপুটের {{output_fraction_pct}}%) — কপিরাইট ঝুঁকি; স্বয়ংক্রিয়ভাবে প্রত্যাখ্যাত।"
     }
   },
   "prov": {
@@ -151,7 +155,10 @@
     "model": "মডেল",
     "recook_abstracted": "অ্যাবস্ট্রাক্টেড ফ্যাক্ট থেকে পুনরায় রান্না করা হয়েছে — মূল গদ্য থেকে নয়, বরং নিরপেক্ষ ফ্যাক্ট বুলেট থেকে তৈরি (②)।",
     "grounding": "গ্রাউন্ডিং সোর্স",
-    "skipped": "স্কিপ করা (unlicensed) সোর্স"
+    "skipped": "স্কিপ করা (unlicensed) সোর্স",
+    "origin_value": {
+      "enrichment": "AI সংবর্ধন"
+    }
   },
   "license": {
     "public_domain": "পাবলিক ডোমেইন",
@@ -170,7 +177,8 @@
     "show_less": "কম দেখুন",
     "content": "তৈরি করা লোর (lore)",
     "verify": "ভেরিফিকেশন",
-    "provenance": "প্রোভেন্যান্স এবং সোর্স"
+    "provenance": "প্রোভেন্যান্স এবং সোর্স",
+    "h0_meta": "সংস্করণ · {{origin}} · আস্থা {{confidence}} · {{review}}"
   },
   "card": {
     "summary": "{{dims}} ডাইমেনশন · {{sources}}টি সোর্সের ওপর ভিত্তি করে",
@@ -247,6 +255,36 @@
       "rank": "র‍্যাঙ্ক",
       "action": "অ্যাকশন"
     },
+    "kinds": {
+      "item": "আইটেম",
+      "character": "চরিত্র",
+      "location": "স্থান",
+      "event": "ঘটনা",
+      "technique": "কৌশল",
+      "terminology": "পরিভাষা",
+      "power_system": "শক্তি ব্যবস্থা",
+      "trope": "কাহিনির রীতি",
+      "species": "প্রজাতি",
+      "organization": "সংগঠন",
+      "plot_arc": "কাহিনি-পর্ব",
+      "social_setting": "সামাজিক পরিবেশ"
+    },
+    "dims": {
+      "origin": "উৎস",
+      "powers": "শক্তি",
+      "appearance": "বাহ্যিক রূপ",
+      "owner": "মালিক",
+      "significance": "তাৎপর্য",
+      "personality": "ব্যক্তিত্ব",
+      "abilities": "ক্ষমতা",
+      "relationships": "সম্পর্ক",
+      "background": "পটভূমি",
+      "history": "ইতিহাস",
+      "geography": "ভূগোল",
+      "culture": "সংস্কৃতি",
+      "features": "বৈশিষ্ট্য",
+      "inhabitants": "বাসিন্দা"
+    },
     "top_k": "Top-K"
   },
   "sources": {
@@ -302,7 +340,8 @@
     "error": {
       "gateLocked": "Eval গেট দ্বারা লক করা হয়েছে — প্রথমে enrichment eval চালান।",
       "internal": "Enrichment ব্যর্থ হয়েছে (অভ্যন্তরীণ ত্রুটি)। বিস্তারিত জানতে হোভার করুন।",
-      "insufficientGrounding": "এই সত্তাগুলোর জন্য কোনো ব্যবহারযোগ্য করপাস গ্রাউন্ডিং নেই — রেফারেন্স কনটেক্সট পেস্ট করুন অথবা Fabrication ব্যবহার করুন।"
+      "insufficientGrounding": "এই সত্তাগুলোর জন্য কোনো ব্যবহারযোগ্য করপাস গ্রাউন্ডিং নেই — রেফারেন্স কনটেক্সট পেস্ট করুন অথবা Fabrication ব্যবহার করুন।",
+      "providerRateLimited": "এম্বেডিং প্রদানকারীর একসঙ্গে অনুরোধের সীমা পূর্ণ হয়েছে। একটু পরে আবার চেষ্টা করুন।"
     }
   },
   "settings": {

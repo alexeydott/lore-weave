@@ -580,20 +580,27 @@ func postJSON(ctx context.Context, client *http.Client, url string, headers map[
 		return nil, fmt.Errorf("http: %w", err)
 	}
 	defer res.Body.Close()
-	raw, err := io.ReadAll(res.Body)
+	if res.StatusCode >= 400 {
+		raw, readErr := io.ReadAll(io.LimitReader(res.Body, 512))
+		if readErr != nil {
+			return nil, fmt.Errorf("read provider error: %w", readErr)
+		}
+		msg := string(raw)
+		var errorBody map[string]any
+		if json.Unmarshal(raw, &errorBody) == nil {
+			if value, ok := errorBody["error"]; ok {
+				msg = fmt.Sprintf("%v", value)
+			}
+		}
+		return nil, ClassifyUpstreamHTTP(res.StatusCode, msg, parseRetryAfter(res.Header.Get("Retry-After")))
+	}
+	raw, err := io.ReadAll(io.LimitReader(res.Body, 10<<20))
 	if err != nil {
 		return nil, fmt.Errorf("read body: %w", err)
 	}
 	var out map[string]any
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, fmt.Errorf("unmarshal (status %d): %s", res.StatusCode, string(raw))
-	}
-	if res.StatusCode >= 400 {
-		msg := ""
-		if e, ok := out["error"]; ok {
-			msg = fmt.Sprintf("%v", e)
-		}
-		return nil, fmt.Errorf("provider error %d: %s", res.StatusCode, msg)
+		return nil, fmt.Errorf("unmarshal (status %d): %s", res.StatusCode, string(raw[:min(len(raw), 200)]))
 	}
 	return out, nil
 }
@@ -1013,6 +1020,9 @@ func (a *openaiAdapter) Invoke(ctx context.Context, endpointBaseURL, secret, mod
 	if v, ok := input["temperature"]; ok {
 		payload["temperature"] = v
 	}
+	// Match Stream: suppression and structured-output controls must reach HTTP.
+	forwardOptionalChatFields(input, payload)
+	stripDefaultOpenAIUnsupportedFields(payload, modelName, endpointBaseURL)
 	out, err := postJSON(ctx, a.client, base+"/v1/chat/completions",
 		map[string]string{"Authorization": "Bearer " + secret},
 		payload,
@@ -1424,7 +1434,7 @@ func (a *ollamaAdapter) Invoke(ctx context.Context, endpointBaseURL, secret stri
 // actually works.
 //
 // 🔴 IT USED TO CALL Invoke WITH AN EMPTY MODEL NAME. Local Ollama tolerated that; ollama.com
-// answers `404 model '' not found`, so a cloud provider that demonstrably serves completions was
+// answers `404 model ” not found`, so a cloud provider that demonstrably serves completions was
 // reported unhealthy. Measured 2026-09-01 against the live endpoint.
 //
 // 🔴 AND THE OBVIOUS REPLACEMENT IS A GUARD THAT CANNOT FAIL. Listing models looks like the

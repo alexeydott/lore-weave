@@ -11,7 +11,7 @@ import { AllAppsDrawer } from '../AllAppsDrawer';
 
 function renderAt(entry: string) {
   return render(
-    <MemoryRouter initialEntries={[entry]}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[entry]}>
       <AllAppsDrawer />
     </MemoryRouter>,
   );

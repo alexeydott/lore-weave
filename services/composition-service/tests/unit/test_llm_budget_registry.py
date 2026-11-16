@@ -87,7 +87,7 @@ def test_exactly_the_rows_that_declare_it_escalate():
     """Pins the SET, so a second escalation is a decision someone makes on purpose."""
     escalated = sorted(c for c, p in PROFILES.items()
                        if p.truncation_fatal and p.kind is not OutputKind.STRUCTURED)
-    assert escalated == ["cross_scene_check"], escalated
+    assert escalated == ["cross_scene_check", "judge_prose"], escalated
 
 
 def test_every_row_carries_a_reason():

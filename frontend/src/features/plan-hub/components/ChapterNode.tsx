@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 // Plan Hub v2 (24 H4) — the chapter card (render-only custom RF node). Title slot falls back to a
 // story-order label until the node's window loads; the badge row renders the ordered decorations
 // (canon deep-link · thread debt · pacing sparkline · motif chips) from the single precedence home.
@@ -12,11 +13,12 @@ import { chapterCardClass, normStatus, statusDotClass } from './flowPresentation
 import { normalizeSource } from '../types';
 
 function ChapterNodeInner({ data }: NodeProps<PlanNodeData>) {
+  const { t } = useTranslation('studio');
   const { node, content, overlay, selected, isHere, onToggle, onOpenRef, hiddenEdges, resolveEntity , matched } =
     data;
   // Chapters aren't in conformance.arcs ⇒ no drift badge (isArc:false); pacing IS chapter-keyed.
   const badges = orderNodeBadges({ overlay, nodeId: node.id, showTension: true, content, resolveEntity });
-  const title = content?.title || `Ch ${node.storyOrder ?? '—'}`;
+  const title = content?.title || t('planHub.flow.chNo', { n: node.storyOrder ?? '—' });
   // MERGED coordinator: the canvas card wears the SAME readable lane treatment as the redesign —
   // status → fill/dot colour, authorship → serif (human) / mono (machine). This is what makes the
   // graph and the lane "one thing": the graph card IS the lane card, just on a zoom/pan/drag canvas.
@@ -64,7 +66,7 @@ function ChapterNodeInner({ data }: NodeProps<PlanNodeData>) {
             onToggle?.();
           }}
           className="pointer-events-auto text-muted-foreground hover:text-foreground"
-          aria-label={node.collapsed ? 'Expand scenes' : 'Collapse scenes'}
+          aria-label={t(node.collapsed ? 'planHub.drawer.expandScenes' : 'planHub.drawer.collapseScenes')}
         >
           {node.collapsed ? '▸' : '▾'}
         </button>

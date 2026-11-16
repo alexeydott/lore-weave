@@ -35,7 +35,7 @@ const feed = {
 };
 
 function renderHome() {
-  return render(<MemoryRouter><PlatformHomePage /></MemoryRouter>);
+  return render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><PlatformHomePage /></MemoryRouter>);
 }
 
 describe('PlatformHomePage (DF1 draft layout)', () => {

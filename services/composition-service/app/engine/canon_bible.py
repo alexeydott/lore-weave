@@ -77,6 +77,7 @@ class CanonBible:
     grounding: str  # 'as_of' | 'untimed' | 'convention_only' | 'empty'
     as_of: int | None = None
     cast_size: int = 0
+    complete: bool = False
 
     def as_present_facts(self) -> list[str]:
         """The critic's `present_facts` shape.
@@ -128,6 +129,7 @@ async def cast_roster(
 
 async def canon_cast_at(
     kal: KalClient, book: BookClient, book_id: UUID, chapter_id: UUID, user_id: UUID,
+    *, strict: bool = False,
 ) -> tuple[list[dict], int | None]:
     """The cast AS OF the chapter being worked on — the input to `render_canon`.
 
@@ -148,15 +150,19 @@ async def canon_cast_at(
             "canon cast for book %s chapter %s has NO resolved story position (sort_order "
             "absent) — falling back to the untimed roster; the bible will describe the end "
             "of the book, not this chapter", book_id, chapter_id)
-        return await cast_roster(kal, book_id, user_id), None
+        return await cast_roster(kal, book_id, user_id, strict=strict), None
     logger.info("canon cast resolved story position: book=%s chapter=%s as_of=%d",
                 book_id, chapter_id, as_of)
-    cast = cast_from_state(await kal.state(book_id, as_of=as_of, user_id=user_id))
-    return await _fill_missing_names(kal, book_id, user_id, cast), as_of
+    kwargs = {"strict": True} if strict else {}
+    cast = cast_from_state(await kal.state(book_id, as_of=as_of, user_id=user_id, **kwargs),
+                           preserve_facts=strict)
+    cast = await _fill_missing_names(kal, book_id, user_id, cast, strict=strict)
+    return cast, as_of
 
 
 async def _fill_missing_names(
-    kal: KalClient, book_id: UUID, user_id: UUID, cast: list[dict[str, str]]
+    kal: KalClient, book_id: UUID, user_id: UUID, cast: list[dict[str, str]],
+    *, strict: bool = False,
 ) -> list[dict[str, str]]:
     """Give the state-derived cast the NAMES only the roster carries.
 
@@ -179,8 +185,10 @@ async def _fill_missing_names(
         return cast
     try:
         names = {str(r.get("entity_id")): str(r.get("name") or "").strip()
-                 for r in await cast_roster(kal, book_id, user_id)}
+                 for r in await cast_roster(kal, book_id, user_id, strict=strict)}
     except Exception:  # noqa: BLE001 — advisory; the bible degrades, the critique does not
+        if strict:
+            raise
         # WARNING, not debug: this degrade costs the critic every character whose name lives
         # only in the roster, and C41 measured that as 8 of 21 entities on the acceptance book.
         # A fallback nobody can observe is a fallback that gets reported as a success — the same
@@ -226,6 +234,7 @@ async def canon_for_chapter(
     user_id: UUID,
     bearer: str,
     source_language: str,
+    require_complete: bool = False,
 ) -> CanonBible:
     """Render the story bible for ONE chapter: genre convention + the cast as of its position.
 
@@ -239,14 +248,16 @@ async def canon_for_chapter(
         logger.warning("canon bible: genre tags unreadable (continuing)", exc_info=True)
         genre_tags = []
     try:
-        cast, as_of = await canon_cast_at(kal, book, book_id, chapter_id, user_id)
+        kwargs = {"strict": True} if require_complete else {}
+        cast, as_of = await canon_cast_at(kal, book, book_id, chapter_id, user_id, **kwargs)
     except Exception:  # noqa: BLE001 — advisory; see the docstring
         logger.warning("canon bible: cast unreadable — judging without canon", exc_info=True)
         return CanonBible(text="", grounding="empty")
 
-    text = render_canon(cast, convention=convention_for(genre_tags, source_language))
+    text = render_canon(cast, convention=convention_for(genre_tags, source_language),
+                        full_facts=require_complete)
     if not text.strip():
-        return CanonBible(text="", grounding="empty", as_of=as_of, cast_size=len(cast))
+        return CanonBible(text="", grounding="empty", as_of=as_of, cast_size=len(cast), complete=require_complete and as_of is not None)
     if not cast:
         # A convention block renders even with nobody in it, so `text` being non-empty proves
         # nothing about canon. Say so, loudly: this is the shape a KAL outage takes.
@@ -254,10 +265,11 @@ async def canon_for_chapter(
             "canon bible for book %s chapter %s has NO CAST — convention block only; the "
             "judge gets style guidance and zero canon (KAL empty or unavailable)",
             book_id, chapter_id)
-        return CanonBible(text=text, grounding="convention_only", as_of=as_of, cast_size=0)
+        return CanonBible(text=text, grounding="convention_only", as_of=as_of, cast_size=0, complete=require_complete and as_of is not None)
     return CanonBible(
         text=text,
         grounding="as_of" if as_of is not None else "untimed",
         as_of=as_of,
         cast_size=len(cast),
+        complete=require_complete and as_of is not None,
     )

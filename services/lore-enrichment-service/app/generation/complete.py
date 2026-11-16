@@ -66,9 +66,14 @@ _MAX_OUTPUT_TOKENS: int = 4000
 class CompletionSeamError(RuntimeError):
     """A generation completion call failed (transport / upstream / SSE error)."""
 
-    def __init__(self, message: str, *, retryable: bool = False) -> None:
+    def __init__(
+        self, message: str, *, retryable: bool = False, status_code: int | None = None,
+        retry_after_s: float | None = None,
+    ) -> None:
         super().__init__(message)
         self.retryable = retryable
+        self.status_code = status_code
+        self.retry_after_s = retry_after_s
 
 
 def _iter_frames(sse_text: str) -> Iterator[tuple[str | None, dict[str, Any]]]:
@@ -128,8 +133,16 @@ def collect_stream_text(sse_text: str) -> str:
             if isinstance(delta, str):
                 parts.append(delta)
         elif kind == "error":
-            msg = payload.get("message") or payload.get("code") or "stream error"
-            raise CompletionSeamError(f"LLM stream error: {msg}")
+            code = payload.get("code")
+            msg = payload.get("message") or code or "stream error"
+            raise CompletionSeamError(
+                f"LLM stream error ({code or 'unknown'}): {msg}",
+                retryable=code == "LLM_RATE_LIMITED",
+                status_code=429 if code == "LLM_RATE_LIMITED" else None,
+                retry_after_s=float(payload["retry_after_s"])
+                if code == "LLM_RATE_LIMITED" and payload.get("retry_after_s") is not None
+                else None,
+            )
     return "".join(parts)
 
 
@@ -281,9 +294,17 @@ def make_complete_fn(
             ) from exc
         if resp.status_code != 200:
             retryable = resp.status_code in (429, 502, 503, 504)
+            retry_after_s: float | None = None
+            if resp.headers.get("Retry-After"):
+                try:
+                    retry_after_s = float(resp.headers["Retry-After"])
+                except ValueError:
+                    retry_after_s = None
             raise CompletionSeamError(
                 f"POST {url} failed ({resp.status_code}): {resp.text[:300]}",
                 retryable=retryable,
+                status_code=resp.status_code,
+                retry_after_s=retry_after_s,
             )
         text = collect_stream_text(resp.text)
         if not text.strip():

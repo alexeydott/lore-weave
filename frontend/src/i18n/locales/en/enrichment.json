@@ -2,7 +2,14 @@
   "header": "Enrichment Review",
   "subtitle": "Review AI-proposed lore for under-described entities, then promote what you approve into this book's canon. Enriched drafts are private variants until you promote them.",
   "untitled": "Untitled",
-  "panel": { "compose": "Create", "proposals": "Proposals", "gaps": "Gaps", "sources": "Sources", "jobs": "Jobs", "settings": "Profile" },
+  "panel": {
+    "compose": "Create",
+    "proposals": "Proposals",
+    "gaps": "Gaps",
+    "sources": "Sources",
+    "jobs": "Jobs",
+    "settings": "Profile"
+  },
   "compose": {
     "title": "Create enrichment",
     "subtitle": "Start enrichment your way — expand a draft you've written, or fill detected gaps. Everything you create is an enriched variant until you promote it.",
@@ -79,9 +86,15 @@
       "no_cap": "no cap",
       "top_k": "Top-K",
       "technique": "Technique",
-      "technique_opt": { "retrieval": "Retrieval (P1)", "fabrication": "Fabrication (P2)", "recook": "Re-cook (P3)" },
+      "technique_opt": {
+        "retrieval": "Retrieval (P1)",
+        "fabrication": "Fabrication (P2)",
+        "recook": "Re-cook (P3)"
+      },
       "eval_gate_warning": "P2/P3 needs a passed eval-gate — the job is refused until it passes.",
-      "dimensions": { "auto": "Auto — enrich all missing dimensions" }
+      "dimensions": {
+        "auto": "Auto — enrich all missing dimensions"
+      }
     },
     "safety": "① license · ② abstract · ③ regurgitation guard · ④ you promote — enriched stays a variant until you promote it.",
     "run_hint": "Runs as a background job — the proposal appears under Proposals when ready.",
@@ -124,7 +137,15 @@
       "injection": "Prompt injection",
       "regurgitation": "Source regurgitation"
     },
-    "severity": { "low": "low", "medium": "medium", "high": "high" }
+    "severity": {
+      "low": "low",
+      "medium": "medium",
+      "high": "high"
+    },
+    "evidence": {
+      "regurgitation_overlap": "Notable overlap with the source text (longest shared run {{lcs_chars}} chars, {{containment_pct}}% n-gram containment) — review for over-borrowed wording.",
+      "regurgitation_verbatim": "The output substantially copies the source verbatim (longest shared run {{lcs_chars}} chars, {{output_fraction_pct}}% of the output) — copyright risk; auto-rejected."
+    }
   },
   "prov": {
     "technique": "Technique",
@@ -134,7 +155,10 @@
     "model": "Model",
     "recook_abstracted": "Re-cooked from abstracted facts — generated from neutral fact bullets, not source prose (②).",
     "grounding": "Grounding sources",
-    "skipped": "Skipped (unlicensed) sources"
+    "skipped": "Skipped (unlicensed) sources",
+    "origin_value": {
+      "enrichment": "AI-enriched variant"
+    }
   },
   "license": {
     "public_domain": "public domain",
@@ -153,7 +177,8 @@
     "show_less": "Show less",
     "content": "Generated lore",
     "verify": "Verification",
-    "provenance": "Provenance & sources"
+    "provenance": "Provenance & sources",
+    "h0_meta": "Variant · {{origin}} · confidence {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "conf {{value}}",
@@ -224,7 +249,43 @@
     "enrich_one_hint": "Select generation + embedding models below to enrich.",
     "enriching": "Enqueuing…",
     "enqueued": "Enqueued {{count}} gap(s) for enrichment",
-    "col": { "entity": "Entity", "kind": "Kind", "missing": "Missing dimensions", "rank": "Rank", "action": "Action" }
+    "col": {
+      "entity": "Entity",
+      "kind": "Kind",
+      "missing": "Missing dimensions",
+      "rank": "Rank",
+      "action": "Action"
+    },
+    "kinds": {
+      "item": "Item",
+      "character": "Character",
+      "location": "Location",
+      "event": "Event",
+      "technique": "Technique",
+      "terminology": "Terminology",
+      "power_system": "Power system",
+      "trope": "Trope",
+      "species": "Species",
+      "organization": "Organization",
+      "plot_arc": "Plot arc",
+      "social_setting": "Social setting"
+    },
+    "dims": {
+      "origin": "Origin",
+      "powers": "Powers",
+      "appearance": "Appearance",
+      "owner": "Owner",
+      "significance": "Significance",
+      "personality": "Personality",
+      "abilities": "Abilities",
+      "relationships": "Relationships",
+      "background": "Background",
+      "history": "History",
+      "geography": "Geography",
+      "culture": "Culture",
+      "features": "Features",
+      "inhabitants": "Inhabitants"
+    }
   },
   "sources": {
     "title": "Sources",
@@ -279,7 +340,8 @@
     "error": {
       "gateLocked": "Locked by the eval gate — run the enrichment eval first.",
       "internal": "Enrichment failed (internal error). Hover for details.",
-      "insufficientGrounding": "No usable corpus grounding for these entities — paste reference context or use Fabrication."
+      "insufficientGrounding": "No usable corpus grounding for these entities — paste reference context or use Fabrication.",
+      "providerRateLimited": "The embedding provider is at its concurrency limit. Retry in a moment."
     }
   },
   "settings": {
@@ -295,7 +357,13 @@
     "markers_placeholder": "term | reason (one per line)",
     "markers_hint": "One per line as \"term | reason\". These are the terms the anachronism check flags. Clearing them turns the check off.",
     "dimensions": "Dimension overrides",
-    "kind": { "character": "Character", "location": "Location", "item": "Item", "faction": "Faction", "event": "Event" },
+    "kind": {
+      "character": "Character",
+      "location": "Location",
+      "item": "Item",
+      "faction": "Faction",
+      "event": "Event"
+    },
     "add_dimension": "Add dimension",
     "no_extra_dims": "Uses the built-in dimensions for this kind.",
     "dim_id": "id",

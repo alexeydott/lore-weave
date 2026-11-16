@@ -37,6 +37,7 @@ from app.jobs.events import LORE_ENRICHMENT_RESUME_STREAM, make_redis_producer
 from app.jobs.job_request import save_job_request
 from app.jobs.proposal_store import PgProposalStore
 from app.strategies.base import Technique
+from app.strategies.feature_flags import load_feature_flags
 
 logger = logging.getLogger("lore_enrichment.gaps")
 
@@ -252,6 +253,21 @@ async def auto_enrich(
             detail=(
                 f"unknown technique {body.technique!r} — valid: "
                 + ", ".join(t.value for t in Technique)
+            ),
+        )
+
+    # Fail-fast on a GATE-LOCKED technique (#user-report 2026-11-10): accepting the
+    # job used to defer the refusal to the worker, which DROPPED it — the row sat
+    # `pending` forever and the author's UI waited on a run nobody would ever
+    # drive ("request time out"). The registry's own predicate decides, so the
+    # gate cannot drift between here and the runner build.
+    if not load_feature_flags().is_active(technique):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"technique {technique.value!r} (tier {technique.tier.value}) is inactive "
+                f"— gated off until the C15 cost/quality gate. Pick an active technique "
+                f"(P1 retrieval) or enable ENRICH_STRATEGY_{technique.name}_ENABLED."
             ),
         )
 

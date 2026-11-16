@@ -69,9 +69,10 @@ def test_parse_audit_filters_non_string_and_blank_entries():
         "introduced": ["real promise", "", 42, None, "  "],
         "resolved": "not-a-list", "dropped": [" the vow "],
     }))
-    assert a["introduced"] == ["real promise"]      # blanks/non-str dropped
+    assert a["error"] == "audit_invalid_response"
+    assert a["introduced"] == []      # blanks/non-str dropped
     assert a["resolved"] == []                       # non-list → empty
-    assert a["dropped"] == ["the vow"]               # stripped
+    assert a["dropped"] == []               # stripped
 
 
 def test_build_audit_messages_delimits_prose_with_forged_delimiter():
@@ -113,7 +114,75 @@ async def test_audit_non_completed_returns_empty():
     llm = FakeLLM(content="{}", status="failed")
     a = await promise_audit.audit_promises(
         llm, user_id="u", model_source="user_model", model_ref="judge", arc_text="arc")
-    assert a["error"] == "audit_failed"
+    assert a["error"] == "audit_unavailable"
+
+
+async def test_quality_audit_bounds_prompt_schema_and_marks_selection():
+    llm = FakeLLM(content=json.dumps({"introduced": ["the vow"], "resolved": [], "dropped": []}))
+    result = await promise_audit.audit_promises(
+        llm, user_id="u", model_source="user_model", model_ref="j", arc_text="arc",
+        bounded=True, max_tokens=8192)
+    schema = llm.last_input["response_format"]["json_schema"]["schema"]
+    for key in ("introduced", "resolved", "dropped"):
+        assert schema["properties"][key]["maxItems"] == 12
+        assert schema["properties"][key]["items"]["maxLength"] == 80
+    prompt = llm.last_input["messages"][0]["content"]
+    assert "every promise INTRODUCED" not in prompt
+    assert "at most 12" in prompt and "at most 80 characters" in prompt
+    assert "not an exhaustive inventory" in prompt
+    assert "chapter or excerpt" in prompt
+    assert "You audit a complete story" not in prompt
+    assert "never merely for a missing payoff" in prompt
+    assert "Leave still-open promises unclassified" in prompt
+    assert result["selection"]["exhaustive"] is False
+    assert llm.last_input["max_tokens"] == 8192 and llm.calls == 1
+
+
+async def test_quality_audit_rejects_ignored_bounds_without_slicing():
+    for promises in ([str(i) for i in range(13)], ["x" * 81]):
+        llm = FakeLLM(content=json.dumps({"introduced": promises, "resolved": [], "dropped": []}))
+        result = await promise_audit.audit_promises(
+            llm, user_id="u", model_source="user_model", model_ref="j", arc_text="arc", bounded=True)
+        assert result["error"] == "audit_invalid_response"
+        assert result["introduced"] == []
+
+
+async def test_quality_audit_rejects_duplicates_foreign_and_overlapping_verdicts():
+    cases = [
+        {"introduced": ["a", "a"], "resolved": [], "dropped": []},
+        {"introduced": ["a"], "resolved": ["a", "a"], "dropped": []},
+        {"introduced": ["a"], "resolved": [], "dropped": ["a", "a"]},
+        {"introduced": ["a"], "resolved": ["foreign"], "dropped": []},
+        {"introduced": ["a"], "resolved": [], "dropped": ["foreign"]},
+        {"introduced": ["a"], "resolved": ["a"], "dropped": ["a"]},
+        {"introduced": ["a", " a "], "resolved": [], "dropped": []},
+    ]
+    for payload in cases:
+        result = await promise_audit.audit_promises(
+            FakeLLM(content=json.dumps(payload)), user_id="u", model_source="user_model",
+            model_ref="j", arc_text="arc", bounded=True)
+        assert result["error"] == "audit_invalid_response", payload
+        assert result["introduced"] == []
+
+
+async def test_quality_audit_accepts_disjoint_subsets_and_unclassified_open_promises():
+    payload = {"introduced": ["paid", "abandoned", "still open"],
+               "resolved": ["paid"], "dropped": ["abandoned"]}
+    result = await promise_audit.audit_promises(
+        FakeLLM(content=json.dumps(payload)), user_id="u", model_source="user_model",
+        model_ref="j", arc_text="arc", bounded=True)
+    assert "error" not in result
+    assert result["introduced_count"] == 3
+    assert result["resolved_count"] == result["dropped_count"] == 1
+
+
+async def test_exhaustive_eval_retains_unbounded_inventory():
+    promises = ["x" * 81] * 13
+    llm = FakeLLM(content=json.dumps({"introduced": promises, "resolved": [], "dropped": []}))
+    result = await promise_audit.audit_promises(
+        llm, user_id="u", model_source="user_model", model_ref="j", arc_text="arc")
+    assert result["introduced_count"] == 13 and "selection" not in result
+    assert "every promise INTRODUCED" in llm.last_input["messages"][0]["content"]
 
 
 # ── internal endpoint ──
@@ -151,6 +220,82 @@ def test_promise_audit_endpoint_happy(monkeypatch):
         assert r.status_code == 200
         assert r.json()["dropped_rate"] == 0.5
     app.dependency_overrides.clear()
+
+
+async def test_book_coverage_draft_failures_survive_inline_and_worker_input(monkeypatch):
+    from app.routers import plan
+    from app.worker.operations import run_promise_coverage
+
+    project_id, book_id, user_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    chapter_ids = [uuid.uuid4(), uuid.uuid4()]
+    monkeypatch.setattr(plan, "_require_work", AsyncMock(return_value=SimpleNamespace(
+        book_id=book_id, settings={})))
+    monkeypatch.setattr(plan.settings, "composition_worker_enabled", False)
+    book = SimpleNamespace(
+        list_chapters=AsyncMock(return_value=[{"chapter_id": str(c)} for c in chapter_ids]),
+        get_draft=AsyncMock(side_effect=[
+            {"body": {"type": "doc", "content": [{"type": "paragraph", "content": [
+                {"type": "text", "text": "The vow was fulfilled."}]}]}},
+            plan.BookClientError(503, "UNAVAILABLE"),
+        ]),
+    )
+    outline = SimpleNamespace(list_tree=AsyncMock(return_value=[]))
+    llm = SimpleNamespace(resolve_context_length=AsyncMock())
+    captured = {}
+
+    async def run(llm, *, user_id, input):
+        captured.update(input)
+        assert input["failed_chapters"] == 1
+        return await run_promise_coverage(llm, user_id=user_id, input=input)
+
+    monkeypatch.setattr("app.worker.operations.run_promise_coverage", run)
+    result = await plan.promise_coverage_endpoint(
+        project_id, plan.PromiseCoverageRequest(model_source="user_model", model_ref="judge"),
+        user_id=user_id, bearer="authorized", works=object(), book=book,
+        outline=outline, llm=llm, grant=object())
+    assert captured["failed_chapters"] == 1
+    assert captured["chapters"] == result["chapters"] == 1
+    assert captured["book_text"] == "The vow was fulfilled."
+    assert result["coverage"]["error"] == "coverage_unavailable"
+    assert result["coverage"]["failed_chapters"] == 1
+    assert result["coverage"]["coverage"] == []
+    llm.resolve_context_length.assert_not_awaited()
+    # The persisted worker payload must produce the same result as inline execution.
+    assert await run_promise_coverage(llm, user_id=str(user_id), input=captured) == result
+
+
+async def test_book_coverage_all_drafts_failed_is_not_empty_book(monkeypatch):
+    from app.routers import plan
+
+    monkeypatch.setattr(plan, "_require_work", AsyncMock(return_value=SimpleNamespace(
+        book_id=uuid.uuid4(), settings={})))
+    monkeypatch.setattr(plan.settings, "composition_worker_enabled", False)
+    book = SimpleNamespace(
+        list_chapters=AsyncMock(return_value=[{"chapter_id": str(uuid.uuid4())}]),
+        get_draft=AsyncMock(side_effect=plan.BookClientError(503, "UNAVAILABLE")),
+    )
+    llm = SimpleNamespace(resolve_context_length=AsyncMock())
+    result = await plan.promise_coverage_endpoint(
+        uuid.uuid4(), plan.PromiseCoverageRequest(model_source="user_model", model_ref="judge"),
+        user_id=uuid.uuid4(), bearer="authorized", works=object(), book=book,
+        outline=SimpleNamespace(list_tree=AsyncMock(return_value=[])), llm=llm, grant=object())
+    assert result["chapters"] == 0
+    assert result["coverage"]["failed_chapters"] == 1
+    assert result["coverage"]["error"] == "coverage_unavailable"
+    llm.resolve_context_length.assert_not_awaited()
+
+
+async def test_book_coverage_legacy_complete_job_still_scores(monkeypatch):
+    from app.worker.operations import run_promise_coverage
+
+    expected = {"coverage": [], "tracked_count": 0}
+    score = AsyncMock(return_value=expected)
+    monkeypatch.setattr("app.engine.quality_report.build_promise_coverage", score)
+    llm = SimpleNamespace(resolve_context_length=AsyncMock(return_value=32768))
+    result = await run_promise_coverage(llm, user_id="u", input={
+        "model_source": "user_model", "model_ref": "judge", "book_text": "prose", "chapters": 2})
+    assert result == {"coverage": expected, "chapters": 2}
+    score.assert_awaited_once()
 
 
 # ── EVAL v2 — fixed-promise-set coverage ──

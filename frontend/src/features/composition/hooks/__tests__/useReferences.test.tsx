@@ -28,6 +28,37 @@ beforeEach(() => {
 });
 
 describe('useReferences (T3.6)', () => {
+  it('never exposes the prior account library or hits after a token change or logout', async () => {
+    const { result, rerender } = renderHook(({ token }: { token: string | null }) => useReferences('p1', 's1', token), {
+      initialProps: { token: 'account-a' as string | null }, wrapper: makeWrapper(),
+    });
+    await waitFor(() => expect(result.current.hits).toHaveLength(1));
+    api.listReferences.mockReturnValue(new Promise(() => {}));
+    api.searchReferences.mockReturnValue(new Promise(() => {}));
+    rerender({ token: 'account-b' });
+    expect(result.current.references).toEqual([]);
+    expect(result.current.hits).toEqual([]);
+    expect(result.current.embedModelSet).toBeUndefined();
+    await waitFor(() => expect(api.listReferences).toHaveBeenCalledWith('p1', 'account-b'));
+    rerender({ token: null });
+    expect(result.current.references).toEqual([]);
+    expect(result.current.hits).toEqual([]);
+    expect(result.current.embedModelSet).toBeUndefined();
+  });
+
+  it('optimistic pinning affects only the authenticated account search cache', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const otherKey = ['composition', 'references', 'search', 'p1', 's1', 'other-token', ''];
+    const otherData = { hits: [{ id: 'r1', pinned: false, excluded: false }] };
+    qc.setQueryData(otherKey, otherData);
+    api.setGroundingPin.mockReturnValue(new Promise(() => {}));
+    const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+    const { result } = renderHook(() => useReferences('p1', 's1', 't'), { wrapper });
+    await waitFor(() => expect(result.current.hits).toHaveLength(1));
+    act(() => result.current.setPin(result.current.hits[0], 'pin'));
+    await waitFor(() => expect(result.current.hits[0].pinned).toBe(true));
+    expect(qc.getQueryData(otherKey)).toEqual(otherData);
+  });
   it('loads the library and exposes embedModelSet', async () => {
     const { result } = renderHook(() => useReferences('p1', 's1', 't'), { wrapper: makeWrapper() });
     await waitFor(() => expect(result.current.references.length).toBe(1));

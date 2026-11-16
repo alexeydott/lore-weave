@@ -141,6 +141,10 @@
       "low": "rendah",
       "medium": "sederhana",
       "high": "tinggi"
+    },
+    "evidence": {
+      "regurgitation_overlap": "Pertindihan ketara dengan teks sumber (run bersama terpanjang {{lcs_chars}} aksara, kontainmen n-gram {{containment_pct}}%) — semak frasa yang dipinjam daripada sumber.",
+      "regurgitation_verbatim": "Output menyalin sumber secara verbatim secara ketara (run bersama terpanjang {{lcs_chars}} aksara, {{output_fraction_pct}}% daripada output) — risiko hak cipta; ditolak automatik."
     }
   },
   "prov": {
@@ -151,7 +155,10 @@
     "model": "Model",
     "recook_abstracted": "Dimasak semula daripada fakta abstrak — dijana daripada poin fakta neutral, bukan prosa sumber (②).",
     "grounding": "Sumber pembumian",
-    "skipped": "Sumber yang dilewati (tiada lesen)"
+    "skipped": "Sumber yang dilewati (tiada lesen)",
+    "origin_value": {
+      "enrichment": "Pengayaan AI"
+    }
   },
   "license": {
     "public_domain": "domain awam",
@@ -170,7 +177,8 @@
     "show_less": "Tunjuk kurang",
     "content": "Lore yang dijana",
     "verify": "Pengesahan",
-    "provenance": "Asal-usul & sumber"
+    "provenance": "Asal-usul & sumber",
+    "h0_meta": "Varian · {{origin}} · keyakinan {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "conf {{value}}",
@@ -247,6 +255,36 @@
       "missing": "Dimensi hilang",
       "rank": "Peringkat",
       "action": "Tindakan"
+    },
+    "kinds": {
+      "item": "Item",
+      "character": "Watak",
+      "location": "Lokasi",
+      "event": "Peristiwa",
+      "technique": "Teknik",
+      "terminology": "Terminologi",
+      "power_system": "Sistem kuasa",
+      "trope": "Trope",
+      "species": "Spesies",
+      "organization": "Organisasi",
+      "plot_arc": "Arka cerita",
+      "social_setting": "Latar sosial"
+    },
+    "dims": {
+      "origin": "Asal",
+      "powers": "Kuasa",
+      "appearance": "Penampilan",
+      "owner": "Pemilik",
+      "significance": "Kepentingan",
+      "personality": "Personaliti",
+      "abilities": "Keupayaan",
+      "relationships": "Hubungan",
+      "background": "Latar belakang",
+      "history": "Sejarah",
+      "geography": "Geografi",
+      "culture": "Budaya",
+      "features": "Ciri-ciri",
+      "inhabitants": "Penduduk"
     }
   },
   "sources": {
@@ -302,7 +340,8 @@
     "error": {
       "gateLocked": "Dikunci oleh gerbang penilaian — jalankan penilaian pengayaan terlebih dahulu.",
       "internal": "Pengayaan gagal (ralat dalaman). Halakan tetikus untuk butiran.",
-      "insufficientGrounding": "Tiada asas korpus yang boleh digunakan untuk entiti ini — tampal konteks rujukan atau gunakan Fabrication."
+      "insufficientGrounding": "Tiada asas korpus yang boleh digunakan untuk entiti ini — tampal konteks rujukan atau gunakan Fabrication.",
+      "providerRateLimited": "Pembekal embedding telah mencapai had permintaan serentak. Cuba lagi sebentar lagi."
     }
   },
   "settings": {

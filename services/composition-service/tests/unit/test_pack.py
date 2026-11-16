@@ -85,8 +85,36 @@ class StubKnowledge:
         return self._events
     async def search_drawers(self, bearer, *, project_id, query, **kw):
         return self._hits
+    async def list_project_entities(self, bearer, *, project_id):
+        return []
     async def get_entity(self, bearer, entity_id):
         return self._entity
+
+
+@pytest.mark.asyncio
+async def test_semantic_bios_count_as_graph_grounding_without_cast_or_events():
+    from app.packer.lenses import gather_present
+
+    bios = [{"entity_id": "g1", "cached_name": "Kael", "short_description": "knight"}]
+    present, seen = await gather_present(
+        StubGlossary(bios=[]), StubKnowledge(semantic_bios=bios),
+        book_id=BOOK, user_id=USER, project_id=PROJECT, bearer="jwt",
+        query="Kael", present_entity_ids=[],
+    )
+    assert present[0]["name"] == "Kael"
+    assert seen is True
+
+
+@pytest.mark.asyncio
+async def test_glossary_fallback_alone_does_not_claim_graph_grounding():
+    from app.packer.lenses import gather_present
+
+    present, seen = await gather_present(
+        StubGlossary(), StubKnowledge(), book_id=BOOK, user_id=USER,
+        project_id=PROJECT, bearer="jwt", query="Kael", present_entity_ids=[],
+    )
+    assert present
+    assert seen is False
 
 
 class StubCanon:
@@ -686,3 +714,41 @@ def test_build_segments_pinned_lore_protected_and_still_sanitized():
     assert lore_seg.text == sanitize_lore(raw)  # sanitize still applied
     unpinned = build_segments(LensBundle(lore=[{"source_id": src, "text": raw}]))
     assert next(s for s in unpinned if s.block == "lore").protected is False
+
+
+@pytest.mark.asyncio
+async def test_present_resolves_scoped_anchor():
+    from app.packer.lenses import gather_present
+    anchor = uuid.uuid4()
+    calls = []
+
+    class Knowledge(StubKnowledge):
+        async def list_project_entities(self, bearer, *, project_id):
+            assert bearer == "jwt" and project_id == PROJECT
+            return [{"id": "graph-hash", "glossary_entity_id": str(anchor)}]
+
+        async def get_entity(self, bearer, entity_id):
+            calls.append(entity_id)
+            assert entity_id == "graph-hash"
+            return {"entity": {"name": "Kael"},
+                    "relations": [{"predicate": "knows", "object_name": "Mira"}]}
+
+    present, seen = await gather_present(
+        StubGlossary(bios=[{"entity_id": str(anchor), "cached_name": "Kael"}]),
+        Knowledge(), book_id=BOOK, user_id=USER, project_id=PROJECT,
+        bearer="jwt", query="Kael", present_entity_ids=[anchor, uuid.uuid4()],
+    )
+    assert calls == ["graph-hash"]
+    assert present == [{"entity_id": str(anchor), "name": "Kael", "summary": "",
+                        "relations": ["knows Mira"]}]
+    assert seen is True
+
+
+@pytest.mark.asyncio
+async def test_present_unprojected_cast_does_not_claim_grounding():
+    from app.packer.lenses import gather_present
+    present, seen = await gather_present(
+        StubGlossary(bios=[]), StubKnowledge(), book_id=BOOK, user_id=USER,
+        project_id=PROJECT, bearer="jwt", query="", present_entity_ids=[uuid.uuid4()],
+    )
+    assert present == [] and seen is False

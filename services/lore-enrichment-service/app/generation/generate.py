@@ -37,7 +37,7 @@ from app.generation.provenance import (
     make_enriched_fact,
 )
 from app.db.book_profile import NEUTRAL_PROFILE, BookProfile
-from app.gaps.model import is_zh, kind_label_for
+from app.gaps.model import is_zh, kind_label_for, language_name_for
 from app.generation.repair import (
     RepairError,
     RepairReport,
@@ -127,10 +127,6 @@ def build_generation_prompt(
     the original Chinese prompt's intent (tests are substring-based, not byte-exact).
     """
     dims = list(proposal.dimensions.keys())
-    grounding_block = "\n".join(
-        f"［{i + 1}］（来源 {g.corpus_id}#{g.chunk_index}，相似度 {g.score}）{g.excerpt}"
-        for i, g in enumerate(proposal.grounding)
-    )
     # Grounded-flag shape (LE-PROD slice B): each dimension is an OBJECT carrying an
     # explicit ``grounded`` boolean + ``content``. This lets the model SIGNAL that the
     # excerpts don't cover a dimension (grounded=false, content="") instead of writing
@@ -144,6 +140,10 @@ def build_generation_prompt(
 
     if is_zh(profile.language):
         # Chinese template (Fengshen demo path). worldview/voice interpolated.
+        grounding_block = "\n".join(
+            f"［{i + 1}］（来源 {g.corpus_id}#{g.chunk_index}，相似度 {g.score}）{g.excerpt}"
+            for i, g in enumerate(proposal.grounding)
+        )
         keys_csv = "、".join(dims)
         wv = f"忠于{worldview}的" if worldview else ""
         voice = (profile.voice or "").strip()
@@ -165,9 +165,18 @@ def build_generation_prompt(
             f"请输出 JSON：{{{json_skeleton}}}"
         )
 
-    # English / neutral template (any non-Chinese or profile-less book).
+    # English / neutral template (any non-Chinese or profile-less book). The
+    # citation frame + JSON skeleton are language-NEUTRAL here: for a ru book the
+    # dimension keys are now Russian labels (label_for), and a Chinese-framed
+    # skeleton （来源…） plus raw-ISO "Write in ru" made the model answer in
+    # Chinese (#user-report 2026-11-10). The write-language directive uses the
+    # HUMAN-READABLE language name ("Russian"), a far stronger signal than "ru".
+    grounding_block = "\n".join(
+        f"[{i + 1}] (source {g.corpus_id}#{g.chunk_index}, similarity {g.score}) {g.excerpt}"
+        for i, g in enumerate(proposal.grounding)
+    )
     keys_csv = ", ".join(dims)
-    lang_name = profile.language if profile.language not in ("", "auto") else "the book's language"
+    lang_name = language_name_for(profile.language) or "the book's language"
     setting = f"faithful to this work's setting ({worldview})" if worldview else "a worldbuilding assistant"
     voice = (profile.voice or "").strip()
     voice_clause = f", matching its voice ({voice})" if voice else ""
@@ -176,7 +185,9 @@ def build_generation_prompt(
         f"Using ONLY the retrieved excerpts below as evidence, fill the following "
         f"dimensions for the {kind_label} «{proposal.canonical_name}»: {keys_csv}.\n"
         f"Rules:\n"
-        f"1. Write in {lang_name}{voice_clause};\n"
+        f"1. Write EVERY dimension's content in {lang_name}{voice_clause}. The JSON "
+        f"keys are localized labels — write the CONTENT in {lang_name}, never in any "
+        f"other language, even if a label resembles another script;\n"
         f"2. Do NOT invent facts the excerpts do not support; but SYNTHESIZE in "
         f"your OWN words — paraphrase and recombine the evidence into an ORIGINAL "
         f"description, never copying the excerpts verbatim (a verbatim copy is "

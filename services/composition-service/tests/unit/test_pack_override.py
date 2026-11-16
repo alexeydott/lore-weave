@@ -67,6 +67,10 @@ class ProjectAwareKnowledge:
     async def search_drawers(self, bearer, *, project_id, query, **kw):
         return self.base_hits if self._is_base(project_id) else self.delta_hits
 
+    async def list_project_entities(self, bearer, *, project_id):
+        # Explicit glossary-anchor -> graph-id seam, matching KnowledgeClient.
+        return [{"id": key, "glossary_entity_id": key} for key in self._entities]
+
     async def get_entity(self, bearer, entity_id):
         return self._entities.get(str(entity_id))
 

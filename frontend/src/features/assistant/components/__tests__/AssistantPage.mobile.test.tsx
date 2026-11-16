@@ -77,7 +77,7 @@ describe('AssistantPage — mobile dock vs desktop rail (Chat preserved)', () =>
   it('mobile shows the dock, not the desktop rail', () => {
     installMatchMedia(true);
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AssistantPage />
       </MemoryRouter>,
     );
@@ -90,7 +90,7 @@ describe('AssistantPage — mobile dock vs desktop rail (Chat preserved)', () =>
     firstRunState.isLoading = true;
     installMatchMedia(true);
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AssistantPage />
       </MemoryRouter>,
     );
@@ -104,7 +104,7 @@ describe('AssistantPage — mobile dock vs desktop rail (Chat preserved)', () =>
   it('desktop shows the rail, not the dock', () => {
     installMatchMedia(false);
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AssistantPage />
       </MemoryRouter>,
     );
@@ -115,7 +115,7 @@ describe('AssistantPage — mobile dock vs desktop rail (Chat preserved)', () =>
   it('crossing the breakpoint swaps dock/rail but NEVER remounts Chat', () => {
     const mm = installMatchMedia(false); // desktop
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AssistantPage />
       </MemoryRouter>,
     );

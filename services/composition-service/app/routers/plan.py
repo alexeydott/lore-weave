@@ -257,6 +257,35 @@ class QualityReportRequest(BaseModel):
     canon: str | None = Field(default=None, max_length=20000)
 
 
+@router.get("/works/{project_id}/quality-report")
+async def quality_report_latest(
+    project_id: UUID,
+    chapter_id: UUID,
+    user_id: UUID = Depends(get_current_user),
+    works: WorksRepo = Depends(get_works_repo),
+    grant: GrantClient = Depends(get_grant_client_dep),
+):
+    """Latest saved quality_report job for ONE chapter (any status).
+
+    Restores the last Critic report after reload/remount — the server, not the
+    panel, owns report history (user report 2026-11-10: latest results must
+    survive navigation). VIEW-gated like every project read; collaborators with
+    VIEW may read the report exactly as they may read GET /jobs/{id}. The input
+    blob (full prose + canon) is deliberately NOT returned — the FE needs only
+    the result envelope."""
+    work = await _require_work(works, grant, user_id, project_id, GrantLevel.VIEW)
+    jobs = await get_generation_jobs_repo()
+    job = await jobs.latest_chapter_quality_job(project_id, chapter_id)
+    if job is None or job.project_id != project_id or job.book_id != work.book_id:
+        # Same uniform 404 whether nothing ran yet or the row is corrupt-scoped
+        # (no enumeration oracle; H13).
+        raise HTTPException(status_code=404, detail="quality report not found")
+    result = job.result if isinstance(job.result, dict) else None
+    return {"job_id": str(job.id), "status": job.status,
+            "created_at": job.created_at.isoformat(), "updated_at": job.updated_at.isoformat(),
+            "result": result}
+
+
 @router.post("/works/{project_id}/quality-report")
 async def quality_report_endpoint(
     project_id: UUID,
@@ -287,17 +316,21 @@ async def quality_report_endpoint(
 
     profile = from_settings(work.settings)
     canon = body.canon
+    canon_grounding = {"grounding": "override", "as_of": None,
+                       "cast_size": 0, "complete": True}
     if not canon:
-        # ONE home for the bible (engine/canon_bible.py). AS OF the chapter being reported
-        # on (T7) — a report that grades chapter 12 against end-of-book canon manufactures
-        # "inconsistencies" the author never wrote.
-        canon = (await canon_for_chapter(
+        bible = await canon_for_chapter(
             kal=kal, book=book, book_id=work.book_id, chapter_id=body.chapter_id,
             user_id=user_id, bearer=bearer, source_language=profile.source_language,
-        )).text
+            require_complete=True,
+        )
+        canon = bible.text
+        canon_grounding = {"grounding": bible.grounding, "as_of": bible.as_of,
+                           "cast_size": bible.cast_size, "complete": bible.complete}
 
     qr_input = {
         "worker_op": "quality_report", "chapter_text": text, "canon": canon,
+        "canon_grounding": canon_grounding,
         "chapter_id": str(body.chapter_id), "draft_version": draft.get("draft_version"),
         "book_id": str(work.book_id), "project_id": str(project_id),
         "model_source": str(body.model_source), "model_ref": str(body.model_ref),
@@ -379,10 +412,11 @@ async def promise_coverage_endpoint(
     nodes = await outline.list_tree(project_id)
     plan_text = _render_outline_plan(nodes)
 
-    # Assemble every active chapter's prose in reading order (skip empty/failed — degrade).
+    # Empty drafts contain no prose; failed reads make whole-book coverage unavailable.
     chapters = await _book_chapter_ids(book, work.book_id, bearer)
     parts: list[str] = []
     n_ok = 0
+    failed_chapters = 0
     for ch in chapters:
         cid = ch.get("chapter_id")
         if not cid:
@@ -390,13 +424,14 @@ async def promise_coverage_endpoint(
         try:
             draft = await book.get_draft(work.book_id, UUID(str(cid)), bearer)
         except BookClientError:
+            failed_chapters += 1
             continue
         txt = tiptap_doc_to_text(draft.get("body") or draft.get("doc") or draft.get("content"))
         if txt.strip():
             parts.append(txt.strip())
             n_ok += 1
     book_text = "\n\n".join(parts)
-    if not book_text.strip():
+    if not book_text.strip() and not failed_chapters:
         raise HTTPException(status_code=400, detail={
             "code": "EMPTY_BOOK", "detail": "no chapter prose to analyze"})
 
@@ -404,6 +439,7 @@ async def promise_coverage_endpoint(
     cov_input = {
         "worker_op": "promise_coverage", "premise": "", "plan_text": plan_text,
         "book_text": book_text, "chapters": n_ok,
+        "failed_chapters": failed_chapters,
         "book_id": str(work.book_id), "project_id": str(project_id),
         "model_source": str(body.model_source), "model_ref": str(body.model_ref),
         "source_language": profile.source_language,
@@ -1014,7 +1050,7 @@ async def rebind_node_motif_role(
     Targets the single ``role_bindings[role_key]`` key in place, leaving the other
     resolved roles + motif lineage untouched. H13 uniform 404 (no existence oracle) on:
     a foreign/missing node, a node with NO bound motif (nothing to rebind), a ``role_key``
-    the binding doesn't have, or an ``entity_id`` not in THIS book's cast (tenant-scoped —
+    not declared by the visible motif, or an ``entity_id`` not in THIS book's cast (tenant-scoped —
     a rebind can only point at the book's own glossary entities)."""
     work = await _require_work(works, grant, user_id, project_id)
     node = await outline.get_node(node_id)
@@ -1027,8 +1063,9 @@ async def rebind_node_motif_role(
     if app is None or app.motif_id is None:
         # nothing bound on the node → no role to rebind.
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND"})
-    # only a role the binding actually has may be rebound (no arbitrary jsonb-key write).
-    if body.role_key not in (app.role_bindings or {}):
+    # Initial binds omit unresolved keys; the visible motif declares the legal roles.
+    motif = await MotifRepo(get_pool()).get_visible(user_id, app.motif_id)
+    if motif is None or body.role_key not in {role["key"] for role in motif.roles}:
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND"})
     # the target entity must be in the book's own cast (tenant-scoped; no foreign entity).
     if body.entity_id is not None:
@@ -1107,7 +1144,7 @@ def _assemble_motif_bindings(
             bindings[str(s.id)] = None
             continue
         role_bindings = {
-            rk: {"entity_id": str(eid), "entity_name": cast_names.get(str(eid), "")}
+            rk: {"entity_id": str(eid) if eid else None, "entity_name": cast_names.get(str(eid), "")}
             for rk, eid in (app.role_bindings or {}).items()
         }
         ann = app.annotations or {}
@@ -1115,6 +1152,7 @@ def _assemble_motif_bindings(
             "motif_id": str(app.motif_id),
             "motif_name": motif.name,
             "motif_source": motif.source,
+            "role_labels": {r["key"]: r.get("label", r["key"]) for r in motif.roles},
             "role_bindings": role_bindings,
             "match_reason": ann.get("match_reason") or {},
             "beat_key": ann.get("beat_key"),
@@ -1163,6 +1201,7 @@ def _assemble_succession(
 async def get_motif_bindings(
     project_id: UUID,
     chapter_id: UUID,
+    display_language: str | None = None,
     user_id: UUID = Depends(get_current_user),
     works: WorksRepo = Depends(get_works_repo),
     outline: OutlineRepo = Depends(get_outline_repo),
@@ -1200,6 +1239,8 @@ async def get_motif_bindings(
             m = await mrepo.get_visible(user_id, mid)
             if m is not None:
                 motif_by_id[mid] = m
+        localized = await mrepo._localize(list(motif_by_id.values()), display_language)
+        motif_by_id = {m.id: m for m in localized}
         cast = await _cast_roster(kal, work.book_id, user_id)
         cast_names = {e["entity_id"]: e["name"] for e in cast}
         # the legal-succession edges for the bound motifs → the ChainIt hints.

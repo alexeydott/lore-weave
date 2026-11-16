@@ -194,3 +194,77 @@ async def test_redrive_skips_when_job_already_claimed(monkeypatch):
     # claim attempted, but NOT unlocked (we never held it) — the holder releases its own.
     assert pool.events == ["lock"]
     assert "build_kwargs" not in sink
+
+
+async def test_redrive_refused_technique_fails_job_visibly(monkeypatch):
+    """#user-report 2026-11-10 — a gate-locked technique (P3 recook, C15) used to be
+    DROPPED silently: the job row sat `pending` forever and the author's UI timed out.
+    The refusal must land ON the row as a visible terminal (`cancelled` — pending→
+    failed is illegal per the locked DAG) carrying the reason in error_message."""
+    from app.strategies.registry import InactiveStrategyError
+
+    request = {
+        "project_id": _PROJECT,
+        "embedding_model_ref": str(uuid4()),
+        "generation_model_ref": str(uuid4()),
+        "technique": "recook",
+        "top_k": 5,
+        "eval_reserve_fraction": 0.15,
+        "max_spend_tokens": None,
+        "entity_kind": "location",
+        "targets": [
+            {"canonical_name": "新天地", "target_ref": None, "entity_kind": "location",
+             "mention_count": 3, "present_dimensions": []},
+        ],
+        "user_id": _USER,
+        "book_id": _BOOK,
+    }
+
+    async def _load_request(*, pool, job_id):
+        return request
+
+    async def _profile(_pool, _book_id=None):
+        from app.db.book_profile import NEUTRAL_PROFILE
+        return NEUTRAL_PROFILE
+
+    async def _lang(profile, *, book_id):
+        return profile
+
+    async def _build(**kw):
+        raise InactiveStrategyError(
+            "technique 'recook' (tier P3) is inactive — gated off until the C15 "
+            "cost/quality gate")
+
+    monkeypatch.setattr(rc, "load_job_request", _load_request)
+    monkeypatch.setattr(rc, "get_book_profile", _profile)
+    monkeypatch.setattr(rc, "resolve_effective_language", _lang)
+    # Reached BEFORE the (refusing) runner build — keep them off the fake pool.
+    async def _spent(*, pool, job_id):
+        return 0.0
+    async def _done(*, pool, job_id):
+        return set()
+    monkeypatch.setattr(rc, "load_spent_so_far", _spent)
+    monkeypatch.setattr(rc, "existing_gap_refs", _done)
+    monkeypatch.setattr(rc, "build_live_runner", _build)
+
+    updates: list[tuple[str, tuple]] = []
+
+    class _Conn(_FakeLockConn):
+        async def execute(self, sql, *args):
+            updates.append((sql, args))
+            return "UPDATE 1"
+
+    class _RefusalPool(_FakePool):
+        def acquire(self):
+            return _FakeAcquire(_Conn(claimed=True, events=self.events))
+
+    pool = _RefusalPool(claimed=True)
+    state = await rc.redrive_one(pool=pool, job_id=str(uuid4()),
+                                 project_id=_PROJECT, user_id=_USER)
+    assert state == "refused"
+    assert len(updates) == 1
+    sql, args = updates[0]
+    # A visible terminal, CAS-guarded to non-terminal rows, WITH the reason.
+    assert "SET status = 'cancelled'" in sql and "error_message = $2" in sql
+    assert "status IN ('pending', 'estimating', 'running', 'paused')" in sql
+    assert "enrichment refused:" in str(args[1]) and "recook" in str(args[1])

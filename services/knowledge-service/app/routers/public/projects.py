@@ -698,6 +698,11 @@ async def put_extraction_config(
     # DEACTIVATED kept the audit pass calling a dead model_ref (1649 rejected
     # chat calls over 3h in the usage log). Validate the referenced model is
     # still active AT SAVE TIME via the user-scoped provider-registry read.
+    # ⚠ The registry serves its API under /v1/model-registry (the gateway does
+    # NOT strip that prefix) — the original prefix-less URL here 404'd on EVERY
+    # read, so this check false-blocked every save of any config carrying a
+    # model_ref, active or not (#user-report 2026-11-10). The registry now also
+    # exposes the owner-scoped single GET this check needs.
     pf = new_config.get("precision_filter") or {}
     pf_model_ref = pf.get("model_ref") if isinstance(pf, dict) else None
     if pf_model_ref:
@@ -706,7 +711,8 @@ async def put_extraction_config(
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 check = await client.get(
-                    f"{settings.provider_registry_internal_url}/user-models/{pf_model_ref}",
+                    f"{settings.provider_registry_internal_url}"
+                    f"/v1/model-registry/user-models/{pf_model_ref}",
                     headers={"Authorization": auth} if auth else {},
                 )
             model_row = check.json() if check.status_code == 200 else None

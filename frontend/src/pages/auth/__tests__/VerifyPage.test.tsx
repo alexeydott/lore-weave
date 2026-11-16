@@ -12,7 +12,7 @@ const mockedApiJson = vi.mocked(apiJson);
 
 function renderPage(entry = '/verify') {
   return render(
-    <MemoryRouter initialEntries={[entry]}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[entry]}>
       <VerifyPage />
     </MemoryRouter>,
   );

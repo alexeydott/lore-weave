@@ -36,6 +36,7 @@ import asyncpg
 from loreweave_vecmath import cosine_similarity as _cosine
 
 from app.clients.embedding_client import EmbeddingError
+from app.engine.retrieval_model import RetrievalModel, DegradationReason, resolve_retrieval_model
 from app.config import settings
 from app.db.models import ArcCandidate, ArcTemplate, Motif, MotifCandidate
 from app.db.repositories.motif_repo import apply_display_language, normalize_display_language
@@ -286,6 +287,7 @@ class MotifRetriever:
         beat_role: str | None, tension: int | None,
         prev_effects: list[str] | None = None, limit: int = 10,
         user_model: tuple[str, str] | None = None,
+        model_resolution: RetrievalModel | None = None,
         query: str | None = None,
     ) -> list[MotifCandidate]:
         """Tier-merged, SQL-pre-filtered, cosine-ranked motif candidates for a chapter's
@@ -322,8 +324,18 @@ class MotifRetriever:
         #     → that space degrades (R4); EmbedConfigError (unset platform model) degrades
         #     the READ path too (the WRITE path is where a config gap fails closed).
         qtext = _build_query_text(beat_role, prev_effects, query)
-        qvec_p = await self._embed_query_safe(qtext, None, caller_id)            # P-space
-        qvec_u = await self._embed_query_safe(qtext, user_model, caller_id) if user_model else None
+        if model_resolution is None and user_model is None and any(r["owner_user_id"] == caller_id and is_strictly_private(owner_user_id=r["owner_user_id"], visibility=r.get("visibility"), book_shared=bool(r.get("book_shared"))) for r in rows):
+            from app.db.repositories.works import WorksRepo
+            work = await WorksRepo(self._pool).get(project_id) if project_id else None
+            model_resolution = await resolve_retrieval_model(caller_id, getattr(work, "settings", None))
+        if model_resolution is not None:
+            user_model = model_resolution.model
+        qvec_p, reason_p = await self._query_state(qtext, None, caller_id)
+        if user_model:
+            qvec_u, reason_u = await self._query_state(qtext, user_model, caller_id)
+        else:
+            qvec_u = None
+            reason_u = (model_resolution.degradation_reason if model_resolution else None) or "model_unset"
         platform_ref = self._platform_ref()
 
         # (3) Score every BOUNDED candidate into its section; build match_reason.
@@ -383,6 +395,9 @@ class MotifRetriever:
             }
             if degraded:
                 reason["degraded"] = True
+                reason["degradation_reason"] = (reason_u if private else reason_p) or "vector_unavailable"
+            if private and model_resolution and model_resolution.source_tier:
+                reason["model_source_tier"] = model_resolution.source_tier
             bucket.append((
                 rank, motif.code, motif.mining_support or 0,
                 float(motif.judge_score or 0.0),
@@ -468,6 +483,7 @@ class MotifRetriever:
         project_id: UUID | None = None, premise: str | None = None,
         genre: str | None = None, limit: int = 5,
         user_model: tuple[str, str] | None = None,
+        model_resolution: RetrievalModel | None = None,
     ) -> list[ArcCandidate]:
         """Tier-merged, SQL-pre-filtered, cosine-ranked arc_template candidates for a Work
         (composition_arc_suggest), split into TWO embedding SPACES (2026-07-17 tenancy
@@ -494,8 +510,18 @@ class MotifRetriever:
             return []
 
         qtext = " ".join(p for p in [premise or "", genre or ""] if p).strip()
-        qvec_p = await self._embed_query_safe(qtext, None, caller_id)            # P-space
-        qvec_u = await self._embed_query_safe(qtext, user_model, caller_id) if user_model else None
+        if model_resolution is None and user_model is None and any(r["owner_user_id"] == caller_id and is_strictly_private(owner_user_id=r["owner_user_id"], visibility=r.get("visibility"), book_shared=bool(r.get("book_shared"))) for r in rows):
+            from app.db.repositories.works import WorksRepo
+            work = await WorksRepo(self._pool).get(project_id) if project_id else None
+            model_resolution = await resolve_retrieval_model(caller_id, getattr(work, "settings", None))
+        if model_resolution is not None:
+            user_model = model_resolution.model
+        qvec_p, reason_p = await self._query_state(qtext, None, caller_id)
+        if user_model:
+            qvec_u, reason_u = await self._query_state(qtext, user_model, caller_id)
+        else:
+            qvec_u = None
+            reason_u = (model_resolution.degradation_reason if model_resolution else None) or "model_unset"
         platform_ref = self._platform_ref()
 
         backfilled = 0
@@ -546,6 +572,9 @@ class MotifRetriever:
             reason: dict[str, Any] = {"genre": genre_s, "cosine": cos, "section": section}
             if degraded:
                 reason["degraded"] = True
+                reason["degradation_reason"] = (reason_u if private else reason_p) or "vector_unavailable"
+            if private and model_resolution and model_resolution.source_tier:
+                reason["model_source_tier"] = model_resolution.source_tier
             bucket.append((rank, arc.code, ArcCandidate(
                 arc_template=arc, score=rank, match_reason=reason,
             )))
@@ -567,6 +596,21 @@ class MotifRetriever:
             return _platform_embed_model()[1]
         except EmbedConfigError:
             return None
+
+    async def _query_state(
+        self, qtext: str, model: tuple[str, str] | None, caller_id: UUID,
+    ) -> tuple[list[float] | None, DegradationReason | None]:
+        if not qtext:
+            return None, "empty_query"
+        try:
+            vector = await (embed_query(qtext) if model is None else
+                            embed_query_with(qtext, user_id=caller_id, model=model))
+            return (vector, None) if vector else (None, "embed_failed")
+        except EmbedConfigError:
+            return None, "model_unset"
+        except EmbeddingError:
+            logger.warning("retrieval query embedding failed in %s space", "library" if model is None else "mine")
+            return None, "embed_failed"
 
     async def _embed_query_safe(
         self, qtext: str, model: tuple[str, str] | None, caller_id: UUID,

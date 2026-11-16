@@ -17,8 +17,9 @@ export function useReferences(
   // Audit fix — mutations were silent on failure (onSuccess only). Surface errors so a
   // failed add/edit/delete/re-embed isn't an invisible no-op.
   const fail = (msg: string) => () => toast.error(msg);
-  const listKey = ['composition', 'references', projectId];
-  const searchKey = ['composition', 'references', 'search', projectId, sceneId, query];
+  const listKey = ['composition', 'references', projectId, token];
+  const sceneSearchKey = ['composition', 'references', 'search', projectId, sceneId, token];
+  const searchKey = [...sceneSearchKey, query];
 
   const list = useQuery({
     queryKey: listKey,
@@ -81,14 +82,14 @@ export function useReferences(
       compositionApi.setGroundingPin(
         projectId!, sceneId!, { item_type: 'reference', item_id: hit.id, action }, token!),
     onMutate: ({ hit, action }) => {
-      qc.setQueriesData<ReferenceSearch>({ queryKey: ['composition', 'references', 'search', projectId, sceneId] },
+      qc.setQueriesData<ReferenceSearch>({ queryKey: sceneSearchKey },
         (old) => old
           ? { ...old, hits: old.hits.map((h) => h.id === hit.id
               ? { ...h, pinned: action === 'pin', excluded: action === 'exclude' } : h) }
           : old);
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['composition', 'references', 'search', projectId, sceneId] });
+      qc.invalidateQueries({ queryKey: sceneSearchKey });
     },
   });
 
@@ -100,8 +101,9 @@ export function useReferences(
   const data: ReferenceList | undefined = list.data;
   return {
     references: data?.references ?? [],
-    embedModelSet: data?.embed_model_set ?? false,
+    embedModelSet: data?.embed_model_set,
     isLoading: list.isLoading,
+    isListError: list.isError,
     hits: search.data?.hits ?? [],
     searchUnavailable: search.data?.unavailable ?? false,
     isSearching: search.isFetching,

@@ -16,7 +16,7 @@ const ROSTER_LIMIT = 500;
 
 export function useGlossaryRoster(bookId: string | undefined, token: string | null) {
   return useQuery({
-    queryKey: ['composition', 'glossary-roster', bookId],
+    queryKey: ['composition', 'glossary-roster', bookId, token],
     queryFn: () =>
       glossaryApi.listEntities(
         bookId!,

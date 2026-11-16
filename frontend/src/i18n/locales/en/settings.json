@@ -244,8 +244,8 @@
       "api_key_ph": "sk-...",
       "api_key_keep_hint": "Leave empty to keep the existing key.",
       "max_concurrency": "Max concurrent requests",
-      "max_concurrency_ph": "Unlimited",
-      "max_concurrency_hint": "How many requests this provider runs at once. Leave empty for unlimited (the backend decides). Set a number only if your backend has a known limit (e.g. a local GPU).",
+      "max_concurrency_ph": "Default",
+      "max_concurrency_hint": "Leave empty to use the platform default limit. Enter a positive number to set your own cap.",
       "cancel": "Cancel",
       "saving": "Saving...",
       "submit": "Save Changes"
@@ -426,8 +426,8 @@
       "key_ph_keep": "Leave empty to keep the current key",
       "key_keep_hint": "Leave empty to keep the existing key.",
       "max_concurrency": "Max concurrent requests",
-      "max_concurrency_ph": "Unlimited",
-      "max_concurrency_hint": "How many requests this service runs at once. Leave empty for unlimited (the backend decides). Set a number only if your backend has a known limit.",
+      "max_concurrency_ph": "Default",
+      "max_concurrency_hint": "Leave empty to use the platform default limit. Enter a positive number to set your own cap.",
       "cancel": "Cancel",
       "submit": "Save",
       "saving": "Saving…"

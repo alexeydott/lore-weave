@@ -30,7 +30,7 @@ def _app(node_id, *, motif_id, role_bindings=None, annotations=None):
 
 
 def _motif(name="Planted Evidence", source="authored"):
-    return SimpleNamespace(name=name, source=source)
+    return SimpleNamespace(name=name, source=source, roles=[{"key": "schemer", "label": "Strategist"}])
 
 
 def test_bound_scene_assembles_full_boundmotif():
@@ -164,3 +164,13 @@ def test_succession_null_for_unbound_or_invisible_scene():
         scenes=[_scene(n1), _scene(n2)], apps_by_node={n1: app},
         motif_by_id={}, successors=succ)  # motif_by_id misses mid
     assert out[str(n1)] is None and out[str(n2)] is None
+
+
+def test_role_labels_and_unassigned_entities_preserve_server_projection():
+    node, motif_id = uuid.uuid4(), uuid.uuid4()
+    app = _app(node, motif_id=motif_id, role_bindings={"schemer": None})
+    out = _assemble_motif_bindings(scenes=[_scene(node)], apps_by_node={node: app},
+        motif_by_id={motif_id: _motif(name="Localized authored name")}, cast_names={})[str(node)]
+    assert out["motif_name"] == "Localized authored name"
+    assert out["role_labels"] == {"schemer": "Strategist"}
+    assert out["role_bindings"]["schemer"]["entity_id"] is None

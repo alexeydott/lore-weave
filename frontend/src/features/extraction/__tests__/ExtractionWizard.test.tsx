@@ -63,7 +63,7 @@ vi.mock('../StepProgress', () => ({
 function setup(open = true) {
   const onOpenChange = vi.fn();
   const utils = render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ExtractionWizard open={open} onOpenChange={onOpenChange} bookId="b" mode="single" />
     </MemoryRouter>,
   );
@@ -75,7 +75,7 @@ function setup(open = true) {
 function setupInStudio() {
   const onOpenChange = vi.fn();
   const utils = render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <StudioHostProvider bookId="b">
         <ExtractionWizard open onOpenChange={onOpenChange} bookId="b" mode="single" />
       </StudioHostProvider>
@@ -160,12 +160,12 @@ describe('ExtractionWizard', () => {
     await runToResults();
     // Close, then reopen — the persistent mount must reset, not show old results.
     rerender(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ExtractionWizard open={false} onOpenChange={onOpenChange} bookId="b" mode="single" />
       </MemoryRouter>,
     );
     rerender(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ExtractionWizard open onOpenChange={onOpenChange} bookId="b" mode="single" />
       </MemoryRouter>,
     );

@@ -69,7 +69,7 @@ beforeEach(() => {
 function renderPanel() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <QueryClientProvider client={qc}>
         <CompositionPanel bookId="b" chapterId="c" token="tok" onAccept={vi.fn()} />
       </QueryClientProvider>

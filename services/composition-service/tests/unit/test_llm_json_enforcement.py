@@ -32,11 +32,17 @@ def test_world_plan_enum_matches_WORLD_KINDS():
     )
 
 
-def test_promise_audit_enum_matches_the_verdict_set():
-    from app.engine.promise_audit import _AUDIT_SCHEMA, _VERDICTS
+def test_promise_audit_schema_matches_the_audit_parser():
+    from app.engine.promise_audit import _AUDIT_SCHEMA, _QUALITY_AUDIT_SCHEMA
 
-    enum = _AUDIT_SCHEMA["properties"]["promises"]["items"]["properties"]["verdict"]["enum"]
-    assert sorted(enum) == sorted(_VERDICTS)
+    # The chapter audit returns phrase lists, not the separate book-coverage verdicts.
+    assert set(_AUDIT_SCHEMA["required"]) == {"introduced", "resolved", "dropped"}
+    for schema in (_AUDIT_SCHEMA, _QUALITY_AUDIT_SCHEMA):
+        assert set(schema["properties"]) == {"introduced", "resolved", "dropped"}
+        assert schema["additionalProperties"] is False
+        for field in schema["properties"].values():
+            assert field["type"] == "array"
+            assert field["items"]["type"] == "string"
 
 
 def test_motif_mine_enums_match_their_valid_sets():

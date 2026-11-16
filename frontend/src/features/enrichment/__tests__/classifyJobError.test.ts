@@ -28,6 +28,11 @@ describe('classifyJobError', () => {
     expect(classifyJobError(raw)).toEqual({ key: 'jobs.error.internal', raw });
   });
 
+  it('maps provider rate limits to localized actionable copy, preserving raw', () => {
+    const raw = 'provider rate limited: HTTP 429: temporary limit';
+    expect(classifyJobError(raw)).toEqual({ key: 'jobs.error.providerRateLimited', raw });
+  });
+
   it('maps a Traceback dump to internal', () => {
     const raw = 'Traceback (most recent call last): File "x.py", line 1';
     expect(classifyJobError(raw)).toEqual({ key: 'jobs.error.internal', raw });

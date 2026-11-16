@@ -244,8 +244,8 @@
       "api_key_ph": "sk-...",
       "api_key_keep_hint": "Deja vacío para mantener la clave existente.",
       "max_concurrency": "Máximo de peticiones concurrentes",
-      "max_concurrency_ph": "Ilimitado",
-      "max_concurrency_hint": "Cuántas peticiones ejecuta este proveedor a la vez. Deja vacío para ilimitado (el backend decidirá). Establece un número solo si tu backend tiene un límite conocido (ej. una GPU local).",
+      "max_concurrency_ph": "Predeterminado",
+      "max_concurrency_hint": "Deja vacío para usar el límite predeterminado de la plataforma. Un número positivo define tu propio límite.",
       "cancel": "Cancelar",
       "saving": "Guardando...",
       "submit": "Guardar cambios"
@@ -426,8 +426,8 @@
       "key_ph_keep": "Deja vacío para mantener la clave actual",
       "key_keep_hint": "Deja vacío para mantener la clave existente.",
       "max_concurrency": "Máxima concurrencia de peticiones",
-      "max_concurrency_ph": "Ilimitado",
-      "max_concurrency_hint": "Cuántas peticiones realiza este servicio a la vez. Deja vacío para ilimitado (el backend decide). Establece un número solo si tu backend tiene un límite conocido.",
+      "max_concurrency_ph": "Predeterminado",
+      "max_concurrency_hint": "Deja vacío para usar el límite predeterminado de la plataforma. Un número positivo define tu propio límite.",
       "cancel": "Cancelar",
       "submit": "Guardar",
       "saving": "Guardando..."

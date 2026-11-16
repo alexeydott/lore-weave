@@ -1769,3 +1769,137 @@ def test_put_extraction_config_rejects_unknown_prompt_field(
         json={"prompts": {"entity": {"user": "not allowed"}}},  # only `system`
     )
     assert resp.status_code == 422
+
+
+# ── precision_filter.model_ref save-time registry check (#user-report 2026-11-08) ──
+#
+# The check reads the USER-scoped provider-registry model row before accepting a
+# config that carries precision_filter.model_ref. Two regression fronts:
+#   1. The registry serves under /v1/model-registry — the original prefix-less
+#      URL 404'd on EVERY read, false-blocking every save of any config with a
+#      model_ref, active or not (#user-report 2026-11-10). The recorded request
+#      URL is pinned here.
+#   2. Active → save proceeds; inactive/missing → 422; outage → degrade open.
+
+
+class _FakeRegistryResponse:
+    def __init__(self, status_code, payload=None):
+        self.status_code = status_code
+        self._payload = payload or {}
+
+    def json(self):
+        return self._payload
+
+
+class _FakeRegistryClient:
+    calls: list[str] = []
+    status_code = 200
+    payload: dict = {}
+    raise_on_get: Exception | None = None
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def get(self, url, **kwargs):
+        type(self).calls.append(url)
+        if type(self).raise_on_get is not None:
+            raise type(self).raise_on_get("registry down")
+        return _FakeRegistryResponse(type(self).status_code, type(self).payload)
+
+
+@pytest.fixture
+def registry_fake(monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(
+        "app.routers.public.projects.settings.provider_registry_internal_url",
+        "http://registry-test:8085",
+    )
+    monkeypatch.setattr(httpx, "AsyncClient", _FakeRegistryClient)
+    _FakeRegistryClient.calls = []
+    _FakeRegistryClient.status_code = 200
+    _FakeRegistryClient.payload = {}
+    _FakeRegistryClient.raise_on_get = None
+    return _FakeRegistryClient
+
+
+def _put_pf_config(client: TestClient, project: Project, model_ref: str):
+    return client.put(
+        f"/v1/knowledge/projects/{project.project_id}/extraction-config",
+        headers={"If-Match": f'"{project.version}"'},
+        json={"precision_filter": {
+            "enabled": True, "categories": ["entity"], "partial_policy": "keep",
+            "model_ref": model_ref, "model_source": "user_model",
+        }},
+    )
+
+
+def test_pf_model_check_uses_registry_v1_path_and_accepts_active_model(
+    client: TestClient, repo: FakeProjectsRepo, auth_user_id: UUID, registry_fake
+):
+    p = _make_project(auth_user_id, version=1)
+    repo.seed(p)
+    registry_fake.payload = {"is_active": True}
+    resp = _put_pf_config(client, p, "019f-model-1")
+    assert resp.status_code == 200
+    # Regression pin (2026-11-10): the read must carry the /v1/model-registry
+    # prefix — the prefix-less URL 404'd forever and blocked every save.
+    assert registry_fake.calls == [
+        "http://registry-test:8085/v1/model-registry/user-models/019f-model-1"
+    ]
+    saved = resp.json()["extraction_config"]["precision_filter"]
+    assert saved["model_ref"] == "019f-model-1"
+
+
+def test_pf_model_inactive_rejected_422(
+    client: TestClient, repo: FakeProjectsRepo, auth_user_id: UUID, registry_fake
+):
+    p = _make_project(auth_user_id, version=1)
+    repo.seed(p)
+    registry_fake.payload = {"is_active": False}
+    resp = _put_pf_config(client, p, "019f-dead")
+    assert resp.status_code == 422
+    assert "INACTIVE or deleted" in resp.json()["detail"]
+    assert repo._rows[(auth_user_id, p.project_id)].extraction_config == {}
+
+
+def test_pf_model_missing_rejected_422(
+    client: TestClient, repo: FakeProjectsRepo, auth_user_id: UUID, registry_fake
+):
+    p = _make_project(auth_user_id, version=1)
+    repo.seed(p)
+    registry_fake.status_code = 404
+    resp = _put_pf_config(client, p, "019f-gone")
+    assert resp.status_code == 422
+    assert "INACTIVE or deleted" in resp.json()["detail"]
+
+
+def test_pf_registry_outage_degrades_open(
+    client: TestClient, repo: FakeProjectsRepo, auth_user_id: UUID, registry_fake
+):
+    p = _make_project(auth_user_id, version=1)
+    repo.seed(p)
+    registry_fake.raise_on_get = ConnectionError
+    resp = _put_pf_config(client, p, "019f-any")
+    assert resp.status_code == 200
+    assert resp.json()["extraction_config"]["precision_filter"]["model_ref"] == "019f-any"
+
+
+def test_pf_config_without_model_ref_skips_registry_read(
+    client: TestClient, repo: FakeProjectsRepo, auth_user_id: UUID, registry_fake
+):
+    p = _make_project(auth_user_id, version=1)
+    repo.seed(p)
+    resp = client.put(
+        f"/v1/knowledge/projects/{p.project_id}/extraction-config",
+        headers={"If-Match": '"1"'},
+        json={"precision_filter": {"enabled": False}},
+    )
+    assert resp.status_code == 200
+    assert registry_fake.calls == []

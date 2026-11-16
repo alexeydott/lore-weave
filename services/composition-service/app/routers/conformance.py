@@ -58,7 +58,7 @@ from app.grant_deps import InsufficientGrant, authorize_book
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.clients.book_client import BookClientError
-from app.engine.prose_doc import scene_prose_presence
+from app.engine.prose_doc import chapter_conformance_texts
 from app.middleware.jwt_auth import bearer_scheme, get_current_user
 from app.packer.pack import OwnershipError
 
@@ -231,6 +231,24 @@ class ConformanceTraceReader:
                 "has_text": bool(r["has_text"]),
             }
         return out
+
+
+    async def latest_chapter_run(self, project_id: UUID, book_id: UUID, chapter_id: UUID):
+        """Read only completed, project+book+manuscript-scoped conformance results."""
+        row = await self._pool.fetchrow(
+            """SELECT id, result, updated_at FROM generation_job
+               WHERE project_id = $1 AND book_id = $2 AND status = 'completed'
+                 AND input->>'worker_op' = 'conformance_run'
+                 AND input->>'scope' = 'chapter' AND input->>'chapter_id' = $3
+               ORDER BY created_at DESC, id DESC LIMIT 1""",
+            project_id, book_id, str(chapter_id))
+        if row is None:
+            return None
+        import json
+        result = row["result"]
+        if isinstance(result, str):
+            result = json.loads(result)
+        return {"job_id": str(row["id"]), "computed_at": row["updated_at"].isoformat(), "result": result}
 
 
 def _jsonb_loads(data: dict[str, Any]) -> dict[str, Any]:
@@ -446,6 +464,8 @@ async def read_conformance(
     # read. Logged at WARNING because "no manuscript signal" and "manuscript has no prose" would
     # otherwise look identical — the silence this remediation exists to remove.
     manuscript_prose: dict[str, int] = {}
+    manuscript_texts: dict[str, str] = {}
+    manuscript_available = False
     bearer = credentials.credentials if credentials else None
     if not bearer:
         logger.info(
@@ -456,17 +476,19 @@ async def read_conformance(
         from app.clients.book_client import get_book_client
         draft = await get_book_client().get_draft(work.book_id, chapter_id, bearer) if bearer else None
         if draft:
-            manuscript_prose = scene_prose_presence(
+            manuscript_available = True
+            manuscript_texts = chapter_conformance_texts(
                 draft.get("body"),
                 [{"id": str(sc.id), "title": sc.title} for sc in scenes],
             )
+            manuscript_prose = {sid: len(text.split()) for sid, text in manuscript_texts.items()}
     except BookClientError as exc:
         logger.warning(
             "conformance manuscript signal unavailable book_id=%s chapter_id=%s code=%s",
             work.book_id, chapter_id, exc.code,
         )
 
-    return _assemble_conformance(
+    report = _assemble_conformance(
         chapter_id=chapter_id,
         calibrated=settings.motif_conformance_calibrated,
         scenes=scenes,
@@ -474,6 +496,25 @@ async def read_conformance(
         latest_by_node=latest_by_node,
         manuscript_prose=manuscript_prose,
     )
+    # Keep current plan/prose signals, overlay the last explicit check as a labeled snapshot.
+    snapshot = await reader.latest_chapter_run(project_id, work.book_id, chapter_id)
+    if snapshot:
+        checked = {row["outline_node_id"]: row for row in snapshot["result"].get("scenes", [])}
+        for row in report["scenes"]:
+            saved = checked.get(row["outline_node_id"])
+            if saved:
+                from hashlib import sha256
+                passage = manuscript_texts.get(row["outline_node_id"], "")
+                source_matches = manuscript_available and saved.get("source_sha256") == sha256(
+                    passage.encode("utf-8")).hexdigest()
+                if saved.get("planned") == row["planned"] and source_matches:
+                    row["conformance"] = saved.get("conformance")
+                    row["check_status"] = saved.get("check_status")
+                else:
+                    row["conformance"] = None
+                    row["check_status"] = "stale"
+        report["last_run"] = {k: v for k, v in snapshot.items() if k != "result"}
+    return report
 
 
 @router.get("/books/{book_id}/conformance/status")

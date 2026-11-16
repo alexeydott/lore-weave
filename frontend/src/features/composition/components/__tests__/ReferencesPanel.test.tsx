@@ -11,6 +11,9 @@ vi.mock('@/components/shared/ConfirmDialog', () => ({
     open ? <button data-testid="confirm-delete" onClick={onConfirm}>confirm</button> : null,
 }));
 
+const effective = vi.hoisted(() => ({ value: null as null | { model_ref: string; model_source: string } }));
+vi.mock('@/features/chat-ai-settings/context/ChatAiSettingsContext', () => ({ useEffectiveModelSelection: () => effective.value }));
+
 import { ReferencesPanel } from '../ReferencesPanel';
 
 // Mock the controller hook (the view test owns rendering + wiring, not data).
@@ -24,6 +27,7 @@ const h = vi.hoisted(() => ({
     references: [] as any[],
     embedModelSet: false,
     isLoading: false,
+    isListError: false,
     hits: [] as any[],
     searchUnavailable: false,
     isSearching: false,
@@ -46,9 +50,10 @@ const EMBED_MODEL = {
 } as any;
 
 beforeEach(() => {
+  effective.value = null;
   h.add.mockReset(); h.remove.mockReset(); h.setPin.mockReset();
   h.updateMetadata.mockReset(); h.updateContent.mockReset();
-  h.state = { references: [], embedModelSet: false, isLoading: false, hits: [],
+  h.state = { references: [], embedModelSet: false, isLoading: false, isListError: false, hits: [],
               searchUnavailable: false, isSearching: false };
 });
 
@@ -183,4 +188,36 @@ describe('ReferencesPanel (T3.6)', () => {
     expect(h.updateContent).toHaveBeenCalledWith({ id: 'r9', content: 'rewritten body' });
     expect(h.updateMetadata).not.toHaveBeenCalled();
   });
+});
+
+it('does not silently pick the first embedding model', () => {
+  renderPanel();
+  fireEvent.change(screen.getByTestId('references-add-content'), { target: { value: 'passage' } });
+  expect(screen.getByTestId('references-add-submit')).toBeDisabled();
+  fireEvent.click(screen.getByTestId('references-add-submit'));
+  expect(h.add).not.toHaveBeenCalled();
+});
+it('uses a confirmed inherited model even with an empty model list', () => {
+  effective.value = { model_ref: 'inherited', model_source: 'platform' };
+  renderPanel({ models: [] });
+  expect(screen.queryByTestId('references-no-embed-model')).toBeNull();
+  fireEvent.change(screen.getByTestId('references-add-content'), { target: { value: 'passage' } });
+  fireEvent.click(screen.getByTestId('references-add-submit'));
+  expect(h.add.mock.calls[0][0]).toMatchObject({ model_ref: 'inherited', model_source: 'platform' });
+});
+it('does not repin an existing corpus when the inherited default changes', () => {
+  h.state.embedModelSet = true;
+  effective.value = { model_ref: 'new-default', model_source: 'user_model' };
+  renderPanel();
+  fireEvent.change(screen.getByTestId('references-add-content'), { target: { value: 'passage' } });
+  fireEvent.click(screen.getByTestId('references-add-submit'));
+  expect(h.add.mock.calls[0][0].model_ref).toBeUndefined();
+});
+it.each(['loading', 'error'])('does not misreport list %s as missing embedding configuration', (state) => {
+  h.state.isLoading = state === 'loading';
+  h.state.isListError = state === 'error';
+  renderPanel({ models: [] });
+  expect(screen.queryByTestId('references-no-embed-model')).toBeNull();
+  expect(screen.queryByTestId('references-empty')).toBeNull();
+  expect(screen.getByRole(state === 'loading' ? 'status' : 'alert')).toHaveTextContent(state === 'loading' ? 'referencesPanel.loading' : 'referencesPanel.listError');
 });

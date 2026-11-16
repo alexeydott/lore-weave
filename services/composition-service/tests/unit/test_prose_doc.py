@@ -5,6 +5,45 @@ from __future__ import annotations
 from app.engine.prose_doc import normalize_title, text_to_tiptap_doc, tiptap_doc_to_text
 
 
+def test_chapter_conformance_single_scene_fallback_is_read_only():
+    from copy import deepcopy
+    from app.engine.prose_doc import chapter_conformance_texts, scene_prose_texts
+
+    doc = text_to_tiptap_doc("First paragraph.\n\nSecond paragraph.")
+    original = deepcopy(doc)
+    scenes = [{"id": "one", "title": "Encounter"}]
+    assert chapter_conformance_texts(doc, scenes) == {
+        "one": "First paragraph.\n\nSecond paragraph."}
+    assert scene_prose_texts(doc, scenes) == {}  # Other consumers stay strict.
+    assert doc == original
+
+
+def test_chapter_conformance_fallback_refuses_ambiguous_or_empty_sources():
+    from app.engine.prose_doc import chapter_conformance_texts
+
+    one = [{"id": "one", "title": "Encounter"}]
+    doc = text_to_tiptap_doc("Saved prose.")
+    assert chapter_conformance_texts(doc, []) == {}
+    assert chapter_conformance_texts(doc, one + [{"id": "two", "title": "Exit"}]) == {}
+    for text in ("", "  ", "### Heading", "### First\n\nSaved prose.\n\n### Second"):
+        assert chapter_conformance_texts(text_to_tiptap_doc(text), one) == {}
+    assert chapter_conformance_texts(None, one) == {}
+    for title in ("Foreign", "Encounter"):
+        foreign = text_to_tiptap_doc(f"### {title}\n\nSaved prose.")
+        foreign["content"][0]["attrs"]["sceneId"] = "other"
+        assert chapter_conformance_texts(foreign, one) == {}
+        assert foreign["content"][0]["attrs"]["sceneId"] == "other"
+
+
+def test_chapter_conformance_preserves_normal_anchored_passage():
+    from app.engine.prose_doc import chapter_conformance_texts, scene_prose_texts
+
+    scenes = [{"id": "one", "title": "Encounter"}, {"id": "two", "title": "Exit"}]
+    doc = text_to_tiptap_doc("### Encounter\n\nThey meet.\n\n### Exit\n\nThey leave.", scenes)
+    assert chapter_conformance_texts(doc, scenes) == scene_prose_texts(doc, scenes) == {
+        "one": "They meet.", "two": "They leave."}
+
+
 # ── C27 — tiptap_doc_to_text (flywheel chapter-text extraction) ─────────
 
 

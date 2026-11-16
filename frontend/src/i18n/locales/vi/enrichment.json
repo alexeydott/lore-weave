@@ -2,7 +2,14 @@
   "header": "Duyệt bồi đắp",
   "subtitle": "Xem xét lore do AI đề xuất cho các thực thể thiếu mô tả, rồi thăng những gì bạn duyệt vào canon của sách này. Bản nháp bồi đắp là dị bản riêng tư cho đến khi bạn thăng.",
   "untitled": "Chưa đặt tên",
-  "panel": { "compose": "Tạo", "proposals": "Đề xuất", "gaps": "Thiếu hụt", "sources": "Nguồn", "jobs": "Tác vụ", "settings": "Hồ sơ" },
+  "panel": {
+    "compose": "Tạo",
+    "proposals": "Đề xuất",
+    "gaps": "Thiếu hụt",
+    "sources": "Nguồn",
+    "jobs": "Tác vụ",
+    "settings": "Hồ sơ"
+  },
   "compose": {
     "title": "Tạo nội dung làm giàu",
     "subtitle": "Bắt đầu theo cách của bạn — mở rộng bản nháp bạn đã viết, hoặc lấp các thiếu hụt được phát hiện. Mọi nội dung bạn tạo là một dị bản cho đến khi bạn duyệt lên canon.",
@@ -79,9 +86,15 @@
       "no_cap": "không giới hạn",
       "top_k": "Top-K",
       "technique": "Kỹ thuật",
-      "technique_opt": { "retrieval": "Truy hồi (P1)", "fabrication": "Bịa tạo (P2)", "recook": "Nấu lại (P3)" },
+      "technique_opt": {
+        "retrieval": "Truy hồi (P1)",
+        "fabrication": "Bịa tạo (P2)",
+        "recook": "Nấu lại (P3)"
+      },
       "eval_gate_warning": "P2/P3 cần eval-gate đã pass — job bị từ chối cho tới khi pass.",
-      "dimensions": { "auto": "Tự động — bổ sung mọi dimension còn thiếu" }
+      "dimensions": {
+        "auto": "Tự động — bổ sung mọi dimension còn thiếu"
+      }
     },
     "safety": "① giấy phép · ② trừu tượng hóa · ③ chống sao chép · ④ bạn duyệt — nội dung làm giàu vẫn là dị bản cho đến khi bạn duyệt.",
     "run_hint": "Chạy nền — đề xuất sẽ xuất hiện ở tab Đề xuất khi xong.",
@@ -124,7 +137,15 @@
       "injection": "Tiêm prompt",
       "regurgitation": "Sao chép nguồn"
     },
-    "severity": { "low": "thấp", "medium": "vừa", "high": "cao" }
+    "severity": {
+      "low": "thấp",
+      "medium": "vừa",
+      "high": "cao"
+    },
+    "evidence": {
+      "regurgitation_overlap": "Trùng lặp đáng kể với văn bản nguồn (đoạn trùng dài nhất {{lcs_chars}} ký tự, độ phủ n-gram {{containment_pct}}%) — hãy kiểm tra cách diễn đạt mượn từ nguồn.",
+      "regurgitation_verbatim": "Nội dung sao chép gần như nguyên văn nguồn (đoạn trùng dài nhất {{lcs_chars}} ký tự, chiếm {{output_fraction_pct}}% nội dung) — rủi ro bản quyền; đã tự động từ chối."
+    }
   },
   "prov": {
     "technique": "Kỹ thuật",
@@ -134,7 +155,10 @@
     "model": "Model",
     "recook_abstracted": "Tái chế từ dữ kiện trừu tượng — tạo từ các gạch đầu dòng trung tính, không phải văn nguồn (②).",
     "grounding": "Nguồn căn cứ",
-    "skipped": "Nguồn bị bỏ (không phép)"
+    "skipped": "Nguồn bị bỏ (không phép)",
+    "origin_value": {
+      "enrichment": "Làm giàu bằng AI"
+    }
   },
   "license": {
     "public_domain": "phạm vi công cộng",
@@ -153,7 +177,8 @@
     "show_less": "Thu gọn",
     "content": "Lore đã tạo",
     "verify": "Kiểm chứng",
-    "provenance": "Xuất xứ & nguồn"
+    "provenance": "Xuất xứ & nguồn",
+    "h0_meta": "Phương án · {{origin}} · độ tin cậy {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "tin {{value}}",
@@ -224,7 +249,43 @@
     "enrich_one_hint": "Chọn model sinh + embedding bên dưới để bồi đắp.",
     "enriching": "Đang xếp hàng…",
     "enqueued": "Đã xếp {{count}} mục để bồi đắp",
-    "col": { "entity": "Thực thể", "kind": "Loại", "missing": "Chiều thiếu", "rank": "Hạng", "action": "Hành động" }
+    "col": {
+      "entity": "Thực thể",
+      "kind": "Loại",
+      "missing": "Chiều thiếu",
+      "rank": "Hạng",
+      "action": "Hành động"
+    },
+    "kinds": {
+      "item": "Vật phẩm",
+      "character": "Nhân vật",
+      "location": "Địa điểm",
+      "event": "Sự kiện",
+      "technique": "Kỹ thuật",
+      "terminology": "Thuật ngữ",
+      "power_system": "Hệ thống sức mạnh",
+      "trope": "Mô-típ",
+      "species": "Loài",
+      "organization": "Tổ chức",
+      "plot_arc": "Mạch truyện",
+      "social_setting": "Bối cảnh xã hội"
+    },
+    "dims": {
+      "origin": "Nguồn gốc",
+      "powers": "Sức mạnh",
+      "appearance": "Ngoại hình",
+      "owner": "Chủ sở hữu",
+      "significance": "Tầm quan trọng",
+      "personality": "Tính cách",
+      "abilities": "Năng lực",
+      "relationships": "Quan hệ",
+      "background": "Bối cảnh",
+      "history": "Lịch sử",
+      "geography": "Địa lý",
+      "culture": "Văn hóa",
+      "features": "Đặc điểm",
+      "inhabitants": "Cư dân"
+    }
   },
   "sources": {
     "title": "Nguồn",
@@ -279,7 +340,8 @@
     "error": {
       "gateLocked": "Bị khoá bởi eval gate — chạy eval enrichment trước.",
       "internal": "Enrichment lỗi (lỗi nội bộ). Di chuột để xem chi tiết.",
-      "insufficientGrounding": "Chưa có nguồn corpus phù hợp cho các thực thể này — hãy paste context hoặc dùng Fabrication."
+      "insufficientGrounding": "Chưa có nguồn corpus phù hợp cho các thực thể này — hãy paste context hoặc dùng Fabrication.",
+      "providerRateLimited": "Nhà cung cấp embedding đã đạt giới hạn yêu cầu đồng thời. Hãy thử lại sau giây lát."
     }
   },
   "settings": {
@@ -295,7 +357,13 @@
     "markers_placeholder": "thuật ngữ | lý do (mỗi dòng một mục)",
     "markers_hint": "Mỗi dòng dạng \"thuật ngữ | lý do\". Đây là các thuật ngữ mà kiểm tra lỗi thời sẽ gắn cờ. Xóa hết = tắt kiểm tra.",
     "dimensions": "Ghi đè chiều",
-    "kind": { "character": "Nhân vật", "location": "Địa điểm", "item": "Vật phẩm", "faction": "Phe phái", "event": "Sự kiện" },
+    "kind": {
+      "character": "Nhân vật",
+      "location": "Địa điểm",
+      "item": "Vật phẩm",
+      "faction": "Phe phái",
+      "event": "Sự kiện"
+    },
     "add_dimension": "Thêm chiều",
     "no_extra_dims": "Dùng các chiều mặc định cho loại này.",
     "dim_id": "mã",

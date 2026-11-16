@@ -134,7 +134,7 @@ async def test_judge_prose_non_completed_status_degrades():
     judge = FakeJudge(content="{}", status="failed")
     out = await critic.judge_prose(judge, user_id="u", model_source="user_model", model_ref="m",
                                    passage="p", active_rules=[], present_facts=[], profile=NEUTRAL)
-    assert out["error"] == "critic_failed"
+    assert out["error"] == "critic_unavailable"
 
 
 async def test_judge_prose_malformed_json_yields_empty_not_crash():
@@ -400,3 +400,10 @@ def test_the_degrade_shape_ALSO_marks_itself_as_an_error():
          "violations": [], "craft_notes": []}
     )
     assert "error" not in success, "a healthy verdict must not carry an error marker"
+
+
+def test_judge_failure_reason_uses_operational_evidence():
+    from types import SimpleNamespace
+    assert critic.judge_failure_reason(SimpleNamespace(code="CONTEXT_LENGTH_EXCEEDED", message="")) == "context_limit"
+    assert critic.judge_failure_reason(SimpleNamespace(code="", message="Connection timed out")) == "network"
+    assert critic.judge_failure_reason(None) == "unavailable"

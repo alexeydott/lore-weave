@@ -21,6 +21,8 @@ The apply-preview is non-agentic CRUD-shaped read (§13.3) → HTTP is fine here
 
 from __future__ import annotations
 
+from app.engine.retrieval_model import resolve_retrieval_model
+
 import datetime as _dt
 import decimal as _dec
 from typing import Annotated, Any, Literal
@@ -979,7 +981,7 @@ async def suggest_arc_templates(
     candidates = await MotifRetriever(get_pool()).retrieve_arcs(
         user_id, book_id=work.book_id, project_id=body.project_id,
         premise=body.premise, genre=body.genre, limit=body.limit,
-        user_model=reference_embed_model(getattr(work, "settings", None)),
+        model_resolution=await resolve_retrieval_model(user_id, getattr(work, "settings", None)),
     )
 
     def _project(arc: Any) -> dict[str, Any]:

@@ -6,10 +6,8 @@
 //     Canon-here + Open-threads facets read straight off the cold-open `overlay` prop (those refs
 //     are already in memory — no extra fetch, PH9's closed read set). Each ref deep-links to its
 //     owning lens via `onOpenRef` (PH18).
-//     References + Critic remain empty, and now say WHY: references need `composition_find_
-//     references` (28 AN-3, unbuilt) and critic runs are book-scoped (the Quality → Critic panel).
-//     They used to read "loads in H4" — long after H4 shipped, which made shipped data look like an
-//     unbuilt feature. A stub must name its real blocker or it becomes a lie.
+//     References query the book-scoped entity backlinks with an optional explicit AI helper.
+//     Critic runs remain book-scoped in the Quality → Critic panel.
 //   • arc/saga → a MINIMAL summary (title/status/goal/span/roster keys). The 23-C3 arc-inspector
 //     component does not exist yet (verified), so this is the documented reuse gap, not a fork.
 //
@@ -17,13 +15,15 @@
 // studio-bus-driven; this selection-driven drawer composes its own facet renderer + the PH20 edit
 // block (PlanDrawerEdit) rather than mounting that panel — no fork, and no bus dependency.
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
 import type { OutlineNode } from '@/features/composition/types';
 
-import { usePlanNode, type PlanNodeKind, type PlanNodeView } from '../hooks/usePlanNode';
+import { usePlanNode, type PlanNodeView } from '../hooks/usePlanNode';
 import { refsFor } from './nodePresentation';
 import { PlanDrawerEdit } from './PlanDrawerEdit';
+import { ReferenceShelf } from './ReferenceShelf';
 // 32 §3.5 (AI-4/DOCK-2) — the drawer mounts the arc-inspector's SHARED body (embedded variant),
 // the SAME component the dock panel renders. No fork; no `ArcFacets` stub.
 import { ArcInspectorEmbed } from '@/features/studio/panels/ArcInspectorEmbed';
@@ -65,6 +65,7 @@ export interface PlanDrawerProps {
   chapters?: { chapter_id: string; title: string; sort_order: number }[];
   /** PH16 — "Open in Editor" goes to the ACTUAL (the manuscript). */
   onOpenInEditor?: (chapterId: string) => void;
+  onSelectReferenceNode?: (nodeId: string) => void;
   /** S-10 O5 — the KG project + auth + glossary roster the per-scene Motifs facet needs
    *  (MotifBindingLens). Omitted / null ⇒ the Motifs section isn't rendered (no project yet, or a
    *  read-only drawer), rather than a broken binding surface. */
@@ -81,14 +82,6 @@ export interface PlanDrawerProps {
     addScene: (chapterNodeId: string, bookChapterId: string) => void;
   } | null;
 }
-
-const KIND_LABEL: Record<PlanNodeKind, string> = {
-  chapter: 'Chapter',
-  scene: 'Scene',
-  arc: 'Arc',
-  saga: 'Saga',
-  unknown: 'Node',
-};
 
 // ── small render primitives (read-only) ────────────────────────────────────────
 function orDash(v: ReactNode): ReactNode {
@@ -117,13 +110,14 @@ function Field({ label, value, testid }: { label: string; value: ReactNode; test
 }
 
 function StatusChip({ status }: { status?: string | null }) {
+  const { t } = useTranslation('studio');
   if (!status) return null;
   return (
     <span
       data-testid="plan-drawer-status"
       className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground"
     >
-      {status}
+      {t(`planHub.flow.status.${status}`, { defaultValue: t('planHub.drawer.unknown') })}
     </span>
   );
 }
@@ -187,6 +181,7 @@ function RefList({
   onOpenRef?: (r: PlanOverlayRef, n: string) => void;
   testid: string;
 }) {
+  const { t } = useTranslation('studio');
   if (count === 0) return <EmptyFacet>{emptyLabel}</EmptyFacet>;
   return (
     <>
@@ -199,7 +194,7 @@ function RefList({
           documented truncation and a UI that looks broken. */}
       {count > refs.length && (
         <p data-testid={`${testid}-capped`} className="text-[11px] italic text-muted-foreground/70">
-          {count} in total{capped ? ' — the list is truncated' : ''}.
+          {t('planHub.drawer.total', { count })}{capped ? ` — ${t('planHub.drawer.truncated')}` : ''}.
         </p>
       )}
     </>
@@ -215,6 +210,7 @@ function ChapterSceneFacets({
   writes,
   chapters,
   onOpenInEditor,
+  onSelectReferenceNode,
   bookId,
   projectId,
   token,
@@ -227,11 +223,13 @@ function ChapterSceneFacets({
   writes?: PlanDrawerProps['writes'];
   chapters?: PlanDrawerProps['chapters'];
   onOpenInEditor?: (chapterId: string) => void;
+  onSelectReferenceNode?: (nodeId: string) => void;
   bookId: string;
   projectId?: string | null;
   token?: string | null;
   roster?: RosterOption[];
 }) {
+  const { t } = useTranslation('studio');
   const present = (node.present_entity_ids ?? []).map(nameFor).filter(Boolean).join(', ');
   const num = (v: number | null | undefined): ReactNode => (v == null ? null : String(v));
   const problems = overlay?.problems.by_node[node.id];
@@ -260,51 +258,51 @@ function ChapterSceneFacets({
         </>
       )}
 
-      <Section title="Overview" testid="plan-drawer-section-overview">
-        <Field label="Status" value={node.status} testid="plan-drawer-f-status" />
-        <Field label="Goal" value={node.goal} testid="plan-drawer-f-goal" />
-        <Field label="Synopsis" value={node.synopsis} testid="plan-drawer-f-synopsis" />
-        <Field label="Beat role" value={node.beat_role} testid="plan-drawer-f-beat" />
-        <Field label="Tension" value={num(node.tension)} testid="plan-drawer-f-tension" />
+      <Section title={t('panels.kg-overview.title')} testid="plan-drawer-section-overview">
+        <Field label={t('panels.scene-inspector.f.status')} value={t(`planHub.flow.status.${node.status}`, { defaultValue: t('planHub.drawer.unknown') })} testid="plan-drawer-f-status" />
+        <Field label={t('panels.scene-inspector.f.goal')} value={node.goal} testid="plan-drawer-f-goal" />
+        <Field label={t('panels.scene-inspector.f.synopsis')} value={node.synopsis} testid="plan-drawer-f-synopsis" />
+        <Field label={t('panels.scene-inspector.f.beat')} value={node.beat_role} testid="plan-drawer-f-beat" />
+        <Field label={t('panels.scene-inspector.f.tension')} value={num(node.tension)} testid="plan-drawer-f-tension" />
       </Section>
 
-      <Section title="Cast & Setting" testid="plan-drawer-section-cast">
-        <Field label="POV" value={nameFor(node.pov_entity_id)} testid="plan-drawer-f-pov" />
-        <Field label="Present" value={present || null} testid="plan-drawer-f-present" />
-        <Field label="Location" value={nameFor(node.location_entity_id)} testid="plan-drawer-f-location" />
+      <Section title={t('panels.scene-inspector.section.cast')} testid="plan-drawer-section-cast">
+        <Field label={t('panels.scene-inspector.f.pov')} value={nameFor(node.pov_entity_id)} testid="plan-drawer-f-pov" />
+        <Field label={t('panels.scene-inspector.f.present')} value={present || null} testid="plan-drawer-f-present" />
+        <Field label={t('panels.scene-inspector.f.location')} value={nameFor(node.location_entity_id)} testid="plan-drawer-f-location" />
       </Section>
 
-      <Section title="Craft" testid="plan-drawer-section-craft">
-        <Field label="Conflict" value={node.conflict} testid="plan-drawer-f-conflict" />
-        <Field label="Outcome" value={node.outcome} testid="plan-drawer-f-outcome" />
-        <Field label="Stakes" value={node.stakes} testid="plan-drawer-f-stakes" />
-        <Field label="Story time" value={node.story_time} testid="plan-drawer-f-storytime" />
-        <Field label="Value shift" value={num(node.value_shift)} testid="plan-drawer-f-valueshift" />
-        <Field label="Target words" value={num(node.target_words)} testid="plan-drawer-f-targetwords" />
+      <Section title={t('panels.scene-inspector.section.craft')} testid="plan-drawer-section-craft">
+        <Field label={t('panels.scene-inspector.f.conflict')} value={node.conflict} testid="plan-drawer-f-conflict" />
+        <Field label={t('panels.scene-inspector.f.outcome')} value={node.outcome} testid="plan-drawer-f-outcome" />
+        <Field label={t('panels.scene-inspector.f.stakes')} value={node.stakes} testid="plan-drawer-f-stakes" />
+        <Field label={t('panels.scene-inspector.f.storyTime')} value={node.story_time} testid="plan-drawer-f-storytime" />
+        <Field label={t('panels.scene-inspector.f.valueShift')} value={num(node.value_shift)} testid="plan-drawer-f-valueshift" />
+        <Field label={t('panels.scene-inspector.f.targetWords')} value={num(node.target_words)} testid="plan-drawer-f-targetwords" />
       </Section>
 
       {/* Canon here + Open threads — LIVE. These refs already ride the cold-open overlay, so the
           drawer reads them from memory (no extra fetch — PH9's closed read set). They used to say
           "loads in H4" long AFTER H4 shipped, which read as a missing feature rather than a stale
           comment: the data was sitting in the same hook. Each ref deep-links to its lens (PH18). */}
-      <Section title="Canon here" testid="plan-drawer-section-canon">
+      <Section title={t('quality.canonRulesTitle')} testid="plan-drawer-section-canon">
         <RefList
           refs={canonRefs}
           nodeId={node.id}
           count={problems?.canon ?? 0}
           capped={refsCapped}
-          emptyLabel="No canon rule is anchored here."
+          emptyLabel={t('planHub.drawer.noCanon')}
           onOpenRef={onOpenRef}
           testid="plan-drawer-canon-refs"
         />
       </Section>
-      <Section title="Open threads" testid="plan-drawer-section-threads">
+      <Section title={t('panels.arc-inspector.body.secPromises')} testid="plan-drawer-section-threads">
         <RefList
           refs={threadRefs}
           nodeId={node.id}
           count={problems?.threads_open ?? 0}
           capped={refsCapped}
-          emptyLabel="No promise opens here."
+          emptyLabel={t('panels.arc-inspector.body.noPromises')}
           onOpenRef={onOpenRef}
           testid="plan-drawer-thread-refs"
         />
@@ -327,17 +325,9 @@ function ChapterSceneFacets({
         </section>
       )}
 
-      {/* References + Critic stay empty — and now say WHY, and what would fill them. The old copy
-          ("loads in H4") was simply false once H4 landed; an honest gap names its real blocker. */}
-      <Section title="References" testid="plan-drawer-section-references">
-        <EmptyFacet>
-          Back-references (where else this node’s entities appear) need
-          <code className="mx-1">composition_find_references</code> — spec 28 AN-3, not built yet.
-          The cast above is this node’s own roster.
-        </EmptyFacet>
-      </Section>
-      <Section title="Critic" testid="plan-drawer-section-critic">
-        <EmptyFacet>Critic runs are book-scoped — see the Quality → Critic panel.</EmptyFacet>
+      <ReferenceShelf bookId={bookId} node={node} token={token ?? null} roster={roster ?? []} onOpenRef={onOpenRef} onSelectReferenceNode={onSelectReferenceNode} />
+      <Section title={t('quality.criticTitle')} testid="plan-drawer-section-critic">
+        <EmptyFacet>{t('planHub.drawer.criticNote')}</EmptyFacet>
       </Section>
     </>
   );
@@ -357,6 +347,7 @@ function AddChildBar({
   view: PlanNodeView;
   childCreate: NonNullable<PlanDrawerProps['childCreate']>;
 }) {
+  const { t } = useTranslation('studio');
   const isArc = view.kind === 'arc' || view.kind === 'saga';
   const isChapter = view.kind === 'chapter';
   if (!isArc && !isChapter) return null; // a scene has no structural children
@@ -370,7 +361,7 @@ function AddChildBar({
           onClick={() => childCreate.addChapter(view.arcNode!.id)}
           className="self-start rounded border px-2 py-1 text-xs font-medium hover:bg-accent disabled:opacity-50"
         >
-          {childCreate.busy ? '+ Chapter…' : '+ Chapter'}
+          {t('planHub.flow.addChapter')}{childCreate.busy ? '…' : ''}
         </button>
       )}
       {isChapter && view.outlineNode?.chapter_id && (
@@ -381,7 +372,7 @@ function AddChildBar({
           onClick={() => childCreate.addScene(view.outlineNode!.id, view.outlineNode!.chapter_id!)}
           className="self-start rounded border px-2 py-1 text-xs font-medium hover:bg-accent disabled:opacity-50"
         >
-          {childCreate.busy ? '+ Scene…' : '+ Scene'}
+          {t('planHub.flow.addScene')}{childCreate.busy ? '…' : ''}
         </button>
       )}
       {childCreate.error && (
@@ -401,6 +392,7 @@ function DrawerBody({
   writes,
   chapters,
   onOpenInEditor,
+  onSelectReferenceNode,
   childCreate,
   projectId,
   token,
@@ -413,15 +405,17 @@ function DrawerBody({
   writes?: PlanDrawerProps['writes'];
   chapters?: PlanDrawerProps['chapters'];
   onOpenInEditor?: (chapterId: string) => void;
+  onSelectReferenceNode?: (nodeId: string) => void;
   childCreate?: PlanDrawerProps['childCreate'];
   projectId?: string | null;
   token?: string | null;
   roster?: RosterOption[];
 }) {
-  if (view.loading) return <Centered testid="plan-drawer-loading">Loading…</Centered>;
+  const { t } = useTranslation('studio');
+  if (view.loading) return <Centered testid="plan-drawer-loading">{t('panels.scene-inspector.loading')}</Centered>;
   if (view.error) return <Centered testid="plan-drawer-error" tone="error">{view.error}</Centered>;
   if (view.kind === 'chapter' || view.kind === 'scene') {
-    if (!view.outlineNode) return <Centered testid="plan-drawer-empty">This node has no plan yet.</Centered>;
+    if (!view.outlineNode) return <Centered testid="plan-drawer-empty">{t('planHub.drawer.noPlan')}</Centered>;
     return (
       <>
         {childCreate && <AddChildBar view={view} childCreate={childCreate} />}
@@ -433,6 +427,7 @@ function DrawerBody({
           writes={writes}
           chapters={chapters}
           onOpenInEditor={onOpenInEditor}
+          onSelectReferenceNode={onSelectReferenceNode}
           bookId={bookId}
           projectId={projectId}
           token={token}
@@ -442,7 +437,7 @@ function DrawerBody({
     );
   }
   if (view.kind === 'arc' || view.kind === 'saga') {
-    if (!view.arcNode) return <Centered testid="plan-drawer-empty">Arc not found in the shell.</Centered>;
+    if (!view.arcNode) return <Centered testid="plan-drawer-empty">{t('planHub.drawer.arcMissing')}</Centered>;
     // The shell has no `resolved`/`open_promises`/derived block — the embed fetches GET /arcs/{id}.
     return (
       <>
@@ -451,7 +446,7 @@ function DrawerBody({
       </>
     );
   }
-  return <Centered testid="plan-drawer-empty">Select a node to see its plan.</Centered>;
+  return <Centered testid="plan-drawer-empty">{t('planHub.drawer.selectNode')}</Centered>;
 }
 
 export function PlanDrawer({
@@ -464,6 +459,7 @@ export function PlanDrawer({
   writes,
   chapters,
   onOpenInEditor,
+  onSelectReferenceNode,
   childCreate,
   projectId,
   token,
@@ -471,6 +467,7 @@ export function PlanDrawer({
 }: PlanDrawerProps) {
   // Hook first (unconditional — Rules of Hooks); then self-hide when there is no selection so the
   // orchestrator can keep <PlanDrawer/> mounted (never conditionally unmount a stateful child).
+  const { t } = useTranslation('studio');
   const view = usePlanNode(bookId, selectedId, kind);
   if (!selectedId) return null;
 
@@ -485,10 +482,10 @@ export function PlanDrawer({
       <header className="flex items-start gap-2 border-b p-3">
         <div className="min-w-0 flex-1">
           <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            {KIND_LABEL[view.kind]}
+            {t(`planHub.drawer.${view.kind}`)}
           </div>
           <div data-testid="plan-drawer-title" className="truncate text-sm font-semibold" title={headerTitle}>
-            {headerTitle || (view.loading ? 'Loading…' : '—')}
+            {headerTitle || (view.loading ? t('panels.scene-inspector.loading') : '—')}
           </div>
           <div className="mt-1">
             <StatusChip status={headerStatus} />
@@ -498,7 +495,7 @@ export function PlanDrawer({
           type="button"
           data-testid="plan-drawer-close"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('common.close')}
           className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           ×
@@ -513,6 +510,7 @@ export function PlanDrawer({
           writes={writes}
           chapters={chapters}
           onOpenInEditor={onOpenInEditor}
+          onSelectReferenceNode={onSelectReferenceNode}
           childCreate={childCreate}
           projectId={projectId}
           token={token}

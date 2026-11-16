@@ -253,6 +253,15 @@ def test_prompt_en_for_non_zh_book():
     assert "sci-fi colony" in prompt                       # worldview surfaced
 
 
+def test_prompt_ru_uses_human_language_name():
+    ru = BookProfile(language="ru", worldview="Городское фэнтези")
+    proposal = _proposal_for(profile=ru)
+    prompt = build_draft_prompt(proposal, "Черновик автора.", EXPAND_ADD_ONLY, ru)
+    assert "in Russian" in prompt
+    assert "Write in ru" not in prompt
+    assert "历史" not in prompt
+
+
 def test_no_hardcoded_model_name_in_source():
     src = inspect.getsource(DraftExpandStrategy) + inspect.getsource(build_draft_prompt)
     for needle in ("gpt-", "claude-3", "claude-4", "qwen/", "qwen3", "bge-m3",

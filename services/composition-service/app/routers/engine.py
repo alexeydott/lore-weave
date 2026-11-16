@@ -9,6 +9,8 @@ ACTIVE canon at call time. CC4: a critic failure degrades, never blocks.
 
 from __future__ import annotations
 
+from app.engine.retrieval_model import resolve_retrieval_model
+
 import json
 import re
 import logging
@@ -37,7 +39,7 @@ from app.db.repositories.grounding_pins import GroundingPinsRepo
 from app.db.repositories.style_voice import StyleProfileRepo, VoiceProfileRepo
 from app.db.repositories.narrative_thread import NarrativeThreadRepo
 from app.db.repositories.motif_application import MotifApplicationRepo
-from app.db.repositories.motif_repo import MotifRepo
+from app.db.repositories.motif_repo import MotifRepo, normalize_display_language
 from app.db.repositories.motif_retrieve import MotifRetriever, node_query_text
 from app.db.pool import get_pool
 from app.db.repositories.outline import OutlineRepo
@@ -2006,6 +2008,7 @@ async def suggest_cast(
 @router.get("/works/{project_id}/scenes/{node_id}/suggest-motifs")
 async def suggest_motifs(
     project_id: UUID, node_id: UUID,
+    display_language: str | None = Query(default=None),
     limit: int = Query(default=5, ge=1, le=20),
     user_id: UUID = Depends(get_current_user),
     works: WorksRepo = Depends(get_works_repo),
@@ -2027,12 +2030,12 @@ async def suggest_motifs(
     candidates = await retriever.retrieve(
         user_id, book_id=work.book_id, project_id=project_id,
         genre_tags=list(getattr(work, "genre_tags", []) or []),
-        language=getattr(work, "language", None) or "en",
+        display_language=normalize_display_language(display_language) or "en",
         # The node's OWN text + beat_role seed the query (see `node_query_text`); passing
         # None here forced every candidate onto the degrade path with cosine=0.0.
         beat_role=getattr(node, "beat_role", None),
         tension=getattr(node, "tension_target", None), limit=limit,
-        user_model=reference_embed_model(getattr(work, "settings", None)),
+        model_resolution=await resolve_retrieval_model(user_id, getattr(work, "settings", None)),
         query=node_query_text(node),
     )
     return {"candidates": [
@@ -2085,6 +2088,34 @@ async def get_motif_job(
     if job is None or job.created_by != user_id:
         raise HTTPException(status_code=404, detail="job not found")
     return job.model_dump(mode="json")
+
+
+@router.post("/jobs/{job_id}/cancel")
+async def cancel_job(
+    job_id: UUID,
+    user_id: UUID = Depends(get_current_user),
+    jobs: GenerationJobsRepo = Depends(get_generation_jobs_repo),
+    works: WorksRepo = Depends(get_works_repo),
+    grant: GrantClient = Depends(get_grant_client_dep),
+) -> dict[str, Any]:
+    """Cancel a still-active Work-bound job — deadline gave up or the user asked.
+
+    A frontend wait that times out used to abandon the job while the worker kept
+    spending model budget on it (user report 2026-11-10: "generation did not
+    complete in time" left the run running). CAS pending/running → cancelled: the
+    consumer's cancel_check (bug #34) aborts the in-flight LLM call, and a queued
+    job is skipped on claim. A terminal job can't be unspent or unfailed — 409,
+    never a false success. Unbound jobs (project_id IS NULL) keep their own
+    owner-scoped surface; they 404 here exactly as in GET /jobs/{id}."""
+    job = await jobs.get(job_id)
+    if job is None or job.project_id is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    await _gate_work(works, grant, user_id, job.project_id, GrantLevel.EDIT)
+    if job.status in ("completed", "failed"):
+        raise HTTPException(status_code=409, detail={
+            "code": "JOB_TERMINAL", "status": job.status})
+    updated = await jobs.update_status(job_id, "cancelled", only_if_active=True)
+    return {"job_id": str(job_id), "status": "cancelled" if updated is not None else job.status}
 
 
 @router.post("/jobs/{job_id}/persist")

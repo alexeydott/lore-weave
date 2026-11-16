@@ -37,7 +37,7 @@ from app.mcp.server import build_mcp_app, mcp_server
 from app.middleware.trace_id import TraceIdMiddleware
 from app.routers import (
     actions, approve, arc, authoring_runs, canon, conformance, engine, error_blocks,
-    glossary_build,
+    entity_references, glossary_build,
     intent,
     grounding, health,
     import_source, internal_eval, internal_job_control, internal_model_settings,
@@ -225,6 +225,7 @@ app.include_router(approve.router)
 app.include_router(grounding.router)
 app.include_router(progress.router)  # LOOM T4.2 — writing-progress stats
 app.include_router(style_voice.router)  # LOOM T3.5 — style & voice steering
+app.include_router(entity_references.router)
 app.include_router(references.router)  # LOOM T3.6 — author reference shelf + retrieval
 app.include_router(motif.router)  # Narrative motif library W1 — CRUD/adopt/publish/catalog
 app.include_router(motif_sync.router)  # W11 — publish/adopt sync (upstream-diff + apply-merge)
@@ -234,6 +235,8 @@ app.include_router(engine.router)
 app.include_router(outline.router)
 app.include_router(outline.internal_router)  # 22 SC6/B4 — scene decompiler (internal token)
 app.include_router(plan.router)
+from app.routers import quality_runs
+app.include_router(quality_runs.router)
 app.include_router(plan_overlay.router)  # 24 Plan Hub v2 H1.3 — decorations aggregate (read surface #3)
 app.include_router(plan_forge.router)
 app.include_router(plan_bootstrap.router)  # PlanForge auto-bootstrap gate POC

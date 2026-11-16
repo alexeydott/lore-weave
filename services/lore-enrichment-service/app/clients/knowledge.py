@@ -236,7 +236,15 @@ class KnowledgeClient:
             detail = resp.json().get("detail", detail)
         except Exception:
             pass
+        retry_after_s: float | None = None
+        if resp.headers.get("Retry-After"):
+            try:
+                retry_after_s = float(resp.headers["Retry-After"])
+            except ValueError:
+                retry_after_s = None
         raise KnowledgeServiceError(
             f"{method} {url} failed ({resp.status_code}): {detail}",
             status_code=resp.status_code,
+            retryable=resp.status_code in (429, 502, 503, 504),
+            retry_after_s=retry_after_s,
         )

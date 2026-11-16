@@ -430,3 +430,10 @@ scripts/toolloop/fe_runner_auth.json
 # Tool-loop fixture provenance manifests — live state about this machine's runs, written by
 # scripts/toolloop/provision.py so `--sweep` can remove an un-torn-down fixture BY ID.
 scripts/toolloop/.fixtures/
+
+# Locally built Go test/CLI binaries — never commit build artifacts.
+/infra/pg18test-go/pg18test
+/tests/antithesis/driver/antithesis-driver
+/tests/perf/roleplay-load/roleplay-load
+/tools/eventgen/eventgen
+/services/provider-registry-service/provider-registry-service

@@ -67,9 +67,8 @@ export type ProviderCredential = {
   status: 'active' | 'invalid' | 'disabled' | 'archived';
   has_secret: boolean;
   api_standard?: APIStandard;
-  // Per-credential concurrency cap. null/absent = unlimited (request-as-demand;
-  // the backend infra is the limiter). Set only when the user knows their own
-  // backend's limit (e.g. a local GPU that runs N calls at once).
+	// Per-credential concurrency cap. null/absent uses the system default cap (8);
+	// a positive value overrides it for this provider credential.
   max_concurrency?: number | null;
   created_at: string;
   updated_at: string;

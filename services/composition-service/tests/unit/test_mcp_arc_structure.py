@@ -560,3 +560,36 @@ async def test_arc_create_still_creates_for_a_new_title():
         )
     assert res["id"] == str(made.id)
     structures.create_node.assert_awaited_once()
+
+
+@pytest.mark.parametrize("scenario", ["ok", "empty", "foreign", "no_grant"])
+async def test_chapter_conformance_uses_manuscript_not_node_id(scenario):
+    import app.mcp.server as srv
+    from loreweave_mcp import NotAccessibleError
+    from app.clients.book_client import BookClientError
+    chapter, scene = uuid.uuid4(), uuid.uuid4()
+    assert chapter != scene
+    outline = AsyncMock()
+    outline.scenes_for_chapter.return_value = [] if scenario == "empty" else [SimpleNamespace(id=scene)]
+    book_client = AsyncMock()
+    if scenario == "foreign":
+        book_client.get_draft.side_effect = BookClientError(404, "CHAPTER_NOT_FOUND")
+    async with _patched(grants={BOOK: 0, OTHER_BOOK: 2} if scenario == "no_grant" else {BOOK: 2}):
+        with patch.object(srv, "OutlineRepo", return_value=outline), \
+             patch.object(srv, "get_book_client", return_value=book_client):
+            args = srv._ConformanceRunArgs(project_id=str(PROJECT), scope="chapter",
+                                          chapter_id=str(chapter), model_ref="judge")
+            if scenario in ("foreign", "no_grant"):
+                with pytest.raises(NotAccessibleError):
+                    await srv.composition_conformance_run(_Ctx(), args)
+            else:
+                out = await srv.composition_conformance_run(_Ctx(), args)
+                assert ("confirm_token" in out) == (scenario == "ok")
+                if scenario == "empty":
+                    assert out["error"] == "NO_PLANNED_SCENES"
+                outline.scenes_for_chapter.assert_awaited_once_with(PROJECT, chapter)
+            outline.get_node.assert_not_called()
+            if scenario == "no_grant":
+                book_client.get_draft.assert_not_called()
+            else:
+                assert book_client.get_draft.await_args.args[:2] == (BOOK, chapter)

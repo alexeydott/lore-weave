@@ -90,7 +90,7 @@ describe('ModelPicker (W5 shared component)', () => {
   it('fetches active-only + the passed capability (server-side filter)', async () => {
     listUserModelsMock.mockResolvedValue({ items: MODELS });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="chat" value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -104,7 +104,7 @@ describe('ModelPicker (W5 shared component)', () => {
   it('opens a listbox, pins favorites on top, groups the rest by provider', async () => {
     listUserModelsMock.mockResolvedValue({ items: MODELS });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="chat" value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -126,7 +126,7 @@ describe('ModelPicker (W5 shared component)', () => {
   it('search filters by alias / model name / provider kind', async () => {
     listUserModelsMock.mockResolvedValue({ items: MODELS });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="chat" value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -147,7 +147,7 @@ describe('ModelPicker (W5 shared component)', () => {
     listUserModelsMock.mockResolvedValue({ items: MODELS });
     const onChange = vi.fn();
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="chat" value={null} onChange={onChange} />
       </MemoryRouter>,
     );
@@ -162,7 +162,7 @@ describe('ModelPicker (W5 shared component)', () => {
     localStorage.setItem('lw.modelPicker.recents.chat.u1', JSON.stringify(['local-2', 'fav-1']));
     listUserModelsMock.mockResolvedValue({ items: MODELS });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="chat" value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -179,7 +179,7 @@ describe('ModelPicker (W5 shared component)', () => {
     listUserModelsMock.mockResolvedValue({ items: MODELS });
     patchFavoriteMock.mockResolvedValue(model({ user_model_id: 'local-1', is_favorite: true }));
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="chat" value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -195,7 +195,7 @@ describe('ModelPicker (W5 shared component)', () => {
   it('renders badges: context length and the $0-local hint', async () => {
     listUserModelsMock.mockResolvedValue({ items: MODELS });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="chat" value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -213,7 +213,7 @@ describe('ModelPicker (W5 shared component)', () => {
     listUserModelsMock.mockResolvedValue({ items: MODELS });
     const onChange = vi.fn();
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="chat" value={null} onChange={onChange} />
       </MemoryRouter>,
     );
@@ -230,7 +230,7 @@ describe('ModelPicker (W5 shared component)', () => {
     listUserModelsMock.mockResolvedValue({ items: MODELS });
     const onChange = vi.fn();
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="chat" value="local-1" onChange={onChange} allowNone noneLabel="No model" />
       </MemoryRouter>,
     );
@@ -243,7 +243,7 @@ describe('ModelPicker (W5 shared component)', () => {
   it('shows an orphan row when the saved value left the registry', async () => {
     listUserModelsMock.mockResolvedValue({ items: MODELS });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="chat" value="gone-uuid" onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -256,7 +256,7 @@ describe('ModelPicker (W5 shared component)', () => {
   it('zero models → empty state with the AddModelCta register link', async () => {
     listUserModelsMock.mockResolvedValue({ items: [] });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="rerank" value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -271,7 +271,7 @@ describe('ModelPicker (W5 shared component)', () => {
   it('zero models with a custom emptyState renders the override', async () => {
     listUserModelsMock.mockResolvedValue({ items: [] });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="rerank" value={null} onChange={vi.fn()} emptyState={<p>custom-empty</p>} />
       </MemoryRouter>,
     );
@@ -282,7 +282,7 @@ describe('ModelPicker (W5 shared component)', () => {
   it('fetch failure surfaces the error line', async () => {
     listUserModelsMock.mockRejectedValue(new Error('boom'));
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="chat" value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );
@@ -300,7 +300,7 @@ describe('ModelPicker (W5 shared component)', () => {
     ];
     listUserModelsMock.mockResolvedValue({ items: ordered });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ModelPicker capability="chat" value={null} onChange={vi.fn()} />
       </MemoryRouter>,
     );

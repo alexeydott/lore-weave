@@ -12,6 +12,7 @@ interface Props {
   projectId: string;
   token: string | null;
   modelRef: string;
+  modelSource?: 'user_model' | 'platform_model';
 }
 
 /** T10 — the job already tells us WHY coverage is unavailable; this renders it.
@@ -44,9 +45,9 @@ function coverageReason(t: TFunction, code: string): string {
   }
 }
 
-export function BookPromiseCoverageSection({ projectId, token, modelRef }: Props) {
+export function BookPromiseCoverageSection({ projectId, token, modelRef, modelSource = 'user_model' }: Props) {
   const { t } = useTranslation('composition');
-  const q = useBookPromiseCoverage(projectId, token, modelRef);
+  const q = useBookPromiseCoverage(projectId, token, modelRef, modelSource);
   const c = q.coverage;
   const abandoned = c?.coverage.filter((p) => p.verdict === 'abandoned') ?? [];
 
@@ -84,7 +85,12 @@ export function BookPromiseCoverageSection({ projectId, token, modelRef }: Props
           data-reason={c.error}
           className={`text-[11px] ${c.error === 'promise_extraction_failed' ? 'text-amber-600' : 'text-neutral-400'}`}
         >
-          {coverageReason(t, c.error)}
+          {c.failed_chapters
+            ? t('coverageCorpusIncomplete', {
+              defaultValue: 'Whole-book coverage unavailable: {{count}} chapter drafts could not be read. No whole-book verdicts were calculated. Try again.',
+              count: c.failed_chapters,
+            })
+            : coverageReason(t, c.error)}
         </span>
       )}
 

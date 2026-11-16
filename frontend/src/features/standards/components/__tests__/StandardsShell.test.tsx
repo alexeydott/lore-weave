@@ -10,7 +10,7 @@ import { StandardsShell } from '../StandardsShell';
 
 function renderShell(tab: 'genres' | 'kinds' | 'attributes') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <StandardsShell tab={tab} />
     </MemoryRouter>,
   );

@@ -244,8 +244,8 @@
       "api_key_ph": "sk-...",
       "api_key_keep_hint": "Biarkan kosong untuk mengekalkan kunci sedia ada.",
       "max_concurrency": "Maksimum permintaan serentak",
-      "max_concurrency_ph": "Tanpa had",
-      "max_concurrency_hint": "Berapa banyak permintaan yang dijalankan pembekal ini pada satu masa. Biarkan kosong untuk tanpa had (backend akan menentukan). Tetapkan nombor hanya jika backend anda mempunyai had tertentu (cth. GPU tempatan).",
+      "max_concurrency_ph": "Lalai",
+      "max_concurrency_hint": "Biar kosong untuk menggunakan had lalai platform. Masukkan nombor positif untuk menetapkan had anda sendiri.",
       "cancel": "Batal",
       "saving": "Menyimpan...",
       "submit": "Simpan Perubahan"
@@ -426,8 +426,8 @@
       "key_ph_keep": "Biarkan kosong untuk mengekalkan kunci sedia ada",
       "key_keep_hint": "Biarkan kosong untuk mengekalkan kunci sedia ada.",
       "max_concurrency": "Permintaan serentak maksimum",
-      "max_concurrency_ph": "Tanpa had",
-      "max_concurrency_hint": "Berapa banyak permintaan yang dijalankan oleh perkhidmatan ini pada satu-satu masa. Biarkan kosong untuk tanpa had (backend yang menentukan). Tetapkan nombor hanya jika backend anda mempunyai had yang diketahui.",
+      "max_concurrency_ph": "Lalai",
+      "max_concurrency_hint": "Biar kosong untuk menggunakan had lalai platform. Masukkan nombor positif untuk menetapkan had anda sendiri.",
       "cancel": "Batal",
       "submit": "Simpan",
       "saving": "Menyimpan..."

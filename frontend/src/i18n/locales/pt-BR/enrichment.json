@@ -141,6 +141,10 @@
       "low": "baixa",
       "medium": "média",
       "high": "alta"
+    },
+    "evidence": {
+      "regurgitation_overlap": "Sobreposição notável com o texto-fonte (maior sequência comum de {{lcs_chars}} caracteres, {{containment_pct}} % de contenção de n-gramas) — revise as formulações emprestadas.",
+      "regurgitation_verbatim": "O texto copia substancialmente a fonte de forma literal (maior sequência comum de {{lcs_chars}} caracteres, {{output_fraction_pct}} % do texto) — risco de direitos autorais; rejeitado automaticamente."
     }
   },
   "prov": {
@@ -151,7 +155,10 @@
     "model": "Modelo",
     "recook_abstracted": "Reelaborado a partir de fatos abstraídos — gerado de tópicos neutros, não da prosa original (②).",
     "grounding": "Fontes de fundamentação",
-    "skipped": "Fontes puladas (sem licença)"
+    "skipped": "Fontes puladas (sem licença)",
+    "origin_value": {
+      "enrichment": "Enriquecimento por IA"
+    }
   },
   "license": {
     "public_domain": "domínio público",
@@ -170,7 +177,8 @@
     "show_less": "Mostrar menos",
     "content": "Lore gerada",
     "verify": "Verificação",
-    "provenance": "Proveniência e fontes"
+    "provenance": "Proveniência e fontes",
+    "h0_meta": "Variante · {{origin}} · confiança {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "conf {{value}}",
@@ -247,6 +255,36 @@
       "missing": "Dimensões ausentes",
       "rank": "Rank",
       "action": "Ação"
+    },
+    "kinds": {
+      "item": "Item",
+      "character": "Personagem",
+      "location": "Local",
+      "event": "Evento",
+      "technique": "Técnica",
+      "terminology": "Terminologia",
+      "power_system": "Sistema de poderes",
+      "trope": "Cliché",
+      "species": "Espécie",
+      "organization": "Organização",
+      "plot_arc": "Arco narrativo",
+      "social_setting": "Ambientação social"
+    },
+    "dims": {
+      "origin": "Origem",
+      "powers": "Poderes",
+      "appearance": "Aparência",
+      "owner": "Proprietário",
+      "significance": "Importância",
+      "personality": "Personalidade",
+      "abilities": "Habilidades",
+      "relationships": "Relações",
+      "background": "Histórico",
+      "history": "História",
+      "geography": "Geografia",
+      "culture": "Cultura",
+      "features": "Características",
+      "inhabitants": "Habitantes"
     }
   },
   "sources": {
@@ -302,7 +340,8 @@
     "error": {
       "gateLocked": "Bloqueado pelo gate de avaliação — execute a avaliação de enriquecimento primeiro.",
       "internal": "Falha no enriquecimento (erro interno). Passe o mouse para detalhes.",
-      "insufficientGrounding": "Sem fundamentação de corpus utilizável para estas entidades — cole o contexto de referência ou use Fabricação."
+      "insufficientGrounding": "Sem fundamentação de corpus utilizável para estas entidades — cole o contexto de referência ou use Fabricação.",
+      "providerRateLimited": "O provedor de embeddings atingiu o limite de solicitações simultâneas. Tente novamente em instantes."
     }
   },
   "settings": {

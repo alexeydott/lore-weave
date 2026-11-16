@@ -12,7 +12,7 @@ idioms never trip it.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Sequence
 
 __all__ = [
@@ -95,12 +95,21 @@ class RegurgitationResult:
     ``severity`` — ``"high"`` (egregious → auto-reject), ``"medium"`` (advisory), or
                    ``None`` (clean).
     ``flagged``  — severity is not None.
-    ``evidence`` — a short human-readable reason."""
+    ``evidence`` — a short human-readable reason (English audit text; kept verbatim
+                   as the audit record — UI localization keys off ``evidence_code``).
+    ``evidence_code``     — a stable machine code for UI localization (``""`` when
+                   clean); currently ``regurgitation_verbatim`` (high) /
+                   ``regurgitation_overlap`` (medium).
+    ``evidence_params``   — the measured numbers the code's message interpolates
+                   (#user-report 2026-11-10 — a UI must not parse prose to show a
+                   localized sentence)."""
 
     max_lcs: int
     overlap: float
     severity: str | None
     evidence: str
+    evidence_code: str = ""
+    evidence_params: dict = field(default_factory=dict)
 
     @property
     def flagged(self) -> bool:
@@ -141,6 +150,9 @@ def detect_regurgitation(
             f"{max_lcs} chars, {lcs_fraction:.0%} of the output) — not transformative; "
             f"copyright risk, auto-reject"
         )
+        code, params = "regurgitation_verbatim", {
+            "lcs_chars": max_lcs, "output_fraction_pct": round(lcs_fraction * 100),
+        }
     elif max_lcs >= LCS_FLAG or (overlap_applies and max_overlap >= OVERLAP_FLAG):
         sev = "medium"
         ev = (
@@ -148,7 +160,13 @@ def detect_regurgitation(
             f"n-gram containment {max_overlap:.0%}) — manual review recommended for "
             f"over-borrowing of the source wording"
         )
+        code, params = "regurgitation_overlap", {
+            "lcs_chars": max_lcs, "containment_pct": round(max_overlap * 100),
+        }
     else:
         sev = None
         ev = ""
-    return RegurgitationResult(max_lcs, round(max_overlap, 3), sev, ev)
+        code, params = "", {}
+    return RegurgitationResult(
+        max_lcs, round(max_overlap, 3), sev, ev, evidence_code=code, evidence_params=params,
+    )

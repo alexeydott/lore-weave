@@ -41,9 +41,10 @@ class InternalClientError(Exception):
     clients that degrade/swallow do not need it.
     """
 
-    def __init__(self, message: str, *, status_code: int | None = None, retryable: bool | None = None):
+    def __init__(self, message: str, *, status_code: int | None = None, retryable: bool | None = None, retry_after_s: float | None = None):
         super().__init__(message)
         self.status_code = status_code
+        self.retry_after_s = retry_after_s
         # Explicit override wins (e.g. a transport error a client deems retryable);
         # otherwise derive from the status.
         self.retryable = is_retryable_status(status_code) if retryable is None else retryable

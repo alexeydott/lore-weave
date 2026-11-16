@@ -60,12 +60,21 @@ class Severity(str, Enum):
 
 @dataclass(frozen=True)
 class VerifyFlag:
-    """One consistency concern — evidence, not a boolean."""
+    """One consistency concern — evidence, not a boolean.
+
+    ``evidence`` is the raw English audit sentence (kept verbatim — the audit
+    record, and the fallback for rows persisted before structured evidence
+    existed). ``evidence_code``/``evidence_params`` (optional, #user-report
+    2026-11-10) let a UI render a LOCALIZED sentence from the measured numbers
+    instead of parsing prose; unset for kinds whose evidence embeds free source
+    data (contradiction/anachronism quotes)."""
 
     kind: FlagKind
     dimension: str
     evidence: str
     severity: Severity = Severity.MEDIUM
+    evidence_code: str | None = None
+    evidence_params: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -115,6 +124,8 @@ class VerifyResult:
                         "dimension": f.dimension,
                         "evidence": f.evidence,
                         "severity": f.severity.value,
+                        "evidence_code": f.evidence_code,
+                        "evidence_params": f.evidence_params,
                     }
                     for f in self.flags
                 ],
@@ -313,6 +324,8 @@ class CanonVerifier:
                     dimension=fact.dimension,
                     evidence=res.evidence,
                     severity=Severity.HIGH if res.severity == "high" else Severity.MEDIUM,
+                    evidence_code=res.evidence_code or None,
+                    evidence_params=dict(res.evidence_params),
                 )
             )
 

@@ -1,7 +1,10 @@
 package provider
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -216,5 +219,38 @@ func TestNormalizeLmStudioBase(t *testing.T) {
 				t.Fatalf("NormalizeLmStudioBase(%q) = %q, want %q", tc.in, got, tc.want)
 			}
 		})
+	}
+}
+
+// Verify the serialized HTTP request, not just the optional-field helper.
+func TestCriticNoThinkingActualOutgoingPayload(t *testing.T) {
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":1}}`))
+	}))
+	defer server.Close()
+	adapter := &openaiAdapter{client: server.Client()}
+	_, _, err := adapter.Invoke(context.Background(), server.URL, "test-key", "neuraldeep/qwen3.8-27b", map[string]any{
+		"messages":             []map[string]any{{"role": "user", "content": "test"}},
+		"max_tokens":           8192,
+		"reasoning_effort":     "none",
+		"chat_template_kwargs": map[string]any{"thinking": false, "enable_thinking": false},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body["reasoning_effort"] != "none" {
+		t.Fatalf("lost suppression: %v", body)
+	}
+	kwargs, ok := body["chat_template_kwargs"].(map[string]any)
+	if !ok || kwargs["thinking"] != false || kwargs["enable_thinking"] != false {
+		t.Fatalf("wrong template controls: %v", body)
+	}
+	if body["max_tokens"] != float64(8192) {
+		t.Fatalf("lost token policy: %v", body)
 	}
 }

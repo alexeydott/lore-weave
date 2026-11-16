@@ -49,6 +49,7 @@ __all__ = [
     "resolve_dimensions",
     "label_for",
     "kind_label_for",
+    "language_name_for",
     "is_zh",
     "rank_score",
     "rank_gaps",
@@ -207,51 +208,87 @@ DIMENSIONS_BY_KIND: dict[Any, tuple[DimensionSpec, ...]] = {
 # ── label localization (de-bias C1) ──────────────────────────────────────────
 # Default labels (above) are zh-native; this maps a dimension id → per-language
 # label for OTHER languages. A (id, language) miss falls back to the spec's
-# default label, so the Fengshen demo (zh) is unchanged. Only English is seeded
-# here; more languages are additive data (no code change).
+# default label, so the Fengshen demo (zh) is unchanged. en + ru are seeded;
+# more languages are additive data (no code change).
 _DIMENSION_LABELS: dict[str, dict[str, str]] = {
     # location
-    "history": {"en": "History"}, "geography": {"en": "Geography"},
-    "culture": {"en": "Culture"}, "features": {"en": "Features"},
-    "inhabitants": {"en": "Inhabitants"},
+    "history": {"en": "History", "ru": "История"},
+    "geography": {"en": "Geography", "ru": "География"},
+    "culture": {"en": "Culture", "ru": "Культура"},
+    "features": {"en": "Features", "ru": "Особенности"},
+    "inhabitants": {"en": "Inhabitants", "ru": "Обитатели"},
     # character
-    "appearance": {"en": "Appearance"}, "personality": {"en": "Personality"},
-    "abilities": {"en": "Abilities"}, "relationships": {"en": "Relationships"},
-    "background": {"en": "Background"},
+    "appearance": {"en": "Appearance", "ru": "Внешность"},
+    "personality": {"en": "Personality", "ru": "Характер"},
+    "abilities": {"en": "Abilities", "ru": "Способности"},
+    "relationships": {"en": "Relationships", "ru": "Отношения"},
+    "background": {"en": "Background", "ru": "Предыстория"},
     # item
-    "origin": {"en": "Origin"}, "powers": {"en": "Powers"},
-    "owner": {"en": "Owner"}, "significance": {"en": "Significance"},
+    "origin": {"en": "Origin", "ru": "Происхождение"},
+    "powers": {"en": "Powers", "ru": "Силы"},
+    "owner": {"en": "Owner", "ru": "Владелец"},
+    "significance": {"en": "Significance", "ru": "Значимость"},
     # faction
-    "goals": {"en": "Goals"}, "structure": {"en": "Structure"},
-    "members": {"en": "Members"},
+    "goals": {"en": "Goals", "ru": "Цели"},
+    "structure": {"en": "Structure", "ru": "Устройство"},
+    "members": {"en": "Members", "ru": "Участники"},
     # event
-    "cause": {"en": "Cause"}, "timeline": {"en": "Timeline"},
-    "outcome": {"en": "Outcome"}, "participants": {"en": "Participants"},
+    "cause": {"en": "Cause", "ru": "Причина"},
+    "timeline": {"en": "Timeline", "ru": "Ход событий"},
+    "outcome": {"en": "Outcome", "ru": "Итог"},
+    "participants": {"en": "Participants", "ru": "Участники"},
     # generic
-    "description": {"en": "Description"}, "details": {"en": "Details"},
+    "description": {"en": "Description", "ru": "Описание"},
+    "details": {"en": "Details", "ru": "Подробности"},
 }
 
 
 #: Localized KIND labels for the prompt ("for the {kind_label} «name»"). zh
-#: defaults match the Fengshen demo (location→地点); en seeded; a miss falls back
-#: to the kind string itself.
+#: defaults match the Fengshen demo (location→地点); en + ru seeded; a miss falls
+#: back to the kind string itself.
 _KIND_LABELS: dict[str, dict[str, str]] = {
-    "location": {"zh": "地点", "en": "location"},
-    "character": {"zh": "人物", "en": "character"},
-    "item": {"zh": "物品", "en": "item"},
-    "faction": {"zh": "势力", "en": "faction"},
-    "event": {"zh": "事件", "en": "event"},
+    "location": {"zh": "地点", "en": "location", "ru": "локация"},
+    "character": {"zh": "人物", "en": "character", "ru": "персонаж"},
+    "item": {"zh": "物品", "en": "item", "ru": "предмет"},
+    "faction": {"zh": "势力", "en": "faction", "ru": "фракция"},
+    "event": {"zh": "事件", "en": "event", "ru": "событие"},
     # common glossary kinds beyond the built-in tables (they resolve to GENERIC
     # dimensions, but still deserve a localized kind label in the prompt, not the
     # raw English code — review #6).
-    "organization": {"zh": "组织", "en": "organization"},
-    "concept": {"zh": "概念", "en": "concept"},
-    "deity": {"zh": "神祇", "en": "deity"},
-    "creature": {"zh": "生物", "en": "creature"},
-    "object": {"zh": "物件", "en": "object"},
-    "skill": {"zh": "功法", "en": "skill"},
-    GENERIC_KIND: {"zh": "条目", "en": "entry"},
+    "organization": {"zh": "组织", "en": "organization", "ru": "организация"},
+    "concept": {"zh": "概念", "en": "concept", "ru": "концепция"},
+    "deity": {"zh": "神祇", "en": "deity", "ru": "божество"},
+    "creature": {"zh": "生物", "en": "creature", "ru": "существо"},
+    "object": {"zh": "物件", "en": "object", "ru": "объект"},
+    "skill": {"zh": "功法", "en": "skill", "ru": "техника"},
+    GENERIC_KIND: {"zh": "条目", "en": "entry", "ru": "запись"},
 }
+
+#: Human-readable language names for the generation prompt's "Write in {name}"
+#: directive (#user-report 2026-11-10: a raw ISO code like "ru" is a weak signal
+#: the model ignores — it answered in Chinese because the dimension KEYS were
+#: Chinese). A code with no name here is used verbatim (still better than
+#: nothing); supported languages are additive data.
+_LANGUAGE_NAMES: dict[str, str] = {
+    "en": "English", "ru": "Russian", "zh": "Chinese", "de": "German",
+    "fr": "French", "es": "Spanish", "it": "Italian", "pt": "Portuguese",
+    "ja": "Japanese", "ko": "Korean", "ar": "Arabic", "hi": "Hindi",
+    "th": "Thai", "tr": "Turkish", "vi": "Vietnamese", "id": "Indonesian",
+    "ms": "Malay", "bn": "Bengali",
+}
+
+
+def language_name_for(language: str) -> str:
+    """The human-readable language name for the prompt's write-language directive.
+
+    ``auto``/empty → ``""`` (the caller omits the clause); regional codes use the
+    base language name, and unknown codes are returned verbatim."""
+    raw = (language or "").strip()
+    lang = raw.lower()
+    if not lang or lang == "auto":
+        return ""
+    base_language = lang.split("-", 1)[0]
+    return _LANGUAGE_NAMES.get(lang, _LANGUAGE_NAMES.get(base_language, raw))
 
 
 def is_zh(language: str) -> bool:
@@ -264,26 +301,36 @@ def is_zh(language: str) -> bool:
 def kind_label_for(kind: str, language: str) -> str:
     """The display label for an entity-kind in ``language`` (for the prompt).
 
-    zh defaults match the demo (location→地点). ``auto``/unknown language → the zh
-    label if defined (the Fengshen-native default), else the kind string. An
-    unknown kind → the kind string itself."""
+    zh defaults match the demo (location→地点). ``auto``/empty keeps that demo
+    default; non-zh languages fall back to English rather than a Chinese label. An
+    unknown kind falls back to its stable kind string."""
     lang = (language or "").strip().lower()
     by_lang = _KIND_LABELS.get(kind, {})
     if not lang or lang == "auto":
         return by_lang.get("zh", kind)
-    return by_lang.get(lang, by_lang.get("zh", kind))
+    if lang.startswith("zh"):
+        return by_lang.get(lang, by_lang.get("zh", kind))
+    if lang in by_lang:
+        return by_lang[lang]
+    base_language = lang.split("-", 1)[0]
+    return by_lang.get(lang, by_lang.get(base_language, by_lang.get("en", kind)))
 
 
 def label_for(dimension_id: str, language: str, *, default: str) -> str:
     """The display label for a dimension id in ``language``.
 
-    Returns the per-language override if known, else ``default`` (the spec's
-    zh-native default). ``auto`` / unknown language → ``default`` — so the Fengshen
-    demo (zh) is byte-identical to today."""
+    ``auto``/empty keeps the zh-native demo default. zh languages use the zh label;
+    other languages fall back to the English label or stable id, never a zh label."""
     lang = (language or "").strip().lower()
     if not lang or lang == "auto":
         return default
-    return _DIMENSION_LABELS.get(dimension_id, {}).get(lang, default)
+    labels = _DIMENSION_LABELS.get(dimension_id, {})
+    if lang.startswith("zh"):
+        return labels.get(lang, labels.get("zh", default))
+    if lang in labels:
+        return labels[lang]
+    base_language = lang.split("-", 1)[0]
+    return labels.get(lang, labels.get(base_language, labels.get("en", dimension_id)))
 
 
 def dimensions_for(kind: str) -> tuple[DimensionSpec, ...]:

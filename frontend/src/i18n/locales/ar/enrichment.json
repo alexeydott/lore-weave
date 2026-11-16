@@ -141,6 +141,10 @@
       "low": "منخفض",
       "medium": "متوسط",
       "high": "مرتفع"
+    },
+    "evidence": {
+      "regurgitation_overlap": "تداخل ملحوظ مع النص المصدر (أطول تسلسل مشترك {{lcs_chars}} حرفًا، وتغطية n-gram {{containment_pct}}%) — راجع العبارات المقترضة من المصدر.",
+      "regurgitation_verbatim": "ينسخ النص المصدر حرفيًا بدرجة جوهرية (أطول تسلسل مشترك {{lcs_chars}} حرفًا، {{output_fraction_pct}}% من النص) — خطر على حقوق النشر؛ رُفض تلقائيًا."
     }
   },
   "prov": {
@@ -151,7 +155,10 @@
     "model": "النموذج",
     "recook_abstracted": "أُعيدت صياغته من حقائق مجردة — تم إنشاؤه من نقاط حقائق محايدة، وليس من النص الأصلي (②).",
     "grounding": "مصادر الاستناد",
-    "skipped": "مصادر تم تخطيها (غير مرخصة)"
+    "skipped": "مصادر تم تخطيها (غير مرخصة)",
+    "origin_value": {
+      "enrichment": "إثراء بالذكاء الاصطناعي"
+    }
   },
   "license": {
     "public_domain": "الملكية العامة",
@@ -170,7 +177,8 @@
     "show_less": "عرض أقل",
     "content": "القصص المصنوعة",
     "verify": "التحقق",
-    "provenance": "المصدر والمراجع"
+    "provenance": "المصدر والمراجع",
+    "h0_meta": "مسودة · {{origin}} · درجة الثقة {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "ثقة {{value}}",
@@ -247,6 +255,36 @@
       "rank": "الرتبة",
       "action": "الإجراء"
     },
+    "kinds": {
+      "item": "عنصر",
+      "character": "شخصية",
+      "location": "موقع",
+      "event": "حدث",
+      "technique": "تقنية",
+      "terminology": "مصطلح",
+      "power_system": "نظام القوى",
+      "trope": "قالب سردي",
+      "species": "نوع",
+      "organization": "منظمة",
+      "plot_arc": "قوس سردي",
+      "social_setting": "بناء اجتماعي"
+    },
+    "dims": {
+      "origin": "الأصل",
+      "powers": "القوى",
+      "appearance": "المظهر",
+      "owner": "المالك",
+      "significance": "الأهمية",
+      "personality": "الشخصية",
+      "abilities": "القدرات",
+      "relationships": "العلاقات",
+      "background": "الخلفية",
+      "history": "التاريخ",
+      "geography": "الجغرافيا",
+      "culture": "الثقافة",
+      "features": "السمات",
+      "inhabitants": "السكان"
+    },
     "top_k": "أعلى K"
   },
   "sources": {
@@ -302,7 +340,8 @@
     "error": {
       "gateLocked": "مغلق بواسطة بوابة التقييم — قم بتشغيل تقييم الإثراء أولاً.",
       "internal": "فشل الإثراء (خطأ داخلي). مرر المؤشر فوقه للتفاصيل.",
-      "insufficientGrounding": "لا يوجد استناد نصي صالح لهذه الكيانات — يرجى لصق السياق المرجعي أو استخدام خاصية التخيّل (Fabrication)."
+      "insufficientGrounding": "لا يوجد استناد نصي صالح لهذه الكيانات — يرجى لصق السياق المرجعي أو استخدام خاصية التخيّل (Fabrication).",
+      "providerRateLimited": "بلغ مزوّد التضمين حدّ الطلبات المتزامنة. أعد المحاولة بعد قليل."
     }
   },
   "settings": {

@@ -51,12 +51,12 @@
   "guidedCueReady": "Écrivez votre ouverture, puis Générer — ou Continuez depuis votre curseur dans l'éditeur.",
   "guidedCueStart": "Créez votre première scène, puis écrivez votre ouverture et Générer — ou Continuez depuis votre curseur dans l'éditeur.",
   "guidedStart": "Commencer à écrire",
-  "compose": "Compose",
+  "compose": "Composer",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "Aucun modèle de co-auteur n’est défini pour ce livre. Appliquer votre modèle de chat par défaut ?",
+    "apply": "Utiliser mon modèle de chat par défaut",
+    "applied": "Le modèle par défaut de ce livre a été défini",
+    "apply_failed": "Échec de l’application"
   },
   "cowriter": "Co-auteur",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "Rejeter",
     "stop": "Arrêter",
     "stale": "La sélection a changé — réessayez.",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "Proposer des scènes",
+    "scenePlanOnly": "Cette sélection n’est disponible que pour les suggestions de scènes.",
+    "scenePlanInvalid": "Le modèle n’a pas renvoyé de propositions de scènes valides. Réessayez.",
+    "scenePlanNeedsOutline": "Ce chapitre n’a pas encore de plan. Créez ou extrayez d’abord son plan.",
+    "scenePlanCreateFailed": "Impossible de créer les propositions de scènes.",
+    "createScenes": "Créer les scènes sélectionnées",
+    "applying": "Création…"
   },
   "inline": {
     "mode": "Mode d'écriture",
@@ -107,7 +107,7 @@
     "need_editor": "L'éditeur est en cours de chargement.",
     "streaming": "Écriture en cours… laissez la suite actuelle se terminer.",
     "pending_ghost": "Acceptez ou rejetez la suggestion actuelle avant d'en commencer une autre.",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "Ouvrir le chat du co-auteur"
   },
   "beats": "Battements",
   "beatsheet": {
@@ -281,6 +281,10 @@
     "deleteFailed": "Impossible de supprimer le lieu.",
     "backdropNoChapter": "Ouvrez un chapitre pour définir une toile de fond."
   },
+  "groundingNoResults": "Aucun contexte du graphe n’a été récupéré pour cette scène. Le graphe peut néanmoins exister ; la position de la scène, le contenu correspondant ou une défaillance du service de connaissances peuvent limiter la récupération.",
+  "groundingNoProject": "Cette œuvre n’est pas encore liée à un projet de connaissances. L’ancrage n’est pas disponible pour cette œuvre.",
+  "groundingLoadFailed": "Impossible de charger l’ancrage. Réessayez avant de modifier le graphe de connaissances.",
+  "groundingRetry": "Réessayer l’ancrage",
   "grounding": "Ancrage",
   "canon": "Canon",
   "progress": "Progression",
@@ -378,7 +382,12 @@
     "saveContent": "Enregistrer le contenu (ré-intègre)",
     "saveMetadata": "Enregistrer les détails",
     "saving": "Enregistrement…",
-    "sourceUrl": "URL de la source (optionnel)"
+    "sourceUrl": "URL de la source (optionnel)",
+    "loading": "Chargement des références…",
+    "listError": "Impossible de charger les références. Réessayez.",
+    "inheritedEmbed": "Utiliser votre modèle de plongement hérité",
+    "modelsLoading": "Chargement des modèles de plongement…",
+    "modelsError": "Impossible de charger les modèles de plongement. Réessayez."
   },
   "progressPanel": {
     "loading": "Chargement de la progression…",
@@ -581,6 +590,8 @@
   "threadKind_question": "question",
   "threadKind_mice_thread": "fil",
   "threadPaid": "réglé",
+  "threadEditAria": "Modifier la promesse",
+  "threadArchiveAria": "Archiver la promesse",
   "threadDropped": "abandonné",
   "noThreads": "Aucun fil conducteur pour le moment.",
   "noOpenThreads": "Aucune promesse ouverte — tout est réglé.",
@@ -753,9 +764,9 @@
     "empty": {
       "title": "Votre bibliothèque de motifs est prête",
       "body": "Les motifs sont des structures narratives réutilisables. Le planificateur en choisit un par chapitre pour que même un modèle simple produise une scène solide. 12 motifs de départ sont déjà présents — tu-tiên et báo-thù.",
+      "notThemes": "Ce sont des formes de intrigue STRUCTURELLES pour le planificateur, pas un suivi des images ou des thèmes récurrents de votre propre histoire — rien ici ne suit un symbole au fil de vos chapitres.",
       "browseSystem": "Parcourir les 12 modèles",
-      "hint": "Aucun jeton requis — créer un motif à la main est gratuit.",
-      "notThemes": "Ce sont des formes de intrigue STRUCTURELLES pour le planificateur, pas un suivi des images ou des thèmes récurrents de votre propre histoire — rien ici ne suit un symbole au fil de vos chapitres."
+      "hint": "Aucun jeton requis — créer un motif à la main est gratuit."
     },
     "facet": {
       "tier": "Niveau",
@@ -833,7 +844,10 @@
       "noWork": "Créez un plan pour ce livre afin de lier les motifs à ses scènes.",
       "committedTitle": "Lier les motifs de scène",
       "loadError": "Impossible de charger les motifs de scène.",
-      "sectionTitle": "Motifs de scène"
+      "sectionTitle": "Motifs de scène",
+      "candidatesLoading": "Chargement des motifs…",
+      "candidatesError": "Impossible de charger les motifs.",
+      "candidatesEmpty": "Ajoutez ou importez des motifs dans la bibliothèque de motifs, puis revenez ici pour en associer un."
     },
     "swap": {
       "title": "Échanger le motif",
@@ -859,12 +873,26 @@
         "bad": "Battement manqué"
       },
       "rerunNeedsModel": "Choisissez un modèle pour relancer la conformité",
-      "bindCta": "Lier un motif à une scène →",
+      "bindCta": "Choisir une scène à associer →",
       "couldNotCheck": "Impossible de vérifier",
       "notChecked": "Pas encore vérifié",
       "notWritten": "Pas encore écrit",
       "openScene": "Ouvrir cette scène dans l'inspecteur",
-      "written": "Écrit"
+      "written": "Écrit",
+      "noChapter": "Choisissez un chapitre",
+      "chaptersLoading": "Chargement des chapitres…",
+      "chaptersError": "Impossible de charger les chapitres.",
+      "noChapters": "Aucun chapitre.",
+      "actionError": "Échec de l’action. Réessayez.",
+      "running": "En cours…",
+      "snapshot": "Dernière vérification : {{time}}",
+      "status": {
+        "unavailable": "Vérification impossible",
+        "no_bound_motif": "Associez d’abord un motif",
+        "motif_unavailable": "Motif indisponible",
+        "no_manuscript_prose": "Rédigez d’abord le manuscrit",
+        "stale": "Obsolète — relancez la vérification"
+      }
     },
     "arc": {
       "mobileNotice": "La grille chronologique est disponible sur un écran plus large — ici, vous pouvez l'éditer sous forme de liste.",
@@ -967,7 +995,8 @@
         "error": "Impossible de classer les suggestions d'arcs.",
         "empty": "Aucun modèle d'arc ne correspond pour l'instant — créez-en un ou importez une histoire pour la décomposer.",
         "mine": "vôtre",
-        "span": "{{count}} chap."
+        "span": "{{count}} chap.",
+        "sectionMine": "Vos arcs narratifs"
       },
       "decompile": {
         "open": "Grouper les chapitres en arcs",
@@ -1099,10 +1128,14 @@
       "retry": "Réessayer",
       "empty": "Aucun motif ne correspond encore à cette scène — ajoutez-en davantage à votre bibliothèque.",
       "bind": "Lier",
-      "degradedMine": "Vos motifs ne sont pas classés par pertinence — configurez un modèle d'embedding dans vos paramètres pour les classer sémantiquement.",
-      "degradedLibrary": "Non classés par pertinence — le modèle d'embedding de la bibliothèque partagée n'est pas configuré ; il s'agit de suggestions par genre et non de correspondances évaluées.",
+      "degradedMine": "Le classement sémantique de vos suggestions privées est indisponible : aucun modèle de plongement effectif n’est sélectionné pour ce livre ou compte.",
+      "degradedLibrary": "Le classement sémantique de la bibliothèque partagée est indisponible : sa configuration de plongement distincte, gérée par la plateforme, est incomplète. Les paramètres de modèle de votre livre ou compte sont indépendants.",
       "sectionMine": "Vos motifs",
-      "sectionLibrary": "Depuis la bibliothèque"
+      "sectionLibrary": "Depuis la bibliothèque",
+      "rankingUnavailable": "Classement indisponible — ces suggestions ne sont pas classées par pertinence.",
+      "providerUnavailable": "Classement temporairement indisponible — réessayez plus tard.",
+      "emptyQuery": "Ajoutez une prémisse ou le texte d’une scène pour classer les suggestions par pertinence.",
+      "semanticMatch": "Correspondance sémantique"
     },
     "language": {
       "writtenIn": "Écrit en",
@@ -1183,29 +1216,28 @@
       "violation": "{{label}} : {{n}} hors séquence"
     },
     "editor": {
-      "add": "ajouter",
-      "beatIntent": "intention",
-      "beatLabel": "battement",
-      "beats": "Battements",
-      "conflict": "Ce motif a été modifié ailleurs — rouvrez-le pour obtenir la version la plus récente avant de le modifier.",
-      "deceived": "qui est trompé (séparé par une virgule)",
-      "effects": "Effets",
-      "emotion": "Émotion",
-      "examples": "Exemples (écrits par l'auteur)",
-      "gap": "l'écart",
-      "genres": "Genres (séparés par des virgules)",
-      "kind": "Type",
-      "knows": "qui sait (séparé par une virgule)",
-      "name": "Nom",
-      "preconditions": "Préconditions",
-      "roleConstraints": "contraintes",
-      "roleLabel": "étiquette",
-      "roles": "Rôles",
-      "saveError": "Impossible d'enregistrer.",
+      "open": "Modifier le motif",
+      "title": "Motif de la scène",
+      "description": "Les modifications restent locales avant Enregistrer.",
+      "search": "Rechercher par nom ou code",
+      "motif": "Motif",
+      "freeform": "Libre (sans motif)",
+      "preview": "Aperçu du motif",
+      "unresolved": "Non attribué",
+      "save": "Enregistrer",
       "saving": "Enregistrement…",
-      "scheme": "Asymétrie d'information",
-      "summary": "Résumé (intégré pour la récupération)",
-      "tension": "Tension (1–5)"
+      "cancel": "Annuler",
+      "loadError": "Impossible de charger les motifs.",
+      "saveError": "Échec de l’enregistrement. Brouillon conservé ; réessayez.",
+      "partialError": "Certaines modifications sont enregistrées. Réessayez pour terminer ; annuler ne les rétablit pas.",
+      "discardTitle": "Abandonner les modifications non enregistrées ?",
+      "discardDescription": "Le brouillon non enregistré sera perdu. Les modifications déjà enregistrées restent appliquées.",
+      "stay": "Continuer",
+      "discard": "Abandonner le brouillon",
+      "fallback": "Traduction indisponible ; affichage en {{language}}.",
+      "contextRequired": "Sélectionnez une scène confirmée.",
+      "current": "Actuel",
+      "dirty": "Modifications non enregistrées"
     },
     "kind": {
       "arcs": "Modèles d'arcs",
@@ -1628,7 +1660,7 @@
   "canonConflictKeepTheirs": "Garder la leur",
   "canonConflictReapply": "Réappliquer ma modification sur la v{{v}}",
   "canonConflictTitle": "Cette règle a été modifiée ailleurs — votre brouillon est conservé ci-dessous.",
-  "canonview": "Canon as of",
+  "canonview": "Canon à la date du",
   "canonAtChapter": {
     "active": "{{n}} actif(s)",
     "branchHint": "Ce que le canon sait juste avant cette branche",
@@ -1773,6 +1805,13 @@
   "canonConflictCurrent": "Actuel (v{{v}}) : {{text}}",
   "coverageExtractionFailed": "Impossible de lire les promesses de votre plan (l'appel au modèle a échoué ou a été interrompu). Réessayez ou choisissez un autre modèle.",
   "coverageScoreFailed": "Les promesses ont été lues, mais l'évaluation par rapport au livre a échoué. Réessayez.",
+  "coverageCorpusIncomplete": "Impossible d’évaluer le livre entier : les brouillons de {{count}} chapitres n’ont pas pu être lus. Aucune conclusion n’a été établie pour l’ensemble du livre. Réessayez.",
+  "coverageCorpusIncomplete_zero": "Impossible d’évaluer le livre entier : les brouillons de {{count}} chapitres n’ont pas pu être lus. Aucune conclusion n’a été établie pour l’ensemble du livre. Réessayez.",
+  "coverageCorpusIncomplete_one": "Impossible d’évaluer le livre entier : le brouillon de {{count}} chapitre n’a pas pu être lu. Aucune conclusion n’a été établie pour l’ensemble du livre. Réessayez.",
+  "coverageCorpusIncomplete_two": "Impossible d’évaluer le livre entier : les brouillons de {{count}} chapitres n’ont pas pu être lus. Aucune conclusion n’a été établie pour l’ensemble du livre. Réessayez.",
+  "coverageCorpusIncomplete_few": "Impossible d’évaluer le livre entier : les brouillons de {{count}} chapitres n’ont pas pu être lus. Aucune conclusion n’a été établie pour l’ensemble du livre. Réessayez.",
+  "coverageCorpusIncomplete_many": "Impossible d’évaluer le livre entier : les brouillons de {{count}} chapitres n’ont pas pu être lus. Aucune conclusion n’a été établie pour l’ensemble du livre. Réessayez.",
+  "coverageCorpusIncomplete_other": "Impossible d’évaluer le livre entier : les brouillons de {{count}} chapitres n’ont pas pu être lus. Aucune conclusion n’a été établie pour l’ensemble du livre. Réessayez.",
   "lengthAskedDelivered": "Demande de ~{{target}} mots, {{actual}} livrés ({{pct}} %).",
   "lengthOverCeiling": "Ceci demande en un seul appel plus que ce qu'un appel peut fournir de manière fiable — divisez la scène en passages pour obtenir la longueur complète.",
   "techEdit": {
@@ -1817,6 +1856,28 @@
     "preview_more": "…et {{n}} de plus",
     "preview_blank": "une ligne vide sera supprimée"
   },
-  "threadEditAria": "Edit promise",
-  "threadArchiveAria": "Archive promise"
+  "qualityReasons": {
+    "context_limit": "Limite de contexte du modèle dépassée.",
+    "network": "Erreur réseau du fournisseur.",
+    "unavailable": "Fournisseur indisponible.",
+    "reasoning_exhausted": "Le raisonnement a épuisé le budget de réponse.",
+    "truncated": "Réponse tronquée.",
+    "invalid_response": "Réponse du modèle invalide.",
+    "manualRetry": "Réessayer au prochain lancement manuel.",
+    "unknown": "L’analyse de qualité a échoué pour une raison inconnue.",
+    "incomplete": "Toutes les fenêtres d’analyse ne sont pas arrivées à terme.",
+    "synthesis_failed": "L’analyse est terminée, mais la synthèse du rapport a échoué.",
+    "synthesis_invalid_response": "L’analyse est terminée, mais la synthèse a renvoyé une réponse invalide.",
+    "audit_only": "Seul l’audit des fils narratifs est terminé ; les scores critiques sont indisponibles."
+  },
+  "qualityScope": {
+    "partial": "Rapport partiel — pas une évaluation du chapitre entier.",
+    "chapter": "Fenêtres traitées : {{analyzed}} sur {{total}}.",
+    "canon": "Lignes du canon sélectionnées : {{selected}} sur {{total}}.",
+    "complete": "Complet : {{windows}} fenêtres ; les {{canon}} entrées du canon traitées ; synthèse réussie.",
+    "synthesisPending": "Synthèse finale non terminée."
+  },
+  "qualityThreadsSelection": "Extraction sélective par fenêtre, non exhaustive. Aucun plafond global : {{maxPromises}} promesses par fenêtre, {{maxPhraseChars}} caractères par formulation.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "Arrêter l’attente (l’analyse continue)"
 }

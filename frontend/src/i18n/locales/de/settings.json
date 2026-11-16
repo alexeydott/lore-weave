@@ -244,8 +244,8 @@
       "api_key_ph": "sk-...",
       "api_key_keep_hint": "Leer lassen, um den vorhandenen Key zu behalten.",
       "max_concurrency": "Maximale gleichzeitige Anfragen",
-      "max_concurrency_ph": "Unbegrenzt",
-      "max_concurrency_hint": "Wie viele Anfragen dieser Anbieter gleichzeitig ausführt. Leer lassen für unbegrenzt (das Backend entscheidet). Nur eine Zahl eingeben, wenn dein Backend ein bekanntes Limit hat (z. B. eine lokale GPU).",
+      "max_concurrency_ph": "Standard",
+      "max_concurrency_hint": "Leer lassen für das Plattform-Standardlimit. Eine positive Zahl setzt ein eigenes Limit.",
       "cancel": "Abbrechen",
       "saving": "Speichern...",
       "submit": "Änderungen speichern"
@@ -426,8 +426,8 @@
       "key_ph_keep": "Leer lassen, um den aktuellen Schlüssel beizubehalten",
       "key_keep_hint": "Leer lassen, um den vorhandenen Schlüssel beizubehalten.",
       "max_concurrency": "Maximale gleichzeitige Anfragen",
-      "max_concurrency_ph": "Unbegrenzt",
-      "max_concurrency_hint": "Wie viele Anfragen dieser Dienst gleichzeitig ausführt. Leer lassen für unbegrenzt (das Backend entscheidet). Geben Sie nur eine Zahl ein, wenn Ihr Backend ein bekanntes Limit hat.",
+      "max_concurrency_ph": "Standard",
+      "max_concurrency_hint": "Leer lassen für das Plattform-Standardlimit. Eine positive Zahl setzt ein eigenes Limit.",
       "cancel": "Abbrechen",
       "submit": "Speichern",
       "saving": "Wird gespeichert…"

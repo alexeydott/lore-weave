@@ -16,6 +16,7 @@ from typing import BinaryIO
 
 import boto3
 from botocore.config import Config as BotoConfig
+from botocore.exceptions import ClientError
 
 from app.config import settings
 
@@ -75,7 +76,14 @@ async def delete_object(key: str) -> None:
 async def list_objects() -> list[StoredObject]:
     """List every object in the uploads bucket (key + LastModified). Paginated so
     a large bucket is fully enumerated. Used by the reaper's orphan sweep; returns
-    [] when the bucket is empty or absent (never raises on a clean miss)."""
+    [] when the bucket is empty or ABSENT (never raises on a clean miss).
+
+    #user-report 2026-11-10 — the dev stack names `lore-enrichment-uploads` but
+    nothing provisions it until the first upload, so the paginator raised
+    `NoSuchBucket` and the reaper logged a full traceback every sweep. An absent
+    bucket has zero objects to enumerate → []. Any OTHER ClientError (access
+    denied, connectivity) still propagates: a silent [] on a real failure would
+    make the orphan sweep a no-op that looks clean."""
     client = _s3_client()
     loop = asyncio.get_running_loop()
 
@@ -87,4 +95,9 @@ async def list_objects() -> list[StoredObject]:
                 out.append(StoredObject(key=obj["Key"], last_modified=obj["LastModified"]))
         return out
 
-    return await loop.run_in_executor(None, _list)
+    try:
+        return await loop.run_in_executor(None, _list)
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") == "NoSuchBucket":
+            return []
+        raise

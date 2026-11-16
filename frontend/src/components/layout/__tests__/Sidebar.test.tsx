@@ -18,7 +18,7 @@ import { Sidebar } from '../Sidebar';
 
 describe('Sidebar — Extensions nav entry point', () => {
   it('surfaces a link to /extensions for a logged-in user (under the "More" group, N4)', () => {
-    const { container } = render(<MemoryRouter><Sidebar /></MemoryRouter>);
+    const { container } = render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Sidebar /></MemoryRouter>);
     // N4 — Extensions now lives in the collapsible "More" group (still discoverable, not
     // orphaned). Expand it, then assert the anchor renders — the guarantee this test protects.
     fireEvent.click(screen.getByTestId('sidebar-more-toggle'));
@@ -28,7 +28,7 @@ describe('Sidebar — Extensions nav entry point', () => {
   });
 
   it('keeps the default rail short + writing-led — More is collapsed until opened', () => {
-    const { container } = render(<MemoryRouter><Sidebar /></MemoryRouter>);
+    const { container } = render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Sidebar /></MemoryRouter>);
     // Writing-led core is visible by default…
     expect(container.querySelector('a[href="/books"]')).not.toBeNull();
     expect(container.querySelector('a[href="/chat"]')).not.toBeNull();

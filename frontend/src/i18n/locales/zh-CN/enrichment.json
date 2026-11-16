@@ -141,6 +141,10 @@
       "low": "低",
       "medium": "中",
       "high": "高"
+    },
+    "evidence": {
+      "regurgitation_overlap": "与原文存在明显重合（最长公共连续片段 {{lcs_chars}} 字，n-gram 覆盖率 {{containment_pct}}%）——请检查是否借用了原文表述。",
+      "regurgitation_verbatim": "输出大幅逐字复制原文（最长公共连续片段 {{lcs_chars}} 字，占输出 {{output_fraction_pct}}%）——存在版权风险，已自动拒绝。"
     }
   },
   "prov": {
@@ -151,7 +155,10 @@
     "model": "模型",
     "recook_abstracted": "基于抽象事实重构 —— 从中性事实要点生成，而非源文本散文 (②)。",
     "grounding": "溯源依据",
-    "skipped": "已跳过 (未授权) 来源"
+    "skipped": "已跳过 (未授权) 来源",
+    "origin_value": {
+      "enrichment": "AI 补全"
+    }
   },
   "license": {
     "public_domain": "公有领域",
@@ -170,7 +177,8 @@
     "show_less": "显示较少",
     "content": "生成的设定",
     "verify": "验证",
-    "provenance": "溯源与来源"
+    "provenance": "溯源与来源",
+    "h0_meta": "变体 · {{origin}} · 置信度 {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "置信度 {{value}}",
@@ -247,6 +255,36 @@
       "rank": "排名",
       "action": "操作"
     },
+    "kinds": {
+      "item": "物品",
+      "character": "角色",
+      "location": "地点",
+      "event": "事件",
+      "technique": "技法",
+      "terminology": "术语",
+      "power_system": "力量体系",
+      "trope": "套路",
+      "species": "种族",
+      "organization": "组织",
+      "plot_arc": "剧情弧",
+      "social_setting": "社会设定"
+    },
+    "dims": {
+      "origin": "起源",
+      "powers": "力量",
+      "appearance": "外貌",
+      "owner": "所有者",
+      "significance": "重要性",
+      "personality": "性格",
+      "abilities": "能力",
+      "relationships": "关系",
+      "background": "背景",
+      "history": "历史",
+      "geography": "地理",
+      "culture": "文化",
+      "features": "特征",
+      "inhabitants": "居民"
+    },
     "top_k": "Top-K"
   },
   "sources": {
@@ -302,7 +340,8 @@
     "error": {
       "gateLocked": "受评估门控限制 —— 请先运行丰富度评估 (enrichment eval)。",
       "internal": "丰富度处理失败 (内部错误)。悬停查看详情。",
-      "insufficientGrounding": "这些实体缺乏可用的语料库依据 —— 请粘贴参考上下文或使用“虚构模式 (Fabrication)”。"
+      "insufficientGrounding": "这些实体缺乏可用的语料库依据 —— 请粘贴参考上下文或使用“虚构模式 (Fabrication)”。",
+      "providerRateLimited": "Embedding 服务商已达到并发请求上限，请稍后重试。"
     }
   },
   "settings": {

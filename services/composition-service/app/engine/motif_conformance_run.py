@@ -55,9 +55,8 @@ async def run_conformance_run(
     ``GET …/conformance?scope=arc&deep&model_ref`` fires ~tag-threads+tag-motifs+causal-edges
     over the whole book — a storm that times out on a GET — so the FE proposes this Tier-W job
     and polls the result. It REUSES the shared ``compute_arc_report`` (the same compute the GET
-    runs) with ``deep=True``. ``scope='chapter'`` stays a terminal ``ValueError`` — the cheap
-    synchronous GET trace already serves chapter conformance; the per-scene extract-diff is a
-    separate unbuilt slice (D-MOTIF-CONFORMANCE-ENGINE-WIRING).
+    runs) with ``deep=True``. Chapter scope judges anchored manuscript scenes and returns
+    the trace as the durable generation-job result consumed by REST.
 
     Raises ``ValueError`` (terminal business error — clean job-failed, no redeliver) on an
     unsupported scope or an unresolvable work/arc. All LLM calls route through provider-registry
@@ -71,11 +70,11 @@ async def run_conformance_run(
     from app.routers.conformance import ConformanceTraceReader
 
     scope = input.get("scope")
+    if scope == "chapter":
+        return await _run_chapter(pool, llm, user_id=user_id, project_id=project_id, input=input)
     if scope != "arc":
         raise ValueError(
-            f"conformance_run worker supports scope='arc' only (got {scope!r}); "
-            "chapter conformance is the synchronous GET trace "
-            "(tracked D-MOTIF-CONFORMANCE-ENGINE-WIRING)"
+            f"conformance_run worker supports scope='chapter' or 'arc' (got {scope!r})"
         )
 
     # 23-A4/BA4: the arc scope is measured against the DURABLE spec (structure_node), not the
@@ -114,4 +113,77 @@ async def run_conformance_run(
     except Exception:  # noqa: BLE001 — best-effort snapshot (IX-8); logged, never fatal
         logger.warning(
             "arc_conformance_state persist failed for arc %s", arc_id, exc_info=True)
+    return report
+
+
+async def _run_chapter(
+    pool: asyncpg.Pool, llm: LLMClient, *, user_id: str, project_id: str,
+    input: dict[str, Any],
+) -> dict[str, Any]:
+    """Explicit confirmed check of every bound scene; no generation sampling gate."""
+    from hashlib import sha256
+    from uuid import UUID
+    from app.clients.book_client import get_book_client
+    from app.config import settings
+    from app.db.repositories.works import WorksRepo
+    from app.db.repositories.outline import OutlineRepo
+    from app.db.repositories.motif_repo import MotifRepo
+    from app.engine.motif_conformance import judge_motif_conformance, build_conformance_dim, derive_tension_band
+    from app.engine.motif_conformance_producer import _beat
+    from app.engine.prose_doc import chapter_conformance_texts
+    from app.mcp.service_bearer import mint_service_bearer
+    from app.packer.profile import from_settings
+    from app.routers.conformance import ConformanceTraceReader, _assemble_conformance
+
+    pid, uid = UUID(project_id), UUID(user_id)
+    work = await WorksRepo(pool).get(pid)
+    if work is None or str(work.book_id) != str(input.get("book_id")):
+        raise ValueError("conformance_run: work/book not found")
+    if not input.get("chapter_id"):
+        raise ValueError("conformance_run: chapter_id required")
+    chapter_id = UUID(input["chapter_id"])
+    draft = await get_book_client().get_draft(
+        work.book_id, chapter_id, mint_service_bearer(uid, settings.jwt_secret))
+    scenes = await OutlineRepo(pool).scenes_for_chapter(pid, chapter_id)
+    if not scenes:
+        raise ValueError("NO_PLANNED_SCENES")
+    if not input.get("model_ref"):
+        raise ValueError("conformance_run: model_ref required")
+    reader = ConformanceTraceReader(pool)
+    ids = [s.id for s in scenes]
+    apps = await reader.apps_by_nodes(pid, ids)
+    latest = await reader.latest_completed_by_nodes(pid, ids)
+    texts = chapter_conformance_texts(draft.get("body"), [{"id": str(s.id), "title": s.title} for s in scenes])
+    report = _assemble_conformance(chapter_id=chapter_id, calibrated=settings.motif_conformance_calibrated,
+        scenes=scenes, apps_by_node=apps, latest_by_node=latest,
+        manuscript_prose={sid: len(t.split()) for sid, t in texts.items()})
+    for scene, row in zip(scenes, report["scenes"]):
+        row["conformance"] = None  # never present an old verdict as this run's computation
+        passage = texts.get(str(scene.id), "")
+        row["source_sha256"] = sha256(passage.encode("utf-8")).hexdigest()
+        app = apps.get(scene.id)
+        if not app or not app.motif_id:
+            row["check_status"] = "no_bound_motif"
+            continue
+        motif = await MotifRepo(pool).get_visible(uid, app.motif_id)
+        if motif is None:
+            row["check_status"] = "motif_unavailable"
+            continue
+        if not passage:
+            row["check_status"] = "no_manuscript_prose"
+            continue
+        key = (app.annotations or {}).get("beat_key")
+        beat = _beat(motif, key) or {}
+        band = derive_tension_band(node_tension=scene.tension,
+            beat_tension_target=beat.get("tension_target", motif.tension_target),
+            halfwidth=settings.motif_conformance_tension_halfwidth)
+        verdict = await judge_motif_conformance(llm, user_id=user_id,
+            model_source=input.get("model_source") or "user_model", model_ref=input["model_ref"],
+            beat_intent=beat.get("intent") or motif.summary or "", beat_key=key or "",
+            motif_name=motif.name, tension_band=band,
+            expected_roles=[str(r.get("label") or r.get("key") or "") for r in motif.roles or [] if isinstance(r, dict)],
+            passage=passage, profile=from_settings(work.settings))
+        row["conformance"] = build_conformance_dim(verdict, motif_id=app.motif_id,
+            beat_key=key, band=band, calibrated=settings.motif_conformance_calibrated)
+        row["check_status"] = "unavailable" if verdict.get("error") else "checked"
     return report

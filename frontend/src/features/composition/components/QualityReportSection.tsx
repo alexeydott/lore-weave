@@ -7,14 +7,16 @@
 // (D-QUALITY-CRITIC-HEAL-LINK) so the author doesn't double-count the same issue.
 import { useTranslation } from 'react-i18next';
 
+import { QualityReason, QualityScopeWarning } from "./QualityReportStatus";
 import { useQualityReport } from '../hooks/useQualityReport';
-import type { QualityCritic, SelfHealProposal } from '../api';
+import { isQualityComplete, type QualityCritic, type SelfHealProposal } from '../api';
 
 interface Props {
   projectId: string;
   chapterId: string;
   token: string | null;
   modelRef: string;
+  modelSource?: 'user_model' | 'platform_model';
   // The current self-heal proposals (if the author has run Polish) — used to mark which critic
   // violations already have a proposed fix. Optional: the report stands alone without them.
   proposals?: SelfHealProposal[];
@@ -36,9 +38,9 @@ function _hasProposedFix(span: string, proposals: SelfHealProposal[]): boolean {
   });
 }
 
-export function QualityReportSection({ projectId, chapterId, token, modelRef, proposals = [] }: Props) {
+export function QualityReportSection({ projectId, chapterId, token, modelRef, modelSource = 'user_model', proposals = [] }: Props) {
   const { t } = useTranslation('composition');
-  const q = useQualityReport(projectId, chapterId, token, modelRef);
+  const q = useQualityReport(projectId, chapterId, token, modelRef, modelSource);
   const critic = q.report?.critic;
   const threads = q.report?.threads;
 
@@ -68,19 +70,28 @@ export function QualityReportSection({ projectId, chapterId, token, modelRef, pr
         })}
       </p>
 
+      {q.loading && <div data-testid="quality-progress" role="status" className="text-[11px] text-neutral-500">
+        {q.progress ? t("qualityProgress", { completed: q.progress.completed, total: q.progress.total }) : t("qualityLoading")}
+        <button type="button" data-testid="quality-stop-waiting" onClick={q.cancel} className="ml-2 underline">{t("qualityStopWaiting")}</button>
+      </div>}
+      {q.stopped && <div data-testid="quality-stopped" role="status" className="text-[11px] text-amber-600">{t("qualityStopWaiting")}</div>}
       {q.error && <div data-testid="quality-error" className="text-[11px] text-amber-600">{q.error}</div>}
 
+      <QualityScopeWarning scope={q.report?.scope ?? critic?.scope ?? threads?.scope} />
+
+      {/* A partial report still carries real judgements: show every available score and
+          the failure reason TOGETHER — hiding the scores made a usable partial read as
+          "results vanished" (user regression report 2026-11-10). Unjudged dims stay '—'. */}
       {critic && (
-        <div className="flex flex-wrap gap-2" data-testid="quality-critic">
-          {critic.error ? (
-            <span className="text-[11px] text-neutral-400">{t('qualityCriticNa', { defaultValue: 'Critic unavailable.' })}</span>
-          ) : (
-            DIMS.map((d) => (
+        <div className="flex flex-col gap-1" data-testid="quality-critic">
+          <div className="flex flex-wrap gap-2">
+            {DIMS.map((d) => (
               <span key={d} className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-                {t(`qualityDim_${d}`, { defaultValue: d.replace('_', ' ') })}: {critic[d] ?? '—'}/5
+                {t(d)}: {critic[d] ?? '—'}/5
               </span>
-            ))
-          )}
+            ))}
+          </div>
+          {critic.error && <QualityReason error={critic.error} />}
         </div>
       )}
 
@@ -102,13 +113,26 @@ export function QualityReportSection({ projectId, chapterId, token, modelRef, pr
         </ul>
       )}
 
+      {threads?.selection?.exhaustive === false && (
+        <div data-testid="quality-threads-selection" role="status" className="text-[11px] text-amber-600">
+          {t("qualityThreadsSelection", {
+            maxPromises: threads.selection.per_call_max_promises ?? threads.selection.max_promises ?? 12,
+            maxPhraseChars: threads.selection.max_phrase_chars ?? 80,
+          })}
+        </div>
+      )}
+
       {threads?.error && (
         <span data-testid="quality-threads-na" className="text-[11px] text-neutral-400">
-          {t('qualityThreadsNa', { defaultValue: 'Thread audit unavailable.' })}
+          <QualityReason error={threads.error} />
         </span>
       )}
 
-      {threads && !threads.error && (
+      {/* Show whatever the audit DID produce even when the branch is marked incomplete —
+          the reason above already says coverage is partial; hiding observed threads made a
+          partial audit read as "no results at all". The clean "no threads" state stays
+          reserved for a genuinely complete report. */}
+      {threads && (
         <div className="flex flex-col gap-1" data-testid="quality-threads">
           {/* Informational: the threads this chapter opens (NOT a defect — a setup paid off
               later is normal; the book-level coverage flags anything actually abandoned). */}
@@ -124,7 +148,7 @@ export function QualityReportSection({ projectId, chapterId, token, modelRef, pr
               </ul>
             </>
           ) : (
-            q.ran && <span className="text-[11px] text-neutral-400">{t('qualityNoThreads', { defaultValue: 'No new threads raised in this chapter.' })}</span>
+            q.ran && q.report && isQualityComplete(q.report) && threads.selection?.exhaustive === true && !threads.error && <span className="text-[11px] text-neutral-400">{t('qualityNoThreads', { defaultValue: 'No new threads raised in this chapter.' })}</span>
           )}
           {threads.resolved.length > 0 && (
             <span className="text-[10px] text-emerald-600">

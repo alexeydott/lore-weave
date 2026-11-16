@@ -32,6 +32,7 @@ class FakeSDK:
 
     async def wait_terminal(self, job_id, *, user_id, transient_retry_budget=1, cancel_check=None):
         self.wait_calls += 1
+        self.last_retry_budget = transient_retry_budget
         self.last_cancel_check = cancel_check  # bug #34 — assert the wrapper forwards it
         b = self._wait.pop(0)
         if isinstance(b, Exception):
@@ -58,6 +59,13 @@ async def test_happy_path_returns_terminal_job():
     sdk = FakeSDK([_completed()])
     job = await _run(sdk)
     assert job.status == "completed"
+    assert sdk.submit_calls == 1 and sdk.wait_calls == 1
+
+
+async def test_zero_retry_budget_reaches_sdk_wait():
+    sdk = FakeSDK([_completed()])
+    await _run(sdk, transient_retry_budget=0)
+    assert sdk.last_retry_budget == 0
     assert sdk.submit_calls == 1 and sdk.wait_calls == 1
 
 

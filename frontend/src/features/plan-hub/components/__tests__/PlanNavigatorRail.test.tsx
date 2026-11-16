@@ -10,15 +10,16 @@ import { flattenArcShell } from '../../hooks/usePlanNavigator';
 import { PlanNavigatorRail } from '../PlanNavigatorRail';
 
 const getArcs = vi.fn();
+const getChildren = vi.fn();
 vi.mock('@/auth', () => ({ useAuth: () => ({ accessToken: 'tok' }) }));
-vi.mock('@/features/plan-hub/api', () => ({ getArcs: (...a: unknown[]) => getArcs(...a) }));
+vi.mock('@/features/plan-hub/api', () => ({ getArcs: (...a: unknown[]) => getArcs(...a), getChildren: (...a: unknown[]) => getChildren(...a) }));
 
 const arc = (id: string, o: Partial<ArcListNode> = {}): ArcListNode => ({
   id, kind: 'arc', parent_id: null, depth: 0, rank: 'm', title: `T-${id}`, status: 'planned',
   version: 1, span: null, is_contiguous: true, chapter_count: 0, ...o,
 });
 
-beforeEach(() => getArcs.mockReset());
+beforeEach(() => { getArcs.mockReset(); getChildren.mockReset(); getChildren.mockResolvedValue({ items: [], next_cursor: null }); });
 
 describe('flattenArcShell (PH25)', () => {
   it('derives depth from the parent_id tree, not the shell depth field, and orders by rank', () => {
@@ -126,5 +127,70 @@ describe('PlanNavigatorRail (PH25)', () => {
     renderWithClient(<PlanNavigatorRail bookId="b1" onFocusNode={vi.fn()} selectedId={null} />);
     await waitFor(() => expect(screen.getByTestId('plan-nav-empty')).toBeInTheDocument());
     expect(screen.queryByTestId('plan-nav-plan-cta')).toBeNull();
+  });
+});
+
+const chapter = { id: 'chapter-1', kind: 'chapter', parent_id: null, structure_node_id: null,
+  chapter_id: 'prose-1', title: 'Unassigned chapter', status: 'planned', version: 1,
+  story_order: 1, rank: 'a', beat_role: null, tension: null, pov_entity_id: null,
+  present_entity_ids: [], present_entity_count: 0, written: false };
+
+describe('arc-less Plan navigation', () => {
+  it('loads existing chapters, expands scenes, and focuses a scene without inventing arcs', async () => {
+    getArcs.mockResolvedValue({ arcs: [] });
+    getChildren.mockImplementation(async (_book, axis, opts) => {
+      expect(_book).toBe('b1');
+      expect(opts).toMatchObject({ token: 'tok', limit: 100 });
+      return { items: axis.unassigned ? [chapter] : [{ ...chapter, id: 'scene-1', kind: 'scene', parent_id: chapter.id, title: 'Existing scene' }], next_cursor: null };
+    });
+    const focus = vi.fn();
+    renderWithClient(<PlanNavigatorRail bookId="b1" onFocusNode={focus} selectedId="scene-1" />);
+    await screen.findByTestId('plan-nav-row-chapter-1');
+    expect(screen.queryByTestId('plan-nav-empty')).toBeNull();
+    expect(screen.getByTestId('plan-nav-focus-chapter-1')).toHaveAttribute('data-kind', 'chapter');
+    fireEvent.click(screen.getByTestId('plan-nav-caret-chapter-1'));
+    await screen.findByTestId('plan-nav-focus-scene-1');
+    fireEvent.click(screen.getByTestId('plan-nav-focus-scene-1'));
+    expect(focus).toHaveBeenCalledWith('scene-1');
+    expect(screen.getByTestId('plan-nav-row-scene-1')).toHaveAttribute('data-depth', '1');
+    expect(screen.getByTestId('plan-nav-row-scene-1').className).toContain('bg-primary');
+    fireEvent.click(screen.getByTestId('plan-nav-caret-chapter-1'));
+    expect(screen.queryByTestId('plan-nav-row-scene-1')).toBeNull();
+  });
+
+  it('keeps the empty state pending until unassigned chapters are known', async () => {
+    getArcs.mockResolvedValue({ arcs: [] });
+    let resolve!: (value: unknown) => void;
+    getChildren.mockReturnValue(new Promise((r) => { resolve = r; }));
+    renderWithClient(<PlanNavigatorRail bookId="b1" onFocusNode={vi.fn()} selectedId={null} />);
+    await waitFor(() => expect(getChildren).toHaveBeenCalled());
+    expect(screen.queryByTestId('plan-nav-empty')).toBeNull();
+    resolve({ items: [], next_cursor: null });
+    await screen.findByTestId('plan-nav-empty');
+  });
+
+  it('preserves keyset pagination for chapters and scenes', async () => {
+    getArcs.mockResolvedValue({ arcs: [] });
+    getChildren.mockImplementation(async (_book, axis, opts) => ({
+      items: axis.unassigned
+        ? [{ ...chapter, id: opts.cursor ? 'chapter-2' : 'chapter-1' }]
+        : [{ ...chapter, kind: 'scene', id: opts.cursor ? 'scene-2' : 'scene-1', parent_id: 'chapter-1' }],
+      next_cursor: opts.cursor ? null : 'next',
+    }));
+    renderWithClient(<PlanNavigatorRail bookId="b1" onFocusNode={vi.fn()} selectedId={null} />);
+    fireEvent.click(await screen.findByTestId('plan-nav-more-unassigned'));
+    await screen.findByTestId('plan-nav-row-chapter-2');
+    fireEvent.click(screen.getByTestId('plan-nav-caret-chapter-1'));
+    fireEvent.click(await screen.findByTestId('plan-nav-more-chapter-1'));
+    await screen.findByTestId('plan-nav-row-scene-2');
+    expect(getChildren).toHaveBeenCalledWith('b1', { unassigned: true }, { cursor: 'next', limit: 100, token: 'tok' });
+    expect(getChildren).toHaveBeenCalledWith('b1', { parentId: 'chapter-1' }, { cursor: 'next', limit: 100, token: 'tok' });
+  });
+
+  it('does not fetch unassigned windows for a nonempty arc shell', async () => {
+    getArcs.mockResolvedValue({ arcs: [arc('existing')] });
+    renderWithClient(<PlanNavigatorRail bookId="b1" onFocusNode={vi.fn()} selectedId={null} />);
+    await screen.findByTestId('plan-nav-row-existing');
+    expect(getChildren).not.toHaveBeenCalled();
   });
 });

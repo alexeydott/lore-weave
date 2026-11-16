@@ -244,8 +244,8 @@
       "api_key_ph": "sk-...",
       "api_key_keep_hint": "Laissez vide pour conserver la clé existante.",
       "max_concurrency": "Requêtes simultanées max",
-      "max_concurrency_ph": "Illimité",
-      "max_concurrency_hint": "Nombre de requêtes que ce fournisseur exécute simultanément. Laissez vide pour l'illimité (le backend décide). Définissez un nombre uniquement si votre backend a une limite connue (ex: un GPU local).",
+      "max_concurrency_ph": "Par défaut",
+      "max_concurrency_hint": "Laissez vide pour utiliser la limite par défaut de la plateforme. Un nombre positif définit votre propre limite.",
       "cancel": "Annuler",
       "saving": "Enregistrement...",
       "submit": "Enregistrer les modifications"
@@ -426,8 +426,8 @@
       "key_ph_keep": "Laissez vide pour conserver la clé actuelle",
       "key_keep_hint": "Laissez vide pour conserver la clé existante.",
       "max_concurrency": "Max de requêtes simultanées",
-      "max_concurrency_ph": "Illimité",
-      "max_concurrency_hint": "Nombre de requêtes que ce service exécute en même temps. Laissez vide pour l'illimité (le backend décide). Définissez un nombre uniquement si votre backend a une limite connue.",
+      "max_concurrency_ph": "Par défaut",
+      "max_concurrency_hint": "Laissez vide pour utiliser la limite par défaut de la plateforme. Un nombre positif définit votre propre limite.",
       "cancel": "Annuler",
       "submit": "Enregistrer",
       "saving": "Enregistrement..."

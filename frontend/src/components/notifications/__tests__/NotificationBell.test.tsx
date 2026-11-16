@@ -27,7 +27,7 @@ vi.mock('@/features/notifications/api', () => ({
   deleteNotification: (...a: unknown[]) => deleteNotification(...a),
 }));
 
-const renderBell = () => render(<MemoryRouter><NotificationBell /></MemoryRouter>);
+const renderBell = () => render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><NotificationBell /></MemoryRouter>);
 
 beforeEach(() => { markAllRead.mockClear(); fetchNotifications.mockClear(); });
 

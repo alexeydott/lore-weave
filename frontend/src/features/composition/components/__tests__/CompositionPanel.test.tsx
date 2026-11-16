@@ -87,7 +87,7 @@ function renderPanel(initialEntries: string[] = ['/books/b']) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={initialEntries}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={initialEntries}>
         <CompositionPanel bookId="b" chapterId="c" token="tok" onAccept={vi.fn()} />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -102,7 +102,7 @@ function renderDockPanel() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/books/b']}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/books/b']}>
         <WorkspaceLayoutProvider>
           <CompositionPanel bookId="b" chapterId="c" token="tok" onAccept={vi.fn()} />
         </WorkspaceLayoutProvider>
@@ -228,7 +228,7 @@ describe('CompositionPanel dock mode (T5.4 M2)', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={['/books/b']}>
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/books/b']}>
           <WorkspaceLayoutProvider>
             <CompositionPanel bookId="b" chapterId="c" token="tok" onAccept={vi.fn()} />
           </WorkspaceLayoutProvider>
@@ -280,7 +280,7 @@ describe('CompositionPanel solo / OS pop-out mode (T5.4 M4)', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return render(
       <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={['/books/b']}>
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/books/b']}>
           <CompositionPanel bookId="b" chapterId="c" token="tok" onAccept={vi.fn()} soloPanel={panel as never} />
         </MemoryRouter>
       </QueryClientProvider>,
@@ -318,7 +318,7 @@ describe('CompositionPanel solo / OS pop-out mode (T5.4 M4)', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const ui = (
       <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={['/books/b']}>
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/books/b']}>
           <WorkspaceLayoutProvider>
             <CompositionPanel bookId="b" chapterId="c" token="tok" onAccept={vi.fn()} />
           </WorkspaceLayoutProvider>

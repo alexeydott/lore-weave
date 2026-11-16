@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useArcSuggest } from '../hooks/useArcSuggest';
+import { rankingSummary } from '../ranking';
 
 type Props = {
   projectId: string | null;
@@ -78,7 +79,10 @@ export function ArcSuggestView({ projectId, token }: Props) {
         )}
         {sg.candidates.length > 0 && (
           <ul data-testid="arc-suggest-results" className="flex flex-col">
-            {sg.candidates.map((c) => (
+            {(['mine', 'library'] as const).map((section) => (
+              <li key={section} data-testid={`arc-suggest-section-${section}`}>
+                <h3 className="px-2 text-xs font-semibold">{section === 'mine' ? t('motif.arc.suggest.sectionMine') : t('motif.suggest.sectionLibrary')}</h3>
+                <ul>{sg.candidates.filter((c) => (typeof c.match_reason === 'object' && c.match_reason?.section ? c.match_reason.section === 'mine' : c.arc_template.mine) === (section === 'mine')).map((c) => (
               <li key={c.arc_template.id} data-testid={`arc-suggest-row-${c.arc_template.id}`} className="border-b px-2 py-1.5">
                 <div className="flex items-center gap-2">
                   <span className="flex-1 truncate text-[12px] font-medium">{c.arc_template.name}</span>
@@ -87,7 +91,7 @@ export function ArcSuggestView({ projectId, token }: Props) {
                       {t('motif.arc.suggest.mine', { defaultValue: 'yours' })}
                     </span>
                   )}
-                  <span className="text-[10px] tabular-nums text-muted-foreground">{Math.round(c.score * 100)}%</span>
+                  {!(typeof c.match_reason === 'object' && c.match_reason?.degraded) && <span className="text-[10px] tabular-nums text-muted-foreground">{Math.round(c.score * 100)}%</span>}
                 </div>
                 <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
                   {c.arc_template.chapter_span != null && (
@@ -96,8 +100,10 @@ export function ArcSuggestView({ projectId, token }: Props) {
                   {c.arc_template.genre_tags.length > 0 && <span className="truncate">{c.arc_template.genre_tags.join(' · ')}</span>}
                 </div>
                 {c.match_reason && (
-                  <p data-testid="arc-suggest-reason" className="mt-0.5 text-[10px] italic text-muted-foreground/80">{c.match_reason}</p>
+                  <p data-testid="arc-suggest-reason" className="mt-0.5 text-[10px] italic text-muted-foreground/80">{rankingSummary(t, c.match_reason)}</p>
                 )}
+              </li>
+                ))}</ul>
               </li>
             ))}
           </ul>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 // Plan Hub v2 (24 H4 / PH11) — the collapsed-arc rollup card. A collapsed arc occupies ONE slot
 // regardless of chapter_count and renders its summary from the shell (rollupCount) — never from
 // loaded child nodes. Its badges roll up onto it too (overlay/conformance key on structure_node.id):
@@ -13,6 +14,7 @@ import { orderNodeBadges, type PlanNodeData } from './nodePresentation';
 import { normalizeSource } from '../types';
 
 function ArcRollupNodeInner({ data }: NodeProps<PlanNodeData>) {
+  const { t } = useTranslation('studio');
   const { node, content, overlay, conformance, selected, onToggle, onOpenRef, hiddenEdges } = data;
   // isArc ⇒ the drift badge is eligible; the arc lane is not chapter-keyed ⇒ no pacing slot.
   const badges = orderNodeBadges({ overlay, conformance, nodeId: node.id, isArc: true });
@@ -66,7 +68,7 @@ function ArcRollupNodeInner({ data }: NodeProps<PlanNodeData>) {
             onToggle?.();
           }}
           className="pointer-events-auto text-muted-foreground hover:text-foreground"
-          aria-label="Expand arc"
+          aria-label={t('planHub.drawer.expandArc')}
         >
           ▸
         </button>

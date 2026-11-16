@@ -59,7 +59,7 @@ function renderWorkspace() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/worlds/w1']}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/worlds/w1']}>
         <Routes>
           <Route path="/worlds/:worldId" element={<WorldWorkspacePage />} />
         </Routes>

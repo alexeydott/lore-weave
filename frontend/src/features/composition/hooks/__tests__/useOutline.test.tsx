@@ -54,4 +54,19 @@ describe('useOutline + useSceneLinks (T1.3 shared-key)', () => {
     renderHook(() => useSceneLinks(undefined, 't'), { wrapper: Wrapper });
     expect(getOutline).not.toHaveBeenCalled();
   });
+  it.each([['other', 't'], ['p', 'other-token'], ['p', null]] as const)(
+    'does not expose previous rows when scope becomes %s / %s', async (projectId, token) => {
+      const { Wrapper } = makeWrapper();
+      const { result, rerender } = renderHook(
+        ({ pid, auth }: { pid: string; auth: string | null }) => ({ outline: useOutline(pid, auth), links: useSceneLinks(pid, auth) }),
+        { wrapper: Wrapper, initialProps: { pid: 'p', auth: 't' as string | null } },
+      );
+      await waitFor(() => expect(result.current.outline.isSuccess).toBe(true));
+      getOutline.mockImplementation(() => new Promise(() => {}));
+      rerender({ pid: projectId, auth: token });
+      expect(result.current.outline.data).toBeUndefined();
+      expect(result.current.links.data).toBeUndefined();
+    },
+  );
+
 });

@@ -120,3 +120,28 @@ describe('persistJob (Option A accept-step)', () => {
     expect(JSON.parse((apiJson.mock.calls[0][1] as { body: string }).body)).toEqual({ commit_message: 'accept chapter' });
   });
 });
+
+describe('wait deadline stops the server-side spend', () => {
+  it('cancels the still-running job before throwing "did not complete in time"', async () => {
+    vi.useFakeTimers();
+    try {
+      // The 202 never reaches a terminal state within the poll budget.
+      apiJson.mockImplementation((path: unknown) =>
+        Promise.resolve(typeof path === 'string' && path.includes('/jobs/j9')
+          ? { id: 'j9', status: 'running', result: null }
+          : { job_id: 'j9', status: 'pending', mode: 'auto' }));
+      const p = compositionApi.generateAuto('p1', { outlineNodeId: 'n1', modelRef: 'm1' }, 'tok');
+      const expectation = expect(p).rejects.toThrow('generation did not complete in time');
+      await vi.runAllTimersAsync();
+      await expectation;
+      // Nonvacuity: the deadline path MUST fire the cancel POST — a wait that
+      // gives up while the job still runs would otherwise keep it billing.
+      const cancelCall = apiJson.mock.calls.find(
+        ([path, init]: [string, { method?: string } | undefined]) =>
+          path.includes('/jobs/j9/cancel') && init?.method === 'POST');
+      expect(cancelCall).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

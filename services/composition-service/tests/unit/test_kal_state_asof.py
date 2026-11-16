@@ -358,3 +358,61 @@ async def test_the_roster_FILLS_a_missing_name_and_never_OVERRIDES_a_present_one
     assert by_id[have]["name"] == "FromState", "state's own name WINS; the roster only fills"
     assert by_id[missing]["name"] == "Lam Trach"
 
+
+
+@pytest.mark.parametrize("payload", [{}, {"entities": [{}]}, {"entities": [{"entity_id": "e", "facts": [None]}]}, {"entities": [], "next_cursor": "more"}])
+@respx.mock
+async def test_strict_state_rejects_incomplete_or_malformed(payload):
+    from app.clients.kal_client import RosterIncomplete
+    respx.get(_state_url()).mock(return_value=httpx.Response(200, json=payload))
+    c = _client()
+    try:
+        with pytest.raises(RosterIncomplete):
+            await c.state(BOOK, as_of=12, user_id=USER, strict=True)
+    finally:
+        await c.aclose()
+
+
+@respx.mock
+async def test_strict_state_distinguishes_complete_empty_from_outage():
+    from app.clients.kal_client import RosterIncomplete
+    route = respx.get(_state_url()).mock(return_value=httpx.Response(200, json={"entities": []}))
+    c = _client()
+    try:
+        assert await c.state(BOOK, as_of=12, strict=True) == []
+        route.mock(return_value=httpx.Response(503))
+        with pytest.raises(RosterIncomplete):
+            await c.state(BOOK, as_of=12, strict=True)
+    finally:
+        await c.aclose()
+
+
+def test_full_canon_retains_unnamed_source_entity_and_all_attributes():
+    entity = _entity("stable-source-id", allegiance="north", custom_attribute="retained fact")
+    cast = cast_from_state([entity], preserve_facts=True)
+    rendered = render_canon(cast, full_facts=True)
+    assert "[source entity stable-source-id; human name unavailable]" in rendered
+    assert "custom_attribute" in rendered
+    assert "retained fact" in rendered
+    assert "north" in rendered
+    assert cast[0].get("name") is None
+
+
+async def test_strict_canon_missing_human_name_is_not_retrieval_failure():
+    from types import SimpleNamespace
+    from app.engine.canon_bible import canon_cast_at
+    async def orders(ids):
+        return {str(ids[0]): 12}
+    async def state(*args, **kwargs):
+        assert kwargs["strict"] is True
+        return [_entity("stable-source-id", custom_attribute="retained fact")]
+    async def roster(*args, **kwargs):
+        return []
+    cast, as_of = await canon_cast_at(
+        SimpleNamespace(state=state, roster=roster),
+        SimpleNamespace(get_chapter_sort_orders=orders), BOOK, uuid.uuid4(), USER,
+        strict=True,
+    )
+    assert as_of == 12
+    assert len(cast) == 1
+    assert "retained fact" in render_canon(cast, full_facts=True)

@@ -51,12 +51,12 @@
   "guidedCueReady": "Escreva sua abertura e depois clique em Gerar — ou Continue a partir do cursor no editor.",
   "guidedCueStart": "Crie sua primeira cena, escreva sua abertura e clique em Gerar — ou Continue a partir do cursor no editor.",
   "guidedStart": "Começar a escrever",
-  "compose": "Compose",
+  "compose": "Compor",
   "workDefault": {
-    "prompt": "No co-writer model is set for this book. Apply your default chat model?",
-    "apply": "Use my default chat model",
-    "applied": "Default model for this book has been set",
-    "apply_failed": "Failed to apply"
+    "prompt": "Nenhum modelo de coautor definido para este livro. Aplicar seu modelo de chat padrão?",
+    "apply": "Usar meu modelo de chat padrão",
+    "applied": "O modelo padrão deste livro foi definido",
+    "apply_failed": "Falha ao aplicar"
   },
   "cowriter": "Co-escritor",
   "cw": {
@@ -81,13 +81,13 @@
     "discard": "Descartar",
     "stop": "Parar",
     "stale": "A seleção mudou — tente novamente.",
-    "scenePlan": "Suggest scenes",
-    "scenePlanOnly": "This selection is available for scene suggestions only.",
-    "scenePlanInvalid": "The model did not return valid scene proposals. Try again.",
-    "scenePlanNeedsOutline": "This chapter has no outline yet. Create or extract its plan first.",
-    "scenePlanCreateFailed": "Could not create scene proposals.",
-    "createScenes": "Create selected scenes",
-    "applying": "Creating…"
+    "scenePlan": "Sugerir cenas",
+    "scenePlanOnly": "Esta seleção está disponível apenas para sugestões de cenas.",
+    "scenePlanInvalid": "O modelo não retornou propostas de cenas válidas. Tente novamente.",
+    "scenePlanNeedsOutline": "Este capítulo ainda não tem esboço. Crie ou extraia o plano dele primeiro.",
+    "scenePlanCreateFailed": "Não foi possível criar as propostas de cenas.",
+    "createScenes": "Criar as cenas selecionadas",
+    "applying": "Criando…"
   },
   "inline": {
     "mode": "Modo de escrita",
@@ -107,7 +107,7 @@
     "need_editor": "O editor ainda está carregando.",
     "streaming": "Escrevendo… aguarde a conclusão da continuação atual.",
     "pending_ghost": "Aceite ou descarte a sugestão atual antes de iniciar outra.",
-    "open_coauthor_settings": "Open the co-writer chat"
+    "open_coauthor_settings": "Abrir o chat do coautor"
   },
   "beats": "Beats",
   "beatsheet": {
@@ -281,6 +281,10 @@
     "deleteFailed": "Não foi possível remover o lugar.",
     "backdropNoChapter": "Abra um capítulo para definir um plano de fundo."
   },
+  "groundingNoResults": "Nenhum contexto do grafo foi recuperado para esta cena. O grafo ainda pode existir; a posição da cena, o conteúdo correspondente ou uma falha no serviço de conhecimento podem limitar a recuperação.",
+  "groundingNoProject": "Esta obra ainda não tem um projeto de conhecimento vinculado. A fundamentação não está disponível para esta obra.",
+  "groundingLoadFailed": "Não foi possível carregar a fundamentação. Tente novamente antes de alterar o grafo de conhecimento.",
+  "groundingRetry": "Tentar fundamentação novamente",
   "grounding": "Fundamentação",
   "canon": "Cânone",
   "progress": "Progresso",
@@ -378,7 +382,12 @@
     "saveContent": "Salvar conteúdo (reincorporar)",
     "saveMetadata": "Salvar detalhes",
     "saving": "Salvando…",
-    "sourceUrl": "URL de origem (opcional)"
+    "sourceUrl": "URL de origem (opcional)",
+    "loading": "Carregando referências…",
+    "listError": "Não foi possível carregar as referências. Tente novamente.",
+    "inheritedEmbed": "Usar seu modelo de embeddings herdado",
+    "modelsLoading": "Carregando modelos de embeddings…",
+    "modelsError": "Não foi possível carregar os modelos de embeddings. Tente novamente."
   },
   "progressPanel": {
     "loading": "Carregando progresso...",
@@ -581,6 +590,8 @@
   "threadKind_question": "pergunta",
   "threadKind_mice_thread": "fio",
   "threadPaid": "concluído",
+  "threadEditAria": "Editar promessa",
+  "threadArchiveAria": "Arquivar promessa",
   "threadDropped": "abandonado",
   "noThreads": "Nenhum fio ainda.",
   "noOpenThreads": "Nenhuma promessa aberta — todas concluídas.",
@@ -753,9 +764,9 @@
     "empty": {
       "title": "Sua biblioteca de motivos está pronta",
       "body": "Motivos são estruturas de enredo reutilizáveis. O planejador escolhe um por capítulo para que, mesmo um modelo pequeno, escreva uma cena sólida. 12 motivos iniciais já estão aqui — tu-tiên e báo-thù.",
+      "notThemes": "São formas ESTRUTURAIS de enredo para o planejador, não um rastreador das imagens ou temas recorrentes da sua própria história — nada aqui acompanha um símbolo ao longo dos seus capítulos.",
       "browseSystem": "Explorar os 12 iniciais",
-      "hint": "Não são necessários tokens — construir um motivo manualmente é grátis.",
-      "notThemes": "São formas ESTRUTURAIS de enredo para o planejador, não um rastreador das imagens ou temas recorrentes da sua própria história — nada aqui acompanha um símbolo ao longo dos seus capítulos."
+      "hint": "Não são necessários tokens — construir um motivo manualmente é grátis."
     },
     "facet": {
       "tier": "Nível",
@@ -833,7 +844,10 @@
       "noWork": "Crie um plano para este livro para vincular motivos às suas cenas.",
       "committedTitle": "Vincular motivos de cena",
       "loadError": "Não foi possível carregar os motivos da cena.",
-      "sectionTitle": "Motivos de cena"
+      "sectionTitle": "Motivos de cena",
+      "candidatesLoading": "Carregando motivos…",
+      "candidatesError": "Não foi possível carregar os motivos.",
+      "candidatesEmpty": "Adicione ou importe motivos na biblioteca de motivos e volte aqui para vincular um."
     },
     "swap": {
       "title": "Trocar motivo",
@@ -859,12 +873,26 @@
         "bad": "Batida perdida"
       },
       "rerunNeedsModel": "Escolha um modelo para reexecutar a conformidade",
-      "bindCta": "Vincular um motivo a uma cena →",
+      "bindCta": "Escolha uma cena para vincular →",
       "couldNotCheck": "Não foi possível verificar",
       "notChecked": "Ainda não verificado",
       "notWritten": "Ainda não escrito",
       "openScene": "Abrir esta cena no inspetor",
-      "written": "Escrito"
+      "written": "Escrito",
+      "noChapter": "Escolha um capítulo",
+      "chaptersLoading": "Carregando capítulos…",
+      "chaptersError": "Não foi possível carregar os capítulos.",
+      "noChapters": "Ainda não há capítulos.",
+      "actionError": "A ação falhou. Tente novamente.",
+      "running": "Em andamento…",
+      "snapshot": "Última verificação: {{time}}",
+      "status": {
+        "unavailable": "Não foi possível verificar",
+        "no_bound_motif": "Vincule um motivo primeiro",
+        "motif_unavailable": "Motivo indisponível",
+        "no_manuscript_prose": "Escreva o manuscrito primeiro",
+        "stale": "Desatualizado — verifique novamente"
+      }
     },
     "arc": {
       "mobileNotice": "A grade da linha do tempo está disponível em uma tela maior — aqui você pode editá-la como uma lista.",
@@ -967,7 +995,8 @@
         "error": "Não foi possível ranquear as sugestões de arcos.",
         "empty": "Nenhum modelo de arco compatível ainda — crie um ou importe uma história para desconstruir.",
         "mine": "seu(s)",
-        "span": "{{count}} cap."
+        "span": "{{count}} cap.",
+        "sectionMine": "Seus arcos narrativos"
       },
       "decompile": {
         "open": "Agrupar capítulos em arcos",
@@ -1099,10 +1128,14 @@
       "retry": "Tentar novamente",
       "empty": "Nenhum motivo se encaixa nesta cena ainda — adicione mais à sua biblioteca.",
       "bind": "Vincular",
-      "degradedMine": "Seus motivos não estão classificados por afinidade — configure um modelo de embedding nas suas configurações para classificá-los semanticamente.",
-      "degradedLibrary": "Não classificados por afinidade — o modelo de embedding da biblioteca compartilhada não está configurado, portanto, estes são resultados genéricos de gênero, não correspondências pontuadas.",
+      "degradedMine": "A classificação semântica das suas sugestões privadas está indisponível: não há um modelo de embeddings efetivo selecionado para este livro ou conta.",
+      "degradedLibrary": "A classificação semântica da biblioteca compartilhada está indisponível: sua configuração separada de embeddings da plataforma está incompleta. As configurações de modelo do seu livro ou conta são independentes.",
       "sectionMine": "Seus motivos",
-      "sectionLibrary": "Da biblioteca"
+      "sectionLibrary": "Da biblioteca",
+      "rankingUnavailable": "A classificação está indisponível — estas sugestões não estão ordenadas por adequação.",
+      "providerUnavailable": "A classificação está temporariamente indisponível — tente novamente mais tarde.",
+      "emptyQuery": "Adicione uma premissa ou o texto de uma cena para ordenar as sugestões por adequação.",
+      "semanticMatch": "Correspondência semântica"
     },
     "language": {
       "writtenIn": "Escrito em",
@@ -1183,29 +1216,28 @@
       "violation": "{{label}}: {{n}} fora de ordem"
     },
     "editor": {
-      "add": "adicionar",
-      "beatIntent": "intenção",
-      "beatLabel": "batida",
-      "beats": "Batidas",
-      "conflict": "Este motivo foi alterado em outro lugar — reabra-o para obter a versão mais recente antes de editar.",
-      "deceived": "quem é enganado (vírgula)",
-      "effects": "Efeitos",
-      "emotion": "Emoção",
-      "examples": "Exemplos (escritos pelo autor)",
-      "gap": "a lacuna",
-      "genres": "Gêneros (separados por vírgula)",
-      "kind": "Tipo",
-      "knows": "quem sabe (vírgula)",
-      "name": "Nome",
-      "preconditions": "Precondições",
-      "roleConstraints": "restrições",
-      "roleLabel": "rótulo",
-      "roles": "Papéis",
-      "saveError": "Não foi possível salvar.",
+      "open": "Editar motivo",
+      "title": "Motivo da cena",
+      "description": "As alterações ficam no rascunho até Salvar.",
+      "search": "Buscar por nome ou código",
+      "motif": "Motivo",
+      "freeform": "Livre (sem motivo)",
+      "preview": "Prévia do motivo",
+      "unresolved": "Não atribuído",
+      "save": "Salvar",
       "saving": "Salvando…",
-      "scheme": "Assimetria de informação",
-      "summary": "Resumo (incorporado para recuperação)",
-      "tension": "Tensão (1–5)"
+      "cancel": "Cancelar",
+      "loadError": "Não foi possível carregar os motivos.",
+      "saveError": "Falha ao salvar. Rascunho mantido; tente novamente.",
+      "partialError": "Algumas alterações foram salvas. Salve novamente para concluir; cancelar não as desfaz.",
+      "discardTitle": "Descartar alterações não salvas?",
+      "discardDescription": "O rascunho não salvo será descartado. As alterações salvas permanecem.",
+      "stay": "Continuar editando",
+      "discard": "Descartar rascunho",
+      "fallback": "Tradução indisponível; exibindo {{language}}.",
+      "contextRequired": "Selecione uma cena confirmada.",
+      "current": "Atual",
+      "dirty": "Alterações não salvas"
     },
     "kind": {
       "arcs": "Modelos de arco",
@@ -1628,7 +1660,7 @@
   "canonConflictKeepTheirs": "Manter o deles",
   "canonConflictReapply": "Reaplicar minha edição na v{{v}}",
   "canonConflictTitle": "Esta regra foi alterada em outro lugar — seu rascunho foi mantido abaixo.",
-  "canonview": "Canon as of",
+  "canonview": "Cânone até",
   "canonAtChapter": {
     "active": "{{n}} ativo",
     "branchHint": "O que o cânone sabe imediatamente antes deste desvio",
@@ -1773,6 +1805,13 @@
   "canonConflictCurrent": "Atual (v{{v}}): {{text}}",
   "coverageExtractionFailed": "Não foi possível ler as promessas do seu esboço (a chamada do modelo falhou ou foi interrompida). Tente novamente ou escolha um modelo diferente.",
   "coverageScoreFailed": "As promessas foram lidas, mas a avaliação em relação ao livro falhou. Tente novamente.",
+  "coverageCorpusIncomplete": "Não foi possível avaliar o livro inteiro: os rascunhos de {{count}} capítulos não puderam ser lidos. Nenhuma conclusão sobre o livro inteiro foi gerada. Tente novamente.",
+  "coverageCorpusIncomplete_zero": "Não foi possível avaliar o livro inteiro: os rascunhos de {{count}} capítulos não puderam ser lidos. Nenhuma conclusão sobre o livro inteiro foi gerada. Tente novamente.",
+  "coverageCorpusIncomplete_one": "Não foi possível avaliar o livro inteiro: o rascunho de {{count}} capítulo não pôde ser lido. Nenhuma conclusão sobre o livro inteiro foi gerada. Tente novamente.",
+  "coverageCorpusIncomplete_two": "Não foi possível avaliar o livro inteiro: os rascunhos de {{count}} capítulos não puderam ser lidos. Nenhuma conclusão sobre o livro inteiro foi gerada. Tente novamente.",
+  "coverageCorpusIncomplete_few": "Não foi possível avaliar o livro inteiro: os rascunhos de {{count}} capítulos não puderam ser lidos. Nenhuma conclusão sobre o livro inteiro foi gerada. Tente novamente.",
+  "coverageCorpusIncomplete_many": "Não foi possível avaliar o livro inteiro: os rascunhos de {{count}} capítulos não puderam ser lidos. Nenhuma conclusão sobre o livro inteiro foi gerada. Tente novamente.",
+  "coverageCorpusIncomplete_other": "Não foi possível avaliar o livro inteiro: os rascunhos de {{count}} capítulos não puderam ser lidos. Nenhuma conclusão sobre o livro inteiro foi gerada. Tente novamente.",
   "lengthAskedDelivered": "Solicitado: ~{{target}} palavras, entregue: {{actual}} ({{pct}}%).",
   "lengthOverCeiling": "Isso solicita em uma única chamada mais do que uma chamada consegue entregar com segurança — divida a cena em passagens para obter a extensão completa.",
   "techEdit": {
@@ -1817,6 +1856,28 @@
     "preview_more": "…e mais {{n}}",
     "preview_blank": "linha em branco será excluída"
   },
-  "threadEditAria": "Edit promise",
-  "threadArchiveAria": "Archive promise"
+  "qualityReasons": {
+    "context_limit": "Limite de contexto do modelo excedido.",
+    "network": "Erro de rede do provedor.",
+    "unavailable": "Provedor indisponível.",
+    "reasoning_exhausted": "O raciocínio esgotou o orçamento da resposta.",
+    "truncated": "Resposta truncada.",
+    "invalid_response": "Resposta inválida do modelo.",
+    "manualRetry": "Tente novamente na próxima execução manual.",
+    "unknown": "A análise de qualidade falhou por um motivo desconhecido.",
+    "incomplete": "Nem todas as janelas de análise foram concluídas.",
+    "synthesis_failed": "A análise foi concluída, mas a síntese do relatório falhou.",
+    "synthesis_invalid_response": "A análise foi concluída, mas a síntese retornou uma resposta inválida.",
+    "audit_only": "Somente a auditoria dos fios narrativos foi concluída; as notas da crítica estão indisponíveis."
+  },
+  "qualityScope": {
+    "partial": "Relatório parcial — não avalia o capítulo inteiro.",
+    "chapter": "Janelas processadas: {{analyzed}} de {{total}}.",
+    "canon": "Linhas do cânone selecionadas: {{selected}} de {{total}}.",
+    "complete": "Completo: {{windows}} janelas; todas as {{canon}} entradas do cânone processadas; síntese concluída.",
+    "synthesisPending": "Síntese final incompleta."
+  },
+  "qualityThreadsSelection": "Extração seletiva por janela, não exaustiva. Sem limite global: {{maxPromises}} promessas por janela, {{maxPhraseChars}} caracteres por frase.",
+  "qualityProgress": "{{completed}} / {{total}}",
+  "qualityStopWaiting": "Parar de esperar (a análise continua)"
 }

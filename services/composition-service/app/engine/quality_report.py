@@ -38,7 +38,6 @@ from app.engine.promise_audit import (
     extract_tracked_promises_ex,
     score_promise_coverage,
 )
-from app.packer.profile import BookProfile
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +104,7 @@ async def _chapter_threads(
     a = await audit_promises(
         llm, user_id=user_id, model_source=model_source, model_ref=model_ref,
         arc_text=chapter, source_language=source_language, max_tokens=max_tokens,
-        trace_id=trace_id, cancel_check=cancel_check)
+        trace_id=trace_id, cancel_check=cancel_check, bounded=True)
     out = {
         "raised": a.get("introduced", []),
         "resolved": a.get("resolved", []),
@@ -114,6 +113,8 @@ async def _chapter_threads(
     }
     if a.get("error"):
         out["error"] = a["error"]
+    if a.get("selection"):
+        out["selection"] = a["selection"]
     return out
 
 
@@ -135,9 +136,11 @@ async def _degrade_safe(coro: Awaitable[dict[str, Any]], fallback: dict[str, Any
 async def build_quality_report(
     llm: LLMClient, *, user_id: str, model_source: str, model_ref: str,
     chapter: str, source_language: str = "auto", canon: str | None = None,
-    max_tokens_critic: int = 1536, max_tokens_promise: int = 1500,
+    max_tokens_critic: int | None = None, max_tokens_promise: int | None = None,
     trace_id: str | None = None,
     cancel_check: Callable[[], Awaitable[bool]] | None = None,
+    canon_grounding: dict[str, Any] | None = None,
+    progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
     """Run the two chapter-level advisory judges concurrently and shape one report:
     `{critic, threads}`. `critic` = the 4-dim craft/continuity judge (+ violations);
@@ -149,31 +152,15 @@ async def build_quality_report(
     dimension as an established-facts block. Both judges are degrade-safe: this
     never raises for an LLM/parse failure — the failing half returns its empty
     shape with an `error` marker and the report still comes back."""
-    profile = BookProfile(source_language=source_language)
-    # canon is a rendered multi-line bible; hand it to the critic as a single
-    # established-fact so `canon_consistency` has grounding (no structured rules here).
-    present_facts = [canon.strip()] if canon and canon.strip() else []
+    from app.engine.quality_analysis import analyze_quality
 
-    critic, threads = await asyncio.gather(
-        _degrade_safe(
-            judge_prose(
-                llm, user_id=user_id, model_source=model_source, model_ref=model_ref,
-                passage=chapter, active_rules=[], present_facts=present_facts,
-                profile=profile, max_tokens=max_tokens_critic, trace_id=trace_id,
-                cancel_check=cancel_check,
-            ),
-            _empty_critic(), "critic",
-        ),
-        _degrade_safe(
-            _chapter_threads(
-                llm, user_id=user_id, model_source=model_source, model_ref=model_ref,
-                chapter=chapter, source_language=source_language,
-                max_tokens=max_tokens_promise, trace_id=trace_id, cancel_check=cancel_check,
-            ),
-            _empty_threads(), "threads",
-        ),
+    return await analyze_quality(
+        llm, user_id=user_id, model_source=model_source, model_ref=model_ref,
+        chapter=chapter, source_language=source_language, canon=canon,
+        max_tokens_critic=max_tokens_critic, max_tokens_promise=max_tokens_promise,
+        trace_id=trace_id, cancel_check=cancel_check,
+        canon_grounding=canon_grounding, progress_callback=progress_callback,
     )
-    return {"critic": critic, "threads": threads}
 
 
 def _empty_coverage(err: str = "coverage_error") -> dict[str, Any]:
@@ -217,12 +204,14 @@ async def _score_windowed(llm, *, user_id, model_source, model_ref, promises, wi
     the whole thing is `coverage_unavailable` (honest — no fabricated verdicts)."""
     best: dict[str, str] = {p: "absent" for p in promises}
     any_ok = False
+    failed_windows = 0
     for w in windows:
         cov = await score_promise_coverage(
             llm, user_id=user_id, model_source=model_source, model_ref=model_ref,
             promises=promises, arc_text=w, source_language=source_language,
             trace_id=trace_id, cancel_check=cancel_check)
         if cov.get("error"):
+            failed_windows += 1
             continue
         any_ok = True
         for item in cov.get("coverage", []):
@@ -231,7 +220,15 @@ async def _score_windowed(llm, *, user_id, model_source, model_ref, promises, wi
                 best[p] = v
     if not any_ok:
         return _coverage_shape(promises, ["absent"] * len(promises), error="coverage_unavailable")
-    return _coverage_shape(promises, [best[p] for p in promises])
+    # Partial evidence cannot certify whole-book absence or abandonment. Preserve
+    # observed verdicts for inspection, but expose the existing error channel so
+    # callers cannot mistake a partial scan for a clean completed audit.
+    result = _coverage_shape(promises, [best[p] for p in promises])
+    if failed_windows:
+        result["error"] = "coverage_unavailable"
+        result["failed_windows"] = failed_windows
+        result["total_windows"] = len(windows)
+    return result
 
 
 async def build_promise_coverage(

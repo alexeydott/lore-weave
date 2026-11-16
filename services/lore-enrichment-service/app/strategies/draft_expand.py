@@ -51,7 +51,7 @@ from typing import Awaitable, Callable
 from pydantic import BaseModel, ConfigDict
 
 from app.db.book_profile import NEUTRAL_PROFILE, BookProfile
-from app.gaps.model import Gap, is_zh, kind_label_for, resolve_dimensions
+from app.gaps.model import Gap, is_zh, kind_label_for, language_name_for, resolve_dimensions
 from app.generation.provenance import (
     GENERATION_CONFIDENCE,
     EnrichedFact,
@@ -212,7 +212,7 @@ def build_draft_prompt(
         )
 
     keys_csv = ", ".join(dims)
-    lang_name = profile.language if profile.language not in ("", "auto") else "the book's language"
+    lang_name = language_name_for(profile.language) or "the book's language"
     setting = f"deeply versed in this work's setting ({worldview})" if worldview else "a worldbuilder"
     voice_clause = f" ({voice})" if voice else ""
     era_clause = f" Keep it consistent with the era: {era}." if era else ""
@@ -229,7 +229,7 @@ def build_draft_prompt(
             f"Fill the dimensions: {keys_csv}.",
         ]
     tail = [
-        f"Write in {lang_name}{voice_clause};",
+        f"Write ALL generated content in {lang_name}{voice_clause}; the JSON keys are labels, not the required content language.",
         "Output ONLY a single JSON object keyed by the dimension names, no commentary.",
     ]
     rules = mode_rules + tail
@@ -362,7 +362,11 @@ class DraftExpandStrategy(EnrichmentStrategy):
         )
         raw = await self._complete(prompt, context)
         try:
-            repaired, _report = repair_generation(raw, expected_keys=expected_keys)
+            # CJK gate = Chinese-content contract only (see fabrication, same fix).
+            repaired, _report = repair_generation(
+                raw, expected_keys=expected_keys,
+                chinese_dimensions=expected_keys if is_zh(context.profile.language) else set(),
+            )
         except RepairError as exc:
             raise DraftExpandError(
                 f"draft expansion for {proposal.canonical_name!r} unrepairable: {exc}"

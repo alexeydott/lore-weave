@@ -5,106 +5,113 @@
 //     which a mount-scoped registry (useRegisteredTools) can't provide. The registry stays for the
 //     AGENT rack (#07a — which tools are LIVE this turn); the catalog is what can be opened.
 // Convention: `id` === the dockview component id (so host.openPanel adds `component: id`).
-import type { FunctionComponent } from 'react';
+import { createElement, lazy, Suspense, type FunctionComponent } from 'react';
 import type { IDockviewPanelProps } from 'dockview-react';
-import { WelcomePanel } from '../components/panels/WelcomePanel';
-import { ComposePanel } from './ComposePanel';
-import { SceneComposePanel } from './SceneComposePanel';
-import { ChapterAssemblePanel } from './ChapterAssemblePanel';
-import { EditorPanel } from './EditorPanel';
-import { PlannerPanel } from '@/features/plan-forge/components/PlannerPanel';
-import { PassRailPanel } from '@/features/plan-forge/components/PassRailPanel';
-import { MotifLibraryPanel } from './MotifLibraryPanel';
-import { MotifGraphPanel } from './MotifGraphPanel';
-import { QualityConformancePanel } from './QualityConformancePanel';
-import { ArcInspectorPanel } from './ArcInspectorPanel';   /* owner: S2 */
-import { ArcTemplatesPanel } from './ArcTemplatesPanel';   /* owner: S2 */
-import { StructureTemplatesPanel } from './StructureTemplatesPanel';   /* S-01 */
-import { DecomposePanel } from './DecomposePanel';   /* S-13 */
-import { UsagePanel } from './UsagePanel';
-import { NotificationsPanel } from './NotificationsPanel';
-import { SettingsPanel } from './SettingsPanel';
-import { TrashPanel } from './TrashPanel';
-import { JsonEditorPanel } from './JsonEditorPanel';
-import { ExtensionsPanel } from './ExtensionsPanel';
-import { ProposalsPanel } from './ProposalsPanel';
-import { SkillEditorPanel } from './SkillEditorPanel';
-import { WorkflowsPanel } from './WorkflowsPanel';
-import { WorkflowProposalsPanel } from './WorkflowProposalsPanel';
-import { SteeringPanel } from './SteeringPanel';
-import { GlossaryPanel } from './GlossaryPanel';
-import { GlossaryOntologyPanel } from './GlossaryOntologyPanel';
-import { GlossaryUnknownPanel } from './GlossaryUnknownPanel';
-import { GlossaryAiSuggestionsPanel } from './GlossaryAiSuggestionsPanel';
-import { WorldSetupPanel } from './WorldSetupPanel';
-import { GlossaryMergeCandidatesPanel } from './GlossaryMergeCandidatesPanel';
-import { WikiPanel } from './WikiPanel';
-import { WikiEditorPanel } from './WikiEditorPanel';
-import { KnowledgeHubPanel } from './KnowledgeHubPanel';
-import { KgOverviewPanel } from './KgOverviewPanel';
-import { KgEntitiesPanel } from './KgEntitiesPanel';
-import { KgTimelinePanel } from './KgTimelinePanel';
-import { KgEvidencePanel } from './KgEvidencePanel';
-import { KgGapReportPanel } from './KgGapReportPanel';
-import { KgProposalsPanel } from './KgProposalsPanel';
-import { KgSchemaPanel } from './KgSchemaPanel';
-import { KgGraphPanel } from './KgGraphPanel';
-import { KgInsightsPanel } from './KgInsightsPanel';
-import { KgJobsPanel } from './KgJobsPanel';
-import { KgGlobalBioPanel } from './KgGlobalBioPanel';
-import { KgPrivacyPanel } from './KgPrivacyPanel';
-import { KgTriagePanel } from './KgTriagePanel';   /* owner: S-05 */
-import { SearchPanel } from './SearchPanel';        /* owner: S-11 */
-import { JobsListPanel } from './JobsListPanel';
-import { JobDetailPanel } from './JobDetailPanel';
-import { BooksBrowserPanel } from './BooksBrowserPanel';
-import { BookReaderPanel } from './BookReaderPanel';
-import { LeaderboardBooksPanel } from './LeaderboardBooksPanel';
-import { LeaderboardAuthorsPanel } from './LeaderboardAuthorsPanel';
-import { LeaderboardTranslatorsPanel } from './LeaderboardTranslatorsPanel';
-import { LeaderboardTrendingPanel } from './LeaderboardTrendingPanel';
-import { ChapterBrowserPanel } from './ChapterBrowserPanel';
-import { SceneBrowserPanel } from './SceneBrowserPanel';
-import { SceneInspectorPanel } from './SceneInspectorPanel';
-import { WhatIfCanvasPanel } from './WhatIfCanvasPanel';
-import { DivergencePanel } from './DivergencePanel';
-import { ReferenceShelfPanel } from './ReferenceShelfPanel';   /* H-1a — S-03 reference corpus */
-import { StyleVoiceStudioPanel } from './StyleVoiceStudioPanel';   /* S-10 O1 — style/voice steering */
-import { CanonViewPanel } from './CanonViewPanel';
-import { PlanHubPanel } from './PlanHubPanel';
-import { BookImportPanel } from './BookImportPanel';
-import { ContextInspectorPanel } from './ContextInspectorPanel';
-import { MediaVersionHistoryPanel } from './MediaVersionHistoryPanel';
-import { OriginalSourcePanel } from './OriginalSourcePanel';
-import { SharingPanel } from './SharingPanel';
-import { BookSettingsPanel } from './BookSettingsPanel';
-import { TranslationPanel } from './TranslationPanel';
-import { TranslationVersionsPanel } from './TranslationVersionsPanel';
-import { TranslationReviewPanel } from './TranslationReviewPanel';
-import { EnrichmentComposePanel } from './EnrichmentComposePanel';
-import { EnrichmentProposalsPanel } from './EnrichmentProposalsPanel';
-import { EnrichmentGapsPanel } from './EnrichmentGapsPanel';
-import { EnrichmentSourcesPanel } from './EnrichmentSourcesPanel';
-import { EnrichmentJobsPanel } from './EnrichmentJobsPanel';
-import { EnrichmentSettingsPanel } from './EnrichmentSettingsPanel';
-import { UserGuidePanel } from './UserGuidePanel';
-import { AgentModePanel } from './AgentModePanel';
-import { ChapterRevisionComparePanel } from './ChapterRevisionComparePanel';
-import { QualityHubPanel } from './QualityHubPanel';
-import { QualityPromisesPanel } from './QualityPromisesPanel';
-import { QualityCriticPanel } from './QualityCriticPanel';
-import { QualityCoveragePanel } from './QualityCoveragePanel';
-import { QualityCanonPanel } from './QualityCanonPanel';
-import { QualityCanonRulesPanel } from './QualityCanonRulesPanel';
-import { QualityCorrectionsPanel } from './QualityCorrectionsPanel';
-import { QualityHealPanel } from './QualityHealPanel';
-import { ProgressStudioPanel } from './ProgressStudioPanel';
-import { FlywheelStudioPanel } from './FlywheelStudioPanel';
 // ── S7 · Knowledge/World/Cast ── (integrator-wired; components owned by build groups A/B/C)
-import { WorldMapEditorPanel } from './WorldMapEditorPanel';
-import { PlaceGraphPanel } from './PlaceGraphPanel';
-import { CastPanel } from './CastPanel';
-import { CharacterArcPanel } from './CharacterArcPanel';
+
+// Closed dock panels should not load their editors and tools until opened.
+function lazyPanel(load: () => Promise<{ default: FunctionComponent<IDockviewPanelProps> }>): FunctionComponent<IDockviewPanelProps> {
+  const Panel = lazy(load);
+  return (props) => createElement(Suspense, { fallback: createElement('div', { role: 'status', 'aria-label': 'Loading panel' }) }, createElement(Panel, props));
+}
+
+const WelcomePanel = lazyPanel(() => import('../components/panels/WelcomePanel').then((module) => ({ default: module.WelcomePanel })));
+const ComposePanel = lazyPanel(() => import('./ComposePanel').then((module) => ({ default: module.ComposePanel })));
+const SceneComposePanel = lazyPanel(() => import('./SceneComposePanel').then((module) => ({ default: module.SceneComposePanel })));
+const ChapterAssemblePanel = lazyPanel(() => import('./ChapterAssemblePanel').then((module) => ({ default: module.ChapterAssemblePanel })));
+const EditorPanel = lazyPanel(() => import('./EditorPanel').then((module) => ({ default: module.EditorPanel })));
+const PlannerPanel = lazyPanel(() => import('@/features/plan-forge/components/PlannerPanel').then((module) => ({ default: module.PlannerPanel })));
+const PassRailPanel = lazyPanel(() => import('@/features/plan-forge/components/PassRailPanel').then((module) => ({ default: module.PassRailPanel })));
+const MotifLibraryPanel = lazyPanel(() => import('./MotifLibraryPanel').then((module) => ({ default: module.MotifLibraryPanel })));
+const MotifGraphPanel = lazyPanel(() => import('./MotifGraphPanel').then((module) => ({ default: module.MotifGraphPanel })));
+const QualityConformancePanel = lazyPanel(() => import('./QualityConformancePanel').then((module) => ({ default: module.QualityConformancePanel })));
+const ArcInspectorPanel = lazyPanel(() => import('./ArcInspectorPanel').then((module) => ({ default: module.ArcInspectorPanel })));
+const ArcTemplatesPanel = lazyPanel(() => import('./ArcTemplatesPanel').then((module) => ({ default: module.ArcTemplatesPanel })));
+const StructureTemplatesPanel = lazyPanel(() => import('./StructureTemplatesPanel').then((module) => ({ default: module.StructureTemplatesPanel })));
+const DecomposePanel = lazyPanel(() => import('./DecomposePanel').then((module) => ({ default: module.DecomposePanel })));
+const UsagePanel = lazyPanel(() => import('./UsagePanel').then((module) => ({ default: module.UsagePanel })));
+const NotificationsPanel = lazyPanel(() => import('./NotificationsPanel').then((module) => ({ default: module.NotificationsPanel })));
+const SettingsPanel = lazyPanel(() => import('./SettingsPanel').then((module) => ({ default: module.SettingsPanel })));
+const TrashPanel = lazyPanel(() => import('./TrashPanel').then((module) => ({ default: module.TrashPanel })));
+const JsonEditorPanel = lazyPanel(() => import('./JsonEditorPanel').then((module) => ({ default: module.JsonEditorPanel })));
+const ExtensionsPanel = lazyPanel(() => import('./ExtensionsPanel').then((module) => ({ default: module.ExtensionsPanel })));
+const ProposalsPanel = lazyPanel(() => import('./ProposalsPanel').then((module) => ({ default: module.ProposalsPanel })));
+const SkillEditorPanel = lazyPanel(() => import('./SkillEditorPanel').then((module) => ({ default: module.SkillEditorPanel })));
+const WorkflowsPanel = lazyPanel(() => import('./WorkflowsPanel').then((module) => ({ default: module.WorkflowsPanel })));
+const WorkflowProposalsPanel = lazyPanel(() => import('./WorkflowProposalsPanel').then((module) => ({ default: module.WorkflowProposalsPanel })));
+const SteeringPanel = lazyPanel(() => import('./SteeringPanel').then((module) => ({ default: module.SteeringPanel })));
+const GlossaryPanel = lazyPanel(() => import('./GlossaryPanel').then((module) => ({ default: module.GlossaryPanel })));
+const GlossaryOntologyPanel = lazyPanel(() => import('./GlossaryOntologyPanel').then((module) => ({ default: module.GlossaryOntologyPanel })));
+const GlossaryUnknownPanel = lazyPanel(() => import('./GlossaryUnknownPanel').then((module) => ({ default: module.GlossaryUnknownPanel })));
+const GlossaryAiSuggestionsPanel = lazyPanel(() => import('./GlossaryAiSuggestionsPanel').then((module) => ({ default: module.GlossaryAiSuggestionsPanel })));
+const WorldSetupPanel = lazyPanel(() => import('./WorldSetupPanel').then((module) => ({ default: module.WorldSetupPanel })));
+const GlossaryMergeCandidatesPanel = lazyPanel(() => import('./GlossaryMergeCandidatesPanel').then((module) => ({ default: module.GlossaryMergeCandidatesPanel })));
+const WikiPanel = lazyPanel(() => import('./WikiPanel').then((module) => ({ default: module.WikiPanel })));
+const WikiEditorPanel = lazyPanel(() => import('./WikiEditorPanel').then((module) => ({ default: module.WikiEditorPanel })));
+const KnowledgeHubPanel = lazyPanel(() => import('./KnowledgeHubPanel').then((module) => ({ default: module.KnowledgeHubPanel })));
+const KgOverviewPanel = lazyPanel(() => import('./KgOverviewPanel').then((module) => ({ default: module.KgOverviewPanel })));
+const KgEntitiesPanel = lazyPanel(() => import('./KgEntitiesPanel').then((module) => ({ default: module.KgEntitiesPanel })));
+const KgTimelinePanel = lazyPanel(() => import('./KgTimelinePanel').then((module) => ({ default: module.KgTimelinePanel })));
+const KgEvidencePanel = lazyPanel(() => import('./KgEvidencePanel').then((module) => ({ default: module.KgEvidencePanel })));
+const KgGapReportPanel = lazyPanel(() => import('./KgGapReportPanel').then((module) => ({ default: module.KgGapReportPanel })));
+const KgProposalsPanel = lazyPanel(() => import('./KgProposalsPanel').then((module) => ({ default: module.KgProposalsPanel })));
+const KgSchemaPanel = lazyPanel(() => import('./KgSchemaPanel').then((module) => ({ default: module.KgSchemaPanel })));
+const KgGraphPanel = lazyPanel(() => import('./KgGraphPanel').then((module) => ({ default: module.KgGraphPanel })));
+const KgInsightsPanel = lazyPanel(() => import('./KgInsightsPanel').then((module) => ({ default: module.KgInsightsPanel })));
+const KgJobsPanel = lazyPanel(() => import('./KgJobsPanel').then((module) => ({ default: module.KgJobsPanel })));
+const KgGlobalBioPanel = lazyPanel(() => import('./KgGlobalBioPanel').then((module) => ({ default: module.KgGlobalBioPanel })));
+const KgPrivacyPanel = lazyPanel(() => import('./KgPrivacyPanel').then((module) => ({ default: module.KgPrivacyPanel })));
+const KgTriagePanel = lazyPanel(() => import('./KgTriagePanel').then((module) => ({ default: module.KgTriagePanel })));
+const SearchPanel = lazyPanel(() => import('./SearchPanel').then((module) => ({ default: module.SearchPanel })));
+const JobsListPanel = lazyPanel(() => import('./JobsListPanel').then((module) => ({ default: module.JobsListPanel })));
+const JobDetailPanel = lazyPanel(() => import('./JobDetailPanel').then((module) => ({ default: module.JobDetailPanel })));
+const BooksBrowserPanel = lazyPanel(() => import('./BooksBrowserPanel').then((module) => ({ default: module.BooksBrowserPanel })));
+const BookReaderPanel = lazyPanel(() => import('./BookReaderPanel').then((module) => ({ default: module.BookReaderPanel })));
+const LeaderboardBooksPanel = lazyPanel(() => import('./LeaderboardBooksPanel').then((module) => ({ default: module.LeaderboardBooksPanel })));
+const LeaderboardAuthorsPanel = lazyPanel(() => import('./LeaderboardAuthorsPanel').then((module) => ({ default: module.LeaderboardAuthorsPanel })));
+const LeaderboardTranslatorsPanel = lazyPanel(() => import('./LeaderboardTranslatorsPanel').then((module) => ({ default: module.LeaderboardTranslatorsPanel })));
+const LeaderboardTrendingPanel = lazyPanel(() => import('./LeaderboardTrendingPanel').then((module) => ({ default: module.LeaderboardTrendingPanel })));
+const ChapterBrowserPanel = lazyPanel(() => import('./ChapterBrowserPanel').then((module) => ({ default: module.ChapterBrowserPanel })));
+const SceneBrowserPanel = lazyPanel(() => import('./SceneBrowserPanel').then((module) => ({ default: module.SceneBrowserPanel })));
+const SceneInspectorPanel = lazyPanel(() => import('./SceneInspectorPanel').then((module) => ({ default: module.SceneInspectorPanel })));
+const WhatIfCanvasPanel = lazyPanel(() => import('./WhatIfCanvasPanel').then((module) => ({ default: module.WhatIfCanvasPanel })));
+const DivergencePanel = lazyPanel(() => import('./DivergencePanel').then((module) => ({ default: module.DivergencePanel })));
+const ReferenceShelfPanel = lazyPanel(() => import('./ReferenceShelfPanel').then((module) => ({ default: module.ReferenceShelfPanel })));
+const StyleVoiceStudioPanel = lazyPanel(() => import('./StyleVoiceStudioPanel').then((module) => ({ default: module.StyleVoiceStudioPanel })));
+const CanonViewPanel = lazyPanel(() => import('./CanonViewPanel').then((module) => ({ default: module.CanonViewPanel })));
+const PlanHubPanel = lazyPanel(() => import('./PlanHubPanel').then((module) => ({ default: module.PlanHubPanel })));
+const BookImportPanel = lazyPanel(() => import('./BookImportPanel').then((module) => ({ default: module.BookImportPanel })));
+const ContextInspectorPanel = lazyPanel(() => import('./ContextInspectorPanel').then((module) => ({ default: module.ContextInspectorPanel })));
+const MediaVersionHistoryPanel = lazyPanel(() => import('./MediaVersionHistoryPanel').then((module) => ({ default: module.MediaVersionHistoryPanel })));
+const OriginalSourcePanel = lazyPanel(() => import('./OriginalSourcePanel').then((module) => ({ default: module.OriginalSourcePanel })));
+const SharingPanel = lazyPanel(() => import('./SharingPanel').then((module) => ({ default: module.SharingPanel })));
+const BookSettingsPanel = lazyPanel(() => import('./BookSettingsPanel').then((module) => ({ default: module.BookSettingsPanel })));
+const TranslationPanel = lazyPanel(() => import('./TranslationPanel').then((module) => ({ default: module.TranslationPanel })));
+const TranslationVersionsPanel = lazyPanel(() => import('./TranslationVersionsPanel').then((module) => ({ default: module.TranslationVersionsPanel })));
+const TranslationReviewPanel = lazyPanel(() => import('./TranslationReviewPanel').then((module) => ({ default: module.TranslationReviewPanel })));
+const EnrichmentComposePanel = lazyPanel(() => import('./EnrichmentComposePanel').then((module) => ({ default: module.EnrichmentComposePanel })));
+const EnrichmentProposalsPanel = lazyPanel(() => import('./EnrichmentProposalsPanel').then((module) => ({ default: module.EnrichmentProposalsPanel })));
+const EnrichmentGapsPanel = lazyPanel(() => import('./EnrichmentGapsPanel').then((module) => ({ default: module.EnrichmentGapsPanel })));
+const EnrichmentSourcesPanel = lazyPanel(() => import('./EnrichmentSourcesPanel').then((module) => ({ default: module.EnrichmentSourcesPanel })));
+const EnrichmentJobsPanel = lazyPanel(() => import('./EnrichmentJobsPanel').then((module) => ({ default: module.EnrichmentJobsPanel })));
+const EnrichmentSettingsPanel = lazyPanel(() => import('./EnrichmentSettingsPanel').then((module) => ({ default: module.EnrichmentSettingsPanel })));
+const UserGuidePanel = lazyPanel(() => import('./UserGuidePanel').then((module) => ({ default: module.UserGuidePanel })));
+const AgentModePanel = lazyPanel(() => import('./AgentModePanel').then((module) => ({ default: module.AgentModePanel })));
+const ChapterRevisionComparePanel = lazyPanel(() => import('./ChapterRevisionComparePanel').then((module) => ({ default: module.ChapterRevisionComparePanel })));
+const QualityHubPanel = lazyPanel(() => import('./QualityHubPanel').then((module) => ({ default: module.QualityHubPanel })));
+const QualityPromisesPanel = lazyPanel(() => import('./QualityPromisesPanel').then((module) => ({ default: module.QualityPromisesPanel })));
+const QualityCriticPanel = lazyPanel(() => import('./QualityCriticPanel').then((module) => ({ default: module.QualityCriticPanel })));
+const QualityCoveragePanel = lazyPanel(() => import('./QualityCoveragePanel').then((module) => ({ default: module.QualityCoveragePanel })));
+const QualityCanonPanel = lazyPanel(() => import('./QualityCanonPanel').then((module) => ({ default: module.QualityCanonPanel })));
+const QualityCanonRulesPanel = lazyPanel(() => import('./QualityCanonRulesPanel').then((module) => ({ default: module.QualityCanonRulesPanel })));
+const QualityCorrectionsPanel = lazyPanel(() => import('./QualityCorrectionsPanel').then((module) => ({ default: module.QualityCorrectionsPanel })));
+const QualityHealPanel = lazyPanel(() => import('./QualityHealPanel').then((module) => ({ default: module.QualityHealPanel })));
+const ProgressStudioPanel = lazyPanel(() => import('./ProgressStudioPanel').then((module) => ({ default: module.ProgressStudioPanel })));
+const FlywheelStudioPanel = lazyPanel(() => import('./FlywheelStudioPanel').then((module) => ({ default: module.FlywheelStudioPanel })));
+const WorldMapEditorPanel = lazyPanel(() => import('./WorldMapEditorPanel').then((module) => ({ default: module.WorldMapEditorPanel })));
+const PlaceGraphPanel = lazyPanel(() => import('./PlaceGraphPanel').then((module) => ({ default: module.PlaceGraphPanel })));
+const CastPanel = lazyPanel(() => import('./CastPanel').then((module) => ({ default: module.CastPanel })));
+const CharacterArcPanel = lazyPanel(() => import('./CharacterArcPanel').then((module) => ({ default: module.CharacterArcPanel })));
 
 /** #18 — domain-area grouping for the Command Palette. Required for every non-hidden panel
  *  (enforced at runtime by panelCatalogContract.test.ts — B6, not just a convention). */

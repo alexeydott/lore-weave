@@ -140,7 +140,12 @@ async def build_live_runner(
 
     # ── C10 retrieval (store + embed seam) ──────────────────────────────────────
     store = SourceCorpusStore(pool)
-    embed_query = make_embed_query_fn(kc, user_id=UUID(user_id), meter=meter)
+    # The QUERY embed must use the EMBEDDING model, not ctx.model_ref (the
+    # GENERATION one) — a chat-only generation ref fails the registry's
+    # capability check on every /internal/embed (#user-report 2026-11-10).
+    embed_query = make_embed_query_fn(
+        kc, user_id=UUID(user_id), meter=meter, model_ref=embedding_model_ref,
+    )
     retrieval = RetrievalStrategy(store=store, embed_query=embed_query, top_k=top_k)
 
     # ── C11 generation (real LLM completion seam by model_ref) ──────────────────

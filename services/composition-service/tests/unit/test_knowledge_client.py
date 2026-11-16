@@ -492,3 +492,40 @@ async def test_the_federated_reads_DEGRADE_when_the_gateway_is_unset():
             project_id=PROJECT, at_order=1, glossary_entity_ids=["g1"]) is None
     finally:
         await c.aclose()
+
+
+@respx.mock
+async def test_project_entities_paginates_scoped_browse_past_200():
+    rows = [{"id": f"graph-{i}", "glossary_entity_id": str(uuid.uuid4())}
+            for i in range(201)]
+    offsets = []
+
+    def respond(request):
+        assert request.headers["Authorization"] == "Bearer jwt"
+        assert request.url.params["project_id"] == str(PROJECT)
+        assert request.url.params["limit"] == "200"
+        offset = int(request.url.params["offset"])
+        offsets.append(offset)
+        return httpx.Response(200, json={"entities": rows[offset:offset + 200],
+                                         "total": len(rows)})
+
+    respx.get(f"{BASE}/v1/knowledge/entities").mock(side_effect=respond)
+    c = await _client()
+    try:
+        assert await c.list_project_entities("jwt", project_id=PROJECT) == rows
+    finally:
+        await c.aclose()
+    assert offsets == [0, 200]
+
+
+@respx.mock
+async def test_project_entities_discards_partial_result_on_page_failure():
+    respx.get(f"{BASE}/v1/knowledge/entities").mock(side_effect=[
+        httpx.Response(200, json={"entities": [{"id": "first"}], "total": 2}),
+        httpx.Response(503),
+    ])
+    c = await _client()
+    try:
+        assert await c.list_project_entities("jwt", project_id=PROJECT) == []
+    finally:
+        await c.aclose()

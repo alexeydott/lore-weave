@@ -141,6 +141,10 @@
       "low": "faible",
       "medium": "moyen",
       "high": "élevé"
+    },
+    "evidence": {
+      "regurgitation_overlap": "Chevauchement notable avec le texte source (plus longue séquence commune de {{lcs_chars}} caractères, {{containment_pct}} % de recouvrement en n-grammes) — vérifiez les formulations empruntées.",
+      "regurgitation_verbatim": "Le texte copie largement la source mot pour mot (plus longue séquence commune de {{lcs_chars}} caractères, {{output_fraction_pct}} % du texte) — risque de droit d’auteur ; rejeté automatiquement."
     }
   },
   "prov": {
@@ -151,7 +155,10 @@
     "model": "Modèle",
     "recook_abstracted": "Recuité à partir de faits abstraits — généré à partir de puces de faits neutres, pas de la prose source (②).",
     "grounding": "Sources d'ancrage",
-    "skipped": "Sources ignorées (sans licence)"
+    "skipped": "Sources ignorées (sans licence)",
+    "origin_value": {
+      "enrichment": "Enrichissement par IA"
+    }
   },
   "license": {
     "public_domain": "domaine public",
@@ -170,7 +177,8 @@
     "show_less": "Afficher moins",
     "content": "Lore généré",
     "verify": "Vérification",
-    "provenance": "Provenance et sources"
+    "provenance": "Provenance et sources",
+    "h0_meta": "Variante · {{origin}} · confiance {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "conf {{value}}",
@@ -247,6 +255,36 @@
       "missing": "Dimensions manquantes",
       "rank": "Rang",
       "action": "Action"
+    },
+    "kinds": {
+      "item": "Objet",
+      "character": "Personnage",
+      "location": "Lieu",
+      "event": "Événement",
+      "technique": "Technique",
+      "terminology": "Terminologie",
+      "power_system": "Système de pouvoirs",
+      "trope": "Trope narratif",
+      "species": "Espèce",
+      "organization": "Organisation",
+      "plot_arc": "Arc narratif",
+      "social_setting": "Cadre social"
+    },
+    "dims": {
+      "origin": "Origine",
+      "powers": "Pouvoirs",
+      "appearance": "Apparence",
+      "owner": "Propriétaire",
+      "significance": "Importance",
+      "personality": "Personnalité",
+      "abilities": "Capacités",
+      "relationships": "Relations",
+      "background": "Contexte",
+      "history": "Histoire",
+      "geography": "Géographie",
+      "culture": "Culture",
+      "features": "Caractéristiques",
+      "inhabitants": "Habitants"
     }
   },
   "sources": {
@@ -302,7 +340,8 @@
     "error": {
       "gateLocked": "Verrouillé par la barrière d'évaluation — lancez d'abord l'évaluation d'enrichissement.",
       "internal": "Échec de l'enrichissement (erreur interne). Survolez pour plus de détails.",
-      "insufficientGrounding": "Aucun ancrage de corpus utilisable pour ces entités — collez un contexte de référence ou utilisez Fabrication."
+      "insufficientGrounding": "Aucun ancrage de corpus utilisable pour ces entités — collez un contexte de référence ou utilisez Fabrication.",
+      "providerRateLimited": "Le fournisseur d’embeddings a atteint sa limite de requêtes simultanées. Réessayez dans un instant."
     }
   },
   "settings": {

@@ -26,7 +26,7 @@ const QS =
 
 function renderAt(qs: string) {
   return render(
-    <MemoryRouter initialEntries={[`/oauth/consent${qs}`]}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[`/oauth/consent${qs}`]}>
       <OAuthConsentPage />
     </MemoryRouter>,
   );

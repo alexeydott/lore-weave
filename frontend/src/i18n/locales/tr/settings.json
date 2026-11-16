@@ -244,8 +244,8 @@
       "api_key_ph": "sk-...",
       "api_key_keep_hint": "Mevcut anahtarı korumak için boş bırakın.",
       "max_concurrency": "Maksimum eşzamanlı istek",
-      "max_concurrency_ph": "Sınırsız",
-      "max_concurrency_hint": "Bu sağlayıcının aynı anda çalıştıracağı istek sayısı. Sınırsız için boş bırakın (arka uç karar verir). Yalnızca arka ucunuzun bilinen bir sınırı varsa bir sayı girin (örn. yerel bir GPU).",
+      "max_concurrency_ph": "Varsayılan",
+      "max_concurrency_hint": "Platform varsayılanını kullanmak için boş bırakın. Kendi sınırınızı belirlemek için pozitif bir sayı girin.",
       "cancel": "İptal",
       "saving": "Kaydediliyor...",
       "submit": "Değişiklikleri Kaydet"
@@ -426,8 +426,8 @@
       "key_ph_keep": "Mevcut anahtarı korumak için boş bırakın",
       "key_keep_hint": "Mevcut anahtarı korumak için boş bırakın.",
       "max_concurrency": "Maksimum eşzamanlı istek",
-      "max_concurrency_ph": "Sınırsız",
-      "max_concurrency_hint": "Bu servisin aynı anda kaç istek çalıştıracağı. Sınırsız için boş bırakın (backend karar verir). Yalnızca backend'inizin bilinen bir sınırı varsa bir sayı girin.",
+      "max_concurrency_ph": "Varsayılan",
+      "max_concurrency_hint": "Platform varsayılanını kullanmak için boş bırakın. Kendi sınırınızı belirlemek için pozitif bir sayı girin.",
       "cancel": "İptal",
       "submit": "Kaydet",
       "saving": "Kaydediliyor..."

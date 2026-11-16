@@ -45,7 +45,8 @@ Boundaries (locked — docs/raid/cycle_briefs/17_strategy-recook.md):
     re-cook corpus is a curated, license-tagged input set.
   * NO model-name string — the model is resolved via provider-registry by
     ``context.model_ref`` (the injected ``CompleteFn`` seam, like C11/C16).
-  * Output language = Chinese (源文一致, 封神演义 tone). The C12 anachronism check
+  * Output language follows the per-book profile; zh keeps the Fengshen wording.
+    The C12 anachronism check
     runs on the re-cooked content — re-contextualising MODERN material into 商周
     is precisely where an anachronism would surface, and it is FLAGGED.
 """
@@ -58,7 +59,7 @@ from typing import Awaitable, Callable, Sequence
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.db.book_profile import NEUTRAL_PROFILE, BookProfile
-from app.gaps.model import Gap, is_zh, kind_label_for
+from app.gaps.model import Gap, is_zh, kind_label_for, language_name_for
 from app.generation.provenance import (
     GENERATION_CONFIDENCE,
     EnrichedFact,
@@ -255,7 +256,7 @@ def build_recook_prompt(
 
     keys_csv = ", ".join(dims)
     wv = worldview or "this work"
-    lang_name = profile.language if profile.language not in ("", "auto") else "the book's language"
+    lang_name = language_name_for(profile.language) or "the book's language"
     voice = (profile.voice or "").strip()
     voice_clause = f" ({voice})" if voice else ""
     era_clause = (f"2. Re-cast it into the era: {era}; drop anachronisms from the source;\n"
@@ -270,7 +271,7 @@ def build_recook_prompt(
         f"1. Use the material below as the blueprint, adapted to fit {wv};\n"
         f"{era_clause}"
         f"3. Stay consistent with {wv}; do not contradict it;\n"
-        f"4. Write in {lang_name}{voice_clause};\n"
+        f"4. Write ALL dimension content in {lang_name}{voice_clause}; the JSON keys are labels, not the required content language;\n"
         f"5. Output ONLY a single JSON object keyed by the dimension names, no commentary.\n\n"
         f"Reference facts (to re-contextualise):\n{material}\n\n"
         f"Output JSON: {{{json_skeleton}}}"
@@ -439,7 +440,11 @@ class ReCookStrategy(EnrichmentStrategy):
         raw = await self._complete(prompt, context)
 
         try:
-            repaired, _report = repair_generation(raw, expected_keys=expected_keys)
+            # CJK gate = Chinese-content contract only (see fabrication, same fix).
+            repaired, _report = repair_generation(
+                raw, expected_keys=expected_keys,
+                chinese_dimensions=expected_keys if is_zh(context.profile.language) else set(),
+            )
         except RepairError as exc:
             raise ReCookError(
                 f"re-cook for {proposal.canonical_name!r} unrepairable: {exc}"

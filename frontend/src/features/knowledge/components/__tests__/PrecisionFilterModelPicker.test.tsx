@@ -69,7 +69,7 @@ describe('PrecisionFilterModelPicker (D-WX-PRECISION-FILTER-MODEL-ARCH)', () => 
     listUserModelsMock.mockResolvedValue({ items: [CHAT_MODEL] });
     const onChange = vi.fn();
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <PrecisionFilterModelPicker value={null} onChange={onChange} />
       </MemoryRouter>,
     );
@@ -87,7 +87,7 @@ describe('PrecisionFilterModelPicker (D-WX-PRECISION-FILTER-MODEL-ARCH)', () => 
     listUserModelsMock.mockResolvedValue({ items: [CHAT_MODEL] });
     const onChange = vi.fn();
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <PrecisionFilterModelPicker value="fm1" onChange={onChange} />
       </MemoryRouter>,
     );
@@ -99,7 +99,7 @@ describe('PrecisionFilterModelPicker (D-WX-PRECISION-FILTER-MODEL-ARCH)', () => 
   it('renders an orphan row when the saved model left the registry', async () => {
     listUserModelsMock.mockResolvedValue({ items: [] });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <PrecisionFilterModelPicker value="gone-uuid" onChange={vi.fn()} />
       </MemoryRouter>,
     );

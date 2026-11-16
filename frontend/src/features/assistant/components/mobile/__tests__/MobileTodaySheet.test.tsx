@@ -27,7 +27,7 @@ const base: MobileTodaySheetProps = {
 
 function renderOpen(props: MobileTodaySheetProps) {
   return render(
-    <MemoryRouter initialEntries={['/assistant?sheet=today']}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/assistant?sheet=today']}>
       <MobileTodaySheet {...props} />
     </MemoryRouter>,
   );

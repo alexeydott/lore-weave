@@ -141,6 +141,10 @@
       "low": "niedrig",
       "medium": "mittel",
       "high": "hoch"
+    },
+    "evidence": {
+      "regurgitation_overlap": "Deutliche Überschneidung mit dem Quelltext (längste gemeinsame Folge {{lcs_chars}} Zeichen, {{containment_pct}} % N-Gramm-Abdeckung) — Formulierungen auf übernommenen Wortlaut prüfen.",
+      "regurgitation_verbatim": "Der Text übernimmt die Quelle wortwörtlich in großem Umfang (längste gemeinsame Folge {{lcs_chars}} Zeichen, {{output_fraction_pct}} % des Textes) — Urheberrechtsrisiko; automatisch abgelehnt."
     }
   },
   "prov": {
@@ -151,7 +155,10 @@
     "model": "Modell",
     "recook_abstracted": "Neu erstellt aus abstrahierten Fakten – generiert aus neutralen Fakten-Bullets, nicht aus Quellprosa (②).",
     "grounding": "Grounding-Quellen",
-    "skipped": "Übersprungene (unlizenzierte) Quellen"
+    "skipped": "Übersprungene (unlizenzierte) Quellen",
+    "origin_value": {
+      "enrichment": "KI-Anreicherung"
+    }
   },
   "license": {
     "public_domain": "Gemeinfrei",
@@ -170,7 +177,8 @@
     "show_less": "Weniger anzeigen",
     "content": "Generierte Lore",
     "verify": "Verifizierung",
-    "provenance": "Provenienz & Quellen"
+    "provenance": "Provenienz & Quellen",
+    "h0_meta": "Variante · {{origin}} · Konfidenz {{confidence}} · {{review}}"
   },
   "card": {
     "confidence": "conf {{value}}",
@@ -247,6 +255,36 @@
       "missing": "Fehlende Dimensionen",
       "rank": "Rang",
       "action": "Aktion"
+    },
+    "kinds": {
+      "item": "Gegenstand",
+      "character": "Figur",
+      "location": "Ort",
+      "event": "Ereignis",
+      "technique": "Technik",
+      "terminology": "Terminologie",
+      "power_system": "Kraftsystem",
+      "trope": "Erzählmuster",
+      "species": "Spezies",
+      "organization": "Organisation",
+      "plot_arc": "Handlungsbogen",
+      "social_setting": "Gesellschaftliches Umfeld"
+    },
+    "dims": {
+      "origin": "Ursprung",
+      "powers": "Kräfte",
+      "appearance": "Erscheinungsbild",
+      "owner": "Besitzer",
+      "significance": "Bedeutung",
+      "personality": "Persönlichkeit",
+      "abilities": "Fähigkeiten",
+      "relationships": "Beziehungen",
+      "background": "Hintergrund",
+      "history": "Geschichte",
+      "geography": "Geographie",
+      "culture": "Kultur",
+      "features": "Merkmale",
+      "inhabitants": "Bewohner"
     }
   },
   "sources": {
@@ -302,7 +340,8 @@
     "error": {
       "gateLocked": "Durch das Eval-Gate gesperrt – führen Sie zuerst die Enrichment-Evaluation aus.",
       "internal": "Enrichment fehlgeschlagen (interner Fehler). Für Details mit der Maus darüberfahren.",
-      "insufficientGrounding": "Keine nutzbare Korpus-Grundlage für diese Entitäten – fügen Sie Referenzkontext ein oder nutzen Sie Fabrication."
+      "insufficientGrounding": "Keine nutzbare Korpus-Grundlage für diese Entitäten – fügen Sie Referenzkontext ein oder nutzen Sie Fabrication.",
+      "providerRateLimited": "Der Embedding-Anbieter hat sein Limit gleichzeitiger Anfragen erreicht. Bitte versuchen Sie es gleich erneut."
     }
   },
   "settings": {

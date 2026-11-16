@@ -60,3 +60,20 @@ describe('ArcSuggestView (O6b)', () => {
     expect(screen.queryByTestId('arc-suggest-run')).toBeNull();
   });
 });
+
+it('renders structured reasons in separate spaces without fallback percentages', async () => {
+  apiJson.mockResolvedValue({ candidates: [
+    { arc_template: { id: 'mine', name: 'Mine', mine: true, genre_tags: [], chapter_span: null }, score: .2, match_reason: { section: 'mine', degraded: true, degradation_reason: 'embed_failed' } },
+    { arc_template: { id: 'library', name: 'Library', mine: false, genre_tags: [], chapter_span: null }, score: .8, match_reason: { section: 'library', cosine: .8 } },
+  ] });
+  render(<ArcSuggestView projectId="p" token="t" />, { wrapper: wrap() });
+  fireEvent.click(screen.getByTestId('arc-suggest-run'));
+  const mine = await screen.findByTestId('arc-suggest-section-mine');
+  expect(mine).toHaveTextContent('Mine');
+  expect(mine).not.toHaveTextContent('Library');
+  expect(mine).not.toHaveTextContent('20%');
+  expect(mine).toHaveTextContent('motif.suggest.providerUnavailable');
+  expect(mine).not.toHaveTextContent('degradedMine');
+  expect(screen.getByTestId('arc-suggest-section-library')).toHaveTextContent('80%');
+  expect(screen.getByTestId('arc-suggest-section-library')).toHaveTextContent('motif.suggest.semanticMatch');
+});

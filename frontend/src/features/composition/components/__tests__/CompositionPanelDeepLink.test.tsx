@@ -74,7 +74,7 @@ function renderAt(entries: string[]) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={entries}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={entries}>
         <CompositionPanel bookId="b" chapterId="c" token="tok" onAccept={vi.fn()} />
       </MemoryRouter>
     </QueryClientProvider>,

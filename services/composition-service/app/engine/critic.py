@@ -408,6 +408,20 @@ async def verify_violations(
     return kept, dropped
 
 
+def judge_failure_reason(error: Any) -> str:
+    """Classify only operational evidence; never expose provider messages as UI keys."""
+    code = getattr(error, "code", "")
+    message = getattr(error, "message", "") or str(error or "")
+    evidence = f"{code} {message}".casefold()
+    if any(term in evidence for term in (
+        "context_length", "context window", "context limit", "context_length_exceeded",
+        "maximum context", "too many tokens", "context overflow")):
+        return "context_limit"
+    if any(term in evidence for term in ("timeout", "timed out", "connect", "network", "unreachable")):
+        return "network"
+    return "unavailable"
+
+
 async def judge_prose(
     judge: LLMClient, *, user_id: str, model_source: str, model_ref: str,
     passage: str, active_rules: list[dict[str, Any]], present_facts: list[str],
@@ -446,13 +460,23 @@ async def judge_prose(
     except LLMError as exc:
         logger.warning("judge_prose degraded (LLM error): %s", exc)
         return {**{d: None for d in _DIMENSIONS}, "violations": [], "active_rule_count": len(active_rules),
-                "present_fact_count": len(present_facts), "error": "critic_unavailable"}
+                "present_fact_count": len(present_facts), "error": f"critic_{judge_failure_reason(exc)}"}
     if job.status != "completed":
         logger.info("judge_prose job status=%s → degraded", job.status)
         return {**{d: None for d in _DIMENSIONS}, "violations": [], "active_rule_count": len(active_rules),
-                "present_fact_count": len(present_facts), "error": f"critic_{job.status}"}
+                "present_fact_count": len(present_facts), "error": f"critic_{judge_failure_reason(getattr(job, "error", None))}" if job.status == "failed" else f"critic_{job.status}"}
     content = extract_judge_content(job.result)
-    crit = normalize_critique(parse_critique_json(content))
+    parsed = parse_critique_json(content)
+    reason = None
+    if getattr(job, "finish_reason", None) == "length":
+        reason = "truncated" if content.strip() else "reasoning_exhausted"
+    elif not isinstance(parsed, dict) or not any(_coerce_score(parsed.get(d)) is not None for d in _DIMENSIONS):
+        reason = "invalid_response"
+    if reason:
+        return {**{d: None for d in _DIMENSIONS}, "violations": [],
+                "active_rule_count": len(active_rules), "present_fact_count": len(present_facts),
+                "error": f"critic_{reason}"}
+    crit = normalize_critique(parsed)
     # Attribute the verdicts before anyone sees them. Done here rather than inside
     # `normalize_critique` so that function stays a pure shape-normaliser with no knowledge of
     # which rules were sent — the mapping needs the request, not just the response.

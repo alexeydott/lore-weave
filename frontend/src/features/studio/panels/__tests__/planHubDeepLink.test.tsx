@@ -11,7 +11,14 @@
 // node's CHAPTER (what that panel can actually resolve); threads deep-link by the thread id (which
 // IS what the promises panel lists).
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as renderView, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
+
+function render(view: ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return renderView(<QueryClientProvider client={client}>{view}</QueryClientProvider>);
+}
 import { ThreadsPanel } from '@/features/composition/components/ThreadsPanel';
 
 const threadsHook = vi.hoisted(() => ({ useNarrativeThreads: vi.fn() }));

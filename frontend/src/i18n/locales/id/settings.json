@@ -244,8 +244,8 @@
       "api_key_ph": "sk-...",
       "api_key_keep_hint": "Kosongkan untuk tetap menggunakan kunci yang sudah ada.",
       "max_concurrency": "Maksimal permintaan konkuren",
-      "max_concurrency_ph": "Tanpa batas",
-      "max_concurrency_hint": "Berapa banyak permintaan yang dijalankan penyedia ini secara bersamaan. Kosongkan untuk tanpa batas (backend yang menentukan). Isi angka hanya jika backend Anda memiliki batas tertentu (misal: GPU lokal).",
+      "max_concurrency_ph": "Bawaan",
+      "max_concurrency_hint": "Kosongkan untuk memakai batas bawaan platform. Masukkan angka positif untuk menetapkan batas sendiri.",
       "cancel": "Batal",
       "saving": "Menyimpan...",
       "submit": "Simpan Perubahan"
@@ -426,8 +426,8 @@
       "key_ph_keep": "Kosongkan untuk tetap menggunakan kunci saat ini",
       "key_keep_hint": "Kosongkan untuk tetap menggunakan kunci yang sudah ada.",
       "max_concurrency": "Maksimal permintaan konkuren",
-      "max_concurrency_ph": "Tanpa batas",
-      "max_concurrency_hint": "Berapa banyak permintaan yang dijalankan layanan ini secara bersamaan. Kosongkan untuk tanpa batas (backend yang menentukan). Isi angka hanya jika backend Anda memiliki batasan tertentu.",
+      "max_concurrency_ph": "Bawaan",
+      "max_concurrency_hint": "Kosongkan untuk memakai batas bawaan platform. Masukkan angka positif untuk menetapkan batas sendiri.",
       "cancel": "Batal",
       "submit": "Simpan",
       "saving": "Menyimpan..."

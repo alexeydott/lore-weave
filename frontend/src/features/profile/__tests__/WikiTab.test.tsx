@@ -18,7 +18,7 @@ const mk = (over = {}) => ({
 });
 
 const renderTab = (isSelf: boolean) =>
-  render(<MemoryRouter><WikiTab userId="u1" isSelf={isSelf} /></MemoryRouter>);
+  render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><WikiTab userId="u1" isSelf={isSelf} /></MemoryRouter>);
 
 beforeEach(() => fetchWikiContributions.mockReset());
 

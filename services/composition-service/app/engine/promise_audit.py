@@ -31,13 +31,18 @@ from loreweave_llm.errors import LLMError
 
 from app.clients.eval_client import extract_judge_content
 from app.clients.llm_client import LLMClient
-from app.engine.critic import parse_critique_json
+from app.engine.critic import parse_critique_json, judge_failure_reason
 from app.llm_budget import unusable, max_tokens_for
 
 logger = logging.getLogger(__name__)
 
 
-def build_audit_messages(arc_text: str, source_language: str) -> tuple[str, str]:
+# Chapter Quality is an advisory selection, not the exhaustive book-level eval.
+_QUALITY_MAX_PROMISES = 12
+_QUALITY_MAX_PHRASE_CHARS = 80
+
+
+def build_audit_messages(arc_text: str, source_language: str, *, bounded: bool = False) -> tuple[str, str]:
     """(system, user). Abstract + source-language-aware (no English-only
     illustrative phrases — the CJK-bias lesson)."""
     lang = "" if source_language in ("", "auto") else (
@@ -55,6 +60,30 @@ def build_audit_messages(arc_text: str, source_language: str) -> tuple[str, str]
         '{"introduced": [str, ...], "resolved": [str, ...], "dropped": [str, ...]}, '
         "each entry a short phrase naming the promise." + lang
     )
+    if bounded:
+        system = (
+            "You audit a chapter or excerpt for NARRATIVE PROMISES: setups that "
+            "create an expectation of a later payoff, such as open questions, goals, "
+            "threats, mysteries, or unresolved conflicts. This is not a complete story. "
+            "List key promises INTRODUCED in this excerpt and those RESOLVED within it. "
+            "Leave still-open promises unclassified; an unresolved promise at a chapter "
+            "boundary is not dropped. Use DROPPED only for an explicitly abandoned "
+            "promise supported by this excerpt, never merely for a missing payoff. "
+            "Each list must contain unique phrases. Resolved and dropped must be "
+            "disjoint subsets of introduced. Judge only from the provided text. "
+            "Return ONLY a JSON object "
+            '{"introduced": [str, ...], "resolved": [str, ...], "dropped": [str, ...]}, '
+            "each entry a short phrase naming the promise." + lang
+        )
+        system += (
+            f" Select at most {_QUALITY_MAX_PROMISES} distinct key promises total; "
+            "merge related setups and omit minor details. Classify only this selected set. "
+            f"Each phrase must be at most {_QUALITY_MAX_PHRASE_CHARS} characters, "
+            "not an explanation, quotation, or scene recap. Reuse the exact introduced "
+            "phrase in resolved or dropped; do not add new promises there. "
+            "This is a bounded selection, not an exhaustive inventory. "
+            "Do not enumerate candidates or explain decisions; emit compact JSON directly."
+        )
     user = f"STORY:\n{arc_text}"
     return system, user
 
@@ -90,7 +119,12 @@ def _shape(introduced: list[str], resolved: list[str], dropped: list[str],
 def _parse_audit(content: str) -> dict[str, Any]:
     """Tolerant parse → the audit shape. A garbled audit yields empty lists
     (→ rate 0.0), never a crash."""
-    obj = parse_critique_json(content) or {}
+    obj = parse_critique_json(content)
+    if not isinstance(obj, dict) or any(
+        not isinstance(obj.get(k), list) or any(not isinstance(v, str) for v in obj[k])
+        for k in ("introduced", "resolved", "dropped")
+    ):
+        return _shape([], [], [], error="audit_invalid_response")
     return _shape(
         _str_list(obj.get("introduced")),
         _str_list(obj.get("resolved")),
@@ -103,6 +137,7 @@ async def audit_promises(
     arc_text: str, source_language: str = "auto",
     max_tokens: int | None = None, trace_id: str | None = None,
     cancel_check: Callable[[], Awaitable[bool]] | None = None,
+    bounded: bool = False,
 ) -> dict[str, Any]:
     """Audit one arc's promises. On any LLM/parse failure returns empty lists +
     `error` (never raises — an eval that errors must not fabricate a count)."""
@@ -114,7 +149,8 @@ async def audit_promises(
     # paying down. Sentinel rather than an import-time default so a caller that DOES know
     # (a harness sizing a run) can still reach the seam.
     max_tokens = max_tokens or max_tokens_for("audit_promises")
-    system, user = build_audit_messages(arc_text, source_language)
+    system, user = build_audit_messages(arc_text, source_language, bounded=bounded)
+    schema = _QUALITY_AUDIT_SCHEMA if bounded else _AUDIT_SCHEMA
     try:
         job = await llm.submit_and_wait(
             user_id=user_id, operation="chat", model_source=model_source, model_ref=model_ref,
@@ -123,7 +159,7 @@ async def audit_promises(
                              {"role": "user", "content": user}],
                 "response_format": {
                     "type": "json_schema",
-                    "json_schema": {"name": "promise_audit", "schema": _AUDIT_SCHEMA},
+                    "json_schema": {"name": "promise_audit", "schema": schema},
                 },
                 "temperature": 0.0,
                 "max_tokens": max_tokens, **no_thinking_fields(),
@@ -133,10 +169,30 @@ async def audit_promises(
         )
     except LLMError as exc:
         logger.warning("promise_audit LLM error: %s", exc)
-        return _shape([], [], [], error="audit_unavailable")
+        return _shape([], [], [], error=f"audit_{judge_failure_reason(exc)}")
+    if getattr(job, "status", None) == "failed":
+        return _shape([], [], [], error=f"audit_{judge_failure_reason(getattr(job, 'error', None))}")
+    if getattr(job, "finish_reason", None) == "length" and not extract_judge_content(job.result).strip():
+        return _shape([], [], [], error="audit_reasoning_exhausted")
     if (why := unusable(job, "audit_promises")):
         return _shape([], [], [], error=f"audit_{why}")
-    return _parse_audit(extract_judge_content(job.result))
+    audit = _parse_audit(extract_judge_content(job.result))
+    if bounded and not audit.get("error"):
+        # Providers may ignore schema constraints. Reject, never silently slice counts.
+        if any(len(audit[key]) > _QUALITY_MAX_PROMISES or any(
+            len(phrase) > _QUALITY_MAX_PHRASE_CHARS for phrase in audit[key]
+        ) for key in ("introduced", "resolved", "dropped")):
+            return _shape([], [], [], error="audit_invalid_response")
+        introduced, resolved, dropped = (set(audit[key]) for key in
+                                         ("introduced", "resolved", "dropped"))
+        if (any(len(set(audit[key])) != len(audit[key])
+                for key in ("introduced", "resolved", "dropped"))
+                or not resolved <= introduced or not dropped <= introduced
+                or resolved & dropped):
+            return _shape([], [], [], error="audit_invalid_response")
+        audit["selection"] = {"exhaustive": False, "max_promises": _QUALITY_MAX_PROMISES,
+                              "max_phrase_chars": _QUALITY_MAX_PHRASE_CHARS}
+    return audit
 
 
 # ── EVAL v2 — fixed-promise-set coverage (FD-8 follow-up) ─────────────────────
@@ -156,21 +212,18 @@ _VERDICTS = ("paid", "progressing", "abandoned", "absent")
 #: it reports a DIFFERENT number, and the whole point of an audit is that its counts are trustworthy.
 _AUDIT_SCHEMA: dict = {
     "type": "object",
-    "properties": {
-        "promises": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "text": {"type": "string"},
-                    "verdict": {"type": "string", "enum": list(_VERDICTS)},
-                },
-                "required": ["text", "verdict"],
-                "additionalProperties": True,
-            },
-        },
-    },
-    "required": ["promises"],
+    "properties": {key: {"type": "array", "items": {"type": "string"}}
+                   for key in ("introduced", "resolved", "dropped")},
+    "required": ["introduced", "resolved", "dropped"],
+    "additionalProperties": False,
+}
+
+
+_QUALITY_AUDIT_SCHEMA: dict = {
+    **_AUDIT_SCHEMA,
+    "properties": {key: {"type": "array", "maxItems": _QUALITY_MAX_PROMISES,
+                         "items": {"type": "string", "maxLength": _QUALITY_MAX_PHRASE_CHARS}}
+                   for key in ("introduced", "resolved", "dropped")},
 }
 
 

@@ -106,6 +106,16 @@ describe('BookPromiseCoverageSection', () => {
     expect(screen.getByTestId('coverage-body').textContent).toContain('coverageClean');
   });
 
+  it('explains missing chapter drafts without publishing clean coverage', () => {
+    state.value = base({ ran: true, coverage: {
+      ...full, error: 'coverage_unavailable', failed_chapters: 1,
+    } });
+    render_();
+    expect(screen.getByTestId('coverage-na').textContent).toContain('coverageCorpusIncomplete');
+    expect(screen.queryByTestId('coverage-body')).toBeNull();
+    expect(screen.queryByTestId('coverage-counts')).toBeNull();
+  });
+
   it('degrades gracefully when coverage is unavailable', () => {
     state.value = base({ ran: true, coverage: { ...full, error: 'coverage_error' } });
     render_();

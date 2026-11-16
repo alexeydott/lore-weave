@@ -37,7 +37,7 @@ function captureHost(sink: { host: StudioHost | null }) {
 describe('AddModelCta (C0)', () => {
   it('deep-links to /settings/providers carrying an explicit returnTo', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AddModelCta returnTo="/knowledge/projects/abc/build" capability="embedding" />
       </MemoryRouter>,
     );
@@ -48,7 +48,7 @@ describe('AddModelCta (C0)', () => {
 
   it('defaults returnTo to the current location (path + query) when not given', () => {
     render(
-      <MemoryRouter initialEntries={['/compose?work=42']}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/compose?work=42']}>
         <AddModelCta />
       </MemoryRouter>,
     );
@@ -57,7 +57,7 @@ describe('AddModelCta (C0)', () => {
 
   it('renders the capability in the default label', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AddModelCta capability="chat" />
       </MemoryRouter>,
     );
@@ -71,7 +71,7 @@ describe('AddModelCta — DOCK-7 (X-1)', () => {
     const Capture = captureHost(sink);
     const addPanel = vi.fn();
     render(
-      <MemoryRouter initialEntries={['/books/b1/studio']}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/books/b1/studio']}>
         <StudioHostProvider bookId="b1">
           <Capture />
           <LocationProbe />

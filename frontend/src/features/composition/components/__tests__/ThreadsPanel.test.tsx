@@ -1,4 +1,11 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render as renderView, screen, fireEvent } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
+
+function render(view: ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return renderView(<QueryClientProvider client={client}>{view}</QueryClientProvider>);
+}
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThreadsPanel } from '../ThreadsPanel';
 import type { NarrativeThread } from '../../types';

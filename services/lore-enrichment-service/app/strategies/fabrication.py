@@ -44,7 +44,7 @@ Boundaries (locked — docs/raid/cycle_briefs/16_strategy-fabrication.md):
     test greps this module for any literal model id.
   * NO new write-back / proposal store / KG writer (C13 owns that). NO recook
     (C17). NO history/news/licensing (that is C17).
-  * Output language = Chinese (源文一致, 封神演义 tone).
+  * Output language follows the per-book profile; zh keeps the Fengshen wording.
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ from typing import Awaitable, Callable, Sequence
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.db.book_profile import NEUTRAL_PROFILE, BookProfile
-from app.gaps.model import Gap, is_zh, kind_label_for
+from app.gaps.model import Gap, is_zh, kind_label_for, language_name_for
 from app.generation.provenance import (
     GENERATION_CONFIDENCE,
     EnrichedFact,
@@ -228,7 +228,7 @@ def build_fabrication_prompt(
         )
 
     keys_csv = ", ".join(dims)
-    lang_name = profile.language if profile.language not in ("", "auto") else "the book's language"
+    lang_name = language_name_for(profile.language) or "the book's language"
     setting = f"deeply versed in this work's setting ({worldview})" if worldview else "a worldbuilder"
     voice = (profile.voice or "").strip()
     voice_clause = f" ({voice})" if voice else ""
@@ -241,7 +241,7 @@ def build_fabrication_prompt(
         f"This is GROUNDED extrapolation, not free invention. Rules:\n"
         f"1. Stay consistent with the grounding + KG facts below; never contradict them;\n"
         f"2. Extend only plausibly beyond that evidence.{era_clause}\n"
-        f"3. Write in {lang_name}{voice_clause};\n"
+        f"3. Write ALL dimension content in {lang_name}{voice_clause}; the JSON keys are labels, not the required content language;\n"
         f"4. Output ONLY a single JSON object keyed by the dimension names, no commentary.\n\n"
         f"Evidence:\n{grounding}\n\n"
         f"Knowledge-graph context:\n{neighbor}\n\n"
@@ -366,7 +366,13 @@ class FabricationStrategy(EnrichmentStrategy):
         raw = await self._complete(prompt, context)
 
         try:
-            repaired, _report = repair_generation(raw, expected_keys=expected_keys)
+            # The CJK-leakage gate is a CHINESE-content contract (#user-report
+            # 2026-11-10): applying it to a non-zh book rejects faithful Russian/
+            # English output as "low-CJK". Only a zh book requires Chinese content.
+            repaired, _report = repair_generation(
+                raw, expected_keys=expected_keys,
+                chinese_dimensions=expected_keys if is_zh(context.profile.language) else set(),
+            )
         except RepairError as exc:
             raise FabricationError(
                 f"fabrication for {proposal.canonical_name!r} unrepairable: {exc}"

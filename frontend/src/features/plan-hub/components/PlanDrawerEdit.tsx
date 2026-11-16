@@ -5,6 +5,7 @@
 //
 // Every write is OCC'd on the node `version` (If-Match) and settles by RELOADING — a 412 means
 // someone else moved the row, and we say so rather than clobbering them.
+import { useTranslation } from 'react-i18next';
 import { useEffect, useRef, useState } from 'react';
 
 import { cn } from '@/lib/utils';
@@ -103,6 +104,7 @@ function CommitField({
       {multiline ? (
         <textarea
           data-testid={testid}
+          aria-label={label}
           className={cn(cls, 'min-h-[3rem] resize-y')}
           value={draft}
           disabled={disabled}
@@ -112,6 +114,7 @@ function CommitField({
       ) : (
         <input
           data-testid={testid}
+          aria-label={label}
           type={numeric ? 'number' : 'text'}
           min={numeric ? 0 : undefined}
           max={numeric ? 100 : undefined}
@@ -144,14 +147,15 @@ export function PlanDrawerEdit({
   // it pointed at is gone. We can only tell them apart by whether the node ever HAD an anchor, which
   // the row does not record — so we state what we know (no anchor) and offer the fix (⚓ re-anchor),
   // rather than guessing which story to tell.
+  const { t } = useTranslation('studio');
   const anchored = !!node.chapter_id;
 
   return (
     <div data-testid="plan-drawer-edit" className="space-y-2 border-b p-3">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/70">Edit</h3>
+      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/70">{t('planPasses.edit')}</h3>
 
       <CommitField
-        label="Title"
+        label={t('panels.scene-inspector.f.title')}
         testid="plan-drawer-edit-title"
         value={node.title ?? ''}
         disabled={saving}
@@ -160,10 +164,11 @@ export function PlanDrawerEdit({
 
       <div>
         <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          Status
+          {t('panels.scene-inspector.f.status')}
         </div>
         <select
           data-testid="plan-drawer-edit-status"
+          aria-label={t('panels.scene-inspector.f.status')}
           className="w-full rounded border bg-background px-1.5 py-1 text-xs disabled:opacity-50"
           value={node.status}
           disabled={saving}
@@ -171,13 +176,13 @@ export function PlanDrawerEdit({
         >
           {NODE_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {s}
+              {t(`planHub.flow.status.${s}`)}
             </option>
           ))}
-          {/* A status the server has but this build doesn't know about renders as ITSELF rather than
+          {/* An unfamiliar status keeps its machine value with a localized label rather than
               silently snapping the select to the first option (which would then WRITE that value). */}
           {!NODE_STATUSES.includes(node.status as NodeStatusValue) && (
-            <option value={node.status}>{node.status} (unknown)</option>
+            <option value={node.status}>{t('planHub.drawer.unknown')}</option>
           )}
         </select>
       </div>
@@ -187,7 +192,7 @@ export function PlanDrawerEdit({
           412'd and blamed a phantom collaborator for your own keystroke. (The row's fresh version is
           now also seeded into the cache on success, which closes the same window for the selects.) */}
       <CommitField
-        label="Tension (0–100)"
+        label={t('panels.scene-inspector.f.tension')}
         testid="plan-drawer-edit-tension"
         value={node.tension == null ? '' : String(node.tension)}
         disabled={saving}
@@ -204,7 +209,7 @@ export function PlanDrawerEdit({
       />
 
       <CommitField
-        label="Goal"
+        label={t('panels.scene-inspector.f.goal')}
         testid="plan-drawer-edit-goal"
         value={node.goal ?? ''}
         multiline
@@ -213,7 +218,7 @@ export function PlanDrawerEdit({
       />
 
       <CommitField
-        label="Synopsis"
+        label={t('panels.scene-inspector.f.synopsis')}
         testid="plan-drawer-edit-synopsis"
         value={node.synopsis ?? ''}
         multiline
@@ -224,36 +229,37 @@ export function PlanDrawerEdit({
       {/* ⚓ ANCHOR (BPS-13) — which manuscript chapter this spec node is bound to. */}
       <div>
         <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          ⚓ Anchor
+          {t('planHub.drawer.anchor')}
         </div>
         <select
           data-testid="plan-drawer-edit-anchor"
+          aria-label={t('planHub.drawer.anchor')}
           className="w-full rounded border bg-background px-1.5 py-1 text-xs disabled:opacity-50"
           value={node.chapter_id ?? ''}
           disabled={saving || chaptersError}
           onChange={(e) => onEdit({ chapter_id: e.target.value || null })}
         >
-          <option value="">— not anchored —</option>
+          <option value="">{t('planHub.drawer.notAnchored')}</option>
           {/* The node's CURRENT anchor, even if the spine didn't come back / doesn't contain it.
               Without this the select would silently fall back to "— not anchored —" and misreport a
               perfectly-anchored node as un-anchored. */}
           {node.chapter_id && !chapters.some((c) => c.chapter_id === node.chapter_id) && (
-            <option value={node.chapter_id}>(current anchor)</option>
+            <option value={node.chapter_id}>{t('planHub.drawer.currentAnchor')}</option>
           )}
           {chapters.map((c) => (
             <option key={c.chapter_id} value={c.chapter_id}>
-              {c.sort_order}. {c.title || 'Untitled'}
+              {c.sort_order}. {c.title || t('planHub.node.untitled')}
             </option>
           ))}
         </select>
         {chaptersError && (
           <p data-testid="plan-drawer-anchor-error" className="mt-0.5 text-[11px] text-destructive">
-            The chapter list could not be read — re-anchoring is unavailable.
+            {t('planHub.drawer.anchorError')}
           </p>
         )}
         {!anchored && !chaptersError && (
           <p data-testid="plan-drawer-no-anchor" className="mt-0.5 text-[11px] text-amber-600">
-            This node points at no manuscript chapter — pick one above to anchor it.
+            {t('planHub.drawer.noAnchor')}
           </p>
         )}
       </div>
@@ -264,11 +270,11 @@ export function PlanDrawerEdit({
           type="button"
           data-testid="plan-drawer-open-editor"
           disabled={!anchored}
-          title={anchored ? undefined : 'Anchor this node to a chapter first'}
+          title={anchored ? undefined : t('planHub.drawer.anchorFirst')}
           onClick={() => node.chapter_id && onOpenInEditor(node.chapter_id)}
           className="rounded border px-2 py-1 text-xs font-medium hover:bg-accent disabled:opacity-40"
         >
-          Open in Editor
+          {t('planHub.drawer.openEditor')}
         </button>
 
         {node.is_archived ? (
@@ -279,7 +285,7 @@ export function PlanDrawerEdit({
             onClick={onRestore}
             className="rounded border px-2 py-1 text-xs hover:bg-accent disabled:opacity-50"
           >
-            Restore
+            {t('planner.list.restore')}
           </button>
         ) : (
           <button
@@ -289,7 +295,7 @@ export function PlanDrawerEdit({
             onClick={onArchive}
             className="rounded border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10 disabled:opacity-50"
           >
-            Archive
+            {t('planner.list.archive')}
           </button>
         )}
       </div>

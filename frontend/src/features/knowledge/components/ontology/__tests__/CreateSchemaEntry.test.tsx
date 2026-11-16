@@ -28,7 +28,7 @@ describe('CreateSchemaEntry — adopt CTA (DOCK-7 fix)', () => {
 
   it('falls back to the legacy <Link> when onAdoptCta is omitted (ProjectDetailShell call site)', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <CreateSchemaEntry bookId="b-1" templates={[]} createBlank={vi.fn()} clone={vi.fn()} />
       </MemoryRouter>,
     );
@@ -39,7 +39,7 @@ describe('CreateSchemaEntry — adopt CTA (DOCK-7 fix)', () => {
 
   it('shows the bookless hint when there is no bookId and no onAdoptCta', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <CreateSchemaEntry bookId={null} templates={[]} createBlank={vi.fn()} clone={vi.fn()} />
       </MemoryRouter>,
     );

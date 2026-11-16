@@ -197,7 +197,7 @@ class EntityReferencesRepo:
         SELECT t.id, t.summary, t.status, t.priority, t.created_at
           FROM narrative_thread t
           JOIN outline_node n ON n.id = t.opened_at_node
-         WHERE t.book_id = $1 AND NOT t.is_archived AND NOT n.is_archived
+         WHERE t.book_id = $1 AND n.book_id = $1 AND NOT t.is_archived AND NOT n.is_archived
            AND (n.pov_entity_id = $2 OR n.present_entity_ids @> ARRAY[$2::uuid])
         """
         async with self._pool.acquire() as c:

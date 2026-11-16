@@ -25,7 +25,7 @@ import { OnboardingPage } from '../pages/OnboardingPage';
 
 function renderPage(props?: { forceShow?: boolean }) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <OnboardingPage {...props} />
     </MemoryRouter>,
   );
