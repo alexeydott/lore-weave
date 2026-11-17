@@ -177,7 +177,6 @@
     },
     "quality-promises": {
       "title": "伏線",
-<<<<<<< HEAD
       "desc": "未回収の伏線リスト（回収されていない伏線の管理）",
       "guideBody": "「約束（Promises）」は、物語における「叙事的な負債」の台帳です。物語が設定し、まだ回収されていないすべての伏線を管理します。約束は、伏線が置かれた場所（暗示された裏切り、突きつけられた銃、説明のない傷など）で始まり、原稿がそれを回収した場所で閉じます。本を書き終える前にリストを消化してください。最後に残った未解決の約束は、読者が「伏線回収を忘れている」と気づく糸となります。",
       "enableCta": "プロミス追跡を有効にする",
@@ -208,10 +207,6 @@
       "batchDone": "分析した章: {{total}} · 開かれたプロミス: {{opened}} · 回収: {{paid}}",
       "batchStopped": "停止 — {{total}} 章中 {{done}} 章を分析。",
       "batchFailed": "{{total}} 章中 {{done}} 章を分析、{{failed}} 章が失敗しました。結果は不完全です。"
-=======
-      "desc": "未解決の伏線リスト（回収されていない伏線）",
-      "guideBody": "伏線は物語の「債務」リストです。物語の中で提示され、まだ回収されていないすべての伏線が含まれます。伏線は、それが提示された場所（暗示された裏切り、置かれた銃、説明のない傷跡など）で発生し、原稿がそれを回収した場所で解消されます。本を書き終える前にこのリストを整理してください。最後に未解決のまま残っているものは、読者が「回収されなかった」と気づく要素になります。"
->>>>>>> 483697091 (fix(i18n): finish T9 -- jobs and studio also named the feature)
     },
     "quality-critic": {
       "title": "批評",
@@ -899,18 +894,11 @@
     "mergeFailed": "マージできませんでした — もう一度お試しください。",
     "askAiPrompt": "原稿の以下の箇所を分析し、ユーザーの質問に答えてください：\n\n\"{{text}}\"\n\n考慮すべき重要な点は何ですか？",
     "loadingChapter": "章を読み込み中…",
-<<<<<<< HEAD
     "sceneSuggestionsHint": "原稿のテキストを選択して、AIでシーンの提案を生成します",
     "sceneSuggestionsReady": "選択した箇所の上にあるAIツールバーの「シーンを提案」を使用してください。",
     "sceneSuggestionsSelect": "先に一節を選択してから、選択範囲の上にある「シーンを提案」を使用してください。",
     "suggestScenes": "シーンを提案",
     "techEdit": "テクニカル編集"
-=======
-    "sceneSuggestionsHint": "原稿のテキストを選択して、AIによるシーンの提案を生成します",
-    "sceneSuggestionsReady": "選択した箇所の上にあるAIツールバーから「シーンを提案」を使用してください。",
-    "sceneSuggestionsSelect": "先に箇所を選択してから、選択範囲の上にある「シーンを提案」を使用してください。",
-    "suggestScenes": "シーンを提案"
->>>>>>> 483697091 (fix(i18n): finish T9 -- jobs and studio also named the feature)
   },
   "sceneCompose": {
     "empty": "原稿ナビゲーターで章を選択すると、ここにシーンのドラフトが表示されます。",
@@ -1101,7 +1089,6 @@
     "editRule": "ルールを編集",
     "healApplied": "選択した修正を章に適用しました。",
     "healApplyError": "修正を適用できませんでした。もう一度お試しください。",
-<<<<<<< HEAD
     "healStale": "校正実行後にこの章が変更されました。再度校正を実行してから適用してください。",
     "criticBatchTitle": "本全体の批評",
     "criticBatchSelected": "選択した章",
@@ -1129,9 +1116,6 @@
     "criticBatchStartTimeout": "実行の開始がタイムアウトしました。サーバー上ではこれから開始される可能性があります。再試行する前に履歴を更新してください。",
     "criticBatchStopFailed": "現在の章の完了後に停止する要求を送れませんでした。実行は続いている可能性があります。履歴を更新して確認してください。",
     "criticBatchPreparingEstimate": "見積もりを準備中…"
-=======
-    "healStale": "校閲の実行後にこの章が変更されました。再度校閲を実行してから適用してください。"
->>>>>>> 483697091 (fix(i18n): finish T9 -- jobs and studio also named the feature)
   },
   "sidebar": {
     "collapse": "折りたたむ",
@@ -2033,8 +2017,7 @@
     "loading_more": "読み込み中…",
     "restore": "復元"
   },
-<<<<<<< HEAD
-  "campaigns": "キャンペーン（一括抽出・翻訳）",
+  "campaigns": "ジョブ",
   "referenceShelf": {
     "title": "参照資料棚",
     "entity": "用語集のエンティティ",
@@ -2075,7 +2058,4 @@
       "narrative_thread": "関連する物語の筋"
     }
   }
-=======
-  "campaigns": "ジョブ"
->>>>>>> 483697091 (fix(i18n): finish T9 -- jobs and studio also named the feature)
 }

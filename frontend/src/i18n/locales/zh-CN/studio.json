@@ -177,7 +177,6 @@
     },
     "quality-promises": {
       "title": "伏笔",
-<<<<<<< HEAD
       "desc": "未完成的伏笔账本（尚未兑现的铺垫）",
       "guideBody": "“伏笔”是你的叙事债务账本 —— 记录了故事中所有已埋下但尚未兑现的设定。伏笔始于你埋下伏笔的地方（如暗示性的背叛、一把上膛的枪、一道无法解释的伤疤），终于手稿兑现承诺的地方。在完成书籍之前，请务必清理完清单；任何在结尾时仍处于“开启”状态的内容，都会成为读者察觉到的断线。",
       "enableCta": "启用伏笔追踪",
@@ -208,10 +207,6 @@
       "batchDone": "已分析章节：{{total}} · 新开承诺：{{opened}} · 已回收：{{paid}}",
       "batchStopped": "已停止——共分析 {{done}}/{{total}} 章。",
       "batchFailed": "已分析 {{done}}/{{total}} 章；{{failed}} 章失败。结果不完整。"
-=======
-      "desc": "未完成的伏笔账目（尚未兑现的铺垫）",
-      "guideBody": "伏笔是您的叙事债务账目——即故事中所有已埋下但尚未兑现的铺垫。当您埋下伏笔（如暗示的背叛、一把上膛的枪、一道无法解释的伤疤）时，伏笔便开启；当手稿兑现该伏笔时，伏笔便关闭。在完成书籍之前，请逐一核对清单；如果到最后仍有未完成的伏笔，读者会察觉到您遗失了伏笔线索。"
->>>>>>> 483697091 (fix(i18n): finish T9 -- jobs and studio also named the feature)
     },
     "quality-critic": {
       "title": "评论",
@@ -468,17 +463,12 @@
         "motifs": "主题元素"
       },
       "links": {
-<<<<<<< HEAD
         "loading": "正在加载场景链接…",
         "loadError": "无法加载场景链接。",
         "unavailable": "场景不可用",
         "untitledScene": "场景 {{number}}",
         "empty": "尚无因果关联。",
         "setup": "铺垫→高潮",
-=======
-        "empty": "暂无因果链接。",
-        "setup": "铺垫→回报",
->>>>>>> 483697091 (fix(i18n): finish T9 -- jobs and studio also named the feature)
         "custom": "自定义",
         "remove": "移除链接",
         "target": "链接至场景",
@@ -905,16 +895,10 @@
     "askAiPrompt": "分析手稿中的这段文字并回答用户的问题：\n\n\"{{text}}\"\n\n有哪些需要考虑的重要因素？",
     "loadingChapter": "正在加载章节…",
     "sceneSuggestionsHint": "选择手稿文本，使用 AI 生成场景建议",
-<<<<<<< HEAD
     "sceneSuggestionsReady": "在所选段落上方的 AI 工具栏中使用“建议场景”功能。",
     "sceneSuggestionsSelect": "请先选择一段文字，然后使用上方的“建议场景”功能。",
     "suggestScenes": "建议场景",
     "techEdit": "技术编辑"
-=======
-    "sceneSuggestionsReady": "使用上方 AI 工具栏中的“建议场景”功能来处理所选段落。",
-    "sceneSuggestionsSelect": "请先选择一段文字，然后使用上方工具栏中的“建议场景”。",
-    "suggestScenes": "建议场景"
->>>>>>> 483697091 (fix(i18n): finish T9 -- jobs and studio also named the feature)
   },
   "sceneCompose": {
     "empty": "在手稿导航器中选择一个章节，在此处编写其场景。",
@@ -1103,7 +1087,6 @@
     "pickModelRerun": "选择一个模型进行重新运行…",
     "pickChapterConformanceHint": "在上方选择一个章节，以追踪其文笔如何实现计划。",
     "editRule": "编辑规则",
-<<<<<<< HEAD
     "healApplied": "已将选中的修正应用到本章。",
     "healApplyError": "无法应用修正，请重试。",
     "healStale": "自润色运行以来，本章内容已发生变化 —— 请重新运行润色，然后应用。",
@@ -1133,11 +1116,6 @@
     "criticBatchStartTimeout": "启动运行超时，服务器上仍可能启动。请刷新历史后再试。",
     "criticBatchStopFailed": "无法请求在当前章节完成后停止。运行可能仍在继续，请刷新历史查看。",
     "criticBatchPreparingEstimate": "正在准备估算…"
-=======
-    "healApplied": "已将选定的修复方案应用于该章节。",
-    "healApplyError": "无法应用修复方案。请重试。",
-    "healStale": "自“润色”运行以来，该章节已发生变化 —— 请重新运行“润色”，然后应用。"
->>>>>>> 483697091 (fix(i18n): finish T9 -- jobs and studio also named the feature)
   },
   "sidebar": {
     "collapse": "折叠",

@@ -177,7 +177,6 @@
     },
     "quality-promises": {
       "title": "Lời hứa",
-<<<<<<< HEAD
       "desc": "Sổ nợ các lời hứa chưa thực hiện (các tình tiết cài cắm chưa được giải quyết)",
       "guideBody": "Lời hứa là sổ cái nợ tự sự của bạn — mọi sự thiết lập mà câu chuyện đã tạo ra nhưng chưa được giải quyết. Một lời hứa mở ra khi bạn gieo nó (một sự phản bội được gợi ý, một khẩu súng đã nạp đạn, một vết sẹo không lời giải thích) và đóng lại khi bản thảo thực hiện nó. Hãy xử lý hết danh sách này trước khi bạn hoàn thành một cuốn sách; bất cứ điều gì vẫn còn bỏ ngỏ ở cuối truyện là một sợi dây mà độc giả sẽ nhận ra bạn đã bỏ lơ.",
       "enableCta": "Bật theo dõi lời hứa",
@@ -208,10 +207,6 @@
       "batchDone": "Đã phân tích chương: {{total}} · lời hứa mở: {{opened}} · tất toán: {{paid}}",
       "batchStopped": "Đã dừng — phân tích {{done}}/{{total}} chương.",
       "batchFailed": "Đã phân tích {{done}}/{{total}} chương; {{failed}} chương thất bại. Kết quả chưa đầy đủ."
-=======
-      "desc": "Sổ nợ lời hứa chưa thực hiện (các tình tiết cài cắm chưa được giải quyết)",
-      "guideBody": "Lời hứa là sổ nợ cốt truyện của bạn — mọi tình tiết cài cắm mà câu chuyện đã tạo ra nhưng chưa được giải quyết. Một lời hứa được mở ra khi bạn gieo nó (một sự phản bội được gợi ý, một khẩu súng đã nạp đạn, một vết sẹo không rõ nguyên nhân) và được đóng lại khi bản thảo thực hiện nó. Hãy giải quyết hết danh sách này trước khi bạn hoàn thành một cuốn sách; bất cứ điều gì còn bỏ ngỏ ở cuối truyện đều là những sợi dây mà độc giả sẽ nhận ra bạn đã bỏ lơ."
->>>>>>> 483697091 (fix(i18n): finish T9 -- jobs and studio also named the feature)
     },
     "quality-critic": {
       "title": "Chuyên gia",
@@ -1094,7 +1089,6 @@
     "editRule": "Chỉnh sửa quy tắc",
     "healApplied": "Đã áp dụng các bản sửa lỗi đã chọn vào chương.",
     "healApplyError": "Không thể áp dụng các bản sửa lỗi. Vui lòng thử lại.",
-<<<<<<< HEAD
     "healStale": "Chương này đã thay đổi kể từ khi chạy lệnh Trau chuốt — hãy chạy lại lệnh Trau chuốt, sau đó mới áp dụng.",
     "criticBatchTitle": "Phê bình toàn bộ sách",
     "criticBatchSelected": "Chương đã chọn",
@@ -1122,9 +1116,6 @@
     "criticBatchStartTimeout": "Quá thời gian chờ khởi chạy. Tiến trình vẫn có thể bắt đầu trên máy chủ. Hãy làm mới lịch sử trước khi thử lại.",
     "criticBatchStopFailed": "Không thể yêu cầu dừng sau chương hiện tại. Tiến trình có thể vẫn tiếp tục. Hãy làm mới lịch sử để kiểm tra.",
     "criticBatchPreparingEstimate": "Đang chuẩn bị ước tính…"
-=======
-    "healStale": "Chương này đã thay đổi kể từ khi chạy Polish — hãy chạy lại Polish, sau đó mới áp dụng."
->>>>>>> 483697091 (fix(i18n): finish T9 -- jobs and studio also named the feature)
   },
   "sidebar": {
     "collapse": "Thu gọn",
@@ -2026,8 +2017,7 @@
     "loading_more": "Đang tải…",
     "restore": "Khôi phục"
   },
-<<<<<<< HEAD
-  "campaigns": "Chiến dịch (trích xuất & dịch thuật hàng loạt)",
+  "campaigns": "Tiến trình (trích xuất & dịch hàng loạt)",
   "referenceShelf": {
     "title": "Kệ nguồn tham khảo",
     "entity": "Thực thể trong bảng thuật ngữ",
@@ -2068,7 +2058,4 @@
       "narrative_thread": "Tuyến truyện liên quan"
     }
   }
-=======
-  "campaigns": "Tiến trình (trích xuất & dịch hàng loạt)"
->>>>>>> 483697091 (fix(i18n): finish T9 -- jobs and studio also named the feature)
 }
