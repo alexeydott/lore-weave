@@ -112,11 +112,19 @@ func Middleware(l *Limiter, routeKey string, next http.Handler) http.Handler {
 func AuthRateLimitMiddleware(accountL, ipL *Limiter, routeKey string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := ClientIP(r)
-		account := accountFromLoginBody(r)
+		// The IP floor is checked BEFORE the account probe: a capped IP is
+		// rejected without touching the request body. Probing first waited
+		// for up to a full body (or EOF) before either limiter was
+		// consulted, so a capped client posting with Expect: 100-continue
+		// and withholding its body received 100 Continue and held a
+		// connection and goroutine in the probe instead of the immediate
+		// 429 — and the server configures only ReadHeaderTimeout, so
+		// nothing else bounds that wait.
 		if !ipL.Allow(routeKey + ":ip:" + ip) {
 			writeLimited(w, ipL)
 			return
 		}
+		account := accountFromLoginBody(r)
 		if !accountL.Allow(routeKey + ":acct:" + ip + ":" + account) {
 			writeLimited(w, accountL)
 			return
@@ -129,19 +137,38 @@ func AuthRateLimitMiddleware(accountL, ipL *Limiter, routeKey string, next http.
 // JSON body, consuming and restoring the body so the handler reads it unchanged.
 func accountFromLoginBody(r *http.Request) string {
 	var account string
-	if r.Body != nil {
-		raw, err := io.ReadAll(io.LimitReader(r.Body, 8192))
-		_ = r.Body.Close()
-		if err == nil {
-			var probe struct {
-				Email string `json:"email"`
-			}
-			if json.Unmarshal(raw, &probe) == nil {
-				account = strings.ToLower(strings.TrimSpace(probe.Email))
-			}
-			r.Body = io.NopCloser(bytes.NewReader(raw))
-		}
+	if r.Body == nil {
+		return account
 	}
+	// Decode the FIRST JSON value from the live stream, exactly like the
+	// handlers do (login/register read a single value with json.Decoder).
+	// A fixed probe window could not do this: a credentials object longer
+	// than the window — a 10 KB password, or an ignored padding field after
+	// an early email — failed to decode in the probe while the handler
+	// decoded it fine, so the request fell back to the empty-account bucket
+	// and the attacker got a second full budget per target. Decoding the
+	// whole first value keeps the limiter bucket and the handler's account
+	// identical for every accepted credentials object, wherever the email
+	// sits inside it.
+	//
+	// Everything the decoder pulls from the stream passes through the tee
+	// into buf (including read-ahead past the first value), so replaying buf
+	// followed by the unread tail restores the byte-identical body for the
+	// handler. The probe buffers exactly the first JSON value — the same
+	// bytes the handler decodes into its request struct — so it adds no new
+	// exhaustion class beyond one extra copy of bytes the handler allocates
+	// anyway; the service sets no body limit anywhere else either.
+	var buf bytes.Buffer
+	dec := json.NewDecoder(io.TeeReader(r.Body, &buf))
+	var probe struct {
+		Email string `json:"email"`
+	}
+	if dec.Decode(&probe) == nil {
+		account = strings.ToLower(strings.TrimSpace(probe.Email))
+	}
+	// Do NOT close the original body: its unread tail is still needed
+	// below. The server closes it after the handler returns.
+	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(buf.Bytes()), r.Body))
 	return account
 }
 
