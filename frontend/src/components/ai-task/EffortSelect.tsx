@@ -102,13 +102,19 @@ export function EffortSelect({ value, onChange, disabled, compact }: Props) {
   // path — a menu-element capture listener fires only after the dialog has
   // already dismissed itself, so the menu's stopPropagation() was too late.
   // window capture runs first, so stopping the event here reaches the dialog's
-  // handler before it runs. Only keys originating inside the menu are handled.
-  // Arrows/Home/End move focus between options.
+  // handler before it runs.
+  //
+  // Escape/Tab are handled REGARDLESS of where focus physically sits while the
+  // menu is mounted: Radix's dialog trap can yank focus back to the trigger in
+  // the window between the FocusScope's mount-pause and the keypress (the race
+  // surfaced when a clean reinstall bumped the radix package matrix), and
+  // letting a trigger-targeted Escape through dismisses the enclosing dialog
+  // instead of the menu. While the menu is open, those two keys belong to it.
+  // Arrows/Home/End still require the focus to be inside the menu.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) return;
-      const options = optionRefs.current.filter((el): el is HTMLButtonElement => el !== null);
+      const insideMenu = menuRef.current?.contains(e.target as Node);
       if (e.key === 'Escape') {
         e.stopPropagation();
         setOpen(false);
@@ -129,6 +135,8 @@ export function EffortSelect({ value, onChange, disabled, compact }: Props) {
         buttonRef.current?.focus();
         return;
       }
+      if (!insideMenu) return;
+      const options = optionRefs.current.filter((el): el is HTMLButtonElement => el !== null);
       if (options.length === 0) return;
       const current = options.indexOf(document.activeElement as HTMLButtonElement);
       let next = -1;

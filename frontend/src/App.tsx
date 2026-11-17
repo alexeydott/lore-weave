@@ -95,7 +95,10 @@ export function App() {
     <UiLanguageSync />
     <AuthenticatedThemeProvider>
     <SidebarProvider>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      {/* react-router 7: v7_startTransition / v7_relativeSplatPath are the DEFAULT
+          behavior and the `future` prop no longer exists (upstream #250 security
+          round bumped react-router-dom 6 -> 7.18.3). */}
+      <BrowserRouter>
         <Toaster position="bottom-right" richColors closeButton />
         <GlobalOperationProgress />
         <UpdatePrompt />
