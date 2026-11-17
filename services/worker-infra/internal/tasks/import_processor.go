@@ -369,7 +369,6 @@ func (t *ImportProcessor) processImport(ctx context.Context, payload importReque
 	// 5. Write chapters + scenes. Manuscript parts were moved from book-service
 	// into composition (C-merge/C4); imported chapters start flat and can be
 	// grouped later by the composition structure tools.
-	count := 0
 	for partIdx, part := range tree.Parts {
 		for chIdxInPart, ch := range part.Chapters {
 			// L9 replay guard (pre-check): a redelivered job re-parses the
@@ -425,7 +424,7 @@ func (t *ImportProcessor) processImport(ctx context.Context, payload importReque
 			// (b) Per-chapter Tx: chapter + draft + revision + scenes.
 			tx, err := t.BookDB.Begin(ctx)
 			if err != nil {
-				return count, fmt.Errorf("db begin: %w", err)
+				return t.countImportChapters(ctx, payload.JobID), fmt.Errorf("db begin: %w", err)
 			}
 
 			var chapterID string
@@ -436,7 +435,8 @@ func (t *ImportProcessor) processImport(ctx context.Context, payload importReque
 			// L9 idempotency (mirrors the PDF path): tag the chapter with
 			// this job and let (book_id, import_job_id, structural_path)
 			// deduplicate a redelivery. Before this, a worker killed
-			// mid-import left committed chapters behind, and Run's
+			// mid-import — e.g. the fail-fast AMQP watcher exiting on a
+			// broker drop — left committed chapters behind, and Run's
 			// XAUTOCLAIM reclaim re-inserted every one of them (the
 			// per-chapter Tx commits, importJobCompleted only skips
 			// finished jobs). An empty structural path carries no
@@ -466,12 +466,14 @@ RETURNING id
 					// would duplicate user content. chapterGlobalSort
 					// is NOT advanced — the skipped chapter already
 					// occupies its global sort slot, and advancing
-					// would leave gaps.
+					// would leave gaps (the PDF path's skip advances
+					// it; here the counter is the next free global
+					// slot, not a per-job position).
 					slog.Info("import-processor: chapter already imported, skipping",
 						"job_id", payload.JobID, "book_id", payload.BookID, "structural_path", ch.Path)
 					continue
 				}
-				return count, fmt.Errorf("insert chapter: %w", err)
+				return t.countImportChapters(ctx, payload.JobID), fmt.Errorf("insert chapter: %w", err)
 			}
 
 			_, _ = tx.Exec(ctx,
@@ -489,7 +491,7 @@ RETURNING id
 				`INSERT INTO chapter_revisions(chapter_id, body, body_format, message, author_user_id) VALUES($1, $2, 'json', $3, $4) RETURNING id`,
 				chapterID, tiptapJSON, "imported from "+origFilename, payload.UserID).Scan(&importRevID); err != nil {
 				tx.Rollback(ctx)
-				return count, fmt.Errorf("insert revision: %w", err)
+				return t.countImportChapters(ctx, payload.JobID), fmt.Errorf("insert revision: %w", err)
 			}
 			if _, err := tx.Exec(ctx,
 				// WS-0.3 (spec §3.2): worker-infra writes book-service's `chapters` table
@@ -500,7 +502,7 @@ RETURNING id
 				`UPDATE chapters SET draft_revision_count=1, editorial_status='published', published_revision_id=$2, kg_indexed_revision_id=$2, last_parsed_revision_id=$2 WHERE id=$1`,
 				chapterID, importRevID); err != nil {
 				tx.Rollback(ctx)
-				return count, fmt.Errorf("publish imported chapter: %w", err)
+				return t.countImportChapters(ctx, payload.JobID), fmt.Errorf("publish imported chapter: %w", err)
 			}
 
 			// Insert scenes for this chapter.
@@ -515,7 +517,7 @@ RETURNING id
 					chapterID, payload.BookID, sc.SortOrder, sc.Path, sc.LeafText, sc.ContentHash, ssid)
 				if err != nil {
 					tx.Rollback(ctx)
-					return count, fmt.Errorf("insert scene: %w", err)
+					return t.countImportChapters(ctx, payload.JobID), fmt.Errorf("insert scene: %w", err)
 				}
 				if ssid != nil {
 					anyLinked = true
@@ -529,14 +531,13 @@ RETURNING id
 			if anyLinked {
 				if err := emitScenesLinkedTx(ctx, tx, payload.BookID, chapterID); err != nil {
 					tx.Rollback(ctx)
-					return count, fmt.Errorf("emit scenes_linked: %w", err)
+					return t.countImportChapters(ctx, payload.JobID), fmt.Errorf("emit scenes_linked: %w", err)
 				}
 			}
 
 			if err := tx.Commit(ctx); err != nil {
-				return count, fmt.Errorf("commit chapter: %w", err)
+				return t.countImportChapters(ctx, payload.JobID), fmt.Errorf("commit chapter: %w", err)
 			}
-			count++
 			chapterGlobalSort++
 		}
 	}
