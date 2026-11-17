@@ -562,7 +562,7 @@
     "composer": "Varsayılan besteci",
     "composerHint": "Bir kitabın kendine ait bir modeli olmadığında düzyazınızı yazan modeldir. Bilinçli bir şekilde ayarlayın — üretim buradaki en maliyetli işlemdir ve sohbet modeliniz üzerinden sizin adınıza harcama yapılmayacaktır.",
     "critic": "Varsayılan eleştirmen modeli",
-    "criticHint": "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.",
+    "criticHint": "Scores practice sessions. Optional — unset, scoring falls back to your chat default as judge. Scoring is refused when that model is the session's own model, or when no default is set — pick a critic that differs from your usual chat model. Generated-scene audits use the critic set per book in Composition → Settings.",
     "distill": "Varsayılan damıtıcı model",
     "distillHint": "\"Günümü bitir\" sohbetlerini günlüğe dönüştürür. İsteğe bağlı — ayarlanmazsa varsayılan sohbet modeliniz kullanılır. AKIL YÜRÜTME olmayan bir model seçin: akıl yürütme modeli yalnızca akıl yürütme çıkarır ve boş bir günlük damıtır.",
     "propagated": "{{n}} mevcut sohbet yeni varsayılana taşındı",

@@ -562,7 +562,7 @@
     "composer": "デフォルトの執筆モデル",
     "composerHint": "本に独自のモデルが設定されていない場合、本文を執筆するモデルです。慎重に設定してください。生成プロセスは最もコストがかかる作業であり、チャットモデルのトークンが意図せず消費される可能性があるためです。",
     "critic": "デフォルトのクリティックモデル",
-    "criticHint": "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.",
+    "criticHint": "Scores practice sessions. Optional — unset, scoring falls back to your chat default as judge. Scoring is refused when that model is the session's own model, or when no default is set — pick a critic that differs from your usual chat model. Generated-scene audits use the critic set per book in Composition → Settings.",
     "distill": "デフォルトのディスティラーモデル",
     "distillHint": "「今日を終える」チャットを日記に変換します。任意 — 未設定の場合、デフォルトのチャットモデルが使われます。推論 (reasoning) なしのモデルを選んでください: 推論モデルは推論だけを出力し、空の日記が生成されます。",
     "propagated": "既存の {{n}} 件のチャットを新しいデフォルトに移動しました",

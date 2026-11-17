@@ -562,7 +562,7 @@
     "composer": "Composer default",
     "composerHint": "Model yang menulis prosa Anda ketika sebuah buku tidak memiliki model sendiri. Atur dengan cermat — pembuatan teks adalah hal yang paling memakan biaya di sini, dan tidak ada yang akan menghabiskan kuota model chat Anda atas nama Anda.",
     "critic": "Model kritikus bawaan",
-    "criticHint": "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.",
+    "criticHint": "Scores practice sessions. Optional — unset, scoring falls back to your chat default as judge. Scoring is refused when that model is the session's own model, or when no default is set — pick a critic that differs from your usual chat model. Generated-scene audits use the critic set per book in Composition → Settings.",
     "distill": "Model penyuling bawaan",
     "distillHint": "Mengubah obrolan \"akhari hariku\" menjadi diary harian. Opsional — tanpa ini, memakai model obrolan bawaan Anda. Pilih model TANPA reasoning: model reasoning hanya mengeluarkan reasoning dan menyuling diary kosong.",
     "propagated": "{{n}} obrolan yang ada dipindahkan ke bawaan baru",

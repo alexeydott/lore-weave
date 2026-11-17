@@ -562,7 +562,7 @@
     "composer": "Compositor padrão",
     "composerHint": "O modelo que escreve sua prosa quando um livro não possui um modelo próprio. Defina com cautela — a geração é o processo mais caro aqui, e nada consumirá seu modelo de chat em seu nome.",
     "critic": "Modelo crítico padrão",
-    "criticHint": "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.",
+    "criticHint": "Scores practice sessions. Optional — unset, scoring falls back to your chat default as judge. Scoring is refused when that model is the session's own model, or when no default is set — pick a critic that differs from your usual chat model. Generated-scene audits use the critic set per book in Composition → Settings.",
     "distill": "Modelo destilador padrão",
     "distillHint": "Transforma conversas de \"encerrar meu dia\" no diário diário. Opcional — sem ele, usa seu modelo de chat padrão. Escolha um modelo SEM raciocínio: um modelo de raciocínio emite apenas raciocínio e destila um diário vazio.",
     "propagated": "{{n}} conversas existentes movidas para o novo padrão",

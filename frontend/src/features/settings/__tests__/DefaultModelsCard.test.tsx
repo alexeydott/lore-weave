@@ -54,22 +54,22 @@ import { DefaultModelsCard } from '../DefaultModelsCard';
 import settingsEn from '../../../i18n/locales/en/settings.json';
 import { invalidateUserModelsCache } from '@/components/model-picker';
 
-// F15 (round 4) — the critic hint lied about the backend: it claimed an unset
-// critic means "scoring falls back to nothing and sessions are not scored".
-// evaluate.py (Gate 2, WS-5.10/P5) falls an unset critic back to the account
-// CHAT default and refuses (409) only when no distinct judge resolves. This
-// test is the joint between the user-facing copy and that backend behavior:
-// it reads the shipped locale bundles + the component fallback + the backend
-// router, so a copy/behavior drift on either side goes red here, not in prod.
-// Non-en locales echo the English string per the repo ECHOED practice, except
-// ru which carries a real translation (fac8291f precedent).
+// F15 (round 4) + #326 (Codex P1) — the critic hint must describe the real
+// fallback: evaluate.py resolves the critic default, falls back to the chat
+// default as judge, and refuses only when no model distinct from the session
+// actor resolves. It must never present "None" as a scoring opt-out ("falls
+// back to nothing"). The vitest i18n mock ignores defaultValue, so this
+// asserts on the en bundle — the string the app actually renders. The
+// component defaultValue is kept byte-identical to it by hand. Non-en locales
+// echo the English string per the repo ECHOED practice, except ru which
+// carries a real translation (fac8291f precedent).
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const EXPECTED_CRITIC_HINT_EN =
-  "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.";
+  "Scores practice sessions. Optional — unset, scoring falls back to your chat default as judge. Scoring is refused when that model is the session's own model, or when no default is set — pick a critic that differs from your usual chat model. Generated-scene audits use the critic set per book in Composition → Settings.";
 const EXPECTED_CRITIC_HINT_RU =
-  'Оценивает тренировочные сессии и аудитирует сгенерированные сцены. Необязательно — без неё судит ваша чат-модель (когда она отличается от модели сессии); если отдельный судья не находится, оценка не выполняется.';
+  'Оценивает тренировочные сессии. Необязательно — без неё судьёй выступает ваша чат-модель по умолчанию. Оценка отклоняется, если эта модель совпадает с моделью сессии или если модель по умолчанию не задана — выберите критика, отличного от вашей обычной чат-модели. Аудит сгенерированных сцен использует критика, заданного для книги в Composition → Настройки.';
 
 function localeHint(locale: string): string {
   const file = resolve(__dirname, '../../../i18n/locales', locale, 'settings.json');
@@ -81,12 +81,22 @@ function localeHint(locale: string): string {
   return hint;
 }
 
-describe('critic hint copy (F15)', () => {
-  it('states the real fallback: unset critic judges with the chat model', () => {
+describe('critic hint copy (F15 + #326)', () => {
+  it('describes the chat-default fallback and the distinct-actor refusal', () => {
     const hint = localeHint('en');
     expect(hint).toBe(EXPECTED_CRITIC_HINT_EN);
-    expect(hint).not.toContain('falls back to nothing');
-    expect(hint).not.toContain('are not scored');
+    expect(hint).toContain('chat default');
+    expect(hint).toMatch(/refused/);
+  });
+
+  it('never promises that unset means no scoring', () => {
+    expect(localeHint('en')).not.toContain('falls back to nothing');
+    expect(localeHint('en')).not.toContain('sessions are not scored');
+  });
+
+  it('never promises generated-scene audits from the account default', () => {
+    expect(localeHint('en')).not.toContain('audits generated scenes');
+    expect(localeHint('en')).toContain('Composition');
   });
 
   it('carries a real Russian translation, other locales echo the English copy', () => {

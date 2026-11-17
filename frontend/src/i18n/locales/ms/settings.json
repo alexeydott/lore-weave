@@ -562,7 +562,7 @@
     "composer": "Komposer lalai",
     "composerHint": "Model yang menulis prosa anda apabila sesebuah buku tidak mempunyai model sendiri. Tetapkan dengan teliti — penjanaan adalah perkara yang paling mahal di sini, dan tiada apa yang akan menggunakan kuota model sembang anda bagi pihak anda.",
     "critic": "Model pengkritik lalai",
-    "criticHint": "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.",
+    "criticHint": "Scores practice sessions. Optional — unset, scoring falls back to your chat default as judge. Scoring is refused when that model is the session's own model, or when no default is set — pick a critic that differs from your usual chat model. Generated-scene audits use the critic set per book in Composition → Settings.",
     "distill": "Model penyuling lalai",
     "distillHint": "Menukar sembang \"tamatkan hari saya\" kepada diari harian. Pilihan — tanpa ia, model sembang lalai anda digunakan. Pilih model BUKAN penaakulan: model penaakulan hanya mengeluarkan penaakulan dan menyuling diari kosong.",
     "propagated": "{{n}} sembang sedia ada dipindahkan ke lalai baharu",
