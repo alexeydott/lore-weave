@@ -601,7 +601,6 @@
     "empty": "Chưa có dàn ý. Dùng Planner (bảng bên phải) để chia chương thành các cảnh.",
     "rename": "Đổi tên",
     "addScene": "Thêm cảnh",
-    "addBeat": "Thêm nhịp",
     "archive": "Lưu trữ",
     "archiveConfirm": "Lưu trữ \"{{title}}\" và mọi thứ bên trong nó?",
     "restore": "Khôi phục",

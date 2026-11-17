@@ -601,7 +601,6 @@
     "empty": "暂无大纲。请使用规划器（右侧面板）将章节分解为场景。",
     "rename": "重命名",
     "addScene": "添加场景",
-    "addBeat": "添加情节",
     "archive": "归档",
     "archiveConfirm": "归档“{{title}}”及其包含的所有内容？",
     "restore": "还原",

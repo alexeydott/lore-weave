@@ -542,7 +542,10 @@
       "save_failed": "Failed to save",
       "deleted": "Model deleted",
       "delete_failed": "Failed to delete"
-    }
+    },
+    "max_output_tokens": "Max output tokens",
+    "max_output_hint": "Auto from the context window: {{n}} (a quarter of the window is spent on output — the rest stays for the prompt). Edit to override.",
+    "max_output_no_context": "Set the context length and the output budget will be derived from it automatically."
   },
   "defaultModels": {
     "heading": "Default models",
@@ -561,7 +564,9 @@
     "critic": "Default critic model",
     "criticHint": "Scores practice sessions. Optional — unset, scoring falls back to your chat default as judge. Scoring is refused when that model is the session's own model, or when no default is set — pick a critic that differs from your usual chat model. Generated-scene audits use the critic set per book in Composition → Settings.",
     "distill": "Default distiller model",
-    "distillHint": "Turns \"end my day\" chats into the daily diary. Optional — unset, it uses your chat default. Pick a NON-reasoning model: a reasoning model emits only reasoning and distills to an empty diary."
+    "distillHint": "Turns \"end my day\" chats into the daily diary. Optional — unset, it uses your chat default. Pick a NON-reasoning model: a reasoning model emits only reasoning and distills to an empty diary.",
+    "propagated": "{{n}} existing chat(s) moved to the new default",
+    "propagate_failed": "Existing chats were NOT moved to the new default — re-pin them manually."
   },
   "external_services": {
     "delete_blocked": "This service cannot be removed: its model is in use by {{count}} active job(s). Stop them first.",

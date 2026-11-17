@@ -601,7 +601,6 @@
     "empty": "Noch keine Gliederung vorhanden. Nutzen Sie den Planner (rechte Spalte), um Kapitel in Szenen zu unterteilen.",
     "rename": "Umbenennen",
     "addScene": "Szene hinzufügen",
-    "addBeat": "Beat hinzufügen",
     "archive": "Archivieren",
     "archiveConfirm": "„{{title}}“ und alles darin archivieren?",
     "restore": "Wiederherstellen",

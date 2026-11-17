@@ -601,7 +601,6 @@
     "empty": "Henüz taslak yok. Bölümleri sahnelere ayırmak için Planlayıcı'yı (sağ panel) kullanın.",
     "rename": "Yeniden Adlandır",
     "addScene": "Sahne ekle",
-    "addBeat": "Vuruş ekle",
     "archive": "Arşivle",
     "archiveConfirm": "\"{{title}}\" içeriği ve içindeki her şey arşivlensin mi?",
     "restore": "Geri Yükle",

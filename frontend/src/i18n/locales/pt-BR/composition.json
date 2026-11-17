@@ -601,7 +601,6 @@
     "empty": "Nenhum esboço ainda. Use o Planejador (painel direito) para decompor capítulos em cenas.",
     "rename": "Renomear",
     "addScene": "Adicionar cena",
-    "addBeat": "Adicionar batida",
     "archive": "Arquivar",
     "archiveConfirm": "Arquivar \"{{title}}\" e tudo o que estiver dentro dele?",
     "restore": "Restaurar",

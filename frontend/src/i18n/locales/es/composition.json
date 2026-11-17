@@ -601,7 +601,6 @@
     "empty": "Aún no hay esquema. Usa el Planificador (panel derecho) para descomponer los capítulos en escenas.",
     "rename": "Renombrar",
     "addScene": "Añadir escena",
-    "addBeat": "Añadir beat",
     "archive": "Archivar",
     "archiveConfirm": "¿Archivar «{{title}}» y todo su contenido?",
     "restore": "Restaurar",

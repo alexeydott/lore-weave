@@ -601,7 +601,6 @@
     "empty": "Aucun plan pour le moment. Utilisez le Planificateur (panneau de droite) pour décomposer les chapitres en scènes.",
     "rename": "Renommer",
     "addScene": "Ajouter une scène",
-    "addBeat": "Ajouter un battement",
     "archive": "Archiver",
     "archiveConfirm": "Archiver « {{title}} » et tout son contenu ?",
     "restore": "Restaurer",

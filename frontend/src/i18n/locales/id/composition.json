@@ -601,7 +601,6 @@
     "empty": "Belum ada kerangka. Gunakan Planner (panel kanan) untuk memecah bab menjadi adegan.",
     "rename": "Ubah nama",
     "addScene": "Tambah adegan",
-    "addBeat": "Tambah beat",
     "archive": "Arsipkan",
     "archiveConfirm": "Arsipkan \"{{title}}\" dan semua isinya?",
     "restore": "Pulihkan",

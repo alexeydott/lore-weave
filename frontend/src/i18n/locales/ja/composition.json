@@ -601,7 +601,6 @@
     "empty": "アウトラインはまだありません。Planner（右パネル）で章をシーンに分解してください。",
     "rename": "名前を変更",
     "addScene": "シーンを追加",
-    "addBeat": "ビートを追加",
     "archive": "アーカイブ",
     "archiveConfirm": "「{{title}}」とその中身をすべてアーカイブしますか？",
     "restore": "復元",
