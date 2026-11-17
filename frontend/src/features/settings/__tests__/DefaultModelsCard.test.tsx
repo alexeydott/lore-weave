@@ -51,6 +51,7 @@ vi.mock('@/features/chat/api', () => ({
 }));
 
 import { DefaultModelsCard } from '../DefaultModelsCard';
+import settingsEn from '../../../i18n/locales/en/settings.json';
 import { invalidateUserModelsCache } from '@/components/model-picker';
 
 // F15 (round 4) — the critic hint lied about the backend: it claimed an unset
@@ -253,5 +254,37 @@ describe('DefaultModelsCard', () => {
     // — target the listbox OPTION specifically.
     fireEvent.click(await screen.findByRole('option', { name: 'defaultModels.none' }));
     await waitFor(() => expect(setDefault).toHaveBeenCalledWith('tok', 'rerank', null));
+  });
+});
+
+// #326 (Codex P1) — the critic hint must describe the real fallback: evaluate.py
+// resolves the critic default, falls back to the chat default as judge, and
+// refuses only when no model distinct from the session actor resolves. It must
+// never present "None" as a scoring opt-out ("falls back to nothing").
+// The vitest i18n mock ignores defaultValue, so this asserts on the en bundle —
+// the string the app actually renders. The component defaultValue is kept
+// byte-identical to it by hand.
+describe('critic hint wording (#326)', () => {
+  const hint = (settingsEn as { defaultModels: { criticHint: string } }).defaultModels.criticHint;
+
+  it('describes the chat-default fallback and the distinct-actor refusal', () => {
+    expect(hint).toContain('chat default');
+    expect(hint).toMatch(/refused/);
+  });
+
+  it('never promises that unset means no scoring', () => {
+    expect(hint).not.toContain('falls back to nothing');
+    expect(hint).not.toContain('sessions are not scored');
+  });
+
+  // #326 (Codex P1, F2) — the account critic default does NOT enable
+  // generated-scene audits: composition-service's `critic_policy.resolve_critic`
+  // reads only the book's role map/scalars (`work.settings`), so a book without
+  // a book-level critic reports NOT_CONFIGURED and skips the LLM critique.
+  // The hint must stay scoped to practice-session scoring and point at the
+  // per-book setting (Composition → Settings → Critic model) for scene audits.
+  it('never promises generated-scene audits from the account default', () => {
+    expect(hint).not.toContain('audits generated scenes');
+    expect(hint).toContain('Composition');
   });
 });

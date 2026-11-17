@@ -244,8 +244,8 @@
       "api_key_ph": "sk-...",
       "api_key_keep_hint": "Leave empty to keep the existing key.",
       "max_concurrency": "Max concurrent requests",
-      "max_concurrency_ph": "Default",
-      "max_concurrency_hint": "Leave empty to use the platform default limit. Enter a positive number to set your own cap.",
+      "max_concurrency_ph": "Unlimited",
+      "max_concurrency_hint": "How many requests this provider runs at once. Leave empty for unlimited (the backend decides). Set a number only if your backend has a known limit (e.g. a local GPU).",
       "cancel": "Cancel",
       "saving": "Saving...",
       "submit": "Save Changes"
@@ -426,8 +426,8 @@
       "key_ph_keep": "Leave empty to keep the current key",
       "key_keep_hint": "Leave empty to keep the existing key.",
       "max_concurrency": "Max concurrent requests",
-      "max_concurrency_ph": "Default",
-      "max_concurrency_hint": "Leave empty to use the platform default limit. Enter a positive number to set your own cap.",
+      "max_concurrency_ph": "Unlimited",
+      "max_concurrency_hint": "How many requests this service runs at once. Leave empty for unlimited (the backend decides). Set a number only if your backend has a known limit.",
       "cancel": "Cancel",
       "submit": "Save",
       "saving": "Saving…"
@@ -542,10 +542,7 @@
       "save_failed": "Failed to save",
       "deleted": "Model deleted",
       "delete_failed": "Failed to delete"
-    },
-    "max_output_tokens": "Max output tokens",
-    "max_output_hint": "Auto from the context window: {{n}} (a quarter of the window is spent on output — the rest stays for the prompt). Edit to override.",
-    "max_output_no_context": "Set the context length and the output budget will be derived from it automatically."
+    }
   },
   "defaultModels": {
     "heading": "Default models",
@@ -561,10 +558,8 @@
     "saved": "Default updated",
     "composer": "Default composer",
     "composerHint": "The model that writes your prose when a book has no model of its own. Set deliberately — generation is the most expensive thing here, and nothing will spend through your chat model on your behalf.",
-    "propagated": "{{n}} existing chat(s) moved to the new default",
-    "propagate_failed": "Existing chats were NOT moved to the new default — re-pin them manually.",
     "critic": "Default critic model",
-    "criticHint": "Scores practice sessions and audits generated scenes. Optional — unset, your chat model judges instead (when it differs from the session's model); if no distinct judge resolves, scoring is refused.",
+    "criticHint": "Scores practice sessions. Optional — unset, scoring falls back to your chat default as judge. Scoring is refused when that model is the session's own model, or when no default is set — pick a critic that differs from your usual chat model. Generated-scene audits use the critic set per book in Composition → Settings.",
     "distill": "Default distiller model",
     "distillHint": "Turns \"end my day\" chats into the daily diary. Optional — unset, it uses your chat default. Pick a NON-reasoning model: a reasoning model emits only reasoning and distills to an empty diary."
   },
