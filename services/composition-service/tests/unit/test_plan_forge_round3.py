@@ -193,8 +193,11 @@ async def test_handoff_autofix_refines_real_paths_not_rule_ids(monkeypatch):
     assert out is not None
     focus = captured["revision"]["focus_paths"]
     assert focus, "autofix refined with no focus at all"
-    assert all(p.startswith(("events[", "layers.", "arcs[", "charter", "meta."))
+    # Whole-section targets ("events" / "arcs" — the #323 hard-gate repair
+    # scope) are real spec sections, not raw rule IDs; both satisfy the
+    # invariant this test guards.
+    assert all(p.startswith(("events[", "events", "layers.", "arcs[", "arcs", "charter", "meta."))
                for p in focus), f"raw rule/check ID reached refine: {focus!r}"
     assert "thr_no_early_explain" not in focus
-    assert any(p.startswith("events[ev_2_") for p in focus), (
+    assert any(p.startswith("events[ev_2_") or p == "events" for p in focus), (
         f"the THR repair was not aimed at the arc_2 events: {focus!r}")
