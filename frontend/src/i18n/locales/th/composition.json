@@ -81,7 +81,6 @@
     "discard": "ยกเลิก",
     "stop": "หยุด",
     "stale": "ข้อความที่เลือกมีการเปลี่ยนแปลง — โปรดลองอีกครั้ง",
-<<<<<<< HEAD
     "scenePlan": "เสนอฉาก",
     "scenePlanOnly": "การเลือกนี้ใช้ได้เฉพาะการเสนอแนะฉากเท่านั้น",
     "scenePlanInvalid": "โมเดลไม่ได้ส่งข้อเสนอฉากที่ถูกต้องกลับมา ลองอีกครั้ง",
@@ -89,15 +88,6 @@
     "scenePlanCreateFailed": "สร้างข้อเสนอฉากไม่สำเร็จ",
     "createScenes": "สร้างฉากที่เลือก",
     "applying": "กำลังสร้าง…"
-=======
-    "applying": "Creating…",
-    "scenePlan": "แนะนำฉาก",
-    "scenePlanOnly": "ตัวเลือกนี้ใช้สำหรับการแนะนำฉากเท่านั้น",
-    "scenePlanInvalid": "โมเดลไม่ได้ส่งข้อเสนอแนะฉากที่ถูกต้องมาให้ กรุณาลองใหม่อีกครั้ง",
-    "scenePlanNeedsOutline": "บทนี้ยังไม่มีโครงเรื่อง กรุณาสร้างหรือสกัดโครงเรื่องก่อน",
-    "scenePlanCreateFailed": "ไม่สามารถสร้างข้อเสนอแนะฉากได้",
-    "createScenes": "สร้างฉากที่เลือก"
->>>>>>> 7032ce6b3 (fix(i18n): run --retry-echoed -- one of the seven was a real gap, six were not (#257))
   },
   "inline": {
     "mode": "โหมดการเขียน",

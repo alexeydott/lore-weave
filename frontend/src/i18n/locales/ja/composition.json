@@ -81,7 +81,6 @@
     "discard": "破棄",
     "stop": "停止",
     "stale": "選択範囲が変わりました — もう一度お試しください。",
-<<<<<<< HEAD
     "scenePlan": "シーンを提案",
     "scenePlanOnly": "この選択範囲はシーン提案専用です。",
     "scenePlanInvalid": "モデルが有効なシーン案を返しませんでした。もう一度お試しください。",
@@ -89,15 +88,6 @@
     "scenePlanCreateFailed": "シーン案を作成できませんでした。",
     "createScenes": "選択したシーンを作成",
     "applying": "作成中…"
-=======
-    "applying": "Creating…",
-    "scenePlan": "シーンを提案",
-    "scenePlanOnly": "この選択肢はシーンの提案にのみ利用可能です。",
-    "scenePlanInvalid": "モデルから有効なシーンの提案が返されませんでした。もう一度お試しください。",
-    "scenePlanNeedsOutline": "この章にはまだアウトラインがありません。先にアウトラインを作成するか、抽出してください。",
-    "scenePlanCreateFailed": "シーンの提案を作成できませんでした。",
-    "createScenes": "選択したシーンを作成"
->>>>>>> 7032ce6b3 (fix(i18n): run --retry-echoed -- one of the seven was a real gap, six were not (#257))
   },
   "inline": {
     "mode": "執筆モード",
