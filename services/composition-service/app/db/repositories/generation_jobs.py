@@ -785,7 +785,6 @@ class GenerationJobsRepo:
                 )
                 return job, version
 
-<<<<<<< HEAD
     async def heartbeat(self, job_id: UUID) -> None:
         # A slow individual LLM call must not be stolen by the idle-job sweeper.
         async with self._pool.acquire() as c:
@@ -803,17 +802,6 @@ class GenerationJobsRepo:
                        updated_at = now()
                    WHERE id = $1 AND status = $3""",
                 job_id, json.dumps({"progress": progress}), "running",
-=======
-    async def touch_running(self, job_id: UUID) -> None:
-        """Heartbeat: bump `updated_at` on a job that is still RUNNING, so the worker's
-        `updated_at`-based sweeper does not re-drive a job that is merely slow. Only a
-        `running` row is touched, so a beat can never revive a finished or cancelled job."""
-        async with self._pool.acquire() as c:
-            await c.execute(
-                "UPDATE generation_job SET updated_at = now() "
-                "WHERE id = $1 AND status = 'running'",
-                job_id,
->>>>>>> e86917319 (fix(composition): truncated plan output is regenerated, not fatal (T1-T3))
             )
 
     async def update_status(

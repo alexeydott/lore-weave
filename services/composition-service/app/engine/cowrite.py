@@ -31,11 +31,6 @@ from loreweave_llm.budget import OutputKind, call_budget
 
 logger = logging.getLogger(__name__)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 0893c05b2 (fix(composition): the co-writer asked for context instead of writing (#273))
 #: `draft_scene` for a scene with NO filled <beat> — see the F12 note in `build_messages`.
 _DRAFT_SCENE_WITHOUT_BRIEF = (
     "Draft ONLY this scene. It has no written brief yet — no <beat> fields have been filled in, "
@@ -47,7 +42,6 @@ _DRAFT_SCENE_WITHOUT_BRIEF = (
     "context: do NOT write them."
 )
 
-<<<<<<< HEAD
 #: `continue` for a scene with NO prose yet (no <recent> block) — see the F13 note in `build_messages`.
 _CONTINUE_WITHOUT_PROSE = (
     "There is no prose in this scene yet — nothing has been written, and that is expected. Do not "
@@ -57,9 +51,6 @@ _CONTINUE_WITHOUT_PROSE = (
     "description (\"the woman\", \"the ferryman\")."
 )
 
->>>>>>> afe24542e (fix(composition): continue asked for the prose it was meant to continue (F13))
-=======
->>>>>>> 0893c05b2 (fix(composition): the co-writer asked for context instead of writing (#273))
 _OPERATION_INSTRUCTIONS = {
     "continue": "Continue the scene from where the recent prose ends, in the same voice.",
     # SCENE-BOUNDARY (2026-07-30, Mị Đế): the plan block shows the whole chapter, so
@@ -586,11 +577,6 @@ def build_messages(
         + lang + voice + style
     )
     instruction = _OPERATION_INSTRUCTIONS.get(operation, "Write the next passage of the scene.")
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 0893c05b2 (fix(composition): the co-writer asked for context instead of writing (#273))
     # F12 / #273 — `draft_scene` names seven <beat> fields and tells the model to use "every" one.
     # A scene the author has only just created has none filled, so the packer (correctly) emits no
     # <beat> block at all — and the model, pointed at a block that is not there, asked for it:
@@ -602,7 +588,6 @@ def build_messages(
     # on a book whose author had named no one, which the system prompt's name rule forbids.
     if operation == "draft_scene" and "<beat>" not in packed_prompt:
         instruction = _DRAFT_SCENE_WITHOUT_BRIEF
-<<<<<<< HEAD
     # F13 — the same failure on `continue` ("Continue the scene from where the recent prose ends").
     # An empty scene has no <recent> block, so the model asked for it: "Please provide the recent
     # prose or the context of the scene". A/B on the request `build_messages` itself produces for an
@@ -610,9 +595,6 @@ def build_messages(
     # invented names.
     if operation == "continue" and "<recent>" not in packed_prompt:
         instruction = _CONTINUE_WITHOUT_PROSE
->>>>>>> afe24542e (fix(composition): continue asked for the prose it was meant to continue (F13))
-=======
->>>>>>> 0893c05b2 (fix(composition): the co-writer asked for context instead of writing (#273))
     # FD-1 S3 — only fires when open promises were re-injected (the <open_promises>
     # block is present ⇒ narrative_thread is enabled + has open threads). Without a
     # steer the block is inert context; with it, the model advances/pays promises.
