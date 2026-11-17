@@ -62,10 +62,9 @@ data: {"type":"response.completed","response":{"id":"resp_abc","usage":{"input_t
 }
 
 func TestStreamResponsesSSE_ExplicitZeroCachedTokensIsReported(t *testing.T) {
-	// F12 (round 2; upstream #324) — a provider that explicitly reports
-	// cached_tokens: 0 measured a 0% turn; the split must survive as a
-	// pointer to 0, not collapse to silence (nil), or the monitor reads a
-	// real measurement as "unavailable".
+	// #324 — a provider that explicitly reports cached_tokens: 0 measured a
+	// 0% turn; the split must survive as a pointer to 0, not collapse to
+	// silence (nil), or the monitor reads a real measurement as "unavailable".
 	body := `data: {"type":"response.completed","response":{"id":"resp_x","usage":{"input_tokens":10,"output_tokens":4,"input_tokens_details":{"cached_tokens":0}}}}
 
 `

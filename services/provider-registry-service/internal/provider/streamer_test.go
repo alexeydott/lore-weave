@@ -139,10 +139,9 @@ data: [DONE]
 }
 
 func TestStreamOpenAICompat_ExplicitZeroCachedTokensIsReported(t *testing.T) {
-	// F12 (round 2; upstream #324) — a provider that explicitly reports
-	// cached_tokens: 0 measured a 0% turn; the split must survive as a
-	// pointer to 0, not collapse to silence (nil), or the monitor reads a
-	// real measurement as "unavailable".
+	// #324 — a provider that explicitly reports cached_tokens: 0 measured a
+	// 0% turn; the split must survive as a pointer to 0, not collapse to
+	// silence (nil), or the monitor reads a real measurement as "unavailable".
 	body := `data: {"choices":[{"delta":{},"index":0,"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12,"prompt_tokens_details":{"cached_tokens":0}}}
 
 data: [DONE]

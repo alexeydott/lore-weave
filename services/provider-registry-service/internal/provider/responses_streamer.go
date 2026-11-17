@@ -93,7 +93,7 @@ func streamResponsesSSE(ctx context.Context, body io.Reader, emit EmitFn) error 
 					InputTokensDetails struct {
 						// *int: field presence matters — an explicit cached_tokens: 0
 						// is a measured 0% turn, while an absent field is provider
-						// silence (F12).
+						// silence (#324).
 						CachedTokens *int `json:"cached_tokens"`
 					} `json:"input_tokens_details"`
 					OutputTokensDetails struct {
@@ -212,7 +212,7 @@ func streamResponsesSSE(ctx context.Context, body io.Reader, emit EmitFn) error 
 				}
 				// Responses input_tokens INCLUDES cached (like OpenAI chat) → the
 				// cached slice is a READ hit; no write charge on this API.
-				// F12 — field presence, not positivity (see streamer.go).
+				// #324 — field presence, not positivity (see streamer.go).
 				if c := ev.Response.Usage.InputTokensDetails.CachedTokens; c != nil {
 					ct := *c
 					chunk.CacheReadTokens = &ct

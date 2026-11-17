@@ -55,9 +55,16 @@ func streamAnthropicSSE(ctx context.Context, body io.Reader, emit EmitFn) error 
 	reasoningIdx := 0
 	finishReason := ""
 	inputTokens := 0
+	// Raw uncached input from message_start (Anthropic reports input_tokens
+	// EXCLUDING cached tokens). The folded total is rebuilt from this plus
+	// the FINAL cache split whenever terminal values override the start
+	// split (F2, Codex P2 on #324) — otherwise a terminal 0 leaves the stale
+	// cached volume in inputTokens and usageCostUSD prices it all at the
+	// full input rate.
+	rawInputTokens := 0
 	outputTokens := 0
 	// *int: nil ⇔ the provider reported no cache split (silence); a pointer
-	// to 0 is an explicitly measured 0% turn (F12).
+	// to 0 is an explicitly measured 0% turn (#324).
 	var cacheCreation, cacheRead *int
 	usageEmitted := false
 
@@ -93,7 +100,7 @@ func streamAnthropicSSE(ctx context.Context, body io.Reader, emit EmitFn) error 
 					// never silently under-counts input (OpenAI, by contrast, keeps
 					// cached tokens INSIDE prompt_tokens, so its path needs no fold).
 					// *int: field presence matters — an explicit 0 is a measured
-					// turn, while an absent field is provider silence (F12).
+					// turn, while an absent field is provider silence (#324).
 					CacheCreationInputTokens *int `json:"cache_creation_input_tokens"`
 					CacheReadInputTokens     *int `json:"cache_read_input_tokens"`
 				} `json:"usage"`
@@ -143,6 +150,7 @@ func streamAnthropicSSE(ctx context.Context, body io.Reader, emit EmitFn) error 
 			// counted (bills at standard input rate as if uncached — the platform
 			// keeps the Anthropic-side cache savings, and no spend/cap under-counts).
 			inputTokens = parsed.Message.Usage.InputTokens
+			rawInputTokens = parsed.Message.Usage.InputTokens
 			if v := parsed.Message.Usage.CacheCreationInputTokens; v != nil {
 				inputTokens += *v
 			}
@@ -220,12 +228,27 @@ func streamAnthropicSSE(ctx context.Context, body io.Reader, emit EmitFn) error 
 				// message_delta may also carry cache fields (some Anthropic
 				// versions report them terminally rather than on message_start);
 				// prefer a terminal value when the field is present, else keep
-				// the message_start one (F12: presence, not positivity).
+				// the message_start one (#324: presence, not positivity).
 				if v := parsed.Usage.CacheCreationInputTokens; v != nil {
 					cacheCreation = v
 				}
 				if v := parsed.Usage.CacheReadInputTokens; v != nil {
 					cacheRead = v
+				}
+				// Rebuild the folded total from the raw uncached input and
+				// the FINAL split: a terminal override (including an explicit
+				// 0) replaces the start values, so the start fold is stale.
+				// Without this the usageCostUSD invariant
+				// InputTokens == uncached + read + creation breaks and the
+				// stale cached volume is priced at the full input rate.
+				// No-op when nothing overrode (fold identity: raw + start
+				// split == the message_start fold).
+				inputTokens = rawInputTokens
+				if cacheCreation != nil {
+					inputTokens += *cacheCreation
+				}
+				if cacheRead != nil {
+					inputTokens += *cacheRead
 				}
 				chunk := StreamChunk{
 					Kind:         StreamChunkUsage,
@@ -234,7 +257,7 @@ func streamAnthropicSSE(ctx context.Context, body io.Reader, emit EmitFn) error 
 				}
 				// Attach the split when the provider reported it (nil ⇔ silence,
 				// so a non-cached turn emits no misleading cache fields); an
-				// explicit 0 is a measured 0% turn and must survive (F12).
+				// explicit 0 is a measured 0% turn and must survive (#324).
 				if cacheCreation != nil {
 					cc := *cacheCreation
 					chunk.CacheCreationTokens = &cc
