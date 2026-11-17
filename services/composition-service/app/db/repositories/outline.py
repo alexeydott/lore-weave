@@ -1873,40 +1873,29 @@ class OutlineRepo:
         NOT version-bumped — story_order is a system-maintained ordinal, not a user field.
         project_id-scoped, so the renumber can never leave this Work.
 
-        ROOT scenes (`parent_id IS NULL`) still belong to a chapter — the DB CHECK
-        requires `chapter_id` on a scene — so their base is NOT the (absent) parent:
-        when the parent has no slot, the base falls back to the story_order of the
-        chapter node carrying the scene's own `chapter_id`. A root scene with no
-        chapter node in this project has no slot to claim and still yields NULL
-        (the same honest-unknown rule as a chapter with no position). The index
-        stays the sibling index (`row_number()` over the parent's children), so a
-        chapter's scenes keep `chapter.slot + i` exactly as before this change."""
+        #318 P1 — a NULL parent has NO chapter base at all: the `base` CTE matches no
+        row, so `(SELECT b FROM base)` is NULL and the UPDATE below would write NULL
+        into EVERY root scene's story_order — dropping them from every story_order-keyed
+        draft/context query. Root scenes (stray imports) keep their last-known order;
+        the renumber is a no-op up here."""
+        if parent_id is None:
+            return
         await c.execute(
             """
             WITH base AS (
               SELECT story_order AS b FROM outline_node
                WHERE id = $2 AND project_id = $1
             ), ordered AS (
-              SELECT id, chapter_id, (row_number() OVER (ORDER BY rank COLLATE "C", id) - 1) AS idx
+              SELECT id, (row_number() OVER (ORDER BY rank COLLATE "C", id) - 1) AS idx
               FROM outline_node
               WHERE project_id = $1 AND parent_id IS NOT DISTINCT FROM $2
                 AND kind = 'scene' AND NOT is_archived
-            ), based AS (
-              SELECT o.id, o.idx,
-                     COALESCE(
-                       (SELECT b FROM base),
-                       (SELECT ch.story_order FROM outline_node ch
-                         WHERE ch.project_id = $1 AND ch.kind = 'chapter'
-                           AND ch.chapter_id = o.chapter_id AND NOT ch.is_archived
-                         ORDER BY ch.created_at LIMIT 1)
-                     ) AS b
-              FROM ordered o
             )
             UPDATE outline_node n
-            SET story_order = based.b + based.idx, updated_at = now()
-            FROM based
-            WHERE n.id = based.id AND n.project_id = $1
-              AND n.story_order IS DISTINCT FROM (based.b + based.idx)
+            SET story_order = (SELECT b FROM base) + o.idx, updated_at = now()
+            FROM ordered o
+            WHERE n.id = o.id AND n.project_id = $1
+              AND n.story_order IS DISTINCT FROM ((SELECT b FROM base) + o.idx)
             """,
             project_id, parent_id,
         )
@@ -1936,6 +1925,17 @@ class OutlineRepo:
                 node = await self.get_node(node_id, conn=c)
                 if node is None:
                     return None
+                # #318 P1 — chapters are NOT reorderable here. Chapter order is owned by
+                # book-service (POST /books/{id}/chapters/reorder + resync_reading_order
+                # is the ONLY writer of a chapter's slot outside the initial commit);
+                # flattenOutline sorts chapters by story_order first, so a rank-only
+                # chapter move would report success while the display never changes —
+                # a silent no-op that also reaches the NULL-parent renumber. Fail loud.
+                if node.kind == "chapter":
+                    raise ReferenceViolationError(
+                        "chapter order is owned by the manuscript; reorder chapters via "
+                        "POST /books/{book_id}/chapters/reorder, not the outline move"
+                    )
                 if new_parent_id is not None:
                     # cycle / cross-scope guard (reused from update_node's reparent)
                     await self._validate_reparent(c, node_id, new_parent_id)
