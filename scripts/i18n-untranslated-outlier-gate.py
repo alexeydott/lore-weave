@@ -93,10 +93,10 @@ BASELINE: dict[str, str] = {
     # 479). Reading them is T8, and T8 is a person's.
     "chat.inspector.title": "th kept 'Agent runtime' -- unchanged after --retry-echoed (T8)",
     "composition.branchdiff.todo": "ja kept 'todo' -- unchanged after --retry-echoed (T8)",
-    "kgOntology.adopt.scope.project": "ru kept 'Project' -- unchanged after --retry-echoed; "
-        "the least convincing of the six, Russian has Проект (T8)",
-    "kgOntology.adopt.scope.user": "ru kept 'User' -- unchanged after --retry-echoed; "
-        "Russian has Пользователь (T8)",
+    # kgOntology.adopt.scope.project / .user deleted 2026-11-21: ru now carries
+    # Проект / Пользователь (translated in the 2026-11-16 wave) — the rows had
+    # stopped describing the tree, and a baseline that never shrinks stops being
+    # debt and becomes a permanent exemption.
     "studio.checkpoints.insert": "bn kept 'Inserted' -- unchanged after --retry-echoed (T8)",
     "usage.purpose.chunk_edit": "bn kept 'Chunk Edit' -- unchanged after --retry-echoed (T8)",
 }

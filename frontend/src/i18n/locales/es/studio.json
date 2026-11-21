@@ -7,7 +7,8 @@
     "loading": "Cargando…",
     "empty": "Aún no hay arcos.",
     "emptyGuided": "Aún no hay arcos; el plan es la especificación que guía tu libro. Define sus arcos y capítulos para empezar.",
-    "planCta": "Planificar este libro"
+    "planCta": "Planificar este libro",
+    "loadMore": "Cargar más"
   },
   "welcome": {
     "tab": "Bienvenido",

@@ -7,7 +7,8 @@
     "loading": "Yükleniyor…",
     "empty": "Henüz ark yok.",
     "emptyGuided": "Henüz bir olay örgüsü yok — plan, kitabınıza yön veren teknik özelliktir. Başlamak için olay örgüsünü ve bölümleri düzenleyin.",
-    "planCta": "Bu kitabı planla"
+    "planCta": "Bu kitabı planla",
+    "loadMore": "Daha fazla yükle"
   },
   "welcome": {
     "tab": "Hoş Geldiniz",

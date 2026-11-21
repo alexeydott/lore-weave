@@ -7,7 +7,8 @@
     "loading": "載入中…",
     "empty": "尚無故事弧。",
     "emptyGuided": "尚未建立故事弧 — 規劃是引導您創作書籍的藍圖。開始規劃其故事弧與章節吧。",
-    "planCta": "規劃這本書"
+    "planCta": "規劃這本書",
+    "loadMore": "載入更多"
   },
   "welcome": {
     "tab": "歡迎",

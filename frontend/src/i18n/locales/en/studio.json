@@ -7,7 +7,8 @@
     "loading": "Loading…",
     "empty": "No arcs yet.",
     "emptyGuided": "No arcs yet — the plan is the spec that steers your book. Lay out its arcs and chapters to get started.",
-    "planCta": "Plan this book"
+    "planCta": "Plan this book",
+    "loadMore": "Load more"
   },
   "welcome": {
     "tab": "Welcome",

@@ -1,5 +1,8 @@
 # Plan — Close the v0.1.0 leftovers
 
+Reconciles: Any task, start to finish — closes the v0.1.0 leftovers (spec options A–D) as
+ordinary tracked work; this plan adds no rule of its own.
+
 - **Date:** 2026-09-18
 - **Branch:** `fix/v0.1.0-release-gaps` (no new branch — the PO chose to stay on it; uncommitted work lives here)
 - **Spec:** [`docs/specs/2026-09-18-close-v010-leftovers.md`](../specs/2026-09-18-close-v010-leftovers.md) — options A–D

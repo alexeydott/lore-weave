@@ -7,7 +7,8 @@
     "loading": "Memuatkan…",
     "empty": "Belum ada arka.",
     "emptyGuided": "Tiada lengkok cerita lagi — pelan ini adalah spesifikasi yang memandu buku anda. Susun lengkok dan bab untuk bermula.",
-    "planCta": "Rancang buku ini"
+    "planCta": "Rancang buku ini",
+    "loadMore": "Muat lagi"
   },
   "welcome": {
     "tab": "Selamat Datang",

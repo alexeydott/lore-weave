@@ -7,7 +7,8 @@
     "loading": "Chargement…",
     "empty": "Aucun arc pour l’instant.",
     "emptyGuided": "Aucun arc narratif pour le moment — le plan est la structure qui guide votre livre. Définissez vos arcs et vos chapitres pour commencer.",
-    "planCta": "Planifier ce livre"
+    "planCta": "Planifier ce livre",
+    "loadMore": "Charger plus"
   },
   "welcome": {
     "tab": "Bienvenue",

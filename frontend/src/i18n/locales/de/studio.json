@@ -7,7 +7,8 @@
     "loading": "Wird geladen…",
     "empty": "Noch keine Handlungsbögen.",
     "emptyGuided": "Noch keine Handlungsbögen vorhanden – der Plan ist die Spezifikation, die Ihr Buch steuert. Legen Sie die Handlungsbögen und Kapitel fest, um zu beginnen.",
-    "planCta": "Dieses Buch planen"
+    "planCta": "Dieses Buch planen",
+    "loadMore": "Mehr laden"
   },
   "welcome": {
     "tab": "Willkommen",

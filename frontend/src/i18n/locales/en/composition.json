@@ -1236,7 +1236,28 @@
       "fallback": "Translation unavailable; showing {{language}}.",
       "contextRequired": "Select a committed scene to edit its motif.",
       "current": "Current binding",
-      "dirty": "Unsaved changes"
+      "dirty": "Unsaved changes",
+      "conflict": "This motif changed elsewhere — reopen it to get the latest before editing.",
+      "name": "Name",
+      "kind": "Kind",
+      "tension": "Tension (1–5)",
+      "genres": "Genres (comma-separated)",
+      "emotion": "Emotion",
+      "summary": "Summary (embedded for retrieval)",
+      "roles": "Roles",
+      "roleLabel": "label",
+      "roleConstraints": "constraints",
+      "beats": "Beats",
+      "beatLabel": "beat",
+      "beatIntent": "intent",
+      "preconditions": "Preconditions",
+      "effects": "Effects",
+      "examples": "Examples (author-written)",
+      "scheme": "Information asymmetry",
+      "knows": "who knows (comma)",
+      "deceived": "who is deceived (comma)",
+      "gap": "the gap",
+      "add": "add"
     },
     "kind": {
       "arcs": "Arc templates",
@@ -1855,8 +1876,6 @@
     "preview_more": "…and {{n}} more",
     "preview_blank": "blank line will be deleted"
   },
-  "threadEditAria": "Edit promise",
-  "threadArchiveAria": "Archive promise",
   "qualityReasons": {
     "context_limit": "Model context limit exceeded.",
     "network": "Provider network error.",

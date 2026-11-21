@@ -7,7 +7,8 @@
     "loading": "Đang tải…",
     "empty": "Chưa có hồi.",
     "emptyGuided": "Chưa có hồi nào — kế hoạch là bản đặc tả định hướng cho cuốn sách của bạn. Hãy thiết lập các hồi và chương để bắt đầu.",
-    "planCta": "Lập kế hoạch cho cuốn sách này"
+    "planCta": "Lập kế hoạch cho cuốn sách này",
+    "loadMore": "Tải thêm"
   },
   "welcome": {
     "tab": "Chào mừng",

@@ -7,7 +7,8 @@
     "loading": "加载中…",
     "empty": "暂无弧线。",
     "emptyGuided": "暂无弧线 — 规划是引导书籍创作的规格说明。通过规划弧线和章节来开始创作。",
-    "planCta": "规划本书"
+    "planCta": "规划本书",
+    "loadMore": "加载更多"
   },
   "welcome": {
     "tab": "欢迎",

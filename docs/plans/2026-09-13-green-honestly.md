@@ -1,6 +1,9 @@
 # Green, honestly — fix the product until the suite passes, and never the other way round
 
-Reconciles: Plan Acceptance Criteria · Non-Vacuity · Remediation Cycle — this plan adds no rule.
+Reconciles: Any task, start to finish · Non-Vacuity — this plan adds no rule; it is the
+ordinary red-by-red remediation loop, and every green it claims must rest on a check that
+can fail (citations corrected 2026-11-21: 'Plan Acceptance Criteria' / 'Remediation Cycle'
+name no row in the standards index).
 It continues [red-by-red](2026-09-13-red-by-red.md), which answered *why* 51 tests failed. This
 one closes the 18 that remain.
 
