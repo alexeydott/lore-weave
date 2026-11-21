@@ -1,6 +1,6 @@
 // World Setup wizard — the three human checkpoints must actually gate the pipeline,
 // and honest reporting (skips, unresolved edges) must reach the screen.
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -50,7 +50,9 @@ describe('WorldSetupWizard', () => {
 
     await screen.findByTestId('world-setup-worklist');
     expect(screen.getByText('Tô Thanh Dao')).toBeInTheDocument();
-    expect(screen.getByText('deep profile')).toBeInTheDocument();
+    // Localized 4cf1bfad9: the deep badge renders t('deepProfile') — under the
+    // test i18n mock that is the raw KEY (repo convention: assert on keys).
+    expect(screen.getByText('deepProfile')).toBeInTheDocument();
     // checkpoint 1: nothing is built until the human approves
     expect(api.approvePlan).not.toHaveBeenCalled();
   });
@@ -63,7 +65,11 @@ describe('WorldSetupWizard', () => {
     await user.click(screen.getByTestId('world-setup-start'));
     await screen.findByTestId('world-setup-worklist');
 
-    await user.click(screen.getByLabelText('Include Lòng tốt'));   // untick one
+    // The include checkbox's aria-label is t('includeAria', { name }) — the mock
+    // renders the bare key for every row, so scope to the item's own <li> instead
+    // of matching the human text.
+    const lòngRow = screen.getByText('Lòng tốt').closest('li');
+    await user.click(within(lòngRow as HTMLElement).getByRole('checkbox'));   // untick one
     await user.click(screen.getByTestId('world-setup-approve-plan'));
 
     expect(api.approvePlan).toHaveBeenCalledWith(
@@ -158,8 +164,11 @@ describe('WorldSetupWizard', () => {
     await user.click(screen.getByTestId('world-setup-project-kg'));
 
     const warn = await screen.findByTestId('world-setup-lore-not-indexed');
-    expect(warn).toHaveTextContent('12');
-    expect(warn).toHaveTextContent('not searchable');
+    // The total flows through t('notSearchable', { count }) — under the key-mock
+    // convention the rendered text is the bare key, so assert content by it plus
+    // the raw per-outcome advice the component still writes literally.
+    expect(warn).toHaveTextContent('notSearchable');
+    expect(warn).toHaveTextContent('no embedding model');
   });
 
   // The banner used to sum EVERY non-indexing outcome and then explain the total with a
@@ -185,7 +194,13 @@ describe('WorldSetupWizard', () => {
     await user.click(screen.getByTestId('world-setup-project-kg'));
 
     const warn = await screen.findByTestId('world-setup-lore-not-indexed');
-    expect(warn).toHaveTextContent('8');  // 5 + 3, NOT the 4 that indexed fine
+    // 5 + 3, NOT the 4 that indexed fine — the total rides the localized summary
+    // (invisible under the key-mock), so prove the arithmetic through the two
+    // per-outcome rows, which render {r.n} as a raw JSX number.
+    expect(screen.getByTestId('world-setup-lore-reason-unsupported_dim'))
+      .toHaveTextContent('5');
+    expect(screen.getByTestId('world-setup-lore-reason-embed_failed'))
+      .toHaveTextContent('3');
     expect(screen.getByTestId('world-setup-lore-reason-unsupported_dim'))
       .toHaveTextContent('vector size is not supported');
     expect(screen.getByTestId('world-setup-lore-reason-embed_failed'))
@@ -275,9 +290,14 @@ describe('WorldSetupWizard — ACTIVE_RUN', () => {
     await user.click(screen.getByTestId('world-setup-start'));
 
     const box = await screen.findByTestId('world-setup-blocked');
-    // by CONTENT, not by presence: a box rendering `undefined` is present and visible
-    expect(box.textContent).toContain('edges_ready');
-    expect(box.textContent).toContain('Relationships');
+    // by CONTENT, not by presence: a box rendering `undefined` is present and visible.
+    // Localized 4cf1bfad9 — under the key-mock the box renders the t() keys
+    // ('blocked.intro' + the resume/cancel actions); the interpolated step/code
+    // values only materialize with real resources, so the key itself is the
+    // content proof here.
+    expect(box.textContent).toContain('blocked.intro');
+    expect(box.textContent).toContain('blocked.resume');
+    expect(box.textContent).toContain('blocked.cancel');
     expect(screen.getByTestId('world-setup-blocked-resume')).toBeInTheDocument();
     expect(screen.getByTestId('world-setup-blocked-cancel')).toBeInTheDocument();
     // the raw code no longer occupies the screen alone

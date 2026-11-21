@@ -118,6 +118,21 @@ async function fetchWithTimeout(
   }
 }
 
+/** Is a plain-text error body just the framework's default status line, not an
+ *  application message? Go's `http.NotFound` — the router default for an unrouted
+ *  path, e.g. a /v1 call that reaches a service which does not serve it — writes
+ *  the literal body `404 page not found`; proxies emit the same `<code> <text>`
+ *  shape. It names no failing dependency and no failed action, so surfacing it
+ *  verbatim tells the author the PAGE does not exist: live, the BooksPage banner
+ *  and the AssistantPage full-screen error both rendered exactly that. Real Go
+ *  `http.Error` sites write sentences ("database unavailable", "db down", "mcp not
+ *  configured") — none starts with its own status code — so this never swallows
+ *  one. Exported for tests. Restored 2026-11-21: the 1a0d2ce40 suppression was
+ *  lost in a later merge while its FL-1 test survived. */
+export function isStatusCodeBoilerplate(text: string, status: number): boolean {
+  return new RegExp(`^${status}(\\s|$)`).test(text.trim());
+}
+
 /** Is a non-JSON error body a real message we should show, or infra noise we must not?
  *  Exported for tests — this predicate is the whole difference between "database unavailable"
  *  reaching the author and an HTML document being rendered at them. */
@@ -172,7 +187,7 @@ export async function apiJson<T>(
       // toast, so (2) rendered a whole HTML document at the author (S2 hit this live on a
       // 502 through the FE nginx). Suppress markup and anything far too long to be a
       // sentence; keep the raw text under `rawBody` either way for debugging.
-      body = isPlainTextMessage(text)
+      body = isPlainTextMessage(text) && !isStatusCodeBoilerplate(text, res.status)
         ? { code: 'PARSE_ERROR', message: text.trim(), rawBody: text }
         : { code: 'PARSE_ERROR', rawBody: text };
     }
