@@ -34,7 +34,7 @@ function Harness() {
 
 function renderAt(entry: string) {
   return render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[entry]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Harness />
     </MemoryRouter>,
   );

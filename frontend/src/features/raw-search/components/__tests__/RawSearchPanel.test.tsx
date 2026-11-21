@@ -36,7 +36,7 @@ function renderPanel() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <RawSearchPanel bookId="book-1" />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -106,7 +106,7 @@ describe('RawSearchPanel', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>
-        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <MemoryRouter>
           <RawSearchPanel bookId="book-1" />
           <LocationProbe />
         </MemoryRouter>
@@ -125,7 +125,7 @@ describe('RawSearchPanel', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>
-        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <MemoryRouter>
           <RawSearchPanel bookId="book-1" />
           <LocationProbe />
         </MemoryRouter>

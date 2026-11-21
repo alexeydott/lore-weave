@@ -47,7 +47,7 @@ function renderMobile(onOpenDetail?: (service: string, jobId: string) => void) {
   const qc = new QueryClient();
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <JobsMobile onOpenDetail={onOpenDetail} />
       </MemoryRouter>
     </QueryClientProvider>,

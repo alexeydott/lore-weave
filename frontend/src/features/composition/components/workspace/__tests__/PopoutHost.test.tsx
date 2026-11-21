@@ -21,7 +21,7 @@ vi.mock('../../CompositionPanel', () => ({
 
 function renderAt(query: string) {
   return render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[`/composition/popout${query}`]}>
+    <MemoryRouter initialEntries={[`/composition/popout${query}`]}>
       <PopoutHost />
     </MemoryRouter>,
   );

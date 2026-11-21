@@ -39,7 +39,7 @@ import { WikiArticleView } from '../WikiWorkspace';
 
 function setup(insideStudio: boolean) {
   const tree = (
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <MemoryRouter>
       <WikiArticleView bookId="b1" articleId="a1" onRegenerate={() => {}} />
     </MemoryRouter>
   );

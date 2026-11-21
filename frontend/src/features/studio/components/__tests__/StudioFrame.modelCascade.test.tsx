@@ -78,7 +78,7 @@ function Navigation() {
 }
 function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  return render(<QueryClientProvider client={client}><MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/books/a/studio']}>
+  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/books/a/studio']}>
     <Navigation /><Routes><Route path="/books/:bookId/studio" element={<WritingStudioPage />} /></Routes>
   </MemoryRouter></QueryClientProvider>);
 }

@@ -14,7 +14,7 @@ import { MobileTopBar } from '../MobileTopBar';
 
 function renderAt(path: string) {
   return render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[path]}>
+    <MemoryRouter initialEntries={[path]}>
       <MobileTopBar />
     </MemoryRouter>,
   );

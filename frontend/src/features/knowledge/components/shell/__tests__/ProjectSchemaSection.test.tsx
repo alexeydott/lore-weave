@@ -54,7 +54,7 @@ beforeEach(() => {
 
 const renderSection = (bookId: string | null) =>
   render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <MemoryRouter>
       <ProjectSchemaSection projectId="p-1" bookId={bookId} />
     </MemoryRouter>,
   );

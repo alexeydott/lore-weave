@@ -58,7 +58,7 @@ function Wrapper({
     defaultOptions: { queries: { retry: false } },
   });
   return (
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[initialPath]}>
+    <MemoryRouter initialEntries={[initialPath]}>
       <QueryClientProvider client={qc}>{children}</QueryClientProvider>
     </MemoryRouter>
   );

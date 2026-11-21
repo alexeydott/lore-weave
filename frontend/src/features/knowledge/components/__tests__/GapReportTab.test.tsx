@@ -24,7 +24,7 @@ function wrapper({ children }: { children: ReactNode }) {
   });
   return (
     <QueryClientProvider client={qc}>
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>{children}</MemoryRouter>
+      <MemoryRouter>{children}</MemoryRouter>
     </QueryClientProvider>
   );
 }

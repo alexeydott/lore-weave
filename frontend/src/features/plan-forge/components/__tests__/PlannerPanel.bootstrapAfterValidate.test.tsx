@@ -64,7 +64,7 @@ import { PlannerPanel } from '../PlannerPanel';
 function renderPanel() {
   const props = { api: { setTitle: vi.fn() } } as unknown as IDockviewPanelProps;
   return render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <MemoryRouter>
       <PlannerPanel {...props} />
     </MemoryRouter>,
   );

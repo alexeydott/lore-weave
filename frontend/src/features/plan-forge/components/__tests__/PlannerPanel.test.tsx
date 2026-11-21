@@ -79,7 +79,7 @@ function renderPanel() {
   const props = { api: { setTitle: vi.fn() } } as unknown as IDockviewPanelProps;
   // MemoryRouter: the zero-models default empty state renders AddModelCta (a router Link).
   return render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <MemoryRouter>
       <PlannerPanel {...props} />
     </MemoryRouter>,
   );

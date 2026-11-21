@@ -71,7 +71,7 @@ describe('settings tab registry', () => {
 
 function renderPage(tab: string) {
   return render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[`/settings/${tab}`]}>
+    <MemoryRouter initialEntries={[`/settings/${tab}`]}>
       <Routes>
         <Route path="/settings/:tab" element={<SettingsPage />} />
       </Routes>

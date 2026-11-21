@@ -34,7 +34,7 @@ const base = {
 
 function renderFeed() {
   return render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <MemoryRouter>
       <ActivityPage />
     </MemoryRouter>,
   );
@@ -71,7 +71,7 @@ describe('ActivityPage', () => {
 
     useActivity.mockReturnValue({ ...base, items: [item({})], unread: 3, markAllRead });
     rerender(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <ActivityPage />
       </MemoryRouter>,
     );
