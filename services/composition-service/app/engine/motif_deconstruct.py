@@ -577,7 +577,7 @@ async def deconstruct_reference(
                 "response_format": {"type": "text"}, "temperature": 0.2,
                 "max_tokens": max_tokens_for("motif_deconstruct", target=len(ch.split())),
             },
-            job_meta={"extractor": "motif_deconstruct", "chunk": i},
+            job_meta={"extractor": "motif_deconstruct", "chunk": i, "usage_purpose": "motif_deconstruct"},
         )
         if getattr(job, "status", None) != "completed":
             logger.warning("deconstruct chunk %d not completed: %s", i, getattr(job, "status", None))

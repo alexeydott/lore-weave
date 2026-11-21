@@ -181,7 +181,7 @@ async def judge_motif_conformance(
                 # The judge emits tiny JSON — reasoning tokens are pure budget burn.
                 **no_thinking_fields(),
             },
-            job_meta={"extractor": "motif_conformance"},
+            job_meta={"extractor": "motif_conformance", "usage_purpose": "motif_conformance"},
             trace_id=trace_id,
         )
     except LLMError as exc:

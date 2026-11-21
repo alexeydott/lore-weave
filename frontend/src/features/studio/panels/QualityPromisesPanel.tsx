@@ -34,6 +34,8 @@ import { QualityWorkGate } from './QualityNoWorkState';
 import { useQualityWork } from './useQualityWork';
 import { useActiveWorkId } from '@/features/composition/hooks/useActiveWork';
 import { resolveActiveWork } from '@/features/composition/workSelect';
+import { roleRef } from '@/features/composition/modelRoles';
+import { isChatSafeDefault } from '@/features/ai-models/api';
 
 /** 24 PH18 — the Plan Hub's thread badge deep-links here with the `narrative_thread.id`, which IS
  *  what this panel lists (unlike the canon lens, whose rows carry no rule id). */
@@ -74,9 +76,12 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
   const modelList = modelsState.models ?? [];
   const inheritedModel = useEffectiveModelSelection('chat');
   const [pickedModel, setPickedModel] = useState('');
-  const workDefaultRef = (activeWork?.settings?.default_model_ref as string | undefined) || '';
+  // roleRef: the Work default is written in the model_roles MAP form (2026-08-03);
+  // a scalar-only read made it invisible here (2026-11-21 model-surface audit).
+  const workDefaultRef = roleRef((activeWork?.settings ?? {}) as Record<string, unknown>, 'chat');
   const effectiveModelRef =
-    pickedModel || inheritedModel?.model_ref || workDefaultRef || modelList[0]?.user_model_id || '';
+    pickedModel || inheritedModel?.model_ref || workDefaultRef
+    || modelList.find(isChatSafeDefault)?.user_model_id || '';
   const effectiveModelSource = !pickedModel && inheritedModel?.model_source === 'platform_model'
     ? 'platform_model' as const : 'user_model' as const;
   const selectedModel = modelList.find((m) => m.user_model_id === effectiveModelRef);
@@ -100,7 +105,7 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
 
   // Chapter backfill: the analyzed chapter is chosen by the author; the model
   // is the Work's default co-author model (SET-1..8 — no silent fallback).
-  const defaultModelRef = (activeWork?.settings?.default_model_ref as string | undefined) || null;
+  const defaultModelRef = roleRef((activeWork?.settings ?? {}) as Record<string, unknown>, 'chat') || null;
   const { data: chapters } = useQuery({
     queryKey: ['books', 'chapters', host.bookId],
     queryFn: async () => {

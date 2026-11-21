@@ -157,7 +157,7 @@ async def judge_entailments(
                 input={"messages": build_messages(batch), "temperature": 0.0,
                        "max_tokens": max_tokens_for(
                            "succession_entailment", target=len(batch))},
-                job_meta={"extractor": "succession_entailment"},
+                job_meta={"extractor": "succession_entailment", "usage_purpose": "succession_entailment"},
             )
         except Exception as exc:  # advisory — an LLM outage never fails the report
             logger.warning("entailment judge batch failed: %r", exc)

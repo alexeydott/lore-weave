@@ -163,6 +163,18 @@ func (w *Worker) processAudioJob(
 		return
 	}
 
+	// #286 — serve-one-model-at-a-time sequences MEDIA calls against other models on the
+	// same endpoint too (2026-11-21 audit R2 — the lease was chat-only on the job path).
+	// Fail-open on a lookup error (today's behaviour).
+	if w.lease != nil {
+		if on, lerr := w.repo.ResolveServeOneModel(ctx, modelSource, ownerUserID, modelRef); lerr != nil {
+			logger.Warn("resolve serve_one_model_at_a_time failed — calling without the model lease", "err", lerr)
+		} else if on {
+			logger.Debug("model lease requested (media)", "endpoint", endpointBaseURL, "model", providerModelName)
+			ctx = withModelLeaseReq(ctx, endpointBaseURL, providerModelName)
+		}
+	}
+
 	adapter, err := w.adapter(providerKind)
 	if err != nil {
 		w.finalizeAndNotify(ctx, jobID, ownerUserID, operation, "failed", nil, "LLM_PROVIDER_ROUTE_VIOLATION", err.Error(), "")

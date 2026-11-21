@@ -227,7 +227,11 @@ def main() -> int:
     new = [(k, e, s) for k, e, s in found if k not in BASELINE]
     stale = [k for k in BASELINE if k not in {f[0] for f in found}]
 
-    print(f"i18n-untranslated-outlier-gate: {len(data)} locales, "
+    # MAX_LOCALES printed on the PASS path — gate-number-visibility-gate: a
+    # ratchet constant that only ever prints on failure says nothing on green
+    # runs, and drift becomes history instead of a diff.
+    print(f"i18n-untranslated-outlier-gate: {len(data)} locales "
+          f"(tolerance MAX_LOCALES={MAX_LOCALES}), "
           f"{len(data[BASE])} keys, {len(found)} outlier(s), {len(new)} new.")
 
     if stale:

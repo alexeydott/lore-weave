@@ -902,11 +902,15 @@ func (r *Repo) ModelPricing(ctx context.Context, modelSource string, ownerUserID
 	var err error
 	switch modelSource {
 	case "user_model":
+		// 2026-11-21 model-surface audit R3: admission must require the same
+		// active row the dispatch-time resolve requires (um.is_active AND
+		// pc.status='active') — otherwise a deactivated model passes preflight,
+		// is enqueued, and only fails at dispatch. Fail closed at the door.
 		err = r.pool.QueryRow(ctx, `
 SELECT um.pricing, COALESCE(pc.endpoint_base_url,'')
 FROM user_models um
 JOIN provider_credentials pc ON pc.provider_credential_id = um.provider_credential_id
-WHERE um.user_model_id=$1 AND um.owner_user_id=$2`,
+WHERE um.user_model_id=$1 AND um.owner_user_id=$2 AND um.is_active=true AND pc.status='active'`,
 			modelRef, ownerUserID).Scan(&raw, &endpointBaseURL)
 	case "platform_model":
 		err = r.pool.QueryRow(ctx,
@@ -988,8 +992,11 @@ func (r *Repo) ModelContextLength(ctx context.Context, modelSource string, owner
 		return 0, false, fmt.Errorf("unknown model_source %q", modelSource)
 	}
 	var ctxLen *int
+	// Same admission rule as ModelPricing above (audit R3): only an ACTIVE model
+	// row sizes the context-fit preflight — a deactivated one must fail admission,
+	// not silently skip the context check.
 	err := r.pool.QueryRow(ctx,
-		`SELECT context_length FROM user_models WHERE user_model_id=$1 AND owner_user_id=$2`,
+		`SELECT context_length FROM user_models WHERE user_model_id=$1 AND owner_user_id=$2 AND is_active=true`,
 		modelRef, ownerUserID).Scan(&ctxLen)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, false, nil

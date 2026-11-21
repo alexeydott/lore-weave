@@ -11,6 +11,7 @@ import { AddModelCta } from '@/components/shared/AddModelCta';
 import { ModelPicker, useUserModels } from '@/components/model-picker';
 import { useEffectiveModel } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 import { compositionApi } from '../api';
+import { roleRef } from '../modelRoles';
 import { useChapterScenes, useCreateScene, useCreateWork, usePendingWorkResolver, useSetSceneStatus, useWorkResolution } from '../hooks/useWork';
 import { useActiveWorkId } from '../hooks/useActiveWork';
 import { resolveActiveWork } from '../workSelect';
@@ -313,7 +314,11 @@ export function CompositionPanel({ bookId, chapterId, token, onAccept, onApplyPo
   // dynamic-gates): only honor it while models are still loading or it's in the
   // active list — else fall back to '' so the selector doesn't show a phantom value
   // and no hidden stale model_ref reaches generation.
-  const defaultModelRef = typeof work.settings?.default_model_ref === 'string' ? work.settings.default_model_ref : '';
+  // roleRef reads the model_roles MAP first (the form patchForRole writes since
+  // 2026-08-03) and falls back to the legacy scalar — a scalar-only read left every
+  // Work default set through Settings/WorkDefaultModelPrompt invisible here and in
+  // the inline-continue chain (2026-11-21 model-surface audit).
+  const defaultModelRef = roleRef((work.settings ?? {}) as Record<string, unknown>, 'chat');
   const defaultIsAvailable = !modelList || modelList.some((m) => m.user_model_id === defaultModelRef);
   // Precedence (the settings cascade, spec §3): an explicit session pick > the
   // persisted per-Work default (Book tier, if still active) > the inherited

@@ -529,7 +529,7 @@ async def threads_assistant(
         input={
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "response_format": {"type": "text"}, "temperature": 0.0,
-                "max_tokens": body.max_output_tokens or 8192,
+                "max_tokens": narrowed_by_request(8192, body.max_output_tokens),
             **no_thinking_fields(),
         },
         job_meta={"usage_purpose": "threads_assistant", "extractor": "threads_assistant"},
@@ -2665,7 +2665,7 @@ async def world_setup_assist_description(
         input={
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "response_format": {"type": "text"}, "temperature": 0.3,
-            "max_tokens": body.max_output_tokens or 4096,
+            "max_tokens": narrowed_by_request(4096, body.max_output_tokens),
             **no_thinking_fields(),
         },
         job_meta={"usage_purpose": "world_setup_assist", "extractor": "world_setup_assist"},

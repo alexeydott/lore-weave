@@ -808,14 +808,21 @@ func (s *Server) doProxy(w http.ResponseWriter, r *http.Request, userID uuid.UUI
 
 	// Resolve credentials
 	var providerKind, providerModelName, endpointBaseURL, secretCipher string
+	// Governance fields for the slot + model lease below (2026-11-21 audit R4 —
+	// the proxy path was the one ungoverned draw on a user credential).
+	var credentialID string
+	var maxConcurrency *int
+	var serveOneModel bool
 	if modelSource == "user_model" {
 		err = s.pool.QueryRow(r.Context(), `
 SELECT um.provider_kind, um.provider_model_name,
-       COALESCE(pc.endpoint_base_url,''), COALESCE(pc.secret_ciphertext,'')
+       COALESCE(pc.endpoint_base_url,''), COALESCE(pc.secret_ciphertext,''),
+       pc.provider_credential_id, pc.max_concurrency, pc.serve_one_model_at_a_time
 FROM user_models um
 JOIN provider_credentials pc ON pc.provider_credential_id = um.provider_credential_id
 WHERE um.user_model_id=$1 AND um.owner_user_id=$2 AND um.is_active=true AND pc.status='active'
-`, modelRef, userID).Scan(&providerKind, &providerModelName, &endpointBaseURL, &secretCipher)
+`, modelRef, userID).Scan(&providerKind, &providerModelName, &endpointBaseURL, &secretCipher,
+			&credentialID, &maxConcurrency, &serveOneModel)
 	} else if modelSource == "platform_model" {
 		err = s.pool.QueryRow(r.Context(), `
 SELECT provider_kind, provider_model_name, '', ''
@@ -837,6 +844,38 @@ WHERE platform_model_id=$1 AND status='active'
 		ProxyRequestsTotal.WithLabelValues(OutcomeQueryFailed).Inc()
 		writeError(w, http.StatusInternalServerError, "PROXY_QUERY_FAILED", "failed to resolve model")
 		return
+	}
+
+	// 2026-11-21 audit R4 — the proxy draw takes the same governance as the stream
+	// path: a provider-concurrency slot for the credential, and the endpoint's
+	// model lease when the owner opted into serve-one-model-at-a-time. Both held
+	// for the whole proxied exchange (this handler's lifetime), released on return.
+	if modelSource == "user_model" {
+		concurrencyLimit := 0
+		if maxConcurrency != nil {
+			concurrencyLimit = *maxConcurrency
+		}
+		permit, permitErr := s.acquireProviderSlot(r.Context(), r.Context(), credentialID, concurrencyLimit)
+		if permitErr != nil {
+			ProxyRequestsTotal.WithLabelValues(OutcomeProviderBusy).Inc()
+			w.Header().Set("Retry-After", "1")
+			writeError(w, http.StatusServiceUnavailable, "PROXY_PROVIDER_BUSY",
+				"provider is at its concurrency limit; retry later")
+			return
+		}
+		defer permit.Release()
+		r = r.WithContext(permit.Context())
+		if serveOneModel && s.modelLease != nil {
+			release, lerr := s.modelLease.Acquire(r.Context(), endpointBaseURL, providerModelName)
+			if lerr != nil {
+				ProxyRequestsTotal.WithLabelValues(OutcomeProviderBusy).Inc()
+				w.Header().Set("Retry-After", "1")
+				writeError(w, http.StatusServiceUnavailable, "PROXY_MODEL_BUSY",
+					"this endpoint serves one model at a time and another model holds it; retry later")
+				return
+			}
+			defer release()
+		}
 	}
 
 	// providerKind drives per-provider request-body rewrites in the

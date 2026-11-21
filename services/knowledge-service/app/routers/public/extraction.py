@@ -1135,9 +1135,20 @@ async def retry_extraction_job(
     if failed is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no failed extraction job to retry")
     overrides = body or RetryExtractionRequest()
+    # 2026-11-21 model-surface audit R1: a retry used to replay the FAILED job's
+    # llm_model snapshot verbatim — the exact stale-snapshot shape that sent kg_summary
+    # jobs at a deactivated embedding model (#user-report 2026-11-08). The user's fix
+    # (a new Default LLM in the project's extraction config) must win over the old
+    # snapshot; the snapshot stays the last resort so an intentionally-overridden
+    # retry (body.llm_model) still wins outright.
+    from app.extraction.model_roles import resolve_role_model
+
+    configured = resolve_role_model(project.extraction_config, "extraction")
     data = ExtractionJobCreate(
         project_id=project_id, scope=failed.scope, scope_range=failed.scope_range,
-        llm_model=overrides.llm_model or failed.llm_model,
+        llm_model=overrides.llm_model
+            or (configured.model_ref if configured is not None else None)
+            or failed.llm_model,
         embedding_model=overrides.embedding_model or failed.embedding_model,
         max_spend_usd=overrides.max_spend_usd if overrides.max_spend_usd is not None else failed.max_spend_usd,
         items_total=failed.items_total, campaign_id=failed.campaign_id,

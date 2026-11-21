@@ -110,7 +110,7 @@ def build_verify_submit_kwargs(
             "chat_template_kwargs": {"enable_thinking": False},
         },
         chunking=None,
-        job_meta={"verifier": "llm"},
+        job_meta={"verifier": "llm", "usage_purpose": "translation_verify"},
     )
 
 

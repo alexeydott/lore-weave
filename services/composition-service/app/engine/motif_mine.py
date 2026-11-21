@@ -408,7 +408,7 @@ async def mine_motifs(
                 # `target=1`: one abstraction object per pattern.
                 "max_tokens": max_tokens_for("motif_abstraction", target=1),
             },
-            job_meta={"extractor": "motif_mine", "pattern": list(pattern)},
+            job_meta={"extractor": "motif_mine", "pattern": list(pattern), "usage_purpose": "motif_mine"},
         )
         if (why := unusable(job, "motif_abstraction")):
             logger.warning("mine: abstraction not completed for pattern=%s: %s",
@@ -437,7 +437,7 @@ async def mine_motifs(
                 "response_format": {"type": "text"}, "temperature": 0.0,
                 "max_tokens": max_tokens_for("motif_mine_judge", target=1),
             },
-            job_meta={"extractor": "motif_mine_judge", "pattern": list(pattern)},
+            job_meta={"extractor": "motif_mine_judge", "pattern": list(pattern), "usage_purpose": "motif_mine_judge"},
         )
         score = (
             _judge_score(extract_judge_content(judge_job.result))

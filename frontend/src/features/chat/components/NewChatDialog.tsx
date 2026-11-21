@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { defaultModelsApi, CHAT_CAPABILITY } from '@/features/settings/api';
 import { ModelPicker, useUserModels } from '@/components/model-picker';
+import { isChatSafeDefault } from '@/features/ai-models/api';
 import type { GenerationParams } from '../types';
 
 // `key` → i18n label; `prompt` stays English (it is an LLM system directive).
@@ -49,7 +50,10 @@ export function NewChatDialog({ open, onClose, onCreate }: NewChatDialogProps) {
         if (cancelled) return;
         const preferred = defaults[CHAT_CAPABILITY];
         const match = preferred && userModels.some((m) => m.user_model_id === preferred);
-        setSelectedModel(match ? preferred : userModels[0].user_model_id);
+        // The fallback default takes the first CHAT-SAFE model, not the raw list order
+        // (isChatSafeDefault — a legacy-stamped rerank/embedding must never auto-pick).
+        const safeDefault = userModels.find(isChatSafeDefault) ?? userModels[0];
+        setSelectedModel(match ? preferred : safeDefault?.user_model_id ?? '');
       });
     return () => {
       cancelled = true;

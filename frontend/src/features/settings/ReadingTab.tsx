@@ -78,9 +78,9 @@ export function ReadingTab() {
 
   useEffect(() => {
     if (!accessToken) return;
-    aiModelsApi.listUserModels(accessToken, { capability: 'tts' }).then(r => setTtsModels(r.items)).catch(() => {});
-    aiModelsApi.listUserModels(accessToken, { capability: 'image_gen' }).then(r => setImageModels(r.items)).catch(() => {});
-    aiModelsApi.listUserModels(accessToken, { capability: 'video_gen' }).then(r => setVideoModels(r.items)).catch(() => {});
+    aiModelsApi.listUserModels(accessToken, { capability: 'tts' }).then(r => setTtsModels(r.items.filter((m) => m.is_active))).catch(() => {});
+    aiModelsApi.listUserModels(accessToken, { capability: 'image_gen' }).then(r => setImageModels(r.items.filter((m) => m.is_active))).catch(() => {});
+    aiModelsApi.listUserModels(accessToken, { capability: 'video_gen' }).then(r => setVideoModels(r.items.filter((m) => m.is_active))).catch(() => {});
   }, [accessToken]);
 
   const updateMediaPref = (key: keyof MediaPrefs, value: string) => {

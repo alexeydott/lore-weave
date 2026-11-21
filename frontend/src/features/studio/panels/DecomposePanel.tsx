@@ -15,6 +15,7 @@ import { PlannerView } from '@/features/composition/components/PlannerView';
 import { useWorkResolution } from '@/features/composition/hooks/useWork';
 import { useActiveWorkId } from '@/features/composition/hooks/useActiveWork';
 import { resolveActiveWork } from '@/features/composition/workSelect';
+import { roleRef } from '@/features/composition/modelRoles';
 import { useManuscriptUnitMeta } from '../manuscript/unit/ManuscriptUnitProvider';
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
@@ -43,7 +44,9 @@ export function DecomposePanel(props: IDockviewPanelProps) {
   const { data: activeWorkId } = useActiveWorkId(bookId, accessToken);
   const active = resolveActiveWork(work.data, activeWorkId);
   const projectId = active?.project_id ?? null;
-  const modelRef = str(active?.settings?.['default_model_ref']) ?? '';
+  // roleRef: the Work default lives in the model_roles MAP since 2026-08-03; the
+  // scalar-only read made it invisible here (2026-11-21 model-surface audit).
+  const modelRef = roleRef((active?.settings ?? {}) as Record<string, unknown>, 'chat');
 
   if (work.isLoading) {
     return (

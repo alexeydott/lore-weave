@@ -47,6 +47,7 @@ import { SceneRail } from '../manuscript/SceneRail';
 import { RevisionHistorySection } from './RevisionHistorySection';
 import { EditorPublishGate } from './EditorPublishGate';
 import { TechEditDialog } from '../editor/TechEditDialog';
+import { roleRef } from '@/features/composition/modelRoles';
 import type { StudioToolRegistration } from '../host/types';
 
 export function EditorPanel(props: IDockviewPanelProps) {
@@ -300,8 +301,7 @@ export function EditorPanel(props: IDockviewPanelProps) {
     enabled: !!accessToken,
     select: (d) => d.items.filter((m) => m.is_active),
   });
-  const persistedDefaultModel =
-    typeof composeWork?.settings?.default_model_ref === 'string' ? composeWork.settings.default_model_ref : null;
+  const persistedDefaultModel = roleRef((composeWork?.settings ?? {}) as Record<string, unknown>, 'chat') || null;
   const soleChatModel = chatModels.data?.length === 1 ? chatModels.data[0].user_model_id : null;
   // #facade — resolution chain for the compose/inline model: Work default ▸ the book's
   // co-author CHAT SESSION model (what the user actually picked in the chat — the exact

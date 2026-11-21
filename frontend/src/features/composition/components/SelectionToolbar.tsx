@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { BubbleMenu } from '@tiptap/react/menus';
 import type { Editor } from '@tiptap/react';
 import { ModelPicker, useUserModels } from '@/components/model-picker';
+import { isChatSafeDefault } from '@/features/ai-models/api';
 import { clampOutputBudget } from '@/lib/outputBudget';
 import { useEffectiveModel } from '@/features/chat-ai-settings/context/ChatAiSettingsContext';
 import { trackRange, type RangeHandle } from '../../../components/editor/TrackedPositions';
@@ -78,7 +79,9 @@ export function SelectionToolbar({
   // Inherit the shared cascade model (spec §8) before falling back to list[0], so
   // this tool matches the chat/studio model instead of an arbitrary favorite.
   const inheritedModel = useEffectiveModel('chat');
-  const effectiveModel = modelRef || inheritedModel || modelList[0]?.user_model_id || '';
+  // The silent fallback takes the first CHAT-SAFE model, not the raw list order
+  // (isChatSafeDefault — a legacy-stamped rerank/embedding must never auto-pick).
+  const effectiveModel = modelRef || inheritedModel || modelList.find(isChatSafeDefault)?.user_model_id || '';
   const selectedModel = modelList.find((m) => m.user_model_id === effectiveModel);
 
   const selText = () => {
