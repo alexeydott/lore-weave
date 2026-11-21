@@ -137,7 +137,9 @@ def _v3_rs(**over):
 def test_assemble_verify_submit_shape():
     kw = dx.assemble_verify_submit(_v3_rs())
     assert kw["operation"] == "translation" and kw["model_ref"] == "vm"
-    assert kw["job_meta"] == {"verifier": "llm"}
+    # 2026-11-21: usage_purpose rides job_meta so the Usage GUI labels the call
+    # 'translation_verify' instead of falling back to the operation name.
+    assert kw["job_meta"] == {"verifier": "llm", "usage_purpose": "translation_verify"}
 
 
 def test_assemble_corrector_submit_shape():

@@ -19,10 +19,16 @@ export interface ReferenceAnswer {
   citations: (EntityReference & { citation_id: string })[];
   references: EntityReferences;
 }
-const path = (bookId: string, entityId: string) => `/v1/composition/books/${encodeURIComponent(bookId)}/entities/${encodeURIComponent(entityId)}/references`;
+// The base path is INLINED into both call sites (not a helper): phantom-route-scan
+// resolves literal templates with `${id}` segments but cannot see through a helper
+// call, and two unparsed sites would sit outside the route ratchet's coverage.
 export const referenceShelfApi = {
   list: (bookId: string, entityId: string, limit: number, token: string) =>
-    apiJson<EntityReferences>(`${path(bookId, entityId)}?limit=${Math.max(1, Math.min(100, limit))}`, { token }),
+    apiJson<EntityReferences>(
+      `/v1/composition/books/${encodeURIComponent(bookId)}/entities/${encodeURIComponent(entityId)}/references?limit=${Math.max(1, Math.min(100, limit))}`,
+      { token }),
   ask: (bookId: string, entityId: string, body: { question: string; locale: string; model_ref?: string; model_source?: 'user_model' | 'platform_model' }, token: string) =>
-    apiJson<ReferenceAnswer>(`${path(bookId, entityId)}/assistant`, { method: 'POST', body: JSON.stringify(body), token }),
+    apiJson<ReferenceAnswer>(
+      `/v1/composition/books/${encodeURIComponent(bookId)}/entities/${encodeURIComponent(entityId)}/assistant`,
+      { method: 'POST', body: JSON.stringify(body), token }),
 };
