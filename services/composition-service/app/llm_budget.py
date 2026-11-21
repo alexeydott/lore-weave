@@ -168,6 +168,11 @@ PROFILES: dict[str, CallProfile] = {
     # author's document, so the caller's own bound is the target.
     "material_search": CallProfile(OutputKind.STRUCTURED, 4096, 1500,
                                    why="up to max_candidates verbatim document lines"),
+    # Entity-reference summary: one non-agentic grounded answer (strict JSON, answer
+    # ≤6000 chars + ≤40 citation ids) over server-fetched evidence. The old call site
+    # carried a flat 2048; floor=was keeps the resolved budget byte-identical.
+    "entity_references_summary": CallProfile(OutputKind.STRUCTURED, 2048, 2048,
+                                             why="single-pass grounded reference summary"),
     # A free-text deconstruction of ONE source chunk. PROSE: it stops mid-sentence rather
     # than becoming unparseable, and its length tracks the chunk it is reading.
     "motif_deconstruct": CallProfile(OutputKind.PROSE, 2048, 2048,

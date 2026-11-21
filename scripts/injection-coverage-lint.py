@@ -191,6 +191,20 @@ BASELINE: dict[str, BaselineRow] = {
         upstream="services/translation-service/app/workers/extraction_prompt.py"),
     "services/worker-ai/app/distill_job.py": BaselineRow(
         GENUINE_GAP, "wakes when the distiller scans the chapter chunks it folds in"),
+
+    # ── 2026-11-21: quality/promise audits — the prose IS the measurement ────────────────
+    # Same class as the judge prompts above: sanitizing the audited arc/chapter text would
+    # corrupt the measurement (FD-1 dropped-promise count, quality verdict). Both delimit
+    # the untrusted span in the prompt (mirroring pairwise_judge) instead of neutralizing.
+    "services/composition-service/app/engine/promise_audit.py": BaselineRow(
+        GENUINE_GAP,
+        "the arc prose is the measured object (docstring: sanitizing corrupts the "
+        "dropped-promise count); wakes if the audit reads anything beyond the caller-supplied "
+        "arc text or assembles instructions from retrieved bytes"),
+    "services/composition-service/app/engine/quality_analysis.py": BaselineRow(
+        GENUINE_GAP,
+        "judge input is the chapter/canon windows under measurement; wakes if it folds in "
+        "retrieved grounding beyond those windows"),
 }
 
 

@@ -245,7 +245,19 @@ discovery:
     #     same class as eval_judge/promise_audit, which this registry deliberately
     #     does not enumerate. Returns `degraded: true` when the model output is
     #     not parseable JSON.
-    python: 60
+    # 60 → 63 on 2026-11-21: three callers added by the quality-report batch and
+    # entity-reference features. Each was READ before being counted:
+    #   · `app/engine/quality_analysis.py` · `app/worker/quality_batch.py` — NOT
+    #     generation paths: the quality-report judge/audit (structured verdict
+    #     over the chapter/canon windows under measurement), the same class as
+    #     eval_judge/promise_audit. Sanitizing or guard-reporting the measured
+    #     prose would corrupt the measurement.
+    #   · `app/routers/entity_references.py` — NOT a generation path: a
+    #     single-pass, non-agentic grounded ANSWER (≤6000 chars, strict JSON with
+    #     citation ids) over server-fetched evidence; server-controlled
+    #     instructions, evidence framed as untrusted data in the prompt itself.
+    #     No book prose is produced, so no canon guard surface to declare.
+    python: 63
     go: 2
     # 24 → 30 on the 2026-08-02 merge of `origin/main` (the game-logic promotion). The six new
     # files are all `services/commit-service/src/`, and the raise is narrow because each was

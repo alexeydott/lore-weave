@@ -21,6 +21,7 @@ from app.deps import get_grant_client_dep, get_llm_client_dep, get_works_repo
 from app.engine.model_roles import model_roles_from_settings
 from app.grant_client import GrantLevel
 from app.grant_deps import GrantAuthorityUnavailable, InsufficientGrant, authorize_book
+from app.llm_budget import max_tokens_for
 from app.middleware.jwt_auth import get_current_user
 from app.packer.pack import OwnershipError
 from app.services.agent_native import ReferenceSource
@@ -148,7 +149,8 @@ async def summarize_references(
                 input={"messages": [{"role": "system", "content": system},
                                     {"role": "user", "content": json.dumps(context, ensure_ascii=False)}],
                        "response_format": {"type": "text"}, "temperature": 0.0,
-                       "max_tokens": 2048, **no_thinking_fields()},
+                       "max_tokens": max_tokens_for("entity_references_summary"),
+                       **no_thinking_fields()},
                 transient_retry_budget=0,
                 job_meta={"usage_purpose": "entity_references_summary"},
             )

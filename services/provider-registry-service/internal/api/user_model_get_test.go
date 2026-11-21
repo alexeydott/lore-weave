@@ -14,11 +14,13 @@ package api
 // Reuses seedModelWithCapability + signedToken from the capability test.
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
@@ -26,6 +28,12 @@ func getUserModel(t *testing.T, srv *Server, owner, id uuid.UUID) *httptest.Resp
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/v1/model-registry/user-models/"+id.String(), nil)
 	req.Header.Set("Authorization", "Bearer "+signedToken(t, integrationJWTSecret, owner, ""))
+	// The handler reads the id via parseUUIDParam (chi.URLParam), so a direct
+	// call must carry the route context the router would have attached
+	// (same shape as withCapParam in default_models_test.go).
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("user_model_id", id.String())
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 	rr := httptest.NewRecorder()
 	srv.getUserModel(rr, req)
 	return rr

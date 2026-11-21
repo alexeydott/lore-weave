@@ -110,15 +110,17 @@ CASES = [
 
     ("S7 budget — signal_inert=True on a row that DOES move", SUITE,
      COMP / "app" / "llm_budget.py",
-     replace('"judge_prose": CallProfile(OutputKind.VERDICT, 1536, 1536,',
-             '"judge_prose": CallProfile(OutputKind.VERDICT, 1536, 1536, signal_inert=True,'),
+     # 2026-11-21: the judge_prose row moved to floor 8192 + truncation_fatal
+     # (#166); the anchor follows the row, not the number.
+     replace('"judge_prose": CallProfile(OutputKind.VERDICT, 8192, 1536,',
+             '"judge_prose": CallProfile(OutputKind.VERDICT, 8192, 1536, signal_inert=True,'),
      [sys.executable, "-m", "pytest", "tests/unit/test_llm_budget_registry.py", "-q",
       "-p", "no:cacheprovider", "-k", "signal_inert or no_inert_row"], COMP),
 
     ("S7 gate — the same inert claim, seen by the REPO gate", GATE,
      COMP / "app" / "llm_budget.py",
-     replace('"judge_prose": CallProfile(OutputKind.VERDICT, 1536, 1536,',
-             '"judge_prose": CallProfile(OutputKind.VERDICT, 1536, 1536, signal_inert=True,'),
+     replace('"judge_prose": CallProfile(OutputKind.VERDICT, 8192, 1536,',
+             '"judge_prose": CallProfile(OutputKind.VERDICT, 8192, 1536, signal_inert=True,'),
      [sys.executable, "scripts/llm-budget-ssot-gate.py"], ROOT),
 
     ("S7 gate — an LLM call site with its budget stripped", GATE,

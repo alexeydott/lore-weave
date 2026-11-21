@@ -204,8 +204,6 @@ func (s *Server) doLlmStream(w http.ResponseWriter, r *http.Request, userID uuid
 		err = s.pool.QueryRow(r.Context(), `
 SELECT um.provider_kind, um.provider_model_name,
        COALESCE(pc.endpoint_base_url,''), COALESCE(pc.secret_ciphertext,''), um.pricing,
-SELECT um.provider_kind, um.provider_model_name,
-       COALESCE(pc.endpoint_base_url,''), COALESCE(pc.secret_ciphertext,''), um.pricing,
        pc.provider_credential_id, pc.max_concurrency, pc.serve_one_model_at_a_time
 FROM user_models um
 JOIN provider_credentials pc ON pc.provider_credential_id = um.provider_credential_id

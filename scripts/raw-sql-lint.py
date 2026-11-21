@@ -150,6 +150,14 @@ BASELINE: frozenset[str] = frozenset({
     "services/knowledge-service/app/benchmark/vector_backend_bench.py::f\"SELECT pg_total_relation_size('{cell.table}')\"",
     "services/knowledge-service/app/db/age_bootstrap.py::await conn.execute(f\"SELECT ag_catalog.create_graph('{name}')\")",
     "services/knowledge-service/app/db/age_session.py::f\"SELECT * FROM cypher('{self._graph}', $q${cypher}$q$, $1) \"",
+
+    # ── composition-service generation_jobs.py (2026-11-21): jsonb_set PATH literals ────
+    # `'{submission_keys}'` / `'{stop_requested}'` are jsonb_set's constant path
+    # argument (a Postgres single-quoted text array literal, the same class the
+    # quoted-brace doc explicitly exempts in Go), not f-string interpolation —
+    # the statements are plain strings and the values bind as $1/$2.
+    "services/composition-service/app/db/repositories/generation_jobs.py::\"UPDATE generation_job SET input=jsonb_set(input,'{submission_keys}', \"",
+    "services/composition-service/app/db/repositories/generation_jobs.py::await c.execute(\"UPDATE generation_job SET input=jsonb_set(input,'{stop_requested}','true'::jsonb), "
 })
 
 # ── detection ─────────────────────────────────────────────────────────────

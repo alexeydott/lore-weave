@@ -97,7 +97,14 @@ ROOT = Path(__file__).resolve().parents[1]
 #: binder resolves only partially. The value IS registry-derived at every origin; this is
 #: a detector limit, and it is left ON the ratchet rather than exempted, because an
 #: exemption is how a blind spot becomes permanent.
-UNATTRIBUTED_BASELINE = 1
+#: 2026-11-21 — **1 → 3**. Two more detector-limit sites from the quality-report batch:
+#: `quality_analysis.py:270` (`extract_narrative`) and `:409` (synthesis) read `audit_cap`/
+#: `cap` computed by `plan_quality_analysis` through `max_tokens_for("judge_prose"…)`,
+#: `max_tokens_for("quality_report_audit"…)` — but in the ENCLOSING scope, and the local
+#: binder is deliberately function-scoped (anti-laundering), so closures are invisible to
+#: it. Same class as `self_heal._chat`: registry-derived at the origin, held on the
+#: ratchet, not exempted.
+UNATTRIBUTED_BASELINE = 3
 
 #: Budget calls that pass NO adaptive signal — no `target`, `language`, `reasoning` or
 #: `context_length`. Ratcheted, and it is a SECOND axis from the one above: a site here is
@@ -141,7 +148,11 @@ UNATTRIBUTED_BASELINE = 1
 #: 2026-08-02 (final) — **13 → 14**. Widened denominator again: the last drained sites
 #: became attributed and one of them (`session_translator`'s kernel default, which fires
 #: only when a caller supplies nothing) has no per-call fact to pass at that point.
-NO_SIGNAL_BASELINE = 14
+#: 2026-11-21 — **14 → 15**. `entity_references_summary` migrated off its flat 2048 onto
+#: the registry (floor=was, resolved budget byte-identical). The call is inherently
+#: constant — one fixed-size grounded answer, no per-call fact exists to pass — the exact
+#: state this axis holds and counts rather than hides.
+NO_SIGNAL_BASELINE = 15
 
 #: The kwargs that make a budget call adaptive. `floor`/`ceiling` are deliberately absent —
 #: they are per-call CONSTANTS from the registry, not per-call signal.
