@@ -11,6 +11,13 @@ export function qualityActionError(stage: QualityActionStage, cause: unknown): Q
   return { stage, code: value?.code === 'REQUEST_TIMEOUT' ? 'REQUEST_TIMEOUT' : status ? 'HTTP_ERROR' : cause instanceof TypeError ? 'TRANSPORT_ERROR' : 'UNKNOWN', status, cause };
 }
 
+
+/** The confirmation (and its idempotency retry key) is a 5-minute offer; expired means
+ * gone — one check for both the visible estimate and the confirm guard. */
+function estimateFresh(data: { createdAt: number } | null | undefined): boolean {
+  return !!data && Date.now() - data.createdAt < 5 * 60_000;
+}
+
 /** Server owns execution. Mount/reattach only reads; leaving never cancels a run. */
 export function useQualityBookRun(projectId: string | null, bookId: string, token: string | null | undefined, model: QualityRunModel | null) {
   const client = useQueryClient();
@@ -59,7 +66,7 @@ export function useQualityBookRun(projectId: string | null, bookId: string, toke
     retryHistory: () => query.refetch(),
     busy: busyScope?.scope === scope,
     stage: busyScope?.scope === scope ? busyScope.stage : null,
-    estimate: estimateQuery.data && Date.now() - estimateQuery.data.createdAt < 5 * 60_000 ? estimateQuery.data.value : null,
+    estimate: estimateFresh(estimateQuery.data) ? estimateQuery.data!.value : null,
     prepare: () => action('estimate', async () => {
       const value = await compositionApi.estimateQualityRun(projectId!, model!, token!);
       // Persist the visible confirmation and retry key in query cache, not component state.
@@ -67,8 +74,8 @@ export function useQualityBookRun(projectId: string | null, bookId: string, toke
       await client.invalidateQueries({ queryKey: estimateKey, exact: true });
     }),
     confirm: () => action('start', async () => {
-      const estimate = estimateQuery.data;
-      if (!estimate || Date.now() - estimate.createdAt >= 5 * 60_000) return;
+      const estimate = estimateFresh(estimateQuery.data) ? estimateQuery.data : null;
+      if (!estimate) return;
       const run = await compositionApi.startQualityRun(projectId!, { ...model!, idempotency_key: estimate.idempotencyKey, max_estimated_calls: estimate.value.estimated_calls_max, max_estimated_usd: estimate.value.estimated_usd_max }, token!);
       client.setQueryData(key, run);
       client.removeQueries({ queryKey: estimateKey, exact: true });

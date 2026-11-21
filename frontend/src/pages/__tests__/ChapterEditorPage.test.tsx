@@ -82,9 +82,18 @@ vi.mock('@/features/composition/hooks/useWork', () => ({
   useWorkResolution: () => ({ data: undefined }),
   useChapterScenes: () => ({ data: undefined }),
 }));
-// C17: the page lists chat models via react-query; stub the API to an empty set.
+// C17: the page lists chat models via the W5 facade (2026-11-21: swapped off the
+// private react-query read); stub the facade + the chain's dependencies to empty.
 vi.mock('@/features/ai-models/api', () => ({
   aiModelsApi: { listUserModels: () => Promise.resolve({ items: [] }) },
+  isChatSafeDefault: () => true,
+}));
+vi.mock('@/components/model-picker', () => ({
+  useUserModels: () => ({ models: [], loading: false }),
+  ModelPicker: () => null,
+}));
+vi.mock('@/features/chat/api', () => ({
+  chatApi: { listSessions: () => Promise.resolve({ items: [] }) },
 }));
 
 import { ChapterEditorPage } from '../ChapterEditorPage';

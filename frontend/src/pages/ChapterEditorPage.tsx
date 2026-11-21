@@ -27,6 +27,10 @@ import {
 import { useAuth } from '@/auth';
 import { booksApi, type Chapter } from '@/features/books/api';
 import { useEditorPanels } from '@/hooks/useEditorPanels';
+import { isChatSafeDefault } from '@/features/ai-models/api';
+import { resolveComposeModel } from '@/features/composition/modelRoles';
+import { useUserModels } from '@/components/model-picker';
+import { chatApi } from '@/features/chat/api';
 import { useEditorDirty } from '@/contexts/EditorDirtyContext';
 import { RevisionHistory } from '@/components/editor/RevisionHistory';
 import { useTurnCheckpoints } from '@/features/composition/hooks/useTurnCheckpoints';
@@ -69,7 +73,6 @@ import { usePopoutInsertRelay } from '@/features/composition/hooks/usePopoutInse
 import { useProvenance } from '@/features/composition/hooks/useProvenance';
 import { ProvenanceToolbar } from '@/features/composition/components/ProvenanceToolbar';
 import { ProvenanceTag } from '@/features/composition/components/ProvenanceTag';
-import { aiModelsApi } from '@/features/ai-models/api';
 import { useQuery } from '@tanstack/react-query';
 import { OutlineTree } from '@/features/composition/components/OutlineTree';
 import { useChapterPublishGate, publishGateMessages } from '@/features/composition/hooks/usePublishGate';
@@ -236,19 +239,27 @@ export function ChapterEditorPage() {
   // rule as the guided first-run — only when exactly one exists, never 0/≥2, and read
   // from the registry, no hardcoded model name) so a guided writer can Continue from
   // their cursor without first opening the co-writer Settings to set a default.
-  const chatModels = useQuery({
-    queryKey: ['composition', 'chat-models'],
-    queryFn: () => aiModelsApi.listUserModels(accessToken!, { capability: 'chat' }),
-    enabled: !!accessToken,
-    select: (d) => d.items.filter((m) => m.is_active),
+  // The W5 facade (15s TTL + invalidation broadcast) instead of a private query.
+  const chatModelState = useUserModels({ capability: 'chat' });
+  const chatModels = chatModelState.models;
+  // The SAME chain the studio editor runs (Work map-default > session > sole) —
+  // this page renders the same InlineAiLayer and had a scalar-only Work read
+  // (invisible to the model_roles map) plus no session tier (2026-11-21 audit).
+  const coAuthorSession = useQuery({
+    queryKey: ['chat', 'coauthor-session', bookId],
+    queryFn: () => chatApi.listSessions(accessToken!, 'active', bookId),
+    enabled: !!accessToken && !!bookId,
+    select: (d) => d.items[0] ?? null,
   });
-  const persistedDefaultModel =
-    typeof composeWork?.settings?.default_model_ref === 'string' ? composeWork.settings.default_model_ref : null;
-  const soleChatModel = chatModels.data?.length === 1 ? chatModels.data[0].user_model_id : null;
-  const composeDefaultModel = persistedDefaultModel ?? soleChatModel;
+  const composeDefaultModel = resolveComposeModel(
+    composeWork?.settings as Record<string, unknown> | undefined,
+    coAuthorSession.data?.model_ref ?? null,
+    chatModels,
+    isChatSafeDefault,
+  );
   // Model metadata for the inline-continue reasoning-strategy hint (parity with the
   // Compose panel's generate path). Resolved from the registry — no hardcoded name.
-  const composeDefaultModelMeta = chatModels.data?.find((m) => m.user_model_id === composeDefaultModel);
+  const composeDefaultModelMeta = chatModels?.find((m) => m.user_model_id === composeDefaultModel);
   const [activeSceneId, setActiveSceneId] = useState('');
   // C17 (WG-5) — "Continue from cursor" grounds on a scene. The guided first-run
   // (DPS1) auto-creates an opening scene, but the writer never touched the Compose

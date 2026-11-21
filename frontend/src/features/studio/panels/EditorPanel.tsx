@@ -27,7 +27,7 @@ import { InlineAiLayer } from '@/features/composition/components/InlineAiLayer';
 import { useWorkResolution } from '@/features/composition/hooks/useWork';
 import { useActiveWorkId } from '@/features/composition/hooks/useActiveWork';
 import { resolveActiveWork } from '@/features/composition/workSelect';
-import { aiModelsApi } from '@/features/ai-models/api';
+import { useUserModels } from '@/components/model-picker';
 import { glossaryApi } from '@/features/glossary/api';
 import { booksApi } from '@/features/books/api';
 import type { EntityNameEntry } from '@/features/glossary/types';
@@ -297,12 +297,10 @@ export function EditorPanel(props: IDockviewPanelProps) {
         : t('editor.mergeFailed', { defaultValue: 'Could not merge — try again.' }));
     } finally { setMerging(false); }
   };
-  const chatModels = useQuery({
-    queryKey: ['composition', 'chat-models'],
-    queryFn: () => aiModelsApi.listUserModels(accessToken!, { capability: 'chat' }),
-    enabled: !!accessToken,
-    select: (d) => d.items.filter((m) => m.is_active),
-  });
+  // The W5 facade (15s module cache + invalidation broadcast) — a raw useQuery
+  // here skipped every AddModel/EditModel invalidation the rest of the app fires.
+  const chatModelState = useUserModels({ capability: 'chat' });
+  const chatModels = chatModelState.models;
   // #facade — resolution chain for the compose/inline model: Work default ▸ the book's
   // co-author CHAT SESSION model (what the user actually picked in the chat — the exact
   // report "в чате соавтора модель выбрана, а не применяется") ▸ sole chat model. The
@@ -320,10 +318,10 @@ export function EditorPanel(props: IDockviewPanelProps) {
   const composeDefaultModel = resolveComposeModel(
     composeWork?.settings as Record<string, unknown> | undefined,
     coAuthorSessionModel,
-    chatModels.data,
+    chatModels,
     isChatSafeDefault,
   );
-  const composeDefaultModelMeta = chatModels.data?.find((m) => m.user_model_id === composeDefaultModel);
+  const composeDefaultModelMeta = chatModels?.find((m) => m.user_model_id === composeDefaultModel);
   // Same scene the Scene Rail highlights (studio bus, not a second local selection) — falls
   // back to this chapter's first scene so Continue works before the writer ever touches the rail.
   const activeSceneId = useStudioBusSelector((s) => s.activeSceneId);
