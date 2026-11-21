@@ -53,10 +53,10 @@ export function roleRef(settings: Settings, role: string): string {
  * un-clear itself on the next read, which is worse than never having been clearable.
  */
 export function patchForRole(
-  settings: Settings,
-  role: string,
-  modelRef: string,
-  modelSource = 'user_model',
+    settings: Settings,
+    role: string,
+    modelRef: string,
+    modelSource = 'user_model',
 ): Record<string, unknown> {
   const current: Record<string, RoleModel> = { ...((settings.model_roles as Record<string, RoleModel>) || {}) };
   const patch: Record<string, unknown> = {};
@@ -72,4 +72,31 @@ export function patchForRole(
   }
   patch.model_roles = current;
   return patch;
+}
+
+/** The compose/inline chat-model chain (16b774bd7), as one total function:
+ *
+ *     Work default (map form FIRST, legacy scalar fallback) ▸ the book's co-author
+ *     CHAT SESSION model (the user's explicit pick in the co-writer chat) ▸ the
+ *     sole registered chat model (only when exactly one chat-capable model exists).
+ *
+ * Extracted 2026-11-21 so the precedence is provable — the inline-continue tier ran
+ * on a scalar-only read for two weeks (2026-11-21 model-surface audit) and had NO
+ * test covering the map form. `chatModels` arrives already capability-filtered by
+ * the server, but the sole-model slot still refuses a model whose flags carry an
+ * explicit non-chat capability (isChatSafeDefault — the legacy `_capability` stamp
+ * can contradict the filter). */
+export function resolveComposeModel<T extends { user_model_id: string; is_active: boolean; capability_flags?: Record<string, unknown> }>(
+    settings: Settings | undefined,
+    sessionModelRef: string | null,
+    chatModels: readonly T[] | null | undefined,
+    isChatSafe: (m: T) => boolean,
+): string | null {
+  const persisted = roleRef((settings ?? {}) as Record<string, unknown>, 'chat') || null;
+  if (persisted) return persisted;
+  if (sessionModelRef) return sessionModelRef;
+  const sole = chatModels?.length === 1 && chatModels[0].is_active && isChatSafe(chatModels[0])
+    ? chatModels[0].user_model_id
+    : null;
+  return sole;
 }

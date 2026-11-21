@@ -47,7 +47,9 @@ import { SceneRail } from '../manuscript/SceneRail';
 import { RevisionHistorySection } from './RevisionHistorySection';
 import { EditorPublishGate } from './EditorPublishGate';
 import { TechEditDialog } from '../editor/TechEditDialog';
-import { roleRef } from '@/features/composition/modelRoles';
+import { resolveComposeModel } from '@/features/composition/modelRoles';
+import { isChatSafeDefault } from '@/features/ai-models/api';
+
 import type { StudioToolRegistration } from '../host/types';
 
 export function EditorPanel(props: IDockviewPanelProps) {
@@ -301,13 +303,13 @@ export function EditorPanel(props: IDockviewPanelProps) {
     enabled: !!accessToken,
     select: (d) => d.items.filter((m) => m.is_active),
   });
-  const persistedDefaultModel = roleRef((composeWork?.settings ?? {}) as Record<string, unknown>, 'chat') || null;
-  const soleChatModel = chatModels.data?.length === 1 ? chatModels.data[0].user_model_id : null;
   // #facade — resolution chain for the compose/inline model: Work default ▸ the book's
   // co-author CHAT SESSION model (what the user actually picked in the chat — the exact
   // report "в чате соавтора модель выбрана, а не применяется") ▸ sole chat model. The
   // session lives on chat-service, keyed by THIS book; its model_ref is the user's
-  // explicit choice for this book's co-writing.
+  // explicit choice for this book's co-writing. The precedence lives in ONE total
+  // function (resolveComposeModel) so it is unit-provable — it ran on a scalar-only
+  // read for two weeks (2026-11-21 model-surface audit) with no test on the map form.
   const coAuthorSession = useQuery({
     queryKey: ['chat', 'coauthor-session', bookId],
     queryFn: () => chatApi.listSessions(accessToken!, 'active', bookId),
@@ -315,7 +317,12 @@ export function EditorPanel(props: IDockviewPanelProps) {
     select: (d) => d.items[0] ?? null,
   });
   const coAuthorSessionModel = coAuthorSession.data?.model_ref ?? null;
-  const composeDefaultModel = persistedDefaultModel ?? coAuthorSessionModel ?? soleChatModel;
+  const composeDefaultModel = resolveComposeModel(
+    composeWork?.settings as Record<string, unknown> | undefined,
+    coAuthorSessionModel,
+    chatModels.data,
+    isChatSafeDefault,
+  );
   const composeDefaultModelMeta = chatModels.data?.find((m) => m.user_model_id === composeDefaultModel);
   // Same scene the Scene Rail highlights (studio bus, not a second local selection) — falls
   // back to this chapter's first scene so Continue works before the writer ever touches the rail.

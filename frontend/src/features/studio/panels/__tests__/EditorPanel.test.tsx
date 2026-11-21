@@ -53,7 +53,12 @@ vi.mock('@/features/composition/components/ProvenanceTag', () => ({ ProvenanceTa
 vi.mock('@/features/composition/components/SelectionToolbar', () => ({ SelectionToolbar: () => null }));
 vi.mock('@/features/composition/components/InlineAiLayer', () => ({ InlineAiLayer: () => null }));
 vi.mock('@/features/composition/hooks/useWork', () => ({ useWorkResolution: () => ({ data: undefined }) }));
-vi.mock('@/features/ai-models/api', () => ({ aiModelsApi: { listUserModels: vi.fn(() => Promise.resolve({ items: [] })) } }));
+vi.mock('@/features/ai-models/api', () => ({
+  aiModelsApi: { listUserModels: vi.fn(() => Promise.resolve({ items: [] })) },
+  // the compose-model chain's sole-slot guard (2026-11-21 audit) — the real
+  // predicate just reads capability flags; identity is fine for these tests.
+  isChatSafeDefault: () => true,
+}));
 vi.mock('@/features/glossary/api', () => ({ glossaryApi: { listEntityNames: vi.fn(() => Promise.resolve([])) } }));
 vi.mock('@/components/editor/GlossaryTooltip', () => ({ GlossaryTooltip: () => null }));
 vi.mock('@/components/editor/GlossaryAutocomplete', () => ({ GlossaryAutocomplete: () => null }));
