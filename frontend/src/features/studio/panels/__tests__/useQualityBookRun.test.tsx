@@ -96,13 +96,17 @@ describe('durable quality book runs', () => {
     await waitFor(() => expect(hook.result.current.run?.id).toBe('r'));
     list.mockRejectedValue(new Error('HTTP 500'));
     await act(async () => { await hook.result.current.retryHistory(); });
-    expect(hook.result.current.historyError).toBe(true);
+    // The observer's error transition can land a render AFTER refetch() resolves
+    // (the retry chain is ~3s of real backoff, and under full-suite load the
+    // success render of the NEXT cycle can even beat the assertion) — assert the
+    // TRANSITIONS through waitFor instead of reading the state right after act.
+    await waitFor(() => expect(hook.result.current.historyError).toBe(true), { timeout: 3000 });
     expect(hook.result.current.run?.id).toBe('r');
     expect(hook.result.current.error).toBeNull();
     list.mockResolvedValue({ runs: [] });
     await act(async () => { await hook.result.current.retryHistory(); });
-    expect(hook.result.current.historyError).toBe(false);
-    expect(hook.result.current.run).toBeNull();
+    await waitFor(() => expect(hook.result.current.historyError).toBe(false), { timeout: 3000 });
+    await waitFor(() => expect(hook.result.current.run).toBeNull(), { timeout: 3000 });
     expect(start).not.toHaveBeenCalled();
     hook.unmount();
   }, 10000);
