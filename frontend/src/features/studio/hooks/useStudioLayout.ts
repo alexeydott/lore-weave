@@ -26,6 +26,11 @@ export function useStudioLayout(bookId: string) {
       const saved = localStorage.getItem(layoutKey(bookId));
       if (saved) { api.fromJSON(JSON.parse(saved)); restored = true; }
     } catch { restored = false; }
+    // A layout that PARSES but carries zero panels (every panel closed before the last
+    // persist, or a truncated write) restores "successfully" into a blank workspace —
+    // the same silent void as a crash, just without the exception. Zero panels is nothing
+    // worth restoring: treat it as a failed restore so the Welcome seed runs.
+    if (restored && api.panels.length === 0) restored = false;
 
     if (!restored) {
       // Seed is idempotent (re-added on any fresh load with no saved layout), so it is

@@ -253,6 +253,10 @@ jobs:
           ADMINCLI_TEST_PG_URL: postgres://loreweave:loreweave_dev@localhost:5432/loreweave_admincli_test?sslmode=disable
           METAPG_TEST_PG_URL: postgres://loreweave:loreweave_dev@localhost:5432/loreweave_metapg_test?sslmode=disable
           INCIDENT_TEST_REDIS_URL: redis://localhost:6379/9
+          # provider governance (#286) — the governor's Redis round-trips (lease
+          # sequencing + limiter) are DB/Redis-gated; db 11 keeps them off the
+          # incident-bot's index 9.
+          TEST_PROVIDER_REDIS_URL: redis://localhost:6379/11
         run: |
           set -euo pipefail
           fail=0

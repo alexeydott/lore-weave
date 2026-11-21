@@ -1873,12 +1873,44 @@ class OutlineRepo:
         NOT version-bumped — story_order is a system-maintained ordinal, not a user field.
         project_id-scoped, so the renumber can never leave this Work.
 
-        #318 P1 — a NULL parent has NO chapter base at all: the `base` CTE matches no
-        row, so `(SELECT b FROM base)` is NULL and the UPDATE below would write NULL
-        into EVERY root scene's story_order — dropping them from every story_order-keyed
-        draft/context query. Root scenes (stray imports) keep their last-known order;
-        the renumber is a no-op up here."""
+        #318 P1 — a NULL parent must never turn into a NULL base: the parent lookup
+        matches no row, `(SELECT b FROM base)` goes NULL and the UPDATE below would
+        write NULL into EVERY root scene's story_order — dropping them from every
+        story_order-keyed draft/context query. But a root SCENE still carries a
+        chapter_id (the schema requires it), so its reading slot is not unknown: it is
+        its CHAPTER's slot plus its index among that chapter's root scenes (F1 round 3).
+        The NULL-parent branch therefore fills ONLY the root scenes whose slot is
+        NULL (unknown) — a scene's chapter_id is NOT NULL by schema, so the slot IS
+        derivable: its chapter's story_order plus its rank index among ALL of that
+        chapter's root scenes (the index counts every root scene, so a filled scene
+        cannot collide with an explicit import-artifact order sitting at the same
+        rank position). Root scenes carrying an explicit order are never touched,
+        and a chapter with no slot of its own leaves its scenes alone — the #318
+        NULL-wipe and fabricated-order hazards both stay closed."""
         if parent_id is None:
+            await c.execute(
+                """
+                WITH ordered AS (
+                  SELECT n.id AS id, n.chapter_id AS chapter_id,
+                         (row_number() OVER (PARTITION BY n.chapter_id
+                             ORDER BY n.rank COLLATE "C", n.id) - 1) AS idx
+                  FROM outline_node n
+                  WHERE n.project_id = $1 AND n.parent_id IS NULL
+                    AND n.kind = 'scene' AND NOT n.is_archived
+                      AND n.chapter_id IS NOT NULL
+                )
+                UPDATE outline_node n
+                SET story_order = ch.story_order + o.idx, updated_at = now()
+                FROM ordered o
+                JOIN outline_node ch ON ch.kind = 'chapter'
+                    AND ch.chapter_id = o.chapter_id AND ch.project_id = $1
+                    AND ch.story_order IS NOT NULL
+                WHERE n.id = o.id AND n.project_id = $1
+                  AND n.story_order IS NULL
+                  AND n.story_order IS DISTINCT FROM (ch.story_order + o.idx)
+                """,
+                project_id,
+            )
             return
         await c.execute(
             """
@@ -1898,6 +1930,45 @@ class OutlineRepo:
               AND n.story_order IS DISTINCT FROM ((SELECT b FROM base) + o.idx)
             """,
             project_id, parent_id,
+        )
+
+    async def _reslot_moved_root_scene(
+        self, c: asyncpg.Connection, project_id: UUID, node_id: UUID,
+    ) -> None:
+        """Give ONE scene just dragged to the top level its chapter slot
+        (`chapter.story_order + idx` among that chapter's root scenes, rank order).
+
+        The renumber above deliberately leaves already-ordered root scenes alone, so a
+        scene arriving from a chapter would keep its OLD chapter's slot — a number that
+        no longer describes its position (F1 round 3: the drag test expects the
+        DESTINATION slot). Only the moved node is reslot; import-artifact strays and
+        chapters without their own slot are untouched — a chapter with no position
+        yields no write rather than a fabricated 0."""
+        await c.execute(
+            """
+            WITH moved AS (
+              SELECT chapter_id FROM outline_node
+               WHERE id = $2 AND project_id = $1 AND chapter_id IS NOT NULL
+            ), base AS (
+              SELECT ch.story_order AS b
+              FROM outline_node ch JOIN moved m ON ch.chapter_id = m.chapter_id
+              WHERE ch.project_id = $1 AND ch.kind = 'chapter'
+                AND ch.story_order IS NOT NULL
+            ), ordered AS (
+              SELECT n.id,
+                     (row_number() OVER (ORDER BY n.rank COLLATE "C", n.id) - 1) AS idx
+              FROM outline_node n JOIN moved m ON n.chapter_id = m.chapter_id
+              WHERE n.project_id = $1 AND n.parent_id IS NULL
+                AND n.kind = 'scene' AND NOT n.is_archived
+            )
+            UPDATE outline_node n
+            SET story_order = (SELECT b FROM base) + o.idx, updated_at = now()
+            FROM ordered o
+            WHERE n.id = o.id AND n.project_id = $1 AND n.id = $2
+              AND (SELECT b FROM base) IS NOT NULL
+              AND n.story_order IS DISTINCT FROM ((SELECT b FROM base) + o.idx)
+            """,
+            project_id, node_id,
         )
 
     async def reorder_node(
@@ -1985,5 +2056,11 @@ class OutlineRepo:
                 await self._renumber_scene_story_order(c, node.project_id, new_parent_id)
                 if node.parent_id != new_parent_id:
                     await self._renumber_scene_story_order(c, node.project_id, node.parent_id)
+                # A scene dragged OUT to the top level keeps a REAL reading slot: its
+                # chapter's slot plus its index among that chapter's root scenes (F1
+                # round 3 — the moved node only; explicit import-artifact strays and
+                # slotless chapters are never touched, matching the renumber above).
+                if new_parent_id is None and node.kind == "scene":
+                    await self._reslot_moved_root_scene(c, node.project_id, node_id)
 
                 return await self.get_node(node_id, conn=c)

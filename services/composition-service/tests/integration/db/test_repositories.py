@@ -691,7 +691,13 @@ async def test_outline_reorder_scene_to_root_keeps_root_scenes_on_the_axis(pool)
 async def test_outline_create_root_scene_without_order_leaves_root_scenes_alone(pool):
     """#318 P1 — the create path calls the same renumber: a root scene created
     without a story_order must not null out the root scenes that already have
-    one. The new scene keeps the unknown slot (NULL — never a fabricated 0)."""
+    one. The anti-wipe is intact — and since 2026-11-21 the new scene is not left
+    NULL either: its chapter_id is NOT NULL by schema, so its slot is DERIVABLE
+    (chapter.story_order + its rank index among the chapter's root scenes — the
+    index counts root2 after the explicit root1, so it lands on 1*S + 1; F1
+    round 3). NULL would drop it from every story_order-keyed draft/context query.
+    An explicit import-artifact order (root1) is never rewritten, and a chapter
+    without its own slot still leaves its scenes untouched."""
     from app.engine.chapter_gen import STORY_ORDER_CHAPTER_STRIDE as S
 
     repo = OutlineRepo(pool)
@@ -708,8 +714,8 @@ async def test_outline_create_root_scene_without_order_leaves_root_scenes_alone(
         got = {r["title"]: r["story_order"] for r in await c.fetch(
             "SELECT title, story_order FROM outline_node WHERE kind='scene' AND project_id=$1",
             project)}
-    assert got == {"root1": 5 * S, "root2": None}, f"root scenes fell off the axis: {got}"
-    assert r1.story_order == 5 * S and r2.story_order is None
+    assert got == {"root1": 5 * S, "root2": 1 * S + 1}, f"root scenes fell off the axis: {got}"
+    assert r1.story_order == 5 * S and r2.story_order == 1 * S + 1
 
 
 async def test_outline_beat_role_allowed_on_scene_and_chapter_not_arc(pool):

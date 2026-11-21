@@ -11,6 +11,7 @@ function makeApi(over: Record<string, unknown> = {}) {
     fromJSON: vi.fn(),
     addPanel: vi.fn(),
     getPanel: vi.fn(() => undefined),
+    panels: [{}] as unknown[],
     toJSON: vi.fn(() => ({ grid: {}, panels: { welcome: {} } })),
     ...over,
   };
@@ -76,6 +77,16 @@ describe('useStudioLayout', () => {
     fireReady(api);
     expect(api.fromJSON).toHaveBeenCalled();
     expect(api.addPanel).toHaveBeenCalledWith(expect.objectContaining({ component: 'welcome' }));
+  });
+
+  it('degrades to Welcome when the saved layout parses but carries ZERO panels', () => {
+    // The live bug: an empty grid (all panels closed before the last persist) restores
+    // "successfully" into a blank workspace — a silent void, no Welcome, no editor.
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify({ grid: { root: { type: 'branch', data: [] } }, panels: {} }));
+    const api = makeApi({ panels: [] });
+    fireReady(api);
+    expect(api.fromJSON).toHaveBeenCalledTimes(1);
+    expect(api.addPanel).toHaveBeenCalledWith(expect.objectContaining({ id: 'welcome', component: 'welcome' }));
   });
 
   it('persists the serialized layout on a user change', () => {
