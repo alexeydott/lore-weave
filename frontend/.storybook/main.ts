@@ -8,7 +8,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // Addons kept lean: a11y (catches accessibility regressions on state
 // cards) + docs (auto-generates prop tables from TypeScript). We
 // deliberately dropped `@storybook/addon-vitest` (requires vitest 3+;
-// we're still on 2), `@chromatic-com/storybook` (no Chromatic pipeline),
+// vitest is 4.1.12 since 2026-11-21 — reconsider the addon now that the
+// major matches), `@chromatic-com/storybook` (no Chromatic pipeline),
 // and `addon-onboarding` (welcome stories — noise for a real codebase).
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(ts|tsx)'],
