@@ -59,26 +59,52 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 600,
-    rollupOptions: {
+    // vite 8 = rolldown: function-form `manualChunks` is deprecated (and the
+    // rollup object form is unsupported) — the canonical seam is
+    // `rolldownOptions.output.codeSplitting.groups`. Declaration order +
+    // priority preserve the old first-match-wins: a module is claimed by the
+    // first group whose `test` matches, and everything else (app code, `src/`)
+    // falls back to automatic chunking exactly like the old `return undefined`.
+    // Regexes use [\\/] so the graph is identical on POSIX and Windows IDs.
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          // Keep resources synchronous, but emit each locale/namespace separately.
-          const locale = id.match(/\/i18n\/locales\/([^/]+)\/([^/]+)\.json$/);
-          if (locale) return `locale-${locale[1]}-${locale[2]}`;
-          // uiLanguage accesses the initializer lazily for isolated consumers/tests.
-          // Keep that singleton in a real shared boundary rather than folding it into App.
-          if (id.endsWith('/src/i18n/index.ts')) return 'i18n';
-          if (!id.includes('/node_modules/')) return;
-          // Group dependency families, not individual entry points: splitting shared
-          // internals across chunks can introduce circular chunk dependencies.
-          if (/\/(?:@tiptap|prosemirror-[^/]+|orderedmap|rope-sequence|w3c-keyname)\//.test(id)) return 'vendor-editor';
-          if (/\/(?:@codemirror|@lezer|codemirror|@uiw)\//.test(id)) return 'vendor-codemirror';
-          if (/\/dockview[^/]*\//.test(id)) return 'vendor-dockview';
-          if (/\/(?:recharts|recharts-scale|d3-[^/]+|victory-vendor)\//.test(id)) return 'vendor-charts';
-          if (/\/(?:reactflow|@reactflow|@xyflow)\//.test(id)) return 'vendor-graph';
-          if (/\/onnxruntime[^/]*\//.test(id)) return 'vendor-onnx';
-          if (/\/node_modules\/(?:react|react-dom|scheduler|react-router|react-router-dom|@remix-run)\//.test(id)) return 'vendor-react';
-          if (id.includes('/@tanstack/')) return 'vendor-query';
+        codeSplitting: {
+          groups: [
+            {
+              // Keep resources synchronous, but emit each locale/namespace separately.
+              name: (id: string) => {
+                const locale = id.match(/\/i18n\/locales\/([^/]+)\/([^/]+)\.json$/);
+                return locale ? `locale-${locale[1]}-${locale[2]}` : null;
+              },
+              test: /\/i18n\/locales\/[^/]+\/[^/]+\.json$/,
+              priority: 10,
+            },
+            {
+              // uiLanguage accesses the initializer lazily for isolated consumers/tests.
+              // Keep that singleton in a real shared boundary rather than folding it into App.
+              name: 'i18n',
+              test: /\/src\/i18n\/index\.ts$/,
+              priority: 9,
+            },
+            {
+              // Group dependency families, not individual entry points: splitting shared
+              // internals across chunks can introduce circular chunk dependencies.
+              name: 'vendor-editor',
+              test: /\/(?:@tiptap|prosemirror-[^/]+|orderedmap|rope-sequence|w3c-keyname)\//,
+              priority: 1,
+            },
+            { name: 'vendor-codemirror', test: /\/(?:@codemirror|@lezer|codemirror|@uiw)\//, priority: 1 },
+            { name: 'vendor-dockview', test: /\/dockview[^/]*\//, priority: 1 },
+            { name: 'vendor-charts', test: /\/(?:recharts|recharts-scale|d3-[^/]+|victory-vendor)\//, priority: 1 },
+            { name: 'vendor-graph', test: /\/(?:reactflow|@reactflow|@xyflow)\//, priority: 1 },
+            { name: 'vendor-onnx', test: /\/onnxruntime[^/]*\//, priority: 1 },
+            {
+              name: 'vendor-react',
+              test: /\/node_modules\/(?:react|react-dom|scheduler|react-router|react-router-dom|@remix-run)\//,
+              priority: 1,
+            },
+            { name: 'vendor-query', test: /\/@tanstack\//, priority: 1 },
+          ],
         },
       },
     },
