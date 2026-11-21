@@ -44,9 +44,9 @@ export function useRoleplaySetup(): RoleplaySetup {
       .then(([scriptList, mdl]) => {
         if (cancelled) return;
         setScripts(scriptList);
-        // The list endpoint defaults to including deactivated models; a
-        // deactivated model must not appear in the picker — and above all
-        // must never become the auto-picked default (2026-11-21 audit).
+        // Defense-in-depth since the 2026-11-21 inversion (the endpoint now
+        // defaults to active-only): a deactivated model must not appear in the
+        // picker — and above all must never become the auto-picked default.
         const activeModels = mdl.items.filter((m) => m.is_active);
         setModels(activeModels);
         // Sensible defaults: first script, the favorite (or first) model.
