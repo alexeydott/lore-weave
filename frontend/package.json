@@ -65,7 +65,6 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tiptap-extension-global-drag-handle": "^0.1.18",
-    "vite-plugin-static-copy": "^3.4.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -94,6 +93,7 @@
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.72.2",
     "vite": "^5.4.2",
+    "vite-plugin-static-copy": "^3.4.0",
     "vitest": "^4.1.12"
   },
   "msw": {
