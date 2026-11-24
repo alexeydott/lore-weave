@@ -53,6 +53,22 @@ fn main() {
     // Whether the user overrode continentality_reach explicitly (skip auto-scale).
     let mut reach_explicit = false;
 
+    // **Civ Ship 7d**: opt-in civ-layer output paths + naming provider.
+    // None of these set → civ-layer pipeline doesn't run.
+    let mut civ_png_out: Option<PathBuf> = None;
+    let mut civ_svg_out: Option<PathBuf> = None;
+    let mut civ_json_out: Option<PathBuf> = None;
+    let mut civ_seed: u64 = 42;
+    let mut civ_ocean_target: usize = 64;
+    let mut civ_culture_count: u8 = 5;
+    let mut civ_density = world_gen::creative_seed::SettlementDensity::Medium;
+    let mut civ_archetype: String = "HighFantasy".to_string();
+    // Naming source: None → synthetic; Some(kind) → real LLM TextProvider.
+    #[derive(Clone, Copy)]
+    enum NameSource { Synthetic, Anthropic, OpenAI, Ollama, LmStudio }
+    let mut name_source = NameSource::Synthetic;
+    let mut name_model: Option<String> = None;
+
     // Minimal hand-rolled arg parsing (`--flag value`), to keep the sketch
     // dependency-free of the main CLI.
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -61,6 +77,12 @@ fn main() {
         let flag = args[i].as_str();
         let val = args.get(i + 1).cloned();
         let need = || val.clone().unwrap_or_else(|| panic!("{flag} needs a value"));
+        // **Ship 7e fix**: pre-existing bug — loop unconditionally
+        // advanced `i += 2`, so a valueless flag (the `--name-*`
+        // provider flags) silently ate the next arg. Flag arms that
+        // don't consume a value set `valueless = true`; loop advance
+        // becomes conditional.
+        let mut valueless = false;
         match flag {
             "--width" => p.width = need().parse().expect("width"),
             "--height" => p.height = need().parse().expect("height"),
@@ -171,9 +193,31 @@ fn main() {
             "--lapse" => climate.lapse_per_elev_unit = need().parse().expect("lapse"),
             "--ice-temp" => climate.ice_temp = need().parse().expect("ice-temp"),
             "--tundra-temp" => climate.tundra_temp = need().parse().expect("tundra-temp"),
+            // **Civ Ship 7d** civ-layer flags.
+            "--civ-png-out" => civ_png_out = Some(PathBuf::from(need())),
+            "--civ-svg-out" => civ_svg_out = Some(PathBuf::from(need())),
+            "--civ-json-out" => civ_json_out = Some(PathBuf::from(need())),
+            "--civ-seed" => civ_seed = need().parse().expect("civ-seed"),
+            "--civ-ocean-target" => civ_ocean_target = need().parse().expect("civ-ocean-target"),
+            "--civ-culture-count" => civ_culture_count = need().parse().expect("civ-culture-count"),
+            "--civ-density" => {
+                use world_gen::creative_seed::SettlementDensity;
+                civ_density = match need().as_str() {
+                    "sparse" => SettlementDensity::Sparse,
+                    "medium" => SettlementDensity::Medium,
+                    "dense" => SettlementDensity::Dense,
+                    other => panic!("unknown --civ-density {other}; want sparse|medium|dense"),
+                };
+            }
+            "--civ-archetype" => civ_archetype = need(),
+            "--name-anthropic" => { name_source = NameSource::Anthropic; valueless = true; }
+            "--name-openai" => { name_source = NameSource::OpenAI; valueless = true; }
+            "--name-ollama" => { name_source = NameSource::Ollama; valueless = true; }
+            "--name-lmstudio" => { name_source = NameSource::LmStudio; valueless = true; }
+            "--name-model" => name_model = Some(need()),
             other => panic!("unknown flag: {other}"),
         }
-        i += 2;
+        i += if valueless { 1 } else { 2 };
     }
 
     let world = generate(&p);
@@ -411,5 +455,145 @@ fn main() {
             zr.min_height,
             zr.max_height
         );
+    }
+
+    // **Civ Ship 7d**: civ-layer pipeline — runs only if at least one
+    // `--civ-*-out` path was provided.
+    let civ_needed = civ_png_out.is_some() || civ_svg_out.is_some() || civ_json_out.is_some();
+    if civ_needed {
+        use world_gen::civ_adapter::{
+            bundle_civ, render_civ_political_png, render_civ_svg,
+        };
+        let mut bundle = bundle_civ(
+            &world,
+            &climate,
+            civ_ocean_target,
+            civ_seed,
+            civ_density,
+            civ_culture_count,
+        );
+        // If a real TextProvider is requested, rename via LLM; otherwise
+        // synthetic naming already ran inside bundle_civ.
+        if !matches!(name_source, NameSource::Synthetic) {
+            use std::sync::Arc;
+            use world_gen::shape::{AnthropicProvider, OllamaProvider, OpenAIProvider, TextProvider};
+            let provider: Arc<dyn TextProvider> = match name_source {
+                NameSource::Synthetic => unreachable!(),
+                NameSource::Anthropic => {
+                    let key = std::env::var("ANTHROPIC_API_KEY")
+                        .expect("--name-anthropic requires ANTHROPIC_API_KEY env var");
+                    match name_model.as_ref() {
+                        Some(m) => Arc::new(AnthropicProvider::with_base_url(
+                            key,
+                            world_gen::shape::anthropic::DEFAULT_BASE_URL,
+                            m,
+                        )),
+                        None => Arc::new(AnthropicProvider::new(key)),
+                    }
+                }
+                NameSource::OpenAI => {
+                    let key = std::env::var("OPENAI_API_KEY")
+                        .expect("--name-openai requires OPENAI_API_KEY env var");
+                    match name_model.as_ref() {
+                        Some(m) => Arc::new(OpenAIProvider::with_base_url(
+                            key,
+                            world_gen::shape::openai::DEFAULT_BASE_URL,
+                            m,
+                        )),
+                        None => Arc::new(OpenAIProvider::new(key)),
+                    }
+                }
+                NameSource::Ollama => {
+                    let model = name_model.clone().unwrap_or_else(|| {
+                        world_gen::shape::ollama::DEFAULT_MODEL.to_string()
+                    });
+                    Arc::new(OllamaProvider::new(model))
+                }
+                NameSource::LmStudio => {
+                    // **Ship 7e**: LM Studio exposes OpenAI-compatible
+                    // /v1/chat/completions at http://localhost:1234.
+                    // Reuses OpenAIProvider; dummy bearer key (LM Studio
+                    // doesn't check auth). **LOW-5 fix (review 2026-05-30)**:
+                    // LM Studio requires the exact loaded model name in
+                    // the request body — there's no "auto-route to the
+                    // single loaded model" behaviour (we burned an iter
+                    // on Ship 7e discovering this). Panic with a helpful
+                    // probe command instead of silently sending
+                    // "local-model" which always rejects with
+                    // invalid_request_error.
+                    let model = name_model.clone().unwrap_or_else(|| {
+                        panic!(
+                            "--name-lmstudio requires --name-model <id>. \
+                             LM Studio rejects unknown model names with \
+                             invalid_request_error — probe the loaded model id with:\n\
+                             \n  \
+                             curl http://localhost:1234/v1/models | jq -r '.data[].id'\n"
+                        )
+                    });
+                    Arc::new(OpenAIProvider::with_base_url(
+                        "lm-studio",
+                        world_gen::shape::openai::LMSTUDIO_BASE_URL,
+                        model,
+                    ))
+                }
+            };
+            // **COSMETIC-2 fix (review 2026-05-30)**: `rename_bundle_in_place`
+            // hides the field-shuffle dance (extract → rename → repack
+            // → rehash). Err path leaves the synthetic names from
+            // `bundle_civ` intact since the MED-1 guard rejects parse
+            // failures + under-delivery BEFORE any zip-loops mutate.
+            match world_gen::civ_adapter::rename_bundle_in_place(
+                &mut bundle,
+                provider.as_ref(),
+                &civ_archetype,
+            ) {
+                Ok(()) => {
+                    println!("named civ features via {:?}", match name_source {
+                        NameSource::Anthropic => "anthropic",
+                        NameSource::OpenAI => "openai",
+                        NameSource::Ollama => "ollama",
+                        NameSource::LmStudio => "lmstudio",
+                        NameSource::Synthetic => "synthetic",
+                    });
+                }
+                Err(e) => {
+                    eprintln!("LLM naming failed ({e}); keeping synthetic names");
+                }
+            }
+        }
+
+        // Reconstitute Political + Settlements for the renderers.
+        let political = world_gen::political::Political {
+            province_of: bundle.province_of.clone(),
+            provinces: bundle.provinces.clone(),
+            states: bundle.states.clone(),
+        };
+
+        if let Some(path) = civ_png_out.as_ref() {
+            let buf = render_civ_political_png(&world, &political, &bundle.settlements);
+            image::save_buffer(
+                path,
+                &buf,
+                world.width,
+                world.height,
+                image::ExtendedColorType::Rgb8,
+            )
+            .expect("failed to write civ political PNG");
+            println!("wrote {} — civ political map", path.display());
+        }
+        if let Some(path) = civ_svg_out.as_ref() {
+            let svg = render_civ_svg(&world, &political, &bundle.settlements, &bundle.routes);
+            std::fs::write(path, svg).expect("failed to write civ SVG");
+            println!("wrote {} — civ SVG with labels", path.display());
+        }
+        if let Some(path) = civ_json_out.as_ref() {
+            let json = serde_json::to_string_pretty(&bundle).expect("CivBundle serialize");
+            std::fs::write(path, json).expect("failed to write civ JSON");
+            println!(
+                "wrote {} — CivBundle JSON (content_hash {:?})",
+                path.display(),
+                &bundle.content_hash[..4]
+            );
+        }
     }
 }
