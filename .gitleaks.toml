@@ -30,6 +30,7 @@ paths = [
   '''docs/plans/.*\.md''',              # plan docs may show example secrets in fenced blocks
   '''scripts/raid/test/.*''',           # test-only helpers may use fake creds
   '''services/mcp-public-gateway/test/.*''',  # public-MCP edge test fixtures (fake lw_pk_ keys)
+  '''sdks/python/loreweave_eval/llm_judge.py''',  # docstring prose (finish_reason=length calibration notes) trips generic-api-key; no key literal in the file
 ]
 regexes = [
   '''<REDACTED-FAKE-SECRET>''',
