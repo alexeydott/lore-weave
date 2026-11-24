@@ -71,7 +71,22 @@ cycles), `2026-05-30-lore-enrichment/`, `2026-06-03-enrichment-closure/`,
 `2026-06-13-creation-unblock/`, `2026-06-26-motif-library-ws/`,
 `2026-07-02-agent-extensibility-registry/`, `studio-adjudication/`.
 
-## 5 · House rules
+## 5 · Upstream branch accumulation (2026-11-24)
+
+The fork's main accumulated every upstream branch carrying unmerged work:
+
+| Upstream branch | Outcome |
+|---|---|
+| `fix/v0.1.0-release-gaps` (148 commits — the September release-gaps program, §3 above) | **MERGED** (`a9026c82d` + repairs `50abf0ce9`, `4636e70f3`) |
+| `dependabot/github_actions/actions-all` · `go_modules/piikms go-minor-patch` · `npm_and_yarn/npm-minor-patch` | **MERGED** (`4b09f241e`, `ff057d392`, `85768db37`; frontend kept its own vite-8 package.json) |
+| `civ-layer-amaw` (world-gen civilization layer, TextProvider + civ_adapter split) | **MERGED** (`ebe13b9a9`; `cargo check -p world-gen` green) |
+| `mmo-rpg/zone-map-quality-spec` · `zone-map-v3-spec` (ADRs + plans) | **MERGED** (docs) |
+| `feat/glossary-extracting-assistant` (specs; fork copies were newer and kept) | **MERGED** (`2b2c2a4f8`) |
+| `mmo-rpg/zone-role-viz` · `decoration-family-splits` (game CODE) | **NOT MERGED — deliberate.** May-era game research against a game subtree the fork reworked via the game-logic promotion; needs a dedicated game-track re-integration. Their specs/plans (docs) are merged. |
+| `feat/on-prem-single-port` (runtime code) | **NOT MERGED — deliberate** (precedent `b28f71b4c`: assets were taken, the runtime code predates the fork divergence). Its `nginx.prod.conf` + deploy-assessment doc were already taken then. |
+| everything else (`release/v0.1.0`, `feat/frontend-tools-mcp-migration`, `feat/game-logic`, `refactor/*`, `feature/human-sim-remediation`, stale dependabot) | ahead=0 of upstream/main — already on the fork via upstream syncs; the stale dependabot bases are superseded by the fork's own dep management. |
+
+## 6 · House rules
 
 - New dated plans in this folder need a `Reconciles:` line (enforced by
   `scripts/phase0-reconcile-gate.py` for files dated ≥ 2026-08-06).
