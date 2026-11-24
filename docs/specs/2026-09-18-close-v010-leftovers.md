@@ -1,5 +1,8 @@
 # Spec — Close the v0.1.0 leftovers so the release can ship
 
+Reconciles: Any task, start to finish — the executable contract for the same-name plan;
+this spec adds no rule of its own.
+
 - **Date:** 2026-09-18
 - **Status:** 📝 **DRAFT — input to CLARIFY.** Not an approved design. CLARIFY, DESIGN and the PO checkpoint still apply.
 - **Source idea:** [`docs/ideas/2026-09-18-close-v010-leftovers.md`](../ideas/2026-09-18-close-v010-leftovers.md) (IDEA-001: 29 ideas, 5 sources, scored shortlist)

@@ -1,5 +1,9 @@
 # Spec — An evidence-first suite runner, then one model at a time per local endpoint
 
+Reconciles: A user setting / toggle / mode / threshold / any configurable behavior · Any
+LLM/embed/rerank/image/audio call — the setting and the lease are defined by the same two
+rows their plan cites (SET-1..8 settings boundary; the provider-gateway chokepoint).
+
 - **Date:** 2026-09-19
 - **Status:** 📝 **DRAFT — input to CLARIFY.** Not an approved design. CLARIFY, DESIGN and the PO checkpoint still apply.
 - **Source idea:** [`docs/ideas/2026-09-19-leftovers-after-v010-plan.md`](../ideas/2026-09-19-leftovers-after-v010-plan.md) (IDEA-002: 26 ideas, 9 sources, scored shortlist)

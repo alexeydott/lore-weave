@@ -1,5 +1,11 @@
 # Plan — An evidence-first suite runner, then "one model at a time" as a user setting
 
+Reconciles: A user setting / toggle / mode / threshold / any configurable behavior · Any
+LLM/embed/rerank/image/audio call — "serve one model at a time" is a per-credential user
+setting (SET-1..8: env stays a ceiling, not a per-user knob; the setting must be consumed,
+not write-only), and the model lease sequences calls INSIDE the provider-registry gateway
+chokepoint, not around it.
+
 - **Date:** 2026-09-19
 - **Branch:** `fix/v0.1.0-release-gaps` (PO: stay on this branch)
 - **Spec:** [`docs/specs/2026-09-19-evidence-runner-and-local-model-lease.md`](../specs/2026-09-19-evidence-runner-and-local-model-lease.md)
