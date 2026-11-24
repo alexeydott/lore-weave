@@ -51,10 +51,10 @@ were written on `upstream/fix/v0.1.0-release-gaps` — a branch **148 commits ah
 >   branch's runs, and the count continues on THIS fork's stack from here.
 > - **runner plan `T17` / AC-12** — the full suite through `scripts/e2e/run-evidence-suite.py`
 >   on rebuilt images has not been run on the fork stack yet.
-> - **leftovers plan `T11` (partial on the fork)** — `provisionOnSignIn.ts` + its test are
->   merged, but the sign-in effect wiring into the app shell was not adopted (the fork still
->   provisions via `useEnsureWork` on Studio open, which is its own documented behaviour).
->   Adopt it when the 298-half-provisioned-books backfill is wanted on this deployment.
+> - ~~leftovers plan `T11`~~ — **DONE post-merge**: the branch `auth.tsx` auto-merged, so
+>   `provisionOnSignIn` is wired at sign-in (`auth.tsx:90`, once per sign-in, never per
+>   refresh); its unit test is green on this tree. The 298-half-provisioned-books backfill
+>   this was built for now runs on this deployment at every sign-in.
 > - The leftovers plan's AC-11 (ship GO/NO-GO) stays the PO's, as the plan itself states.
 
 Everything else the branch delivered — provision-at-creation + provision-missing endpoints
@@ -91,7 +91,8 @@ The fork's main accumulated every upstream branch carrying unmerged work:
 | `civ-layer-amaw` (world-gen civilization layer, TextProvider + civ_adapter split) | **MERGED** (`ebe13b9a9`; `cargo check -p world-gen` green) |
 | `mmo-rpg/zone-map-quality-spec` · `zone-map-v3-spec` (ADRs + plans) | **MERGED** (docs) |
 | `feat/glossary-extracting-assistant` (specs; fork copies were newer and kept) | **MERGED** (`2b2c2a4f8`) |
-| `mmo-rpg/zone-role-viz` · `decoration-family-splits` (game CODE) | **NOT MERGED — deliberate.** May-era game research against a game subtree the fork reworked via the game-logic promotion; needs a dedicated game-track re-integration. Their specs/plans (docs) are merged. |
+| `mmo-rpg/zone-role-viz` (zone-role overlay: viewer-store + canvas overlay + panels + registry validation) | **DOCS merged (`d57485f16`); the CODE needs file-level re-integration** — a blind union against the fork's shipped TMP-Q4/Q3 polish (treasure bands, smooth blend) breaks JSX in `LayerToggles`/`MetadataPanel` and splices `assert!` blocks in `http_integration.rs`. The feature is self-contained (11 files, both-sides additions in the same Polish subsection); re-integrate per file, keeping both feature families. |
+| `mmo-rpg/decoration-family-splits` (game CODE, 76 files) | **NOT MERGED — deliberate.** Same May-era game-track caveat; its docs (`2026-05-30-decoration-family-splits-*.md`, `2026-05-30-zone-role-viz-chunk-*.md`) are merged via the same docs-only merge. |
 | `feat/on-prem-single-port` (runtime code) | **NOT MERGED — deliberate** (precedent `b28f71b4c`: assets were taken, the runtime code predates the fork divergence). Its `nginx.prod.conf` + deploy-assessment doc were already taken then. |
 | everything else (`release/v0.1.0`, `feat/frontend-tools-mcp-migration`, `feat/game-logic`, `refactor/*`, `feature/human-sim-remediation`, stale dependabot) | ahead=0 of upstream/main — already on the fork via upstream syncs; the stale dependabot bases are superseded by the fork's own dep management. |
 
