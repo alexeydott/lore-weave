@@ -35,25 +35,34 @@ Still open from that program:
    agent-parity/responsive/scale/User-Guide bar, marked `PARTIAL`).
 3. The defer register (MASTER-IMPL §7.2, 67 rows) — decisions with triggers, not work items.
 
-## 3 · September release-gaps — the plans describe ANOTHER BRANCH
+## 3 · September release-gaps — merged 2026-11-24; what remains open
 
 `2026-09-18-close-v010-leftovers.md` and `2026-09-19-evidence-runner-and-model-lease.md`
 were written on `upstream/fix/v0.1.0-release-gaps` — a branch **148 commits ahead of
-`upstream/main`** (2026-09-13 → 2026-09-19). The fork merged the #286 model-lease chain but
-NOT the whole branch. Concretely (verified 2026-11-24 by diffing the branch against fork
-HEAD):
+`upstream/main`** (2026-09-13 → 2026-09-19).
 
-- The branch's plan files are **substantially ahead of the fork's copies** (+455 / +104
-  lines): rows **T4–T17 are `[x]` there** and still `[ ]` in the fork's copies; the same is
-  true of AC-2..AC-10 in the leftovers plan and AC-11 in the runner plan.
-- Code the branch added that this fork **lacks**: `services/book-service/internal/api/
-  composition_provision.go` + `provision_missing.go` (+ their tests), `frontend/src/lib/
-  provisionOnSignIn.ts` (+ test), `frontend/src/pages/RetiredChapterEditorRedirect.tsx`,
-  `scripts/e2e/why-red.py`, `scripts/e2e/evidence-capture-gate.py`,
-  `frontend/tests/e2e/tsconfig.json` (the `typecheck:e2e` gate), and ~40 e2e specs/helpers.
-- So the fork's copies of these two plans **understate what the owner built** and **mark ✅
-  rows whose artifacts are not on this tree** (e.g. AC-3/AC-5 of the runner plan cite
-  `why-red.py` and `typecheck:e2e`). Read them together with the branch, not as fork status.
+> **✅ MERGED onto fork main on 2026-11-24** (`a9026c82d` + repairs `50abf0ce9`, `4636e70f3`,
+> `bdf05e62f`, `23e80cc5d`, `177c2434b`). The plan files in THIS folder are now the branch's
+> full versions — their `[x]` rows and AC statuses are true of THIS tree. What remains genuinely
+> open from the two plans:
+>
+> - **runner plan `T8` / AC-6** — `#288` (DEFERRED `#165`) is decided only by 5 consecutive
+>   clean full runs in `frontend/tests/e2e/runs/LEDGER.jsonl`; the merged ledger carries the
+>   branch's runs, and the count continues on THIS fork's stack from here.
+> - **runner plan `T17` / AC-12** — the full suite through `scripts/e2e/run-evidence-suite.py`
+>   on rebuilt images has not been run on the fork stack yet.
+> - **leftovers plan `T11` (partial on the fork)** — `provisionOnSignIn.ts` + its test are
+>   merged, but the sign-in effect wiring into the app shell was not adopted (the fork still
+>   provisions via `useEnsureWork` on Studio open, which is its own documented behaviour).
+>   Adopt it when the 298-half-provisioned-books backfill is wanted on this deployment.
+> - The leftovers plan's AC-11 (ship GO/NO-GO) stays the PO's, as the plan itself states.
+
+Everything else the branch delivered — provision-at-creation + provision-missing endpoints
+(`composition_provision.go`, `provision_missing.go`), `why-red.py`,
+`evidence-capture-gate.py`, the e2e `tsconfig.json` / `typecheck:e2e` gate,
+`RetiredChapterEditorRedirect.tsx`, and the full September plan versions — is on this tree
+and covered by the gates. Game-track code branches (`mmo-rpg/*` code, `on-prem` runtime)
+remain deliberately unmerged — see §5.
 
 ## 4 · The eras (for archaeology)
 
