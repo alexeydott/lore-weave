@@ -41,6 +41,10 @@ on:
       - "sdks/python/**"
       - ".github/workflows/python-unit-tests.yml"
 
+  # Manual trigger: this workflow is path-filtered, so a fix that touches
+  # none of its paths would otherwise never re-run it on the new head.
+  workflow_dispatch:
+
 permissions:
   contents: read
 
@@ -48,6 +52,7 @@ jobs:
   unit:
     name: ${{ matrix.service }} (pytest, unit)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -67,8 +72,8 @@ jobs:
           - video-gen-service
           - worker-ai
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.12"
           cache: pip
