@@ -41,6 +41,8 @@ import json
 import os
 import subprocess
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -338,6 +340,35 @@ def preflight(args) -> dict:
 
 # ── run ────────────────────────────────────────────────────────────────────────────────────
 
+def account_login(base_url: str, env: dict) -> tuple[str, int | str]:
+    """Log in once as the account the suite will use, with the same defaults as helpers/auth.ts.
+
+    Found 2026-09-19: a full run started without PLAYWRIGHT_TEST_EMAIL fell back to the default
+    account, which does not exist on lw-iso, and spent 12 minutes producing 108 identical 401s and
+    88 tests that never ran. That is a wrong INPUT, not a state of the stack, so it is refused like
+    a non-loopback target; the preflight itself still never refuses (Q3)."""
+    email = env.get("PLAYWRIGHT_TEST_EMAIL") or "claude-test@loreweave.dev"
+    password = env.get("PLAYWRIGHT_TEST_PASSWORD") or "Claude@Test2026"
+    req = urllib.request.Request(f"{base_url}/v1/auth/login", method="POST",
+                                 data=json.dumps({"email": email, "password": password}).encode(),
+                                 headers={"content-type": "application/json"})
+    # A container restarted just before a run is not up yet: wait for it (up to ~60 s) instead of
+    # reporting its connection error as bad credentials. Only an HTTP answer is a verdict.
+    last: str = ""
+    for _ in range(12):
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return email, r.status
+        except urllib.error.HTTPError as e:
+            if e.code < 500:
+                return email, e.code
+            last = f"HTTP {e.code}"
+        except Exception as e:  # noqa: BLE001 — retried, then reported to the operator
+            last = str(e)
+        time.sleep(5)
+    return email, f"stack not reachable after 60 s: {last}"
+
+
 def run_suite(args, run_id: str, run_dir: Path, pre: dict) -> int:
     results_dir = run_dir / "results"
     json_path = run_dir / "report.json"
@@ -431,6 +462,13 @@ def main() -> int:
     if not is_loopback(args.base_url):
         log(f"refusing non-loopback target {args.base_url}: these journeys register accounts and write data")
         return 2
+    if not args.preflight_only:
+        email, status = account_login(args.base_url, dict(os.environ))
+        if status != 200:
+            hint = ("Set PLAYWRIGHT_TEST_EMAIL / PLAYWRIGHT_TEST_PASSWORD (docs/dev/LOCAL_TEST_ENV.example.md)"
+                    if isinstance(status, int) else "Is the stack up?")
+            log(f"refusing to run: the suite's account {email} cannot log in at {args.base_url} ({status}). {hint}")
+            return 2
     run_id = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     run_dir = RUNS / run_id
     run_dir.mkdir(parents=True, exist_ok=True)

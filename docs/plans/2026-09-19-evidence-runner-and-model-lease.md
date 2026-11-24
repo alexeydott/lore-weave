@@ -1,10 +1,5 @@
 # Plan — An evidence-first suite runner, then "one model at a time" as a user setting
 
-Reconciles: A user setting / toggle / mode / threshold / any configurable behavior · Any LLM/embed/rerank/image/audio call —
-"serve one model at a time" is a per-credential user setting (SET-1..8: env stays a ceiling,
-not a per-user knob; the setting must be consumed, not write-only), and the model lease
-sequences calls INSIDE the provider-registry gateway chokepoint, not around it.
-
 - **Date:** 2026-09-19
 - **Branch:** `fix/v0.1.0-release-gaps` (PO: stay on this branch)
 - **Spec:** [`docs/specs/2026-09-19-evidence-runner-and-local-model-lease.md`](../specs/2026-09-19-evidence-runner-and-local-model-lease.md)
@@ -80,7 +75,7 @@ Premises are re-verified before each lane starts.
 | **AC-8** | With the setting on, requests for different models on one endpoint wait for each other instead of colliding; same-model requests still run concurrently; with it off, behaviour is unchanged | lease unit tests (grant/wait/release/aging) + wiring tests on both the job and stream paths | T11, T12 | ✅ met — Cycle 4 (lease, 3 bites) + Cycle 5 (job and stream wiring, 2 bites) |
 | **AC-9** | An LM Studio model-load abort is retried as contention and never counts toward the breaker, whatever the setting | `Guard`/classification unit tests + a bite | T9, T13 | ✅ met — Cycle 6: classified on run 4's verbatim body, retried, never counted; 3 bites |
 | **AC-10** | Run 4's collision, replayed live with the setting on, ends with both jobs completed; with it off, it reproduces today's failure | live replay on `lw-iso`, `llm_jobs` + extraction status pasted | T15 | ✅ met — Cycle 8: off 1/6 completed (5 × `LLM_CIRCUIT_OPEN`), on 6/6 completed in 25.2 s; margin gap filed as #295 |
-| **AC-11** | The changelog and the user docs describe the setting, and every issue this plan resolves is closed with its evidence | `CHANGELOG.md`, `changelog-gate.py`, the GitHub issue states | T16 | ❌ not met |
+| **AC-11** | The changelog and the user docs describe the setting, and every issue this plan resolves is closed with its evidence | `CHANGELOG.md`, `changelog-gate.py`, the GitHub issue states | T16 | ✅ met — Cycle 9: changelog + README section; #286, #289–#292 closed with evidence; #288 stays open for T8 |
 | **AC-12** | The full suite is green through the new runner on rebuilt images | the runner's ledger line for the final run | T17 | ❌ not met |
 
 ## Board
@@ -163,7 +158,7 @@ Premises are re-verified before each lane starts.
 
 ### Lane Z — close
 
-- [ ] **T16** — **Docs, changelog, issues**
+- [x] **T16** — **Docs, changelog, issues** (Cycle 9)
   - `CHANGELOG.md` `[Unreleased]`:
     - Added: the setting, the evidence runner;
     - Fixed: the load-abort retry and #289–#292.
@@ -552,3 +547,98 @@ PATCH through the BFF: serve_one_model_at_a_time = True … = False (reset)
 ```
 
 **AC impact:** AC-10 ✅: off reproduces the failure, on completes every job well inside the drop bound. AC-7 ✅ (the live PATCH). The margin under the breaker threshold is recorded as #295, not hidden.
+
+### Cycle 9 — T16: docs, changelog, issues
+
+**Investigated:** where a self-hoster reads about providers. There is no user-docs site; the README's "AI Models (BYOK)" section is where LM Studio is introduced, so the setting is documented there (the path decision this row asked for). Re-checking the cited issues showed the evidence runner is #288's tool, not #287's (#287 is the revision-order clock issue), so the changelog cites #288.
+
+**Issues:** #286, #289, #290, #291, #292, #295
+
+**Fix:** docs only.
+- `CHANGELOG.md` `[Unreleased]`: Added (the setting, the evidence runner); Fixed (the load-abort retry, the per-attempt log, #289–#292).
+- `README.md`: "A local server that holds one model at a time": what the collision looks like, where the setting is, off by default, never loads or unloads a model, the 10-minute wait and `LLM_MODEL_BUSY`, vision not covered, and the #295 gap.
+- #286 and #289–#292 closed with evidence comments. Each comment names its local commit and says the branch is not pushed yet: pushing is not part of this plan. #288 stays open for T8.
+- The rebuilt frontend is deployed to `lw-iso` and carries the setting.
+
+**Proof:**
+
+```
+changelog-gate: structure OK (3 section(s))
+gh issue view: 286 CLOSED · 289 CLOSED · 290 CLOSED · 291 CLOSED · 292 CLOSED · 295 OPEN · 288 OPEN
+lw-iso-frontend-1  labels git_sha=57e85e678 git_dirty_scope=frontend/src (the T14 files, committed as 99e35da65)
+  /usr/share/nginx/html/assets/index-DKwv8QhS.js contains provider-edit-one-model and "Serve one model at a time"
+```
+
+**AC impact:** AC-11 ✅.
+
+### Cycle 10 — T17/T8, run 1: seven reds, each given a cause
+
+**Investigated:** the first full runs through the runner, on provider-registry at 57e85e678 and the frontend at 331dfc955 (dirty scope `frontend/src`: 8 re-translated non-English locale files that are not this plan's, left uncommitted; the suite runs in English).
+- **Run `20260919T055653Z` is invalid.** It started without `PLAYWRIGHT_TEST_EMAIL`, fell back to the default account, which does not exist on `lw-iso`, and produced 108 identical `401 AUTH_INVALID_CREDENTIALS` failures and 88 tests that never ran. It stays in the ledger, since the ledger is append-only, but it tested nothing.
+- **Run `20260919T061324Z`:** 194 passed, 5 failed, 2 timed out, in 42.2 min (green runs took 23–25 min). Each red was traced with `why-red`, its trace, its page snapshot, and `llm_jobs`:
+
+| red | cause | verdict |
+|---|---|---|
+| `demo-pipeline-3c` | `createBook` lands in the Studio (88d3e972b). `openBook` then read the row from the list DOM React had not yet replaced: `waitForURL` resolves on the pushState, before the render. A passing trace reads the row 22 ms after the click; the failing one after the Studio rendered. `e86508e87` repaired 3a for exactly this and left 3b and 3c | test stale since 88d3e972b; fixed |
+| `studio-inline-correction` (Discard) | While the ghost streams, Discard is `inline-stop`; `inline-discard` exists only after the stream ends. Since afe24542e (F13) the continuation is real prose, so it is still streaming when the test looks for `inline-discard` | test stale since afe24542e; fixed. Its sibling, the Accept test, has the same defect (found while re-running) and is fixed with it |
+| `studio-quality-conformance` (never blank) | `conformance-empty` renders inside `conformance-trace-view`, and the wrapper is on screen while loading. `trace.or(empty)` either matched the loading skeleton, so a blank panel passed, or matched two elements (strict mode) | test defect since it was written (a69a3d767); fixed to assert a resolved state |
+| `composition-correction-gate`, `composition-generate` | Model-gated. All LLM jobs completed, but slowly: three parallel `prose_draft` at 06:18 took 77–90 s against about 23 s for the same work on 2026-09-18, and the 26B critic took 104.6 s against a 90 s wait | environment. The run started with gemma 26B resident, left by the T15 replay; the suite's first calls use 12B. LM Studio's own server log stops on 2026-09-08, so the model residency could not be read. Cause not proven; the next run starts, like the green runs, with only 12B loaded |
+| `studio-kg-authoring-journey`, `studio-motif-author-journey` | The test bodies finished in 9–13 s. Then Chromium's `Close context` hung for 30 s, twice in a row in the same worker (06:46:54–06:48:34), and the worker was replaced | environment: a browser hang with no product call in flight. Cause not found; watched in the next runs |
+
+**Issues:** #288
+
+**Fix:** four changes.
+- **Tests (three defects):**
+  - `demo-pipeline-3b/3c` go back to the library before `openBook`, the repair `e86508e87` made to 3a.
+  - `studio-inline-correction`: Discard clicks `inline-stop` or `inline-discard`, whichever is showing (both post the REJECT, `useInlineGhost.ts:97`), and Accept waits for the stream to finish. A new locator, `inlineStop`, in `StudioComposePanels`.
+  - `studio-quality-conformance` asserts a scene row or the empty state, never the wrapper (`anyRow()` in the page object).
+  - Each edit names the change that made the test wrong. No claim was weakened: each test still asserts what it asserted.
+- **Runner:** `run-evidence-suite.py` logs in once as the suite's account before a run. It refuses the run (exit 2) when the account cannot log in, like a non-loopback target. That is a wrong input, not a state of the stack, so Q3 (the preflight never refuses) still holds.
+
+**Proof:**
+
+```
+fixed specs, restored image:   quality-conformance + inline-correction 6 passed · demo-pipeline-3c 1 passed
+3c BITE (1 s wait after createBook, the old step)    TimeoutError: locator.getAttribute … waiting for getByTestId('book-row')…  1 failed
+   same wait, the fixed step                         1 passed (1.8m)
+product bites, one rebuild:
+   Discard captures nothing       TimeoutError: page.waitForResponse: Timeout 30000ms exceeded   (Discard test)
+   Accept captures a correction   expect(received).toBe(expected)  Expected: false  Received: true   (Accept test)
+   conformance never resolves     waiting for getByTestId('conformance-empty').or(locator('[data-testid^="conformance-row-"]')).first()
+   3 failed, 3 passed (the untouched conformance tests)
+restored (git diff empty), rebuilt, 6 passed
+runner: no account → exit 2 "refusing to run: … claude-test@loreweave.dev cannot log in … (401)" · iso-evidence → 200 · --self-test OK
+```
+
+**AC impact:** aimed at AC-6 and AC-12; neither moved, because run 1 was red. It does not count toward the five clean runs.
+
+### Cycle 11 — T17/T8, run 2: three motif specs leaked into the shared account
+
+**Investigated:** run `20260919T072019Z`: 196 passed, 4 failed, 1 did not run, in 34.5 min. The preflight warned that two knowledge-service schedulers (quarantine cleanup, mirror drift) would fire inside the run; neither made an LLM call in the red windows. An earlier attempt at run 2 refused to start: the runner's new login check hit the frontend while it was still restarting after its rebuild, and reported the connection error as bad credentials.
+
+| red | cause | verdict |
+|---|---|---|
+| `studio-motif-author-journey` STEP 2, `studio-motif-library` (card opens), `studio-motif-library` (graph edge) | The library's "My" list is one page of 100: 84 system motifs first, then the user's motifs by name (`motif_repo.list_for_caller`: `ORDER BY owner_user_id NULLS FIRST, name`). The account held **49 active motifs**, 47 of them left behind by three specs that never archived what they created: `GraphA <stamp>` 16 (`studio-motif-graph`), `E2E Created e2e.created.<stamp>` 16 and `打脸 escalation <stamp>` 15 (created through the UI in `studio-motif-library` and the journey). 16 "E2E Created…" rows filled the last user slots of page 1, so this run's freshly seeded "Face-slap…" sat at row 101, behind "Load more". Run 1 passed because the leak had not crossed the page yet | test defect: a leak that grows every run; fixed. The product paginates correctly ("Load more"); this is not a product defect |
+| `enrichment-profile` (+1 dependent test did not run) | Its `beforeAll` extraction job was created at 07:33:16, waited 80 s behind the **previous test's** 52 `glossary_canonical_fold` jobs on the one local model, then ran 4 calls of up to 123 s each (8.2K in / 4.1K out); it completed at 07:38:55, 39 s after the 300 s bound. The same calls took ≤ 58 s on 2026-09-18 | environment: per-call throughput about half of yesterday's, plus cross-test backlog. The job succeeded, so there is no product defect. The bound is NOT raised: that would be accommodating the environment. Watched in the next runs |
+
+**Issues:** #288
+
+**Fix:** the leak and the login check.
+- **Leak:**
+  - `helpers/motif.ts` gains `archiveMotifsByCode`, which archives a motif a test created through the UI and whose id it never saw.
+  - `studio-motif-graph` archives its motif in `afterAll`.
+  - `studio-motif-library` and `studio-motif-author-journey` archive what they create inline.
+  - No assertion changed.
+  - The 47 leaked motifs were archived through the product API (`DELETE /v1/composition/motifs/{id}`, soft archive), on the throwaway `lw-iso` account only.
+- **Runner:** the login check waits up to 60 s for a stack that does not answer yet, and treats only an HTTP answer below 500 as a verdict on the credentials. A stack still down after that is reported as "stack not reachable", not as bad credentials.
+
+**Proof:**
+
+```
+active motifs before: 2 · the three motif specs: 7 passed · active after: 2
+BITE (archiveMotifsByCode removed from studio-motif-library): 5 passed · active after: 3   (the leak, back)
+restored (cmp) · the bitten leak archived
+runner login check: bad password → 401 · iso-evidence → 200 · port with no stack → "stack not reachable after 60 s: … actively refused it" · --self-test OK
+```
+
+**AC impact:** aimed at AC-6 and AC-12; neither moved, because run 2 was red. It does not count toward the five clean runs.

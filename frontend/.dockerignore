@@ -2,7 +2,8 @@ node_modules
 dist
 .env*.local
 *.tsbuildinfo
-# package-lock.json  # KEPT IN CONTEXT (#254) -- npm ci needs it; excluding it suppressed the lock
+# package-lock.json  # KEPT IN CONTEXT (#254, since 2026-09-13) -- npm ci needs it; excluding it
+#                    # suppressed the lock (the second of three places the lock was suppressed).
 **/__tests__
 **/*.test.ts
 **/*.test.tsx

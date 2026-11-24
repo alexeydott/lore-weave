@@ -1,11 +1,13 @@
 # Human-simulation authoring run — "Vạn Tượng Quy Nhất," 2026-09-07
 
-Reconciles: Any task, start to finish — this report is the closing artifact
-of the 2026-09-06 human-simulation run: it synthesizes that plan's raw
-evidence (build logs, chapter-by-chapter review verdicts, exact findings
-text, all linked from `2026-09-06-human-sim-van-tuong-quy-nhat.md`) into
-something a reviewer can act on for the go/no-go decision without reading
-the whole run. It introduces no new standard.
+Reconciles: Non-Vacuity · MCP Tool I/O Standard · Settings & Configuration Boundary · Multilingual / Anti-Language-Bias — a findings report adds no rule. It measures the shipped build against rows that already exist: whether a claimed check can fail, whether a bounded return reports its cap, whether a default is a user setting rather than a silent fallback, and whether the product behaves for a non-English author. *(This line named the request rather than index rows until 2026-09-13; `phase0-reconcile-gate` reads it as a phantom registration, and it was right.)*
+
+**The request it answers:** the `/human-sim` ask to play a human author against Writing Studio + PlanForge,
+write a real 5-arc web novel through the app's OWN AI, review it via the Method's Workflow
+multi-lens pattern, and deliver a written feedback report + go/no-go for the pre-release →
+release decision. Full raw evidence (build logs, chapter-by-chapter review verdicts, exact
+findings text) lives in [`2026-09-06-human-sim-van-tuong-quy-nhat.md`](2026-09-06-human-sim-van-tuong-quy-nhat.md)
+— this report synthesizes it into something a reviewer can act on without reading the whole run.
 
 **Persona:** an author outlining and drafting a 5-arc web novel from a pre-written premise doc
 (`D:\Stories\story-plan-v1.md`), using PlanForge for structure and Co-writer Chat for prose.

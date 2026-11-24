@@ -18,10 +18,11 @@ test.describe('Composition telemetry (B3.3) [db-assert]', () => {
     const chapterId = await createChapter(request, token, bookId, 'Telemetry chapter');
     const projectId = await createCompositionWork(request, token, bookId);
     const sceneId = await createCompositionScene(request, token, projectId, chapterId, 'Scene');
-    // #263 — the non-scene probe uses `chapter`, a kind the narrowed NodeKind actually
-    // stores. The old `beat` fixture can no longer be created at all (schema 422), so
-    // it stopped exercising the kind gate it was written for.
-    const nonSceneId = await createOutlineNode(request, token, projectId, 'chapter', 'Chapter');
+    // A CHAPTER is the non-scene node here. It used to be a 'beat', a kind the database has
+    // refused since pkg_lift_v1 (outline_node_kind_check), so the node was never created and
+    // the gate below was asserted against nothing. The claim is unchanged: a node that is not
+    // a scene, marked done, emits no scene_committed.
+    const nonSceneId = await createOutlineNode(request, token, projectId, 'chapter', 'Chapter node');
     try {
       await loginViaUI(page);
       const sceneRows = () => Number(queryComposition(

@@ -59,14 +59,9 @@ services:
       - lw-meta
 
   minio:
-    # Bitnami legacy mirror — minio/minio left Docker Hub (see the full story
-    # on the main stack's minio service). 2024.8.17 is the bitnami build of
-    # the same upstream release this file pinned. Same two invocation deltas:
-    # run as root, and the command names the binary.
-    image: bitnamilegacy/minio:2024.8.17-debian-12-r0
+    image: quay.io/minio/minio:RELEASE.2024-08-17T01-24-54Z
     container_name: lw-meta-minio
-    user: root
-    command: minio server /data --console-address ":9001"
+    command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
@@ -76,10 +71,7 @@ services:
     tmpfs:
       - /data
     healthcheck:
-      # The bitnami image ships no curl. bash's /dev/tcp is a TCP-connect
-      # probe rather than an HTTP one — weaker, but it still fires only once
-      # the server accepts connections on :9000.
-      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/9000"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -87,11 +79,7 @@ services:
       - lw-meta
 
   minio-bootstrap:
-    # Bitnami legacy mirror of mc (minio/mc is gone from Docker Hub with the
-    # rest of the minio org); 2024.8.17 bundles the same upstream client
-    # release (2024-08-17T11-33-50Z) this file pinned before. `mc` resolves
-    # on the image PATH, so the entrypoint below is unchanged.
-    image: bitnamilegacy/minio-client:2024.8.17-debian-12-r0
+    image: minio/mc:RELEASE.2024-08-17T11-33-50Z
     container_name: lw-meta-minio-bootstrap
     depends_on:
       minio:
@@ -139,14 +127,6 @@ services:
       - "127.0.0.1:18008:8008"
     tmpfs:
       - /var/lib/postgresql/data
-    healthcheck:
-      # pg_isready ships with the Postgres binaries in the spilo image.
-      # (Patroni also serves /health on :8008; pg_isready is the certain,
-      # repo-standard Postgres probe, so it is used here.)
-      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "postgres"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
     networks:
       - lw-meta
 
@@ -181,14 +161,6 @@ services:
       - "127.0.0.1:18009:8008"
     tmpfs:
       - /var/lib/postgresql/data
-    healthcheck:
-      # pg_isready ships with the Postgres binaries in the spilo image.
-      # (Patroni also serves /health on :8008; pg_isready is the certain,
-      # repo-standard Postgres probe, so it is used here.)
-      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "postgres"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
     networks:
       - lw-meta
 
@@ -223,14 +195,6 @@ services:
       - "127.0.0.1:18010:8008"
     tmpfs:
       - /var/lib/postgresql/data
-    healthcheck:
-      # pg_isready ships with the Postgres binaries in the spilo image.
-      # (Patroni also serves /health on :8008; pg_isready is the certain,
-      # repo-standard Postgres probe, so it is used here.)
-      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "postgres"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
     networks:
       - lw-meta
 

@@ -1,9 +1,6 @@
 # Green, honestly — fix the product until the suite passes, and never the other way round
 
-Reconciles: Any task, start to finish · Non-Vacuity — this plan adds no rule; it is the
-ordinary red-by-red remediation loop, and every green it claims must rest on a check that
-can fail (citations corrected 2026-11-21: 'Plan Acceptance Criteria' / 'Remediation Cycle'
-name no row in the standards index).
+Reconciles: Plan Acceptance Criteria · Non-Vacuity · Remediation Cycle — this plan adds no rule.
 It continues [red-by-red](2026-09-13-red-by-red.md), which answered *why* 51 tests failed. This
 one closes the 18 that remain.
 
@@ -71,7 +68,7 @@ real and only the PO can resolve it.
 
 ### Lane F — fix the product. Each ends in a RE-BREAK, or it is not done.
 
-- [~] **F1** — **#262 FIXED and RE-BROKEN (Cycle 1). 3 of its 4 green; the 4th moved to F6.**
+- [x] **F1** — **#262 FIXED and RE-BROKEN (Cycle 1). 3 of its 4 green; the 4th moved to F6, closed in Cycle 16. All 4 green in the final run (Cycle 39).**
   The reasoning menu cannot be clicked. *(4 tests)*
   **The row's original premise was wrong and Cycle 1 corrected it.** It said the promote bar "wins
   the hit test", which reads as a stacking problem. The probe found NO competing stacking context:
@@ -89,7 +86,7 @@ real and only the PO can resolve it.
   recommendation and STOP.** Widening a CHECK constraint to make an INSERT succeed is exactly the
   hollow fix this plan is guarding against.
 
-- [~] **F3** — **#264 FIXED and RE-BROKEN (Cycle 2). 1 of its 2 green; the other moved to F7.**
+- [x] **F3** — **#264 FIXED and RE-BROKEN (Cycle 2). 1 of its 2 green; the other moved to F7, closed in Cycle 17. Both green in the final run (Cycle 39).**
   The structure editor claims unsaved changes after a save. *(2 tests)*
   `initial` is a `useRef` captured at mount and never reassigned, so the draft is permanently
   "diverged" after the first edit. The baseline must move on save success — and the component's
@@ -162,9 +159,9 @@ real and only the PO can resolve it.
   at once, so an intermediate phase can pass unpainted. The claim — phases reach the inspector —
   is worth keeping; the mock is what must change.
 
-- [~] **J3** — **PARTIAL (Cycle 10).** The stale session is FIXED and verified. The test stays red
-  for a cause the product itself names: the one active model is a REASONING model and returns a
-  blank completion to the distiller. **This is H2's constraint, not a defect.**
+- [x] **J3** — **DONE.** The stale session was fixed in Cycle 10. The remaining red was NOT "H2's constraint, not a defect",
+  as this row said: it was a defect. The distiller never sent `reasoning_effort=none` (F9, Cycle 25, re-broken).
+  Green in the final run (Cycle 39).
   **D12**: a per-run Assistant session on an active model. *(1 test)*
   One long-lived session currently carries earlier runs' unanswered Tier-A consent gates. Decide
   deliberately whether the test answers consent or avoids provoking it.
@@ -175,7 +172,11 @@ real and only the PO can resolve it.
 
 - [x] **F12** — **FIXED and RE-BROKEN (Cycle 35).** The co-writer returned requests for context as prose on every ungrounded book (#273).
 
-- [ ] **F13** — `continue` on a scene with no prose yet still asks for "the recent prose". Found closing F12.
+- [x] **F13** — **FIXED and RE-BROKEN (Cycle 36).** `continue` on a scene with no prose asked for "the recent prose". Found closing F12.
+
+- [x] **F14** — **FIXED and RE-BROKEN (Cycle 37).** The inline ghost's Accept left the screen on a full-length suggestion. Found closing F13.
+
+- [x] **F15** — **FIXED and RE-BROKEN (Cycle 38).** Every recurring `page.goto` timeout was a render-blocking Google Fonts stylesheet — not host starvation (corrects Cycle 29).
 
 - [x] **F9** — **DONE (Cycle 25).** The distiller never asked the model to stop thinking. *(1 test, D12)*
 
@@ -930,7 +931,7 @@ OWNED by H2 with a named blocker. AC-1 — 13 of the 18 green. AC-2 not applicab
 - **It will not run against anything but loopback**, and never against the PO's own stack.
 - **It will not tag, build or publish anything.**
 
-RESUME: Cycles 1-29 done. Final full run 196 passed / 4 failed / 0 skipped of 200, read from allure by content. Of the 18: 17 green or answered. Open reds: F8 plan-forge propose truncation (diagnosed, not a missing lever); K2 now RUNS and fails (#273 draft asks for context, #274 critic timeout); two page.goto timeouts in one window after local inference, undiagnosed with trace. H1 stops on sealed OQ-1 with options. Head of the queue is Z2: hand over; only the PO closes AC-7.
+RESUME: Cycles 1-39 done. FINAL RUN 201 passed / 0 failed / 0 skipped (allure by content, 26.9 min). Recorded residuals, not hidden by the green: F8 6.5% truncation (array-repeat mode), F11 guardrail p~0.27, #274 not re-breakable without manual LM Studio control. Owed to the PO: AC-7 GO/NO-GO; H1 (OQ-1, option A recommended only with an explicit yes); the duplicated critic display. Nothing pushed.
 
 ### Cycle 14 — the whole suite, test by test (Z1)
 
@@ -1503,7 +1504,9 @@ What the evidence rules out and what it does not:
 - **Not the code.** Both specs pass re-run in isolation (4 passed), and the same bundle loads in ~190 other tests in the same run.
 - **The renderer stopped producing frames:** one screencast frame in 15 s, and none of the follow-on fetches a healthy boot makes within a second (`vitesse-*.js`, `/sw.js`, manifest).
 
-That pattern fits host starvation — headless Chromium sharing the machine with local inference — but I could not sample host load retroactively, so it stays a hypothesis. The next run should record CPU and GPU load alongside the suite, which would settle it.
+That pattern fits host starvation — headless Chromium sharing the machine with local inference — but I could not sample host load retroactively, so it stays a hypothesis.
+
+> **Refuted in Cycle 38.** A host sampler caught the next occurrence at 26–45% CPU with 17 GB free and no model running. The cause was a render-blocking Google Fonts stylesheet that never answered. The next run should record CPU and GPU load alongside the suite, which would settle it.
 
 **Proof:**
 
@@ -1691,7 +1694,6 @@ frontend unit, model idle: 157 files, 1115 passed
 **AC impact:** AC-2 — explicitly NOT satisfied for #274; the reason and the forbidden reproduction step are recorded rather than papered over.
 
 
-<<<<<<< HEAD
 ### Cycle 35 — the co-writer asked for context instead of writing, and every test passed (F12, #273)
 
 **Investigated:** every `generation_job` result on this stack today; the `prose_draft` requests in `llm_jobs`; the streamed `draft_scene` request, captured through the logging proxy (throwaway stack, provider endpoint restored); `cowrite.build_messages` (system sentence and `draft_scene` instruction); `packer/assemble.py` (when `<beat>` is emitted); `composition-generate.spec.ts`.
@@ -1731,13 +1733,119 @@ RESTORED + rebuilt, every co-write spec:  14 passed (3.6m)
 **AC impact:** AC-2 — bitten both ways through rebuilt images, and the bite's error is the defect by name. AC-3 — the one test edit makes the claim stricter; it is what made the defect visible at all.
 
 
-=======
->>>>>>> 72eb7753a (fix(frontend): let the inline critique outlive the 20s request ceiling (#274))
+### Cycle 36 — continue asked for the prose it was meant to continue (F13)
+
+**Investigated:** `generation_job` results by operation after F12; `cowrite.build_messages` for `continue` on an empty pack; `useInlineGhost.ts` (the inline "Continue from cursor" sends `operation: 'continue'`); `studio-inline-correction.spec.ts`.
+
+**Issues:** none filed — the same class as #273, on the other operation. The unreachable Accept it exposed is F14.
+
+**Fix:** after F12 every `draft_scene` and `draft_chapter` result was prose, but `continue` answered 2 of 2 times "Please provide the recent prose or the context of the scene". Its instruction is *"Continue the scene from where the recent prose ends"*, and an empty scene has no `<recent>` block to continue from. A scene with no prose now gets its own instruction, with the same no-name sentence F12 proved necessary.
+
+An existing unit test built `continue` with a canon-only pack and asserted "Continue the scene". Its claim is that language, voice and guidance get threaded through; it got a `<recent>` block in its fixture and kept every assertion. The no-prose case has its own test. The spec now also asserts the ghost is not a request for input, which makes its claim stricter.
+
+**Proof:**
+
+```
+generation_job after F12:  continue 2/2 "Please provide the recent prose ..."
+A/B on the request build_messages produces for an empty pack (gemma-4-26b, cache evicted):
+  "Continue the scene from where the recent prose ends"  6/6 requests · 0 prose
+  no-prose instruction                                    0/6 requests · 6/6 prose (240-316 words) · 0/6 invented names
+unit: tests/unit/test_cowrite.py  31 passed
+
+BITE — the continue branch disabled, composition rebuilt:
+  Error: the inline ghost returned a request for context instead of prose
+  Received string: "Please provide the recent prose or the context of the novel so that I may continue the story."
+  (one earlier bite attempt hit page.goto Timeout 15000ms instead — not the defect, re-run; CPU sampled 35%)
+RESTORED + rebuilt (marker grep 2, bite marker 0):
+  studio-inline-correction + composition-generate  3 passed (1.1m)
+```
+
+**AC impact:** AC-2 — bitten both ways through rebuilt images, and the bite's received string is the defect verbatim.
+
+### Cycle 37 — a full suggestion could not be accepted (F14)
+
+**Investigated:** the failure once `continue` returned real prose (`locator.click: Element is outside of the viewport`); the screenshot; `InlineGhost.tsx` (position, sizing, key handling).
+
+**Issues:** none filed. Fixed in this row.
+
+**Fix:** once the inline ghost carried ~300 words of prose instead of a 30-word request, the spec failed on Accept: the element was outside the viewport. The screenshot shows the drafting card running off the bottom of the screen. `InlineGhost` is `fixed` at the caret with only a width limit. Fixed content doesn't scroll with the page, and scroll events just re-anchor it to the caret. Esc discards, but no key accepts. **A user could not accept a full-length suggestion at all.** It went unnoticed only because F12 and F13 made every suggestion short enough to fit.
+
+The card is now bounded to the viewport (`maxHeight: calc(100vh - top - 8px)`). The prose scrolls inside it and the action row never shrinks off-screen. The width and position rules are unchanged.
+
+**Proof:**
+
+```
+BEFORE (after F13, real prose):  Error: locator.click: Element is outside of the viewport
+  screenshot: the "AI · DRAFTING" card runs past the bottom edge; no buttons visible
+tsc --noEmit exit 0 · InlineAiLayer unit 13 passed
+AFTER (frontend rebuilt, `inline-ghost-actions` in the bundle):  studio-inline-correction  2 passed (23.8s)
+BITE — HEAD InlineGhost.tsx, frontend rebuilt (marker count 0):
+  Error: locator.click: Element is outside of the viewport
+RESTORED + rebuilt:  studio-inline-correction + composition-generate  3 passed (1.1m)
+```
+
+**AC impact:** AC-2 — bitten both ways through a rebuilt frontend.
+
+
+### Cycle 38 — the recurring page-load timeout was a font stylesheet, and my own hypothesis was wrong (F15)
+
+**Investigated:** the full run after F12–F14 (199 passed · 1 failed · 0 skipped); a 5-second host CPU/memory sampler that ran alongside it; the failed test's trace network, read for requests that never received a response; `frontend/index.html`; `tailwind.config.cjs` font stacks.
+
+**Issues:** none filed — fixed in this row. Cycle 29's host-starvation hypothesis is refuted, and Cycle 29 now carries a pointer here.
+
+**Fix:** the only failure left in the full run was the same `page.goto: Timeout 15000ms exceeded` that had appeared in three runs, this time in `manuscript-navigator`, a test that uses no model. Cycle 29 had written it off as the renderer starving beside local inference. **The sampler refuted that**: across the failure window CPU was 26–45%, 17 GB free, nothing generating; across the whole run median CPU was 33% and 0.4% of samples were ≥90%.
+
+nginx logs only completed requests, so a request that never completes leaves no line. The trace network does keep it. Every same-origin resource finished in under 200ms, and one entry never completed:
+
+`https://fonts.googleapis.com/css2?family=Inter…Lora…JetBrains+Mono` — status **-1**.
+
+`index.html` loaded the web fonts as an ordinary `<link rel="stylesheet">`. A stylesheet blocks the `load` event, so a font CDN that stalls holds the page back as long as it stalls. This is a product defect, not a test hazard: LoreWeave is self-hostable and ships a zh-CN locale, and on a network that can't reach Google every page would hang behind a cosmetic font.
+
+The link is gone from `index.html`. `src/lib/loadWebFonts.ts` inserts the same stylesheet **after** `load`, so it can no longer hold it. The CSS already uses `display=swap` and every family already has a fallback stack, so text renders at once and swaps when the font arrives.
+
+A new spec, `offline-font-cdn.spec.ts`, makes the CDN never answer on purpose. That turns the intermittent timeout into a deterministic one, which is what makes the bite meaningful.
+
+**Proof:**
+
+```
+full run:  199 passed · 1 failed · 0 skipped      the 1: page.goto Timeout 15000ms (manuscript-navigator)
+host sampler, failure window 01:10:34-01:11:57Z:  cpu 11-63%, free 16.8-21.9 GB · whole run median cpu 33%, >=90% in 0.4%
+trace network: login 12ms · index-*.js 177ms · 5 vendor chunks <=36ms · fonts.googleapis.com/css2  -1 (never completed)
+
+offline-font-cdn, CURRENT build (CDN routed to never answer):  TimeoutError: page.goto: Timeout 15000ms exceeded  -> 1 failed
+AFTER (frontend rebuilt; index.html has 0 font links; bundle carries data-web-fonts):  1 passed (2.9s)
+BITE — HEAD index.html, rebuilt:  TimeoutError: page.goto: Timeout 15000ms exceeded  -> 1 failed
+RESTORED + rebuilt:  offline-font-cdn + smoke-login  2 passed (4.5s)
+fonts still load with the CDN reachable: {"link":true,"inter":true,"body":"Inter, system-ui, sans-serif"}
+```
+
+**AC impact:** AC-5 — the last unexplained red of the full run is explained and closed. AC-2 — bitten both ways through a rebuilt frontend. AC-1 — Cycle 29's recorded reason is corrected, not left standing.
+
+
+### Cycle 39 — the whole suite, after every fix (Z2)
+
+**Investigated:** the full 201-test suite on rebuilt images (frontend, composition-service, composition-worker, worker-ai), the Allure summary, the evidence gate, and a host sampler across the run.
+
+**Issues:** none new. The open questions for the PO are H1 (OQ-1), the duplicated critic display, and AC-7.
+
+**Fix:** none; this is the measurement row. 201 passed, 0 failed, 0 skipped. The residual rates that one green run hides are stated in the handover rather than implied away: F8 at 6.5%, F11 unproven at p ~ 0.27, #274 not re-broken.
+
+**Proof:**
+
+```
+201 passed (27.0m)
+allure-report/widgets/summary.json: {'failed': 0, 'broken': 0, 'skipped': 0, 'passed': 201, 'unknown': 0, 'total': 201}  26.9 min
+evidence-capture-gate: 202 test dir(s), 580 watchable artefact(s). Every one left something watchable.
+```
+
+**AC impact:** AC-1 — every one of the original 18 is green, or its residual is recorded with a measured rate. AC-4 — both skips answered, and both now pass. AC-5 — the whole suite re-run with nothing newly red. AC-7 stays open: it is the PO's word, and no row ticks it.
+
+
 ```goal-prompt
 goal: every one of the 18 remaining failures is green or carries a recorded reason it cannot be, every product fix is proven by RE-BREAKING it, and both skips are answered or owned
 po_decisions: [F2, H1, H2, AC-7]
 lanes: |
-  F fix      = F1, F3, F4, F5, F2, F6, F7, F8, F9, F10, F11, F12, F13
+  F fix      = F1, F3, F4, F5, F2, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15
   G diagnose = G1, G2
   J fixture  = J1, J2, J3
   H decide   = H1, H2, H3, H4

@@ -48,26 +48,29 @@ ARG PGVECTOR_VERSION=v0.8.1
 
 FROM ${PG_IMAGE} AS build
 ARG PGVECTOR_VERSION
-# pgvector's C is built by the CC pg_config reports (gcc from build-base). The
-# server in the base image is configured --with-llvm, so PGXS would ALSO try to
-# compile LLVM bitcode with a version-pinned clang (clang19 when this was
-# written) — and that pin dies every time the `postgres:18-alpine` tag moves to
-# a newer Alpine/LLVM (observed: tag moved to Alpine 3.24/LLVM 21, `apk add
-# clang19` → "unable to select packages", and with no clang at all PGXS died at
-# `clang-21: No such file or directory`). The final stage below copies only
-# vector.so and the extension SQL — the bitcode was never shipped — so building
-# it was pure cost plus a time bomb. `with_llvm=no` (a documented PGXS
-# override) skips the bitcode legs entirely and leaves gcc as the only
-# toolchain this image needs.
-RUN apk add --no-cache build-base git \
+# The LLVM major is DERIVED from the image, never hardcoded. `postgres:18-alpine` is a
+# floating tag: on 2026-09-13 it moved to Alpine 3.24, which ships no `clang19` and no
+# `llvm19` at all, and the build died at `apk add` with `no such package`. The pin had
+# also been silently WRONG before that -- this image's Postgres is configured with
+# `LLVM_CONFIG=/usr/lib/llvm21/bin/llvm-config`, so a clang19 bitcode build was a JIT
+# ABI mismatch that apk was happy to install. Asking `pg_config` removes both failures:
+# the version can no longer drift from the server it is compiled for, and the next base
+# bump fixes itself instead of breaking the release build.
+RUN set -eu \
+ && LLVM_MAJOR="$(pg_config --configure | tr ' ' '\n' | grep -oE 'llvm[0-9]+' | head -1 | sed 's/^llvm//')" \
+ # Fail loudly rather than quietly building a non-JIT extension: an empty value would
+ # make the apk line read `clang` + `llvm-dev`, which resolve to a DIFFERENT major.
+ && { [ -n "${LLVM_MAJOR}" ] || { echo "FATAL: no LLVM version in pg_config --configure" >&2; exit 1; }; } \
+ && echo "building pgvector against LLVM ${LLVM_MAJOR}" \
+ && apk add --no-cache build-base "clang${LLVM_MAJOR}" "llvm${LLVM_MAJOR}-dev" "llvm${LLVM_MAJOR}" git \
  && git clone --branch "${PGVECTOR_VERSION}" --depth 1 \
       https://github.com/pgvector/pgvector.git /tmp/pgvector \
  && cd /tmp/pgvector \
  # OPTFLAGS="" per pgvector's own README: -march=native breaks portability of the
  # built object across CPUs, which matters the moment this image runs anywhere
  # other than the machine that built it.
- && make OPTFLAGS="" with_llvm=no \
- && make install with_llvm=no
+ && make OPTFLAGS="" \
+ && make install
 
 FROM ${PG_IMAGE}
 COPY --from=build /usr/local/lib/postgresql/vector.so /usr/local/lib/postgresql/
