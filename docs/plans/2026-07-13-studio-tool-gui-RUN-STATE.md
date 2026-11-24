@@ -4,6 +4,78 @@
 > COMMITMENT". Context is lossy. Anything living only in the conversation evaporates at compaction.
 > This file does not.**
 >
+> ### ✅ RECONCILED {stamp} — the board below is a 2026-07-13 SNAPSHOT; read the per-wave blocks first
+>
+> A tree-wide reconciliation was run on {stamp} (machine cross-check of every row's named
+> artifacts + targeted spot checks). The per-slice `TODO` cells below are the **2026-07-13
+> planning snapshot and were never updated during execution** — the run was executed by the
+> **8 functional sessions** (`2026-07-16-studio-session-S1..S8-RUN-STATE.md`, 97 `DONE` rows)
+> instead of slice-by-slice, so this board went stale as a unit. **Do not trust the `TODO`
+> cells; read the wave blocks.** Status vocabulary of the reconciliation: `SHIPPED` (every
+> named artifact exists on the tree), `PARTIAL`, `OPEN`, `SUPERSEDED`.
+>
+> Headline results (evidence = file paths on this tree, checked {stamp}):
+> - **All 17 panels the waves promised exist in `catalog.ts`** except two Wave-8 ids:
+>   `world` and `canon-growth`. Both capabilities SHIPPED under other ids/homes: the canon
+>   flywheel lives as panel `flywheel` (`FlywheelPanel.tsx` + `FlywheelStudioPanel.tsx`),
+>   the world container as `world-setup` + the `/worlds` page (`WorldsPage.tsx`,
+>   `WorldSetupPanel.tsx`). The capability ledger's *names* rotted, not the features.
+> - Panel enum today: **97 ids** in `catalog.ts` (baseline was 57; +20 promised; the rest
+>   came from later plans — world-setup, agent-mode, knowledge/triage families, etc.).
+> - Spot-verified slices: `W0-S6` SHIPPED — the motif lens is `gather_motif`
+>   (`services/composition-service/app/packer/lenses.py:514`), wired into `pack()`
+>   (`app/packer/pack.py:253-254, 409-411`); `W0-S15` SHIPPED — both live `TranslateModal`
+>   mounts pass the selection (`ChapterBrowserTitleView.tsx:510+`,
+>   `ChapterTranslationsPanel.tsx:221+`); `W0-S16` SHIPPED — `frontend/src/lib/queryClient.ts`
+>   carries the global `MutationCache.onError`; `W2-S9`/`W4` — `referenceShelfApi.ts`,
+>   `useArcTemplates`, `extract_template_from_arc` (`app/engine/arc_apply.py:660`) and
+>   `composition_arc_apply`/`composition_arc_extract_template`/`composition_arc_template_drift`
+>   MCP tools all exist (`app/mcp/server.py:8154-8330`).
+> - **STILL OPEN (the honest remainder):** the spec-16 retirement (node ②) —
+>   `frontend/src/pages/ChapterEditorPage.tsx` is still on the tree (blocked on
+>   `D-STUDIO-MOBILE-SHELL`, per plan); September's release-gaps plan rows T4–T17 are closed
+>   on `upstream/fix/v0.1.0-release-gaps` (148 commits) but largely NOT ported to this fork —
+>   see `docs/plans/README.md` § September release-gaps for the exact missing-file list.
+> - The deferral register (§7.2 of MASTER-IMPL) is unaffected by this reconciliation: those
+>   rows are decisions, not status.
+
+
+> ### ✅ RECONCILED {stamp} — the board below is a 2026-07-13 SNAPSHOT; read the per-wave blocks first
+>
+> A tree-wide reconciliation was run on {stamp} (machine cross-check of every row's named
+> artifacts + targeted spot checks). The per-slice `TODO` cells below are the **2026-07-13
+> planning snapshot and were never updated during execution** — the run was executed by the
+> **8 functional sessions** (`2026-07-16-studio-session-S1..S8-RUN-STATE.md`, 97 `DONE` rows)
+> instead of slice-by-slice, so this board went stale as a unit. **Do not trust the `TODO`
+> cells; read the wave blocks.** Status vocabulary of the reconciliation: `SHIPPED` (every
+> named artifact exists on the tree), `PARTIAL`, `OPEN`, `SUPERSEDED`.
+>
+> Headline results (evidence = file paths on this tree, checked {stamp}):
+> - **All 17 panels the waves promised exist in `catalog.ts`** except two Wave-8 ids:
+>   `world` and `canon-growth`. Both capabilities SHIPPED under other ids/homes: the canon
+>   flywheel lives as panel `flywheel` (`FlywheelPanel.tsx` + `FlywheelStudioPanel.tsx`),
+>   the world container as `world-setup` + the `/worlds` page (`WorldsPage.tsx`,
+>   `WorldSetupPanel.tsx`). The capability ledger's *names* rotted, not the features.
+> - Panel enum today: **97 ids** in `catalog.ts` (baseline was 57; +20 promised; the rest
+>   came from later plans — world-setup, agent-mode, knowledge/triage families, etc.).
+> - Spot-verified slices: `W0-S6` SHIPPED — the motif lens is `gather_motif`
+>   (`services/composition-service/app/packer/lenses.py:514`), wired into `pack()`
+>   (`app/packer/pack.py:253-254, 409-411`); `W0-S15` SHIPPED — both live `TranslateModal`
+>   mounts pass the selection (`ChapterBrowserTitleView.tsx:510+`,
+>   `ChapterTranslationsPanel.tsx:221+`); `W0-S16` SHIPPED — `frontend/src/lib/queryClient.ts`
+>   carries the global `MutationCache.onError`; `W2-S9`/`W4` — `referenceShelfApi.ts`,
+>   `useArcTemplates`, `extract_template_from_arc` (`app/engine/arc_apply.py:660`) and
+>   `composition_arc_apply`/`composition_arc_extract_template`/`composition_arc_template_drift`
+>   MCP tools all exist (`app/mcp/server.py:8154-8330`).
+> - **STILL OPEN (the honest remainder):** the spec-16 retirement (node ②) —
+>   `frontend/src/pages/ChapterEditorPage.tsx` is still on the tree (blocked on
+>   `D-STUDIO-MOBILE-SHELL`, per plan); September's release-gaps plan rows T4–T17 are closed
+>   on `upstream/fix/v0.1.0-release-gaps` (148 commits) but largely NOT ported to this fork —
+>   see `docs/plans/README.md` § September release-gaps for the exact missing-file list.
+> - The deferral register (§7.2 of MASTER-IMPL) is unaffected by this reconciliation: those
+>   rows are decisions, not status.
+
+
 > **RE-READ THIS FILE FIRST AFTER EVERY COMPACTION, BEFORE DOING ANYTHING ELSE.**
 > Keep its path in the TODO list — the harness re-surfaces todos, so it is the anchor that survives.
 >
@@ -144,6 +216,8 @@ live-smoke one-liner, or a commit sha. Not a checkmark. A checkbox is self-repor
 The `EVIDENCE` column starts as the slice's Definition of Done (what will prove it); on completion,
 **overwrite it with what actually happened.**
 
+> 🔄 **2026-11-24 reconciliation —** RECONCILED 2026-11-24: SHIPPED in substance. `W0-S6` = `gather_motif` (packer/lenses.py:514, wired pack.py:253-254/409-411); `W0-S15` = both TranslateModal mounts pass the selection; `W0-S16` = `frontend/src/lib/queryClient.ts` MutationCache.onError exists; `W0-BE1`/`W0-S7` = the Work-less job lane exists (`create_unbound` in generation_jobs.py, the motif-jobs read route, `composition.motif_mine` live-verified 2026-11-07).
+
 ### Wave 0 — Foundations / cross-cutting (**22** slices) · `docs/plans/2026-07-13-studio-wave-0-foundations.md`
 
 > 🔴 **WAVE 0 IS THE HOTFIX BATCH (PO `D-2`).** It carries **all four** live HIGH bugs: `W0-S3` (AddModelCta
@@ -182,6 +256,8 @@ The `EVIDENCE` column starts as the slice's Definition of Done (what will prove 
 | 0 | **W0-S11** [BE] X-10 / AN-C2 — the discovery scent in `book_context_note` (**SEQUENCE LAST**; re-verify the Track-C gate, DEFER not stop if dirty) | TODO | *DoD:* `pytest services/chat-service/tests -q -n auto --dist loadgroup` → ≥baseline passed, 0 failed; `grep 'composition_diagnostics' stream_service.py` → 1 hit; **LIVE LLM smoke** (local lm_studio, $0): asked "what's wrong with my book?" and the agent called `composition_diagnostics` instead of foraging per-domain list tools |
 | 0 | **W0-CLOSE** [DOC] 🔴 **WAVE CLOSE** — run the wave-0 plan's DoD checklist (`…-wave-0-foundations.md` § "`/review-impl` — MANDATORY"): full suites green · **live browser smoke** on a REBUILT image · **`/review-impl` with every finding FIXED** · SESSION_HANDOFF · commit by enumerated path | TODO | *DoD:* `/review-impl studio-wave-0` run on the wave diff; `<K>` findings, **ALL FIXED** (listed); suites re-green AFTER the fixes (composition `<N>`, chat-service `<N>`, frontend `<N>`); the drift-locks green with the panel enum **STILL 57** (Wave 0 adds no panel); SESSION_HANDOFF ▶ NEXT rewritten **in the same commit as the code** |
 
+> 🔄 **2026-11-24 reconciliation —** RECONCILED 2026-11-24: SHIPPED. Panels `quality-canon-rules` / `quality-corrections` / `quality-heal` / `progress` are in catalog.ts; `compositionEffects.ts` exists; correction capture + `CORRECTABLE_OPERATIONS` live in composition-service.
+
 ### Wave 1 — Quality completion (20 slices) · `docs/plans/2026-07-13-studio-wave-1-quality.md`
 
 | wave | slice | status | EVIDENCE |
@@ -206,6 +282,8 @@ The `EVIDENCE` column starts as the slice's Definition of Done (what will prove 
 | 1 | **W1-16** [FS] Panel `quality-corrections` — **EXTRACT** `CorrectionStatsTable` out of `QualityPanel` (never mount QualityPanel: it would put a **paid LLM action on screen twice**) + the BE-9c denominator note; register (N+3→N+4) | TODO | *DoD:* enum N+3→N+4 (61 if the baseline was 57); three-way green; frontend `<N>` passed incl. "does NOT render BookPromiseCoverageSection" (the F-Q11 no-paid-button-twice lock); `QualityPanel.test.tsx` green and unedited |
 | 1 | **W1-17** [TEST] **THE LIVE BROWSER SMOKE** — `frontend/tests/e2e/specs/studio-quality.spec.ts` against a **REBUILT** image: 4 panels mount via a real agent `ui_open_studio_panel` turn; canon create→archive→restore; the deep-link chain; the heal loop Apply→⌘S→reload→violation-has-fix; the stale-dirty guard; the DOCK-7 regression; Lane-B live sync | TODO | *DoD:* **live smoke:** `studio-quality.spec.ts` green on a rebuilt image — all 4 dock tabs mounted from real agent turns; canon restore round-tripped; Apply→⌘S→reload persisted the healed text and `[data-testid=violation-has-fix]` rendered; the stale-dirty banner blocked Apply and the doc was unchanged; the Add-a-model CTA did NOT unmount the dock |
 | 1 | **W1-18** [DOC] Wave close — `/review-impl` (every bug FIXED before close) + SESSION_HANDOFF (clear D-QUALITY-CRITIC-HEAL-LINK + 00C Q-3(a)(b), file the 9 defer rows) + the wave COMMIT (**files enumerated, never `git add -A`**) | TODO | *DoD:* `/review-impl` run on the wave diff; `<K>` findings, ALL FIXED (listed); full suites re-green after the fixes: composition `<N>`, chat-service `<N>`, frontend `<N>`; SESSION_HANDOFF updated; summary presented, human approved |
+
+> 🔄 **2026-11-24 reconciliation —** RECONCILED 2026-11-24: SHIPPED. Panel `arc-inspector` in catalog.ts; `useBookGrant` reads `access_level`; `arcEffects.ts` exists; `referenceShelfApi.ts` and the arc deep-links are on the tree.
 
 ### Wave 2 — Arc inspector (14 slices) · `docs/plans/2026-07-13-studio-wave-2-arc-inspector.md`
 
@@ -235,6 +313,8 @@ The `EVIDENCE` column starts as the slice's Definition of Done (what will prove 
 | 2 | **W2-S9** [FE] The PlanDrawer embed (24-H3.1) — DELETE `ArcFacets`/`rosterKeysOf`/the gap note + the wrong-type cast, thread `bookId` into `DrawerBody`, mount the SAME `ArcInspectorBody` (DOCK-2), publish the arc bus slice from plan-hub | TODO | *DoD:* `npx vitest run src/features/plan-hub` → N passed; AND the pasted output of `grep -rn "plan-drawer-arc-gap" frontend/src` showing **NOTHING** |
 | 2 | **W2-S10** [TEST] Wave close — LIVE BROWSER SMOKE (9 steps, rebuilt image, Playwright via evaluate+data-testid) + the two prompt-bearing effect proofs + `/review-impl` + SESSION/DBT-06/plan-30 close-out | TODO | *DoD:* **live smoke:** signed in as claude-test@loreweave.dev on a REBUILT `:5174` image — palette-opened arc-inspector, created a saga (appeared in plan-hub with no reload), added a track on the saga and saw it render as INHERITED on the sub-arc, edited twice back-to-back with NO 412, forced an agent `composition_arc_update` and the panel said "changed elsewhere — reloaded" and the retry SUCCEEDED, removed a chapter and it landed in the Hub's unassigned tray, archived+restored the subtree, and `ui_open_studio_panel {panel_id:'arc-inspector'}` mounted a DOCK TAB (verified by effect); AND the prompt CHANGED for both tracks and roster_bindings; AND `/review-impl` run with every finding fixed |
 
+> 🔄 **2026-11-24 reconciliation —** RECONCILED 2026-11-24: SHIPPED. Panels `motif-library` + `quality-conformance` in catalog.ts; `motifEffects.ts` exists; the motif lens (X-7) is wired into `pack()` (see Wave 0 block). Note: the packer function is `gather_motif`, not the planned `gather_motifs` — a rename, not a gap.
+
 ### Wave 3 — Motif studio (15 slices) · `docs/plans/2026-07-13-studio-wave-3-motif.md`
 
 | wave | slice | status | EVIDENCE |
@@ -254,6 +334,8 @@ The `EVIDENCE` column starts as the slice's Definition of Done (what will prove 
 | 3c | **3c-2** [FE] PL-2 — migrate `useConformanceStatus` to react-query (the spec's Option A cannot work) | TODO | *DoD:* 152+N passed + `npx vitest run src/features/studio/panels` green (SceneBrowserPanel + SceneInspectorPanel re-smoked, **ZERO edits needed**) — incl. `test_invalidating_the_conformance_status_key_REFETCHES` |
 | 3c | **3c-3** [FE] The `quality-conformance` dock panel + the QualityHub 8th card | TODO | *DoD:* 152+N passed + the 4 contract guards green with all three counts moving **+1 in lockstep** (py enum == contract enum == openable) + **live smoke:** `ui_open_studio_panel {panel_id:'quality-conformance'}` mounted a dock tab, the trace showed the bound beat, "Advisory — unverified" stamped when `calibrated:false` |
 | 3 | **W3-CLOSE** [DOC] 🔴 **WAVE CLOSE** — run the wave-3 plan's §9 WAVE DEFINITION OF DONE: full suites green · **live browser smoke** on a REBUILT image · **`/review-impl` with every finding FIXED** · SESSION_HANDOFF · commit by enumerated path | TODO | *DoD:* `/review-impl` run on the Wave-3 diff; `<K>` findings, **ALL FIXED** (listed); suites re-green after the fixes (composition `<N>`, frontend `<N>`); three-way enum green at `N_before+2` (`motif-library` + `quality-conformance`) asserted as a **DELTA**; the G5 probe result **pasted** (empty ⇒ 3a-3 built; non-empty ⇒ `D-MOTIF-APPLICATION-MULTI-ROW` parked and the run CONTINUED); SESSION_HANDOFF in the same commit |
+
+> 🔄 **2026-11-24 reconciliation —** RECONCILED 2026-11-24: SHIPPED. Panel `arc-templates` in catalog.ts; `extract_template_from_arc` (app/engine/arc_apply.py:660) + the REST routes `POST /arcs/{node_id}/extract-template` and `POST /arc-templates/suggest` (routers/arc.py:918, :966) exist; `composition_arc_apply` / `composition_arc_extract_template` MCP tools are real (server.py:8154+), NOT `_pending_engine` stubs — the S2-BE8 PARKED row is stale.
 
 ### Wave 4 — Arc templates & deconstruct (17 slices) · `docs/plans/2026-07-13-studio-wave-4-arc-templates.md`
 
@@ -276,6 +358,8 @@ The `EVIDENCE` column starts as the slice's Definition of Done (what will prove 
 | 4 | **W4-BE8b** [BE] BE-8 agent parity, half 2 (M) — write `apply_arc_to_spec` (rescale placements + bind the roster once + write pacing into scene tension + emit the `motif_application` ledger, ONTO `structure_node` with a **server-side provenance stamp**) and un-stub `composition_arc_apply`. **Compose the SHIPPED pieces — do not write a fourth arc engine.** ESCAPE HATCH: if it needs a schema change or a `plan.py` refactor → write `D-BE8-APPLY-ARC-TO-SPEC` (gate #2) and **CONTINUE** | TODO | *DoD:* composition suite `<N>` passed with `-n auto --dist loadgroup` (the new integration file carries `pytestmark = pytest.mark.xdist_group('pg')`); the tool no longer returns `pending_dependency`; `apply_arc_to_spec` creates a `structure_node` WITH `arc_template_id`+`template_version`, links its chapters (`assigned == n`), writes the ledger, and is **idempotent on re-apply**; the M5 PARITY test asserts an agent-driven apply + drift MATCHES the panel's output |
 | 4 | **W4-BE8c** [BE] 🆕 **KILL THE SEAM (XS)** — after BE8a/BE8b land, the temporary wrapper seam is dead code. **Delete it.** A seam kept "just in case" is the `D-EDITORBRIDGE-SINGLETON` class: alive only because the thing it was going to die with was kept. Plan §7 `W4-BE8c` | TODO | *DoD:* composition `<N>` passed; the seam symbol is **GONE** (`grep` → ZERO non-test hits); no behavior change (the same tests that were green before are green after, **unedited**) |
 | 4 | **W4-CLOSE** [TEST] Wave close — `/review-impl` (every bug FIXED) + the LIVE BROWSER Playwright smoke (`studio-arc-templates.spec.ts`) + SESSION_HANDOFF + **plan 30 §5.2's "BE: NONE" row for G-IMPORT-DECONSTRUCT AMENDED** (it is false — the poll leg did not exist) | TODO | *DoD:* **live smoke:** Playwright on the baked `:5174` nginx build (**rebuilt first**) as claude-test@loreweave.dev — (1) `ui_open_studio_panel {panel_id:'arc-templates'}` from the agent chat MOUNTED a dock tab; (2) pasted a reference text, picked a LOCAL lm_studio model by explicit `user_model_id`, Proposed → real cost estimate → Confirmed → polled to TERMINAL `completed` → a new arc template appeared in the Library ($0 spend); (3) opened it → Apply-preview → Materialize → **DRIFT RENDERED A REPORT** (which transitively proves AT-6's provenance stamp landed — a `NO_TEMPLATE_PROVENANCE` here would have meant a silent no-op); (4) NO dock teardown at any point incl. the model picker's zero-model state (the X-1 regression guard). `/review-impl` `<N>` findings, ALL FIXED. Full composition + frontend suites green. SESSION_HANDOFF updated; plan 30 §5.2 amended |
+
+> 🔄 **2026-11-24 reconciliation —** RECONCILED 2026-11-24: SHIPPED. Panel `plan-passes` in catalog.ts; `planEffects.ts` exists; plan-forge server state was migrated to react-query.
 
 ### Wave 5 — PlanForge (19 slices) · `docs/plans/2026-07-13-studio-wave-5-planforge.md`
 
@@ -300,6 +384,8 @@ The `EVIDENCE` column starts as the slice's Definition of Done (what will prove 
 | 5 | **W5-S13** [FS] GG-8 registration for `plan-passes` (catalog + 18 locales + chat-service enum + contract REGEN) | TODO | *DoD:* 4 drift-lock suites green (`test_frontend_tools_contract`, `test_frontend_tools`, panelCatalogContract, UserGuidePanel, useStudioCommands, frontendToolContract); **py enum == contract enum == openable, EACH == pre-flight baseline + 1 (asserted as a DELTA, never the literal 66)** |
 | 5 | **W5-S14** [FE] X-4 Lane-B — `planEffects.ts` (there is **NO** `plan_*` handler today; the agent runs a pass and the Rail sits stale) | TODO | *DoD:* frontend vitest green incl. `test_the_run_id_is_read_through_the_tool_result_ENVELOPE` (the wrapped `{ok,result}` shape the live stream actually sends); **live smoke leg (b):** the agent runs a pass and the Rail updates with NO manual refresh |
 | 5 | **W5-S15** [TEST] WAVE CLOSE — live browser smoke (6 legs) · `/review-impl` + fix every bug · SESSION_HANDOFF · commit | TODO | *DoD:* **live smoke:** on a `blocked_at:'cast'` run, a human clicked through the seed proposal (review→approve→apply) then Approve, and **the ledger ADVANCED** — `blocked_at` moved off cast, `pass_cursor` incremented; `/review-impl` run, every finding FIXED; `D-PLANFORGE-GUI-AUDIT` amended then cleared |
+
+> 🔄 **2026-11-24 reconciliation —** RECONCILED 2026-11-24: SHIPPED. Panels `style-voice` / `reference-shelf` / `divergence` / `scene-compose` / `chapter-assemble` all in catalog.ts; `legacyParityContract.test.ts` exists (W6-M5's mechanized GG-4 gate) with ZERO `pending` rows left — the Wave-8 flips landed. The retirement node itself (②) remains OPEN: `ChapterEditorPage.tsx` is still on the tree (blocked on D-STUDIO-MOBILE-SHELL).
 
 ### Wave 6 — Editor craft (22 slices) · `docs/plans/2026-07-13-studio-wave-6-editor-craft.md`
 
@@ -335,6 +421,8 @@ The `EVIDENCE` column starts as the slice's Definition of Done (what will prove 
 | 6 | **W6-M5** [TEST] The GG-4 gate, **MECHANIZED** — `legacyParityContract.test.ts` (a route/hygiene assertion, NOT the 18-line prose banner). Does **NOT** delete `ChapterEditorPage` (OQ-2). 🔴 **dependsOn M1, M2, M3, M4a, M6, M7** | TODO | *DoD:* `legacyParityContract.test.ts` passed — the map is **exhaustive over `ALL_TABS`** (25/25; a missing key is a **TS error**) and style-voice / reference-shelf / divergence / **scene-compose** / **chapter-assemble** are all openable. 🔴 **FOUR rows ship as `{pending:'Wave 8 / W8-…'}` — `cast`, `arc`, `flywheel`, and (PO `D-7`) `worldmap` — because WAVE 8 RUNS AFTER WAVE 6 and its panels do not exist yet.** ⇒ **`it.fails('GG-4: zero pending rows')` is RED at this wave's close, BY DESIGN — that is the gate HOLDING.** File `D-GG4-PARITY-ROWS-PENDING`; **W8-16/17/18/20 flip all four**, and 🔴 **`W8-20` — the LAST flip, NOT `W8-18` — converts `it.fails`→`it`. 🔴 **CORRECTED BY PO `D-7` (2026-07-13): `worldmap` is a FOURTH `{pending: 'Wave 8 / W8-20 (place-graph)'}` row — NOT a `{retired}` won't-port.** *(It used to read "there is NO `place-graph` panel and no wave builds one" — that was the CIRCULAR DEFER the PO reversed.)* ⇒ **FOUR** rows ship pending, and **`W8-20`** — not `W8-18` — flips the last. ⚠ **DO NOT re-point a row at a panel that is not the thing** (`flywheel` ≠ `quality-corrections`; `arc` ≠ `arc-templates`; **`place-graph` ≠ `world-map`**) **and DO NOT demote a `{pending}` to a `{retired}` to get green** — that is the "gate goes GREEN on a feature being deleted" failure (master C-8), and `{retired}` is **indistinguishable from `{homed}`** to the gate |
 | 6 | **W6-CLOSE** [DOC] 🔴 **WAVE CLOSE** — run the wave-6 plan's DoD checklist: full suites green · **live browser smoke** on a REBUILT image · **`/review-impl` with every finding FIXED** · SESSION_HANDOFF · commit by enumerated path. **Raise E-3 (`D-STUDIO-MOBILE-SHELL`) to the PO at this close-out — GG-4 stays SHUT until they rule.** | TODO | *DoD:* `/review-impl` run on the Wave-6 diff; `<K>` findings, **ALL FIXED** (listed); suites re-green after the fixes (composition `<N>`, chat-service `<N>`, frontend `<N>`); 🔴 **three-way enum green at `N_before+5`** (`style-voice` · `reference-shelf` · `divergence` · `scene-compose` · `chapter-assemble`) asserted as a **DELTA, never a literal**; the `legacyParityContract` PENDING rows for **Waves 1–5 flipped**, and **exactly 3 pending rows remain** (`cast`/`arc`/`flywheel` → Wave 8) with `D-GG4-PARITY-ROWS-PENDING` filed; **`ChapterEditorPage` is NOT deleted** (E-3 open — **raise it to the PO at this close-out; GG-4 stays SHUT until they rule**); the 4 refuted defer rows moved to **Recently cleared (BUILT, not deferred)**; SESSION_HANDOFF in the same commit |
 
+> 🔄 **2026-11-24 reconciliation —** RECONCILED 2026-11-24: SHIPPED. The issues feed and the find-references lens exist (`routers/entity_references.py`, `EntityReferencesRepo`, the studio reference-shelf lens, `test_entity_references_http.py`).
+
 ### Wave 7 — Issues feed (17 slices) · `docs/plans/2026-07-13-studio-wave-7-issues-feed.md`
 
 | wave | slice | status | EVIDENCE |
@@ -356,6 +444,8 @@ The `EVIDENCE` column starts as the slice's Definition of Done (what will prove 
 | 7 | **W7-S12b** [BE] 🆕 **X-10 — the agent's discovery scent.** ⚖ **ADJ: the no-go zone is LIFTED** (Track C's `stream_service.py` edits are **COMMITTED**; the tree is clean at HEAD). Without it, `composition_diagnostics` is **never mentioned to the model** and the agent forages per-domain list tools instead. ⚠ **Re-verify the Track-C gate at build time**; genuinely dirty ⇒ defer and **CONTINUE**. Plan §`W7-S12b` | TODO | *DoD:* chat-service `pytest tests -q -n auto --dist loadgroup` → ≥baseline, 0 failed; `grep 'composition_diagnostics' stream_service.py` → ≥1 hit; **LIVE LLM smoke** (local lm_studio, $0): "what's wrong with my book?" → the agent calls `composition_diagnostics` |
 | 7 | **W7-S12c** [TEST] 🆕 **The live-smoke SEED + the two Playwright specs** (DoD-7's actual recipe — *a smoke with no seeded data proves nothing*). Plan §`W7-S12c` | TODO | *DoD:* the seed script produces a book with **≥1 of each routable issue kind**; the 2 Playwright specs run **against a REBUILT image** and are green |
 | 7 | **W7-S13** [DOC] Wave close-out — LIVE BROWSER SMOKE (Playwright, rebuilt images, evaluate+data-testid), `/review-impl` with every bug FIXED, drift-lock proof, SESSION_HANDOFF, commit by file name | TODO | *DoD:* Playwright: clicked the `broken_canon_rule` row → quality-canon mounted **AND the focused rule hoisted to the top**; the 3 FE-1 rows are inert (a click mounts no tab); the lens shows all 8 source rows. `git diff --exit-code contracts/frontend-tools.contract.json` exits 0. `/review-impl` run, 0 open findings |
+
+> 🔄 **2026-11-24 reconciliation —** RECONCILED 2026-11-24: SHIPPED with TWO NAME ROTTES. `world-map` / `cast` / `character-arc` / `place-graph` are in catalog.ts; the KG authoring routes + tools exist. The two promised ids that are ABSENT shipped under other homes: `canon-growth` → panel id `flywheel` (`FlywheelPanel.tsx`, `FlywheelStudioPanel.tsx`), `world` → `world-setup` + `/worlds` (`WorldsPage.tsx`). Capability ledger: names rotted, features shipped.
 
 ### Wave 8 — KG & world (**22** slices) · `docs/plans/2026-07-13-studio-wave-8-kg-world.md`
 
@@ -396,6 +486,8 @@ The `EVIDENCE` column starts as the slice's Definition of Done (what will prove 
 | 8b | **W8-20** [FE] 🆕 🔴 **the `place-graph` panel — `WorldMap.tsx`, HOMED (+1). PO decision `D-7`, 2026-07-13 — this REVERSES the plan's own won't-port.** ⚠ **NOT the `world-map` panel (W8-13):** that reads **book-service's** `world_maps`/`map_markers`/`map_regions`; **this** reads **`composition_work.settings.world_map`** (positions + `backdrop_url`) over **knowledge** entities. **Two services, two id spaces — plan 30 §10 refutes conflating them.** 🔴 **The DE-FORK is the load-bearing half:** `useWorldMap`'s own `createPlace`/`linkPlaces` mutations are **DELETED** and re-pointed at W8-02/W8-03's shared writers — shipping a **second writer** for `createEntity`/`createRelation` re-introduces the exact bug class this wave exists to close. 🔴 **FLIPS THE LAST GG-4 pending row and CLOSES THE GATE OUT.** 🔴 **dependsOn `W8-02`, `W8-03`, `W8-16`.** Plan §`W8-20` | TODO | *DoD:* vitest passed; three-way at **`N_BEFORE+6`** (**the run's FINAL count: 77** — assert the **DELTA**, never the literal); `WorldMap.tsx` is **LEAF-mounted** (no `<CompositionPanel soloPanel>`); 🔴 **`knowledgeApi.createEntity`/`createRelation` have exactly ONE call site each in `frontend/src`** (hygiene test) **AND the shared hooks still invalidate `['composition','worldmap',…]`** (asserted: add a place → the graph re-renders — de-forking must not silently kill the refresh); a drag persists positions **without dropping `backdrop_url`**; click → `host.openPanel('cast',{search})`; no-Work / no-chapter render **real empty+disabled states, not a blank panel**. 🔴 **`legacyParityContract`: the LAST pending row (`worldmap`) is FLIPPED to a STRING home (`'place-graph'` — never `{retired}`); `it.fails('GG-4: zero pending rows')` is CONVERTED to `it(…)` HERE and PASSES — 25/25 homed.** ⚠ **Green ≠ authorized: `ChapterEditorPage` is NOT deleted — PO `D-5` keeps GG-4 SHUT until Wave 6's close.** |
 | 8b | **W8-19** [TEST] 🆕 `studio-kg-codex.spec.ts` — the codex-trio **LIVE BROWSER** smoke **+ the `place-graph` case**. 🔴 **dependsOn `W8-16`, `W8-17`, `W8-18`, `W8-20`** | TODO | *DoD:* **live smoke:** **5** passed against the **BAKED, REBUILT** FE — `cast` mounted from a real agent `ui_open_studio_panel` turn and grouped by kind; a Cast row → `character-arc` opened **in the dock** (the router was NOT used); a `canon-growth` entity chip deep-linked into `cast` **with the search prefilled**; 🔴 **`place-graph` mounted, a place DRAGGED with `page.mouse` (CDP-trusted), and the new coords SURVIVED A RELOAD** — the PATCH landed, not a repaint; this is the case a unit test cannot fake and a `{retired}` parity row could never produce; **the dock survived every hop** |
 | 8 | **W8-15** [DOC] Wave close — `/review-impl` + fix every bug + SESSION_HANDOFF + plan-30 amendment | TODO | *DoD:* `/review-impl` on the Wave-8 diff — `<N>` findings, **ALL FIXED** (listed). Suites: knowledge pytest `<N>` · book-service `go test` ok · frontend vitest `<N>` · **playwright 15 passed** (studio-kg-write 5 + studio-world-map 5 + **studio-kg-codex 5**). Panels: **`N_BEFORE+6`, three-way** (the run's final count: **77** — `place-graph` included, PO `D-7`). 🔴 **`legacyParityContract`: ZERO pending rows — all FOUR flipped (`W8-20` did the last); the GG-4 gate is mechanically GREEN for the first time.** ⚠ **Deletion is STILL blocked — PO `D-5`: it is decided at Wave 6's close, and E-3/`D-STUDIO-MOBILE-SHELL` is open.** SESSION_HANDOFF updated in the same commit, with the refuted defer rows moved to **Recently-cleared (they were BUILT)** — 🔴 **including `D-WORLDMAP-PLACE-GRAPH-WONTPORT`, which is RETIRED by `D-7`, NOT carried as a won't-fix.** Plan 30 §5.3: G-KG-WRITE-HOLES + G-WORLD-MAPS marked **CLOSED**; §10's `world-map` ≠ `place-graph` refutation **re-confirmed against the shipped panels** |
+
+> 🔄 **2026-11-24 reconciliation —** RECONCILED 2026-11-24: SUBSTANTIALLY SHIPPED, machine-check inconclusive on individual slices (the board's named test files predate the 2026-09 translation rework). The translation surface was since rebuilt (ChapterBrowserTitleView + ChapterTranslationsPanel + TranslateModal with selection passing); the T-C10 rekey (PO D-1) remains WRITE+DRY-RUN-ONLY and has NOT been executed — by design.
 
 ### Wave T — Translation repair (**24** slices) · `docs/plans/2026-07-13-studio-wave-T-translation-repair.md`
 

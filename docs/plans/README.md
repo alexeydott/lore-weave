@@ -1,0 +1,82 @@
+# docs/plans — how to read this folder
+
+> 584 planning artifacts, 2026-05 → 2026-09. This index is the map; the plans themselves are
+> historical evidence and are NOT kept status-accurate line-by-line (529 of them carry no
+> checkbox markup at all). When a plan contradicts the code, **the code wins**; where a
+> decision record contradicts a plan, the record wins (see §3).
+
+## 1 · What is ALIVE (read these first)
+
+| Artifact | What it is | Status |
+|---|---|---|
+| [`2026-07-13-studio-tool-gui-MASTER-IMPL.md`](2026-07-13-studio-tool-gui-MASTER-IMPL.md) | The studio tool↔GUI umbrella: sealed decisions, wave sequence, panel ledger, defer register | Build ran; ledger reconciled 2026-11-24 |
+| [`2026-07-13-studio-tool-gui-RUN-STATE.md`](2026-07-13-studio-tool-gui-RUN-STATE.md) | The 192-slice board. **The `TODO` cells are a 2026-07-13 snapshot** — read the per-wave `RECONCILED 2026-11-24` blocks inserted before each wave section | Reconciled 2026-11-24 |
+| [`studio-adjudication/README.md`](studio-adjudication/README.md) + `wave-*-decisions.md` | 586 adjudicated questions over specs 29–38. **Decision records — never rewrite their paths or lines**; where they contradict a wave plan, they win | Frozen evidence |
+| [`2026-07-16-studio-completeness-8-session-orchestration.md`](2026-07-16-studio-completeness-8-session-orchestration.md) | How the build was actually executed: 8 functional sessions, not 10 waves | Framework; sessions closed |
+| `2026-07-16-studio-session-S1..S8-RUN-STATE.md` | The session boards — 97 `DONE` rows. These, not the wave board, recorded execution | S2/S4/S8 carry open leftovers (see §4) |
+| [`2026-09-18-close-v010-leftovers.md`](2026-09-18-close-v010-leftovers.md) · [`2026-09-19-evidence-runner-and-model-lease.md`](2026-09-19-evidence-runner-and-model-lease.md) | The September release-gaps plans | **Read §3: their ✅/❌ statuses describe `upstream/fix/v0.1.0-release-gaps`, not this fork** |
+
+## 2 · Studio tool↔GUI build — what shipped, what remains
+
+Promised: +20 panels over the 57 baseline (ledger in MASTER-IMPL §5). Shipped: **all 20
+capabilities**, 18 under the promised ids and 2 under other homes — `canon-growth` → panel
+`flywheel`, `world` → `world-setup` + the `/worlds` page. `catalog.ts` holds **97 panel ids**
+today (the rest came from later plans). Spot checks with evidence paths are in the per-wave
+`RECONCILED 2026-11-24` blocks of the RUN-STATE file.
+
+Still open from that program:
+
+1. **Spec-16 retirement (finish-line node ②)** — `frontend/src/pages/ChapterEditorPage.tsx`
+   is still on the tree, blocked on `D-STUDIO-MOBILE-SHELL` (no mobile editing surface in the
+   Studio; a PO decision).
+2. **Session leftovers** — `S2-B2e` (arc-templates live-browser smoke + `/review-impl`),
+   `S4` rows `3b`/`3c` (motif binding-lens smoke + conformance panel smoke — the panels and
+   code exist; the *live-browser smoke evidence* does not), `S8 §2` (translation
+   agent-parity/responsive/scale/User-Guide bar, marked `PARTIAL`).
+3. The defer register (MASTER-IMPL §7.2, 67 rows) — decisions with triggers, not work items.
+
+## 3 · September release-gaps — the plans describe ANOTHER BRANCH
+
+`2026-09-18-close-v010-leftovers.md` and `2026-09-19-evidence-runner-and-model-lease.md`
+were written on `upstream/fix/v0.1.0-release-gaps` — a branch **148 commits ahead of
+`upstream/main`** (2026-09-13 → 2026-09-19). The fork merged the #286 model-lease chain but
+NOT the whole branch. Concretely (verified 2026-11-24 by diffing the branch against fork
+HEAD):
+
+- The branch's plan files are **substantially ahead of the fork's copies** (+455 / +104
+  lines): rows **T4–T17 are `[x]` there** and still `[ ]` in the fork's copies; the same is
+  true of AC-2..AC-10 in the leftovers plan and AC-11 in the runner plan.
+- Code the branch added that this fork **lacks**: `services/book-service/internal/api/
+  composition_provision.go` + `provision_missing.go` (+ their tests), `frontend/src/lib/
+  provisionOnSignIn.ts` (+ test), `frontend/src/pages/RetiredChapterEditorRedirect.tsx`,
+  `scripts/e2e/why-red.py`, `scripts/e2e/evidence-capture-gate.py`,
+  `frontend/tests/e2e/tsconfig.json` (the `typecheck:e2e` gate), and ~40 e2e specs/helpers.
+- So the fork's copies of these two plans **understate what the owner built** and **mark ✅
+  rows whose artifacts are not on this tree** (e.g. AC-3/AC-5 of the runner plan cite
+  `why-red.py` and `typecheck:e2e`). Read them together with the branch, not as fork status.
+
+## 4 · The eras (for archaeology)
+
+| Era | Plans | What they were |
+|---|---|---|
+| 2026-05 | 87 | geo/tilemap/world-gen simulation, flatworld, first MVP plans (much of the geo/tilemap code later moved to the game track) |
+| 2026-06 | 241 | knowledge-service hierarchical extraction, lore-enrichment, eval framework |
+| 2026-07 | 125 | the Writing Studio program (specs 29–38, waves, sessions, track C) |
+| 2026-08 | 42 | game-tier substrate, data plane, reality layer, gate-teeth |
+| 2026-09 | 22 | v0.1.0 release: go-live, ship acceptance, release gaps, human-sim, branch merges |
+| undated | `assets/` + `studio-adjudication/` | images + the adjudication register |
+
+Sub-foldered programs: `2026-05-29-foundation-mega-task/` (26 docs, the L1–L7 foundation
+cycles), `2026-05-30-lore-enrichment/`, `2026-06-03-enrichment-closure/`,
+`2026-06-13-creation-unblock/`, `2026-06-26-motif-library-ws/`,
+`2026-07-02-agent-extensibility-registry/`, `studio-adjudication/`.
+
+## 5 · House rules
+
+- New dated plans in this folder need a `Reconciles:` line (enforced by
+  `scripts/phase0-reconcile-gate.py` for files dated ≥ 2026-08-06).
+- Added lines must be ENGLISH (`scripts/doc-language-gate.py`, added-lines-only).
+- `stale-deferral-gate` / `discharged-deferral-gate` parse `docs/plans/*.md` for deferral
+  registries — do not edit registered blocks without running them.
+- Decision records (adjudication, FINAL-REPORTs) are evidence: append a dated note, never
+  rewrite their lines.

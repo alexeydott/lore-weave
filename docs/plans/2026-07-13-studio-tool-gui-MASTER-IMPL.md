@@ -264,6 +264,14 @@ vs book-service's `world_maps`; plan 30 §10 refutes conflating them). **Demotin
 
 **HEAD `9262ed53e`: 57 openable == 57 py enum == 57 contract enum. Zero drift. Keep it that way.**
 
+> **RECONCILED 2026-11-24 (fork tree):** the run was executed by the 8 functional sessions
+> (S1–S8), not slice-by-slice; this table stayed a planning aid as designed. Actual
+> `catalog.ts` panel count today: **97** (baseline 57, waves promised +20). 18 of the 20
+> promised ids exist verbatim; the two absent ids shipped under other homes — `canon-growth`
+> → `flywheel`, `world` → `world-setup` + `/worlds` — so the CAPABILITIES landed even where
+> the NAMES rotted. The spec-16 retirement (GG-4's final node) is still OPEN:
+> `ChapterEditorPage.tsx` remains, blocked on `D-STUDIO-MOBILE-SHELL`.
+
 | After wave | Panels added | Ids | **OPENABLE == py enum == contract enum** |
 |---|---:|---|---:|
 | **HEAD `9262ed53e`** | — | — | **57** |
