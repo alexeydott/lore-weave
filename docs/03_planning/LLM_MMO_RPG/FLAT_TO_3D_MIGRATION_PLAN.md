@@ -23,7 +23,7 @@ modules**. The sphere `generate()` calls `political::build`, `settlement::build`
 `routes::build`, `culture::build`, `feature::extract`
 ([`lib.rs:100-124`](../../../crates/world-gen/src/lib.rs#L100-L124)) — the *same
 functions* `civ_adapter.rs` calls
-([`civ_adapter.rs:47-51`](../../../crates/world-gen/src/civ_adapter.rs#L47-L51)).
+([`civ_adapter/mod.rs`](../../../crates/world-gen/src/civ_adapter/mod.rs)).
 The adapter's own docstring states it plainly:
 
 > *"The downstream code is 100% mesh-agnostic — it doesn't care whether centers
