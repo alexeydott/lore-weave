@@ -565,7 +565,7 @@ jobs:
           # meta-ha.yml` already uses, so CI and that compose file agree on the version under test.
           docker run -d --name minio-ci -p 9000:9000 \
             -e MINIO_ROOT_USER=foundation -e MINIO_ROOT_PASSWORD=foundation-secret-dev-only \
-            bitnamilegacy/minio:2024.8.3-debian-12-r1 server /data
+            --user root bitnamilegacy/minio:2024.8.3-debian-12-r1 minio server /data
           # Wait for MinIO to accept connections.
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1; then break; fi

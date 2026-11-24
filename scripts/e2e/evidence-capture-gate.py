@@ -118,6 +118,14 @@ def main() -> int:
     dirs, counts = scan(results)
 
     if not dirs:
+        if not results.exists():
+            # FORK 2026-11-24: the results ROOT itself is absent — no Playwright run has
+            # happened in this CI context (the static gates job never runs the e2e suite).
+            # That is "could not reach its subject", not "an evidence run failed": exit
+            # GATE_SKIP_RC (3) per the #256 skip convention. An existing-but-empty root
+            # stays a FAIL below — that really is a run that captured nothing.
+            print("evidence-capture-gate: SKIP — no results root at", results)
+            return 3
         print(f"evidence-capture-gate: FAIL — no per-test directory under {results}.")
         print("  -> either no test ran, or the run wrote nowhere. Neither is an evidence run,")
         print("     and an empty directory must not be reported as a clean one.")
