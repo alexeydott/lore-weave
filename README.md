@@ -327,10 +327,23 @@ The complete design lives in [`docs/03_planning/LLM_MMO_RPG/`](docs/03_planning/
 |-------|-------|--------|
 | **Phase 1** | Platform Core — writing, translation, glossary, sharing | ✅ Done |
 | **Phase 2** | Knowledge Graph & RAG — automatic extraction, semantic search | ✅ Done |
-| **Phase 3** | Intelligence Layer — canon co-writing, lore enrichment, translation quality | 🔄 In Progress |
-| **Phase 4** | Continuation & Canon Safety — the Writing Studio, PlanForge, canon rules, Campaigns | 🔄 In Progress |
-| **Phase 5** | Hardening & Scale — performance, multi-tenancy, cloud deployment | Planned |
+| **Phase 3** | Intelligence Layer — canon co-writing, lore enrichment, translation quality | ✅ Done |
+| **Phase 4** | Continuation & Canon Safety — the Writing Studio, PlanForge, canon rules, Campaigns | ✅ Done |
+| **Phase 5** | Hardening & Scale — performance, multi-tenancy, cloud deployment | 🔄 In Progress |
 | **Phase 6+** | **Living Worlds** — LLM-driven NPCs, shared persistent realities, the MMO | Foundation building |
+
+Statuses re-verified against the fork tree on 2026-11-25. Phase 3's three pillars ship and are
+live: the lore-enrichment service, translation-service, and the composition canon co-writer.
+Phase 4 shipped: the Studio carries 97 panels with all 20 promised capabilities; PlanForge is
+the `plan-hub` feature; canon rules run through the canon-growth (flywheel) panel and the
+conformance machinery; Campaigns are served by `campaign-service` with the wizard and detail
+pages. What remains there is acceptance evidence, not features — the September runner plan's
+T8/T17 e2e suites and the spec-16 editor retirement (a PO decision), tracked in
+[docs/plans/README.md](docs/plans/README.md) §2–§3. Phase 5 is under way (provider governance
+and model leases deployed 2026-11-11, perf benches, the deploy pipeline, dependency scanning);
+its open axis is multi-tenancy. Phase 6+ foundation stands on game-server, tilemap-service,
+world-service and the world-gen civilization layer; the remaining mmo-rpg game-code branches
+are deliberately unmerged (docs/plans §5).
 
 ---
 
@@ -342,6 +355,7 @@ The complete design lives in [`docs/03_planning/LLM_MMO_RPG/`](docs/03_planning/
 - [Frontend Feature Index](docs/FEATURE_INDEX.md) — every UI feature → route → backing service
 - [Standards index](docs/standards/README.md) — every cross-cutting rule, where it lives, how it's enforced
 - [Planning docs](docs/03_planning/) — module-level design and execution packs
+- [Plans index & fork status](docs/plans/README.md) — the 584-artifact map: what is alive, the studio board reconciliation, and the upstream-branch accumulation table
 - [API contracts](contracts/api/) — OpenAPI specs per service
 - [Design mockups](design-drafts/) — 116 interactive HTML mockups
 
