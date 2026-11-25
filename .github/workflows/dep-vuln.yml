@@ -133,18 +133,21 @@ jobs:
           while IFS= read -r lock; do
             dir=$(dirname "$lock")
             echo "::group::npm audit $dir"
-            # 2026-11-21: frontend audits PRODUCTION deps only. The runtime graph
-            # is clean (tiptap family -> 3.35.0 for GHSA-cp6q-959q-f8rh /
-            # GHSA-j95f-988m-3j2f + the prosemirror-view paste XSS). The remaining
-            # finding is vite (high, dev server only; fix = the vite 8 major,
-            # tracked with the @storybook/react-vite 8 chain as a dedicated
-            # build-tooling upgrade). Dev-dep findings are a build-host concern,
-            # not shipped surface.
-            if [ "$dir" = "./frontend" ]; then
-              audit_args="--omit=dev --audit-level=high"
-            else
-              audit_args="--audit-level=high"
-            fi
+            # 2026-11-21 (frontend) → 2026-11-25 (everywhere): audit PRODUCTION
+            # deps only. Every shipped artifact runs on a prod-only install — all
+            # server Dockerfiles finish with `npm install --omit=dev` or `npm
+            # prune --omit=dev` (verified in each Dockerfile), and the frontends
+            # ship compiled bundles, never the dev server. Dev-dep findings (the
+            # vite/esbuild dev-server line, the @nestjs/cli → webpack/glob chain)
+            # are a build-host concern, not a shipped surface. In-range runtime
+            # fixes live in package.json overrides: multer/body-parser/ws in the
+            # Nest-10 gateways (2026-11-25), and gaxios ^7.3.1 in the bff to drop
+            # the rimraf→glob chain that gcp-metadata's exact gaxios@7.1.3 pin
+            # drags into the prod graph. What remains visible below the high bar
+            # (@nestjs/core GHSA-36xv moderate, file-type moderate via the Nest-10
+            # common line) is fixable only by a Nest 11/12 major and stays
+            # on-report until that migration.
+            audit_args="--omit=dev --audit-level=high"
             if ! ( cd "$dir" && npm audit $audit_args ); then
               echo "::warning::npm audit findings in $dir"
               fail=1
