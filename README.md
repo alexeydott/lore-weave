@@ -31,7 +31,7 @@ Every chapter you write, LoreWeave automatically extracts every character, locat
 
 Standard AI translators treat your novel like a news article. LoreWeave's translation pipeline knows your glossary, knows your character names, and checks its own work: a multi-agent verifier catches name drift, dropped sentences, pronoun flips, and script contamination before results ever reach you. Your invented terminology survives the language crossing intact — in every target language, every chapter.
 
-### A co-writer that can't contradict your canon &nbsp;🔄 *Phase 3 — In Progress*
+### A co-writer that can't contradict your canon
 
 The composition engine assembles your published chapters, character relationships, and lore context before drafting a single word. An advisory critic cross-checks every suggestion against your established canon. You still decide what goes in — but the AI can no longer confidently write things that never happened in your story.
 
@@ -144,9 +144,9 @@ Track token usage, costs, and performance across all AI operations. Per-model an
 ### AI Co-Writing
 - Lore-grounded prose suggestions anchored to your published canon
 - Spoiler-safe context assembly — the AI sees only what's relevant to the current scene
-- Advisory prose critic flags potential canon contradictions before you accept a suggestion &nbsp;🔄 *Phase 3*
+- Advisory prose critic flags potential canon contradictions before you accept a suggestion
 - Auto Reasoning Mode: thinking-capable models switch in automatically when it helps
-- **Campaigns** — run batch extraction and translation across chapters with a budget ceiling and per-chapter progress &nbsp;🔄 *Phase 4*
+- **Campaigns** — run batch extraction and translation across chapters with a budget ceiling and per-chapter progress
 
 ### Worlds & Automation
 - **Worlds** — group books under one shared canon container, with an auto-provisioned world bible
