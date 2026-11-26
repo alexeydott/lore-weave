@@ -193,6 +193,18 @@ sha2 = "0.11"
 rand = "0.10"
 rand_chacha = "0.10"
 
+# DP-C3 (slice 5C) — the control plane's gRPC surface. `tonic` brings its own
+# `prost` and its own `hyper`; both are pinned here rather than in the member
+# crate so a second gRPC consumer cannot arrive on a different major and give
+# the workspace two incompatible `prost::Message` traits.
+tonic = "0.14"
+prost = "0.13"
+tonic-build = "0.14"
+# The `Stream` trait the two streaming RPCs' associated types name. Taken
+# directly rather than through tonic's re-exports so the bound is visible at the
+# signature instead of hidden behind a path that changes between tonic minors.
+tokio-stream = "0.1"
+
 # Error handling
 thiserror = "2.0"
 anyhow = "1.0"
