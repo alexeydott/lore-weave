@@ -28,13 +28,14 @@ dp = { path = "../dp" }
 meta-rs = { path = "../meta-rs", features = ["sqlx-pg"] }
 
 tonic = { workspace = true }
+tonic-prost = { workspace = true }
 prost = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 uuid = { workspace = true }
 
 [build-dependencies]
-tonic-build = { workspace = true }
+tonic-prost-build = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }

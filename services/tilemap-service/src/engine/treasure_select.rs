@@ -8,6 +8,7 @@
 //! composes the same pile, the basis of the TMP-A4 determinism axiom.
 
 use rand::Rng;
+use rand::RngExt;
 
 use crate::engine::treasure_pool::TreasureObject;
 use crate::types::treasure::TreasureTierSpec;

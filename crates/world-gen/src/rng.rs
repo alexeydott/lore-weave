@@ -5,7 +5,7 @@
 //! so stages are independent yet fully reproducible.
 
 use rand_chacha::ChaCha8Rng;
-use rand_core::{RngCore, SeedableRng};
+use rand_core::{Rng as _, RngCore, SeedableRng};
 
 /// Derive a stable 64-bit sub-seed for a named pipeline stage.
 pub fn sub_seed(master: u64, domain: &[u8]) -> u64 {

@@ -21,6 +21,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use rand::{Rng, SeedableRng};
+use rand::RngExt;
 use rand_chacha::ChaCha8Rng;
 
 use crate::seed::{TilemapSeed, sub_seed};

@@ -160,6 +160,9 @@ impl TileMask {
     /// `(self, rng)` pair: `iter_set` is flat-index ascending, then `rng`
     /// picks an index from `[0, n)`.
     pub fn sample_set(&self, rng: &mut impl rand::Rng) -> Option<TileCoord> {
+        // rand 0.10 moved random_range/random_bool to the RngExt extension trait.
+        use rand::RngExt;
+
         let n = self.count_ones();
         if n == 0 {
             return None;
