@@ -553,6 +553,7 @@ fn erode_zone_naive(state: &mut TilemapBuildState, zone_idx: usize) -> TileMask 
 
 #[cfg(test)]
 mod tests {
+    use rand::RngExt;
     use super::*;
     use crate::engine::biome_library::engine_biome_library;
     use crate::engine::placement::ZoneTiles;

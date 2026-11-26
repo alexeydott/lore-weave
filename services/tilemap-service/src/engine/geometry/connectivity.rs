@@ -103,6 +103,7 @@ pub fn would_seal_a_gap(blocking: &TileMask, passable: &TileMask) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use rand::RngExt;
     use super::*;
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;

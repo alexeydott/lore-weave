@@ -476,67 +476,37 @@ fn main() {
         // synthetic naming already ran inside bundle_civ.
         if !matches!(name_source, NameSource::Synthetic) {
             use std::sync::Arc;
-            use world_gen::shape::{AnthropicProvider, OllamaProvider, OpenAIProvider, TextProvider};
-            let provider: Arc<dyn TextProvider> = match name_source {
-                NameSource::Synthetic => unreachable!(),
-                NameSource::Anthropic => {
-                    let key = std::env::var("ANTHROPIC_API_KEY")
-                        .expect("--name-anthropic requires ANTHROPIC_API_KEY env var");
-                    match name_model.as_ref() {
-                        Some(m) => Arc::new(AnthropicProvider::with_base_url(
-                            key,
-                            world_gen::shape::anthropic::DEFAULT_BASE_URL,
-                            m,
-                        )),
-                        None => Arc::new(AnthropicProvider::new(key)),
-                    }
-                }
-                NameSource::OpenAI => {
-                    let key = std::env::var("OPENAI_API_KEY")
-                        .expect("--name-openai requires OPENAI_API_KEY env var");
-                    match name_model.as_ref() {
-                        Some(m) => Arc::new(OpenAIProvider::with_base_url(
-                            key,
-                            world_gen::shape::openai::DEFAULT_BASE_URL,
-                            m,
-                        )),
-                        None => Arc::new(OpenAIProvider::new(key)),
-                    }
-                }
-                NameSource::Ollama => {
-                    let model = name_model.clone().unwrap_or_else(|| {
-                        world_gen::shape::ollama::DEFAULT_MODEL.to_string()
-                    });
-                    Arc::new(OllamaProvider::new(model))
-                }
-                NameSource::LmStudio => {
-                    // **Ship 7e**: LM Studio exposes OpenAI-compatible
-                    // /v1/chat/completions at http://localhost:1234.
-                    // Reuses OpenAIProvider; dummy bearer key (LM Studio
-                    // doesn't check auth). **LOW-5 fix (review 2026-05-30)**:
-                    // LM Studio requires the exact loaded model name in
-                    // the request body — there's no "auto-route to the
-                    // single loaded model" behaviour (we burned an iter
-                    // on Ship 7e discovering this). Panic with a helpful
-                    // probe command instead of silently sending
-                    // "local-model" which always rejects with
-                    // invalid_request_error.
-                    let model = name_model.clone().unwrap_or_else(|| {
-                        panic!(
-                            "--name-lmstudio requires --name-model <id>. \
-                             LM Studio rejects unknown model names with \
-                             invalid_request_error — probe the loaded model id with:\n\
-                             \n  \
-                             curl http://localhost:1234/v1/models | jq -r '.data[].id'\n"
-                        )
-                    });
-                    Arc::new(OpenAIProvider::with_base_url(
-                        "lm-studio",
-                        world_gen::shape::openai::LMSTUDIO_BASE_URL,
-                        model,
-                    ))
-                }
-            };
+            use loreweave_llm::{GatewayClient, ModelSource};
+            use world_gen::shape::{GatewayTextProvider, TextProvider};
+            // 2026-05-30: the direct Anthropic/OpenAI/Ollama providers were
+            // deleted — every LLM call routes through the loreweave_llm SDK
+            // gateway (see shape/mod.rs). The --name-* source flag survives
+            // only as a label; routing is the gateway's job. Requires the
+            // same env as main.rs's name subcommand:
+            //   LOREWEAVE_INTERNAL_TOKEN + LOREWEAVE_MODEL_REF + LOREWEAVE_USER_ID
+            let model_ref: uuid::Uuid = std::env::var("LOREWEAVE_MODEL_REF")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .expect(
+                    "--name-* requires LOREWEAVE_MODEL_REF (a user_model id): all LLM calls route through the gateway",
+                );
+            let user_id: uuid::Uuid = std::env::var("LOREWEAVE_USER_ID")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .expect("--name-* requires LOREWEAVE_USER_ID");
+            let client = GatewayClient::from_env()
+                .expect("gateway client: is LOREWEAVE_INTERNAL_TOKEN set?");
+            let runtime: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("tokio runtime");
+            let provider: Arc<dyn TextProvider> = Arc::new(GatewayTextProvider::new(
+                Arc::new(client),
+                ModelSource::UserModel,
+                model_ref,
+                user_id,
+                Arc::new(runtime),
+            ));
             // **COSMETIC-2 fix (review 2026-05-30)**: `rename_bundle_in_place`
             // hides the field-shuffle dance (extract → rename → repack
             // → rehash). Err path leaves the synthetic names from
@@ -548,13 +518,7 @@ fn main() {
                 &civ_archetype,
             ) {
                 Ok(()) => {
-                    println!("named civ features via {:?}", match name_source {
-                        NameSource::Anthropic => "anthropic",
-                        NameSource::OpenAI => "openai",
-                        NameSource::Ollama => "ollama",
-                        NameSource::LmStudio => "lmstudio",
-                        NameSource::Synthetic => "synthetic",
-                    });
+                    println!("named civ features via the loreweave gateway (model {model_ref})");
                 }
                 Err(e) => {
                     eprintln!("LLM naming failed ({e}); keeping synthetic names");

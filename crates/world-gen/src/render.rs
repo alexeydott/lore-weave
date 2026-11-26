@@ -1104,6 +1104,11 @@ mod tests {
     /// S6** (render/export bathymetry, 2026-06-14): S6 suppresses sub-sea fBm
     /// detail in `relief.rs`, so every relief-derived render shifts (render-only —
     /// the content_hash is unchanged from S5).
+    /// Re-pinned 2026-11-27: the relief/realistic constant was already stale on
+    /// pristine upstream main @ 0d5684010 (the same drifted hash reproduces
+    /// there — upstream's own relief render moved after the S6 capture and
+    /// their tree never re-captured). Fork merges did not move it: the
+    /// pre-merge fork tree fails with the identical hash.
     #[test]
     fn render_output_is_byte_identical_baseline() {
         let m = generate(7, &CreativeSeed::default());
@@ -1112,7 +1117,7 @@ mod tests {
         let r = RenderStyle::Realistic;
         let a = RenderStyle::Atlas;
         let cases: [(&str, RgbImage, &str); 8] = [
-            ("relief/realistic", relief_image(&m, 80, 40, r, p), "60351d27797240b1b69b60fdcc8fb8e88cdbd0af49d100d7acda6ce83f22568e"),
+            ("relief/realistic", relief_image(&m, 80, 40, r, p), "4da212a2b194c8a9bf7e9e1551ff77e1e3089e10b9ff699adab0d0eaf9e626f6"),
             ("relief/atlas", relief_image(&m, 80, 40, a, p), "2f18290c2ab0940f72fdff015ab52f51f3c67b03f20ff18fa2421189d7cae000"),
             ("biome", biome_image(&m, 80, 40, r, p), "820d85a24f0999973c42b1d57bf09e61af6b04b8de160393ba0e61bfcccced66"),
             ("culture", culture_image(&m, 80, 40, r, p), "a377d57e4e67d974f1f5526d2e48a9851b12ffc61c01ac1f30f0c18ad18c24d1"),
