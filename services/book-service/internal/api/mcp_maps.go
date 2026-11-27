@@ -89,7 +89,7 @@ type worldMapDetail struct {
 // so callers get a ready-to-render link, not just a raw storage key.
 func (s *Server) withImageURL(d *worldMapDetail) {
 	if d.ImageObjectKey != nil && *d.ImageObjectKey != "" {
-		u := s.mediaURL(*d.ImageObjectKey)
+		u := s.mediaPublicURL(*d.ImageObjectKey)
 		d.ImageURL = &u
 	}
 }

@@ -18,6 +18,59 @@ const base = () => import.meta.env.VITE_API_BASE || '';
  *  WebSocket callers need an absolute URL: use `apiBase() || window.location.origin`. */
 export const apiBase = base;
 
+// ── Stream tickets + private media URLs (from upstream 6c8b23925) ──────────
+// Short-lived typ=stream tickets keep long-lived access JWTs out of WS/SSE
+// query strings and <img>/<audio> URLs (proxy logs). The backend accepts both
+// by default; strict mode (BFF_REQUIRE_STREAM_TICKET=true) requires tickets.
+
+/** Mint a short-lived stream ticket for WS/SSE and private media URLs. */
+export async function fetchStreamTicket(accessToken: string): Promise<string> {
+  const res = await fetch(`${apiBase()}/v1/auth/stream-ticket`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    throw new Error(`stream-ticket failed: ${res.status}`);
+  }
+  const body = (await res.json()) as { stream_token: string; expires_in_seconds?: number };
+  return body.stream_token;
+}
+
+let streamTicketCache: { token: string; expiresAt: number } | null = null;
+let streamTicketInflight: Promise<string> | null = null;
+
+async function getCachedStreamTicket(accessToken: string): Promise<string> {
+  const now = Date.now();
+  if (streamTicketCache && streamTicketCache.expiresAt > now + 10_000) {
+    return streamTicketCache.token;
+  }
+  if (!streamTicketInflight) {
+    streamTicketInflight = fetchStreamTicket(accessToken)
+      .then((token) => {
+        streamTicketCache = { token, expiresAt: now + 110_000 };
+        streamTicketInflight = null;
+        return token;
+      })
+      .catch((err) => {
+        streamTicketInflight = null;
+        throw err;
+      });
+  }
+  return streamTicketInflight;
+}
+
+/** Resolve private book media URL with cached stream ticket (`?stream_token=`). */
+export async function resolveMediaUrl(
+  url: string | null | undefined,
+  accessToken: string | null | undefined,
+): Promise<string | undefined> {
+  if (!url) return undefined;
+  if (!accessToken || !url.includes('/media/object')) return url;
+  const streamToken = await getCachedStreamTicket(accessToken);
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}stream_token=${encodeURIComponent(streamToken)}`;
+}
+
 export type ApiError = { code: string; message: string };
 
 const AUTH_KEY = 'lw_auth';

@@ -123,7 +123,10 @@ var internalClient = &http.Client{Timeout: 10 * time.Second, Transport: observab
 
 func (s *Server) requireInternalToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.cfg.InternalServiceToken != "" && r.Header.Get("X-Internal-Token") != s.cfg.InternalServiceToken {
+		// Fail CLOSED when no token is configured (upstream 6c8b23925 hardening):
+		// an unset INTERNAL_SERVICE_TOKEN must never silently disable the gate
+		// (config.Load also requires it, so this is defense in depth).
+		if s.cfg.InternalServiceToken == "" || r.Header.Get("X-Internal-Token") != s.cfg.InternalServiceToken {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid internal token"})
 			return
 		}
@@ -328,6 +331,10 @@ func (s *Server) Router() http.Handler {
 			r.Get("/cover", s.getCover)
 			r.Post("/cover", s.uploadCover)
 			r.Delete("/cover", s.deleteCover)
+			// Authenticated media streaming for private buckets (upstream
+			// 6c8b23925) — replaces direct public MinIO URLs when
+			// BOOKS_MEDIA_PUBLIC_READ=false.
+			r.Get("/media/object", s.getMediaObject)
 
 			// E0 — owner-only collaborator management (grant/revoke share-access).
 			r.Get("/collaborators", s.listCollaborators)
@@ -489,6 +496,34 @@ type accessClaims struct {
 	jwt.RegisteredClaims
 }
 
+// streamClaims — short-lived typ=stream tickets (from upstream 6c8b23925) so
+// <img>/<audio> tags can fetch private media without Bearer headers.
+type streamClaims struct {
+	Type string `json:"typ"`
+	jwt.RegisteredClaims
+}
+
+func (s *Server) parseStreamToken(tokenStr string) (uuid.UUID, bool) {
+	tok, err := jwt.ParseWithClaims(tokenStr, &streamClaims{}, func(t *jwt.Token) (any, error) {
+		if t.Method != jwt.SigningMethodHS256 {
+			return nil, fmt.Errorf("unexpected signing method")
+		}
+		return s.secret, nil
+	})
+	if err != nil || !tok.Valid {
+		return uuid.Nil, false
+	}
+	claims, ok := tok.Claims.(*streamClaims)
+	if !ok || claims.Type != "stream" {
+		return uuid.Nil, false
+	}
+	id, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		return uuid.Nil, false
+	}
+	return id, true
+}
+
 func (s *Server) requireUserID(r *http.Request) (uuid.UUID, bool) {
 	auth := r.Header.Get("Authorization")
 	if !strings.HasPrefix(auth, "Bearer ") {
@@ -504,6 +539,20 @@ func (s *Server) requireUserID(r *http.Request) (uuid.UUID, bool) {
 		return uuid.Nil, false
 	}
 	return id, true
+}
+
+// requireUserIDAllowQuery accepts a Bearer access JWT or ?stream_token= (typ=stream
+// ONLY — plain access JWTs are never accepted via query string, from upstream
+// 6c8b23925). Used by getMediaObject so <img>/<audio> tags can authenticate.
+func (s *Server) requireUserIDAllowQuery(r *http.Request) (uuid.UUID, bool) {
+	if id, ok := s.requireUserID(r); ok {
+		return id, true
+	}
+	token := r.URL.Query().Get("stream_token")
+	if token == "" {
+		return uuid.Nil, false
+	}
+	return s.parseStreamToken(token)
 }
 
 func parseUUIDParam(w http.ResponseWriter, r *http.Request, name string) (uuid.UUID, bool) {

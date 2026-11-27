@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -149,7 +150,7 @@ func (s *Server) uploadChapterMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mediaURL := s.mediaURL(objectKey)
+	mediaURL := s.mediaURL(bookID, objectKey)
 
 	// Auto-create version record if block_id provided
 	var versionID *string
@@ -241,7 +242,7 @@ func (s *Server) listMediaVersions(w http.ResponseWriter, r *http.Request) {
 			"created_at":       createdAt,
 		}
 		if mediaRef != nil && *mediaRef != "" {
-			item["media_url"] = s.mediaURL(*mediaRef)
+			item["media_url"] = s.mediaURL(bookID, *mediaRef)
 		}
 		items = append(items, item)
 	}
@@ -525,7 +526,7 @@ func (s *Server) generateChapterMedia(w http.ResponseWriter, r *http.Request) {
 		chapterID, body.BlockID, nextVersion, objectKey, body.Prompt, result.ProviderModelName, contentType, uploadInfo.Size,
 	).Scan(&versionID)
 
-	mediaURL := s.mediaURL(objectKey)
+	mediaURL := s.mediaURL(bookID, objectKey)
 
 	// 6. Best-effort usage billing. This call records the APPLICATION-LEVEL
 	// purpose (the gateway separately records its own model-level usage).
@@ -584,13 +585,22 @@ func (s *Server) ensureMediaBucket(ctx context.Context) error {
 		if err != nil {
 			if exists2, _ := s.minio.BucketExists(ctx, mediaBucket); exists2 {
 				mediaBucketReady = true
-				return s.setBucketPublicRead(ctx)
+				if s.cfg.MediaPublicRead {
+					return s.setBucketPublicRead(ctx)
+				}
+				return nil
 			}
 			return err
 		}
 	}
 	mediaBucketReady = true
-	return s.setBucketPublicRead(ctx)
+	// Private-bucket mode (BOOKS_MEDIA_PUBLIC_READ=false, upstream 6c8b23925):
+	// no anonymous-GET policy; media is served through the authenticated
+	// GET /v1/books/{book_id}/media/object route instead.
+	if s.cfg.MediaPublicRead {
+		return s.setBucketPublicRead(ctx)
+	}
+	return nil
 }
 
 func (s *Server) setBucketPublicRead(ctx context.Context) error {
@@ -610,8 +620,115 @@ func (s *Server) setBucketPublicRead(ctx context.Context) error {
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 // mediaURL returns the browser-accessible URL for a MinIO/S3 object.
-func (s *Server) mediaURL(objectKey string) string {
+// Public-read mode (default) keeps the direct MinIO URLs; private mode
+// (BOOKS_MEDIA_PUBLIC_READ=false, upstream 6c8b23925) returns an
+// authenticated API route the frontend resolves with a stream ticket.
+func (s *Server) mediaURL(bookID uuid.UUID, objectKey string) string {
+	if s.cfg.MediaPublicRead {
+		return fmt.Sprintf("%s/%s/%s", s.cfg.MinioExternalURL, mediaBucket, objectKey)
+	}
+	return fmt.Sprintf("/v1/books/%s/media/object?key=%s", bookID, url.QueryEscape(objectKey))
+}
+
+// mediaPublicURL always returns the direct MinIO URL. Used by the worlds/maps
+// image surface (fork-specific; upstream has no maps feature and its private
+// media route only allow-lists books/{id}/… and audio/{chapter}/… keys). Map
+// URLs keep the direct form; flipping BOOKS_MEDIA_PUBLIC_READ=false does not
+// route them through the authenticated endpoint.
+func (s *Server) mediaPublicURL(objectKey string) string {
 	return fmt.Sprintf("%s/%s/%s", s.cfg.MinioExternalURL, mediaBucket, objectKey)
+}
+
+// getMediaObject streams a private-bucket object after auth + ownership checks
+// (from upstream 6c8b23925). Accepts ?stream_token= (short-lived typ=stream
+// ticket) for <img>/<audio> tags, or the normal Bearer JWT.
+func (s *Server) getMediaObject(w http.ResponseWriter, r *http.Request) {
+	if s.minio == nil {
+		writeError(w, http.StatusServiceUnavailable, "MEDIA_UNAVAILABLE", "media storage not configured")
+		return
+	}
+	callerID, ok := s.requireUserIDAllowQuery(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "BOOK_FORBIDDEN", "unauthorized")
+		return
+	}
+	bookID, ok := parseUUIDParam(w, r, "book_id")
+	if !ok {
+		return
+	}
+	objectKey := r.URL.Query().Get("key")
+	if objectKey == "" || strings.Contains(objectKey, "..") {
+		writeError(w, http.StatusBadRequest, "BOOK_VALIDATION_ERROR", "invalid key")
+		return
+	}
+	if !s.mediaObjectKeyAllowed(r.Context(), bookID, objectKey) {
+		writeError(w, http.StatusForbidden, "BOOK_FORBIDDEN", "object not in book")
+		return
+	}
+	// Fork authz model (collaborators.ts): mirror authBook's grant check, but
+	// keyed on requireUserIDAllowQuery so stream tickets work for media tags.
+	lvl, owner, _, err := s.resolve(r.Context(), bookID, callerID)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "RESOLVE_FAILED", "grant resolution failed")
+		return
+	}
+	// P2·F tenant-boundary audit — same posture as authBook.
+	if s.emitTenantAudit != nil && owner != uuid.Nil && owner != callerID {
+		outcome := auditOutcomeGranted
+		if lvl == GrantNone || !lvl.AtLeast(GrantView) {
+			outcome = auditOutcomeDenied
+		}
+		s.emitTenantAudit(callerID, bookID, owner, outcome)
+	}
+	if lvl == GrantNone {
+		writeError(w, http.StatusNotFound, "BOOK_NOT_FOUND", "book not found")
+		return
+	}
+	if !lvl.AtLeast(GrantView) {
+		writeError(w, http.StatusForbidden, "BOOK_FORBIDDEN", "insufficient access")
+		return
+	}
+	obj, err := s.minio.GetObject(r.Context(), mediaBucket, objectKey, minio.GetObjectOptions{})
+	if err != nil {
+		writeError(w, http.StatusNotFound, "MEDIA_NOT_FOUND", "object not found")
+		return
+	}
+	defer obj.Close()
+	info, err := obj.Stat()
+	if err != nil {
+		writeError(w, http.StatusNotFound, "MEDIA_NOT_FOUND", "object not found")
+		return
+	}
+	if info.ContentType != "" {
+		w.Header().Set("Content-Type", info.ContentType)
+	}
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(w, obj)
+}
+
+// mediaObjectKeyAllowed ensures the object key belongs to the book in the URL
+// path (from upstream 6c8b23925) — chapter-scoped media keys under books/{bookID}/...
+// and audio keys are accepted only when the referenced chapter is in this book.
+func (s *Server) mediaObjectKeyAllowed(ctx context.Context, bookID uuid.UUID, objectKey string) bool {
+	bookPrefix := "books/" + bookID.String() + "/"
+	if strings.HasPrefix(objectKey, bookPrefix) {
+		return true
+	}
+	if strings.HasPrefix(objectKey, "audio/") {
+		parts := strings.Split(objectKey, "/")
+		if len(parts) < 2 {
+			return false
+		}
+		chapterID, err := uuid.Parse(parts[1])
+		if err != nil {
+			return false
+		}
+		var exists bool
+		err = s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM chapters WHERE id=$1 AND book_id=$2)`, chapterID, bookID).Scan(&exists)
+		return err == nil && exists
+	}
+	return false
 }
 
 func nilIfEmpty(s string) *string {

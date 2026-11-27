@@ -51,6 +51,10 @@ type Config struct {
 	MinioUseSSL      bool
 	MinioExternalURL string // public URL prefix (e.g. http://localhost:9123)
 	AudioCacheBucket string // default "loreweave-audio-cache" when empty
+	// Audio cache private mode (from upstream 3df6e74aa): when false the bucket
+	// is NOT forced public-read and Stage returns presigned GET URLs.
+	AudioCachePublicRead bool
+	AudioCachePresignTTL int // seconds; default 3600
 
 	// Phase 6a Subsystem A — spend-guardrail estimator tuning knobs. These
 	// are token-count estimation parameters (not money limits), so they
@@ -95,10 +99,9 @@ type Config struct {
 	BreakerCooldownS              int // open → half-open wait
 	// #286 — the per-endpoint model lease, used only for credentials that opted in to
 	// "serve one model at a time". Seconds.
-	ModelLeaseTTLS  int // holder lease (> the longest single call); a crashed holder frees itself
+	ModelLeaseTTLS   int // holder lease (> the longest single call); a crashed holder frees itself
 	ModelLeaseWaitS  int // max wait for another model to finish before LLM_MODEL_BUSY
 	ModelLeaseAgingS int // once another model has waited this long, new same-model calls queue too
-
 
 	// E5B rerank is BYOK (D-RERANK-NOT-BYOK): /internal/rerank resolves the
 	// user's rerank model from provider-registry like /internal/embed — there is
@@ -161,12 +164,13 @@ func Load() (*Config, error) {
 		AuthServiceInternalURL:    os.Getenv("AUTH_SERVICE_INTERNAL_URL"),
 		RabbitMQURL:               os.Getenv("RABBITMQ_URL"),
 		// Phase 5e-β.2 — audio_gen URL-mode staging.
-		MinioEndpoint:    os.Getenv("MINIO_ENDPOINT"),
-		MinioAccessKey:   os.Getenv("MINIO_ACCESS_KEY"),
-		MinioSecretKey:   os.Getenv("MINIO_SECRET_KEY"),
-		MinioUseSSL:      os.Getenv("MINIO_USE_SSL") == "true",
-		MinioExternalURL: os.Getenv("MINIO_EXTERNAL_URL"),
-		AudioCacheBucket: getEnv("AUDIO_CACHE_BUCKET", "loreweave-audio-cache"),
+		MinioEndpoint:        os.Getenv("MINIO_ENDPOINT"),
+		MinioAccessKey:       os.Getenv("MINIO_ACCESS_KEY"),
+		MinioSecretKey:       os.Getenv("MINIO_SECRET_KEY"),
+		MinioUseSSL:          os.Getenv("MINIO_USE_SSL") == "true",
+		MinioExternalURL:     os.Getenv("MINIO_EXTERNAL_URL"),
+		AudioCacheBucket:     getEnv("AUDIO_CACHE_BUCKET", "loreweave-audio-cache"),
+		AudioCachePublicRead: getEnv("AUDIO_CACHE_PUBLIC_READ", "true") == "true",
 	}
 	if c.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")
@@ -195,6 +199,9 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	if c.JobMaxRetries, err = getEnvInt("JOB_MAX_RETRIES", 3); err != nil {
+		return nil, err
+	}
+	if c.AudioCachePresignTTL, err = getEnvInt("AUDIO_CACHE_PRESIGN_TTL_SECONDS", 3600); err != nil {
 		return nil, err
 	}
 	// Phase 0 — optional per-job wall-clock backstop; 0/unset = disabled.

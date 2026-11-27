@@ -19,16 +19,23 @@ import (
 	"github.com/loreweave/observability"
 
 	"github.com/loreweave/sharing-service/internal/config"
+	"github.com/loreweave/sharing-service/internal/ratelimit"
 )
 
 type Server struct {
-	pool   *pgxpool.Pool
-	cfg    *config.Config
-	secret []byte
+	pool            *pgxpool.Pool
+	cfg             *config.Config
+	secret          []byte
+	unlistedLimiter *ratelimit.Limiter
 }
 
 func NewServer(pool *pgxpool.Pool, cfg *config.Config) *Server {
-	return &Server{pool: pool, cfg: cfg, secret: []byte(cfg.JWTSecret)}
+	return &Server{
+		pool:            pool,
+		cfg:             cfg,
+		secret:          []byte(cfg.JWTSecret),
+		unlistedLimiter: ratelimit.New(cfg.UnlistedRateLimitWindow, cfg.UnlistedRateLimitMax),
+	}
 }
 
 // Phase 6c — traced transport so outbound calls carry a W3C traceparent + emit a CLIENT span.
@@ -55,7 +62,9 @@ func (s *Server) internalGet(url string) (*http.Response, error) {
 
 func (s *Server) requireInternalToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.cfg.InternalServiceToken != "" && r.Header.Get("X-Internal-Token") != s.cfg.InternalServiceToken {
+		// Fail CLOSED when no token is configured (upstream 3df6e74aa hardening);
+		// config.Load also requires it — defense in depth.
+		if s.cfg.InternalServiceToken == "" || r.Header.Get("X-Internal-Token") != s.cfg.InternalServiceToken {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid internal token"})
 			return
 		}
@@ -105,10 +114,17 @@ func (s *Server) Router() http.Handler {
 	r.Route("/v1/sharing", func(r chi.Router) {
 		r.Get("/books/{book_id}", s.getSharingPolicy)
 		r.Patch("/books/{book_id}", s.patchSharingPolicy)
-		r.Get("/unlisted/{access_token}", s.getUnlistedBook)
-		r.Get("/unlisted/{access_token}/chapters", s.listUnlistedChapters)
-		r.Get("/unlisted/{access_token}/chapters/{chapter_id}", s.getUnlistedChapter)
-		r.Get("/unlisted/{access_token}/lore", s.getUnlistedLore) // W11-M3 public canon-only lore
+		// Unlisted share links are guarded only by their access_token — rate-limit
+		// per IP to bound offline guessing (from upstream 3df6e74aa).
+		r.Route("/unlisted", func(r chi.Router) {
+			r.Use(func(next http.Handler) http.Handler {
+				return ratelimit.Middleware(s.unlistedLimiter, "unlisted", next)
+			})
+			r.Get("/{access_token}", s.getUnlistedBook)
+			r.Get("/{access_token}/chapters", s.listUnlistedChapters)
+			r.Get("/{access_token}/chapters/{chapter_id}", s.getUnlistedChapter)
+			r.Get("/{access_token}/lore", s.getUnlistedLore) // W11-M3 public canon-only lore
+		})
 	})
 	return r
 }
@@ -145,8 +161,8 @@ func (s *Server) requireUserID(r *http.Request) (uuid.UUID, bool) {
 }
 
 type bookProjection struct {
-	BookID           uuid.UUID `json:"book_id"`
-	OwnerUserID      uuid.UUID `json:"owner_user_id"`
+	BookID      uuid.UUID `json:"book_id"`
+	OwnerUserID uuid.UUID `json:"owner_user_id"`
 	// Kind rides the projection (WS-1.2 / D16). A diary is private-forever: no
 	// sharing policy may ever expose it. Empty on a legacy book-service that
 	// predates the field — treated as non-diary (normal book).

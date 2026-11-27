@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     minio_access_key: str
     minio_secret_key: str
     minio_external_url: str = "http://localhost:9123"
+    # When False, the video bucket policy is not forced public-read and media_url
+    # returns presigned GETs (from upstream 3df6e74aa). Default True —
+    # behavior-preserving.
+    video_media_public_read: bool = True
 
     # ── LLM re-arch Phase 3 M5 — decoupled video-gen (job-row + terminal-event).
     # When VIDEO_GEN_DECOUPLE_ENABLED, POST /generate submits the gateway job

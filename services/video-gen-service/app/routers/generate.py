@@ -116,7 +116,10 @@ def _ensure_bucket() -> None:
     # Always (re)assert the public-read policy — whoever created the
     # bucket, the policy ends up public. Idempotent; book-service sets
     # the identical policy. This closes the G4 race (private bucket).
-    mc.set_bucket_policy(MINIO_BUCKET, _PUBLIC_READ_POLICY)
+    # VIDEO_MEDIA_PUBLIC_READ=false (upstream 3df6e74aa) keeps the bucket
+    # private and switches media_url to presigned GETs.
+    if settings.video_media_public_read:
+        mc.set_bucket_policy(MINIO_BUCKET, _PUBLIC_READ_POLICY)
     _bucket_ready = True
 
 
@@ -147,7 +150,13 @@ def ensure_bucket_ready() -> None:
 
 
 def media_url(object_key: str) -> str:
-    return f"{settings.minio_external_url.rstrip('/')}/{MINIO_BUCKET}/{object_key}"
+    if settings.video_media_public_read:
+        return f"{settings.minio_external_url.rstrip('/')}/{MINIO_BUCKET}/{object_key}"
+    from datetime import timedelta
+
+    return get_minio().presigned_get_object(
+        MINIO_BUCKET, object_key, expires=timedelta(hours=1)
+    )
 
 
 async def record_usage(

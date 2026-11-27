@@ -8,15 +8,9 @@ import { Logger } from '@nestjs/common';
 import { Server } from 'ws';
 import type { WebSocket } from 'ws';
 import type { IncomingMessage } from 'http';
-import * as jwtModule from 'jsonwebtoken';
-// CRITICAL interop fix (2026-10-24): under node's ESM the namespace import of
-// this CJS `export =` package has NO named members (the lexer cannot see
-// through `module.exports = { decode: require('./decode'), ... }`), so
-// `jwt.verify` would be undefined at runtime. The default binding IS
-// module.exports in both node and jest — resolve to it explicitly.
-const jwt = ((jwtModule as { default?: unknown }).default ?? jwtModule) as typeof import('jsonwebtoken');
 
 import { AmqpService } from './amqp.service.js';
+import { resolveUserIdFromToken } from './token.js';
 
 @WebSocketGateway({ path: '/ws' })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -53,9 +47,9 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     let userId: string;
     try {
-      // P3 (security): pin the HS256 allow-list (alg-confusion / alg:none defense).
-      const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as { sub: string };
-      userId = decoded.sub;
+      // HS256 allow-list + typ hygiene (stream tickets) live in the shared
+      // helper (P3 + upstream 6c8b23925).
+      userId = resolveUserIdFromToken(token, jwtSecret);
     } catch (err) {
       this.logger.warn(`WS rejected: invalid_token — ${(err as Error).message}`);
       socket.close(4001, 'invalid_token');

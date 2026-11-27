@@ -16,7 +16,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { apiBase, refreshAccessToken } from '@/api';
+import { apiBase, fetchStreamTicket, refreshAccessToken } from '@/api';
 
 /** True when the JWT's exp is within `skewMs` of now. Fail-OPEN on anything unparseable
  * (opaque/test tokens) — expiry handling is an optimization, never a gate. */
@@ -93,10 +93,24 @@ export function useNotificationStream(
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let backoff = MIN_BACKOFF_MS;
 
-    const connect = () => {
+    const connect = async () => {
       if (cancelled) return;
       setState('connecting');
-      const url = `${apiBase()}/v1/notifications/stream?token=${encodeURIComponent(accessToken)}`;
+      // Prefer a short-lived stream ticket over the raw access JWT in the URL
+      // (proxy-log hygiene, from upstream 6c8b23925). Fall back to the access
+      // token when the ticket endpoint is unavailable (e.g. dev without it).
+      let streamToken: string;
+      try {
+        streamToken = await fetchStreamTicket(accessToken);
+      } catch (err) {
+        if (import.meta.env.PROD) {
+          console.error('stream-ticket failed in prod', err);
+          return;
+        }
+        streamToken = accessToken;
+      }
+      if (cancelled) return;
+      const url = `${apiBase()}/v1/notifications/stream?token=${encodeURIComponent(streamToken)}`;
       es = new EventSource(url);
 
       es.onopen = () => {
