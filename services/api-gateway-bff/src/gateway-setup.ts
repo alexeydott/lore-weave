@@ -10,6 +10,15 @@ import { makeRateLimitRedisFromEnv } from './rate-limit/redis-client.js';
  * CORS, /v1 proxy by domain, and GET /health.
  * Shared by main bootstrap and tests.
  */
+function resolveCorsOrigin(): boolean | string | string[] {
+  const raw = process.env.BFF_CORS_ORIGINS?.trim();
+  if (!raw) {
+    return true; // dev: reflect request origin
+  }
+  const origins = raw.split(',').map((o) => o.trim()).filter(Boolean);
+  return origins.length === 1 ? origins[0] : origins;
+}
+
 export function configureGatewayApp(
   app: INestApplication,
   urls: {
@@ -42,7 +51,12 @@ export function configureGatewayApp(
   const mcpPublicGatewayUrl = urls.mcpPublicGatewayUrl ?? 'http://mcp-public-gateway:8211';
   const kalUrl = urls.kalUrl ?? 'http://knowledge-gateway:3000';
   app.enableCors({
-    origin: true,
+    // CORS origin allowlist (from upstream 6c8b23925): `origin: true` reflects
+    // ANY request origin — combined with `credentials: true` that lets any site
+    // make credentialed calls. BFF_CORS_ORIGINS (comma-separated) locks it to
+    // known origins; unset keeps the dev default (reflect) so local setups,
+    // tests and existing deployments are unaffected.
+    origin: resolveCorsOrigin(),
     credentials: true,
     // D-K8-03: `If-Match` carries the weak ETag the FE captured on
     // GET. Without an explicit entry here the CORS preflight

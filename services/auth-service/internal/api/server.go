@@ -86,11 +86,19 @@ func (s *Server) Router() http.Handler {
 	// self-gates on the DCR flag + a per-IP rate limit + writes an audit row.
 	r.Post("/oauth/register", http.HandlerFunc(s.oauthRegister))
 
-	// Internal (service-to-service, no JWT required)
+	// Internal (service-to-service, X-Internal-Token required).
+	// Security hardening (from upstream 6c8b23925): the user-profile lookup routes
+	// used to ride on network isolation alone; they now require the platform
+	// service token like the rest of /internal (fail-closed, constant-time —
+	// s.requireInternalServiceToken). /internal/admin keeps its dedicated
+	// issuer-secret gate below.
 	r.Route("/internal", func(r chi.Router) {
-		r.Get("/users/{user_id}/profile", http.HandlerFunc(s.internalGetUserProfile))
-		// E0-5 collaborators email-invite: resolve an email → user (book-service calls it).
-		r.Get("/users/by-email", http.HandlerFunc(s.internalGetUserByEmail))
+		r.Group(func(r chi.Router) {
+			r.Use(s.requireInternalServiceToken)
+			r.Get("/users/{user_id}/profile", http.HandlerFunc(s.internalGetUserProfile))
+			// E0-5 collaborators email-invite: resolve an email → user (book-service calls it).
+			r.Get("/users/by-email", http.HandlerFunc(s.internalGetUserByEmail))
+		})
 
 		// S-SETTINGS (MCP fan-out): full editable profile read + update for the
 		// settings MCP server hosted in provider-registry-service. Token-gated
@@ -177,6 +185,13 @@ func (s *Server) Router() http.Handler {
 		r.Post("/auth/password-reset/confirm", http.HandlerFunc(s.passwordResetConfirm))
 
 		r.Post("/auth/change-password", http.HandlerFunc(s.changePassword))
+
+		// Short-lived typ=stream ticket for WS/SSE + private media URLs so
+		// long-lived access JWTs stop riding in query strings (SEC-06, from
+		// upstream 6c8b23925). Rate-limited like the other token minters.
+		r.Post("/auth/stream-ticket", func(w http.ResponseWriter, r *http.Request) {
+			ratelimit.Middleware(s.rl, "stream-ticket", http.HandlerFunc(s.issueStreamTicket)).ServeHTTP(w, r)
+		})
 
 		r.Get("/account/profile", http.HandlerFunc(s.getProfile))
 		r.Patch("/account/profile", http.HandlerFunc(s.patchProfile))

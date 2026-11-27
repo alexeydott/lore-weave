@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { JSONContent } from '@tiptap/react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/auth';
 import { InlineRenderer } from '@/components/reader/InlineRenderer';
 import { ContentRenderer } from '@/components/reader/ContentRenderer';
 
@@ -303,8 +304,9 @@ function EditableCell({
 const COMPOUND_TYPES = new Set(['bulletList', 'orderedList', 'blockquote', 'callout']);
 
 function BlockContent({ block }: { block: JSONContent }) {
+  const { accessToken } = useAuth();
   if (COMPOUND_TYPES.has(block.type ?? '')) {
-    return <ContentRenderer blocks={[block]} mode="compact" />;
+    return <ContentRenderer blocks={[block]} mode="compact" accessToken={accessToken} />;
   }
   return block.content ? <InlineRenderer content={block.content} /> : null;
 }

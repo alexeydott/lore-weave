@@ -148,7 +148,7 @@ func (s *Server) uploadWorldMapImageCore(w http.ResponseWriter, r *http.Request,
 		"image_object_key": objectKey,
 		"image_w":          imgW,
 		"image_h":          imgH,
-		"image_url":        s.mediaURL(objectKey),
+		"image_url":        s.mediaPublicURL(objectKey),
 		"image_version":    imageVersion,
 	})
 }

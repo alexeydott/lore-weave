@@ -1,14 +1,17 @@
 import { useRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { JSONContent } from '@tiptap/react';
+import { useMediaAuthUrl } from '@/hooks/useMediaAuthUrl';
 
 interface ImageBlockProps {
   node: JSONContent;
+  accessToken?: string | null;
 }
 
-export function ImageBlock({ node }: ImageBlockProps) {
+export function ImageBlock({ node, accessToken }: ImageBlockProps) {
   const { t } = useTranslation('reader');
-  const src = node.attrs?.src as string | null;
+  const rawSrc = node.attrs?.src as string | null;
+  const src = useMediaAuthUrl(rawSrc, accessToken);
   const alt = (node.attrs?.alt as string) || '';
   const caption = (node.attrs?.caption as string) || '';
   const width = (node.attrs?.width as number) || 100;
@@ -33,7 +36,7 @@ export function ImageBlock({ node }: ImageBlockProps) {
     return () => observer.disconnect();
   }, [src]);
 
-  if (!src) {
+  if (!rawSrc) {
     return (
       <figure className="block-image">
         <div className="block-image-empty">

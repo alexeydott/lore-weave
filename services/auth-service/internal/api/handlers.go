@@ -31,6 +31,13 @@ import (
 )
 
 func (s *Server) register(w http.ResponseWriter, r *http.Request) {
+	// Security hardening (from upstream feat/on-prem-single-port 6c8b23925):
+	// deployments can close public self-registration (invite/admin-only signup)
+	// with ALLOW_PUBLIC_REGISTRATION=false. Default stays open.
+	if !s.cfg.AllowPublicRegistration {
+		writeErr(w, http.StatusForbidden, "AUTH_REGISTRATION_DISABLED", "public registration is disabled")
+		return
+	}
 	var body struct {
 		Email       string  `json:"email"`
 		Password    string  `json:"password"`
@@ -161,10 +168,10 @@ func (s *Server) issueSessionAndTokens(w http.ResponseWriter, ctx context.Contex
 		up["display_name"] = *displayName
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"access_token":         access,
-		"refresh_token":        refreshToken,
-		"expires_in_seconds":   int(s.cfg.AccessTokenTTL.Seconds()),
-		"user_profile":         up,
+		"access_token":       access,
+		"refresh_token":      refreshToken,
+		"expires_in_seconds": int(s.cfg.AccessTokenTTL.Seconds()),
+		"user_profile":       up,
 	})
 	return nil
 }

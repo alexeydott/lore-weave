@@ -4,6 +4,11 @@
  * EventSource is mocked with a class that records each constructed
  * instance; tests poke .onopen / .onmessage / .onerror manually to
  * exercise lifecycle states.
+ *
+ * Stream tickets (upstream 6c8b23925): connect() now mints a short-lived
+ * stream ticket via fetchStreamTicket BEFORE constructing the EventSource,
+ * so construction is asynchronous — every test flushes microtasks after
+ * rendering / advancing timers before asserting.
  */
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -11,9 +16,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useNotificationStream } from '../hooks/useNotificationStream';
 
 const refreshAccessToken = vi.fn(() => Promise.resolve<string | null>('fresh-token'));
+const fetchStreamTicket = vi.fn(() => Promise.resolve<string>('stream-ticket-token'));
 vi.mock('@/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api')>()),
   refreshAccessToken: () => refreshAccessToken(),
+  fetchStreamTicket: () => fetchStreamTicket(),
 }));
 
 /** A structurally-valid JWT whose exp is `secFromNow` seconds from now. */
@@ -46,9 +53,19 @@ class MockEventSource implements MockESInstance {
   }
 }
 
+/** Flush the async connect() (ticket mint → EventSource construction). */
+async function flushConnect() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 beforeEach(() => {
   created.length = 0;
   refreshAccessToken.mockClear();
+  fetchStreamTicket.mockClear();
   vi.stubGlobal('EventSource', MockEventSource);
   vi.useFakeTimers();
 });
@@ -71,9 +88,10 @@ describe('useNotificationStream', () => {
     const { result } = renderHook(() =>
       useNotificationStream('jwt-token', () => {}),
     );
+    await flushConnect();
     expect(created).toHaveLength(1);
     expect(result.current).toBe('connecting');
-    expect(created[0].url).toContain('/v1/notifications/stream?token=jwt-token');
+    expect(created[0].url).toContain('/v1/notifications/stream?token=stream-ticket-token');
 
     act(() => {
       created[0].onopen?.(new Event('open'));
@@ -81,9 +99,10 @@ describe('useNotificationStream', () => {
     expect(result.current).toBe('open');
   });
 
-  it('forwards parsed events to onEvent callback', () => {
+  it('forwards parsed events to onEvent callback', async () => {
     const onEvent = vi.fn();
     renderHook(() => useNotificationStream('t', onEvent));
+    await flushConnect();
     act(() => {
       created[0].onopen?.(new Event('open'));
       created[0].onmessage?.({
@@ -105,9 +124,10 @@ describe('useNotificationStream', () => {
     );
   });
 
-  it('drops malformed JSON without crashing', () => {
+  it('drops malformed JSON without crashing', async () => {
     const onEvent = vi.fn();
     renderHook(() => useNotificationStream('t', onEvent));
+    await flushConnect();
     act(() => {
       created[0].onmessage?.({ data: 'not-json' } as MessageEvent);
     });
@@ -118,15 +138,18 @@ describe('useNotificationStream', () => {
     const { result } = renderHook(() =>
       useNotificationStream('t', () => {}),
     );
+    await flushConnect();
     act(() => {
       created[0].onerror?.(new Event('error'));
     });
     expect(result.current).toBe('reconnecting');
     expect(created[0].closed).toBe(true);
 
-    // First reconnect at 1s
-    act(() => {
+    // First reconnect at 1s (re-connect re-mints the stream ticket async).
+    await act(async () => {
       vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+      await Promise.resolve();
     });
     expect(created).toHaveLength(2);
 
@@ -134,8 +157,10 @@ describe('useNotificationStream', () => {
     act(() => {
       created[1].onerror?.(new Event('error'));
     });
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(2000);
+      await Promise.resolve();
+      await Promise.resolve();
     });
     expect(created).toHaveLength(3);
 
@@ -143,18 +168,23 @@ describe('useNotificationStream', () => {
     act(() => {
       created[2].onerror?.(new Event('error'));
     });
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+      await Promise.resolve();
     });
     expect(created).toHaveLength(4);
   });
 
   it('resets backoff after successful reconnection', async () => {
     renderHook(() => useNotificationStream('t', () => {}));
+    await flushConnect();
     // Cycle: error → reconnect → open → error → next reconnect must be 1s again
-    act(() => {
+    await act(async () => {
       created[0].onerror?.(new Event('error'));
       vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+      await Promise.resolve();
     });
     act(() => {
       created[1].onopen?.(new Event('open'));
@@ -163,25 +193,29 @@ describe('useNotificationStream', () => {
       created[1].onerror?.(new Event('error'));
     });
     // After successful open the backoff resets to 1s.
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+      await Promise.resolve();
     });
     expect(created).toHaveLength(3);
   });
 
-  it('closes EventSource on unmount', () => {
+  it('closes EventSource on unmount', async () => {
     const { unmount } = renderHook(() =>
       useNotificationStream('t', () => {}),
     );
+    await flushConnect();
     unmount();
     expect(created[0].closed).toBe(true);
   });
 
-  it('error with an EXPIRED jwt triggers a token refresh instead of blind reconnect', () => {
+  it('error with an EXPIRED jwt triggers a token refresh instead of blind reconnect', async () => {
     // token computed ONCE — mkJwt inside the render callback would mint a new string per
     // re-render once the fake clock moves, re-running the effect and skewing the count.
     const token = mkJwt(-60);
     const { result } = renderHook(() => useNotificationStream(token, () => {}));
+    await flushConnect();
     act(() => { created[0].onerror?.(new Event('error')); });
     expect(refreshAccessToken).toHaveBeenCalledTimes(1);
     expect(result.current).toBe('reconnecting');
@@ -195,25 +229,32 @@ describe('useNotificationStream', () => {
     refreshAccessToken.mockResolvedValueOnce(null);
     const token = mkJwt(-60);
     const { result } = renderHook(() => useNotificationStream(token, () => {}));
+    await flushConnect();
     await act(async () => { created[0].onerror?.(new Event('error')); });
     expect(result.current).toBe('idle');
   });
 
-  it('error with a still-valid jwt keeps the normal backoff reconnect', () => {
+  it('error with a still-valid jwt keeps the normal backoff reconnect', async () => {
     const token = mkJwt(3600);
     renderHook(() => useNotificationStream(token, () => {}));
+    await flushConnect();
     act(() => { created[0].onerror?.(new Event('error')); });
     expect(refreshAccessToken).not.toHaveBeenCalled();
-    act(() => { vi.advanceTimersByTime(1000); });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     expect(created).toHaveLength(2);
   });
 
-  it('closes when accessToken transitions to null (logout)', () => {
+  it('closes when accessToken transitions to null (logout)', async () => {
     const { result, rerender } = renderHook(
       ({ token }: { token: string | null }) =>
         useNotificationStream(token, () => {}),
       { initialProps: { token: 't1' as string | null } },
     );
+    await flushConnect();
     expect(created).toHaveLength(1);
     rerender({ token: null });
     expect(result.current).toBe('idle');

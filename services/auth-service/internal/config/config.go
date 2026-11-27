@@ -23,6 +23,13 @@ type Config struct {
 	// account budget, becomes the binding limit for a NAT'd office.
 	RateLimitIPMax    int
 	DevLogEmailTokens bool
+	// Security hardening (from upstream feat/on-prem-single-port 6c8b23925):
+	// ALLOW_PUBLIC_REGISTRATION=false closes public self-registration (the
+	// /v1/auth/register handler answers 403). Default true — behavior-preserving.
+	AllowPublicRegistration bool
+	// Short-lived typ=stream tickets for WS/SSE and private media URLs
+	// (/v1/auth/stream-ticket). Default 120s.
+	StreamTicketTTLSeconds int
 	// Optional SMTP (e.g. Mailhog: host localhost, port 1025). If SMTPHost is empty, no email is sent.
 	SMTPHost     string
 	SMTPPort     int
@@ -31,7 +38,7 @@ type Config struct {
 	SMTPFrom     string
 	// auto = STARTTLS-if-offered (587, and Mailhog). implicit = TLS from the
 	// first byte (465). Deploy-time infra, not a per-user knob.
-	SMTPTLSMode  string
+	SMTPTLSMode string
 	// Browser base URL for links in emails (e.g. http://localhost:5173).
 	PublicAppURL string
 	// Notification service internal URL for creating notifications on events.
@@ -92,12 +99,17 @@ type Config struct {
 
 func Load() (*Config, error) {
 	c := &Config{
-		HTTPAddr:                       getEnv("HTTP_ADDR", ":8081"),
-		DatabaseURL:                    os.Getenv("DATABASE_URL"),
-		JWTSecret:                      os.Getenv("JWT_SECRET"),
-		PasswordMinLength:              getInt("PASSWORD_MIN_LENGTH", 8),
-		RateLimitMax:                   getInt("RATE_LIMIT_MAX_REQUESTS", 60),
-		DevLogEmailTokens:              getBool("DEV_LOG_EMAIL_TOKENS", true),
+		HTTPAddr:          getEnv("HTTP_ADDR", ":8081"),
+		DatabaseURL:       os.Getenv("DATABASE_URL"),
+		JWTSecret:         os.Getenv("JWT_SECRET"),
+		PasswordMinLength: getInt("PASSWORD_MIN_LENGTH", 8),
+		RateLimitMax:      getInt("RATE_LIMIT_MAX_REQUESTS", 60),
+		// Security hardening (from upstream 6c8b23925): email-confirmation token
+		// logging must be opt-IN for dev, not opt-out for prod (credential leakage
+		// into logs by default).
+		DevLogEmailTokens:              getBool("DEV_LOG_EMAIL_TOKENS", false),
+		AllowPublicRegistration:        getBool("ALLOW_PUBLIC_REGISTRATION", true),
+		StreamTicketTTLSeconds:         getInt("STREAM_TICKET_TTL_SECONDS", 120),
 		SMTPHost:                       os.Getenv("SMTP_HOST"),
 		SMTPPort:                       getInt("SMTP_PORT", 1025),
 		SMTPUser:                       os.Getenv("SMTP_USER"),

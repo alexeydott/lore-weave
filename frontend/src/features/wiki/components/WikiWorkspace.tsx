@@ -479,7 +479,7 @@ export function WikiArticleView({ bookId, articleId, onRegenerate }: {
           {hasContent ? (
             <div className="wiki-article-body">
               <CitationProvider bookId={bookId}>
-                <ContentRenderer blocks={blocks} mode="full" />
+                <ContentRenderer blocks={blocks} mode="full" accessToken={accessToken} />
               </CitationProvider>
             </div>
           ) : (

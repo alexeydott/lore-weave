@@ -20,17 +20,11 @@ import {
 } from '@nestjs/common';
 import { Observable, Subject } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-import * as jwtModule from 'jsonwebtoken';
-// CRITICAL interop fix (2026-10-24): under node's ESM the namespace import of
-// this CJS `export =` package has NO named members (the lexer cannot see
-// through `module.exports = { decode: require('./decode'), ... }`), so
-// `jwt.verify` would be undefined at runtime. The default binding IS
-// module.exports in both node and jest — resolve to it explicitly.
-const jwt = ((jwtModule as { default?: unknown }).default ?? jwtModule) as typeof import('jsonwebtoken');
 
 import type { Request } from 'express';
 
 import { AmqpService } from '../ws/amqp.service.js';
+import { resolveUserIdFromToken } from '../ws/token.js';
 
 interface NotificationMessageEvent {
   data: object;
@@ -72,11 +66,9 @@ export class NotificationsController {
 
     let userId: string;
     try {
-      // P3 (security): pin the HS256 allow-list so a token can't dictate its own
-      // verify algorithm (alg-confusion / alg:none defense), matching
-      // tools.controller + the platform verifier posture.
-      const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as { sub: string };
-      userId = decoded.sub;
+      // HS256 allow-list + typ hygiene (stream tickets) live in the shared
+      // helper (P3 + upstream 6c8b23925).
+      userId = resolveUserIdFromToken(token, jwtSecret);
     } catch (err) {
       this.logger.warn(
         `SSE rejected: invalid_token — ${(err as Error).message}`,
