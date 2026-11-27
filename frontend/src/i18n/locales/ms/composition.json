@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "Pengekstrakan terpilih setiap tetingkap, bukan menyeluruh. Tiada had gabungan global: {{maxPromises}} janji setiap tetingkap, {{maxPhraseChars}} aksara setiap frasa.",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "Henti menunggu (analisis diteruskan)"
+  "qualityStopWaiting": "Henti menunggu (analisis diteruskan)",
+  "agentMode": {
+    "moveUp": "Gerak ke atas",
+    "moveDown": "Gerak ke bawah"
+  }
 }

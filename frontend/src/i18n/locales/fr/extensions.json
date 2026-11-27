@@ -256,5 +256,12 @@
       "user": "Définis par vous",
       "book": "Ce livre"
     }
-  }
+  },
+  "tiers": {
+    "system": "Intégrées",
+    "user": "Les vôtres",
+    "book": "Ce livre"
+  },
+  "rackLoading": "Chargement des recettes…",
+  "rackEmpty": "Aucune recette disponible pour le moment."
 }

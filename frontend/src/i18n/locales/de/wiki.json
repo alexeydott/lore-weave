@@ -238,5 +238,10 @@
     "pendingChip_other": "{{count}} Vorschläge",
     "pendingTitle": "Ausstehende Vorschläge ({{count}})",
     "pendingTitle_other": "Ausstehende Vorschläge ({{count}})"
+  },
+  "editor": {
+    "restoreTitle": "Version {{version}} wiederherstellen?",
+    "restoreDescription": "Dies ersetzt den aktuellen Artikeltext und erzeugt eine neue Revision.",
+    "restoreConfirm": "Wiederherstellen"
   }
 }

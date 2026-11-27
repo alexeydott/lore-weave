@@ -207,7 +207,8 @@
       "batchStop": "Durdur",
       "batchDone": "Analiz edilen bölümler: {{total}} · açılan sözler: {{opened}} · kapatılan: {{paid}}",
       "batchStopped": "Durduruldu — {{total}} bölümden {{done}} analiz edildi.",
-      "batchFailed": "{{total}} bölümün {{done}} tanesi analiz edildi; {{failed}} başarısız. Sonuçlar eksik."
+      "batchFailed": "{{total}} bölümün {{done}} tanesi analiz edildi; {{failed}} başarısız. Sonuçlar eksik.",
+      "elapsedSeconds": "· {{seconds}} sn"
     },
     "quality-critic": {
       "title": "Eleştirmen",
@@ -2058,5 +2059,8 @@
       "canon_rule": "Kanon kuralları",
       "narrative_thread": "İlgili anlatı kolları"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "Özet"
   }
 }

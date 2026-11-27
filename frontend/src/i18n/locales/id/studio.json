@@ -207,7 +207,8 @@
       "batchStop": "Hentikan",
       "batchDone": "Bab dianalisis: {{total}} · janji dibuka: {{opened}} · dilunasi: {{paid}}",
       "batchStopped": "Dihentikan — {{done}} dari {{total}} bab dianalisis.",
-      "batchFailed": "{{done}} dari {{total}} bab dianalisis; {{failed}} gagal. Hasil belum lengkap."
+      "batchFailed": "{{done}} dari {{total}} bab dianalisis; {{failed}} gagal. Hasil belum lengkap.",
+      "elapsedSeconds": "· {{seconds}} dtk"
     },
     "quality-critic": {
       "title": "Kritikus",
@@ -2058,5 +2059,8 @@
       "canon_rule": "Aturan kanon",
       "narrative_thread": "Alur cerita terkait"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "Sinopsis"
   }
 }

@@ -256,5 +256,12 @@
       "user": "Configurado por ti",
       "book": "Este libro"
     }
-  }
+  },
+  "tiers": {
+    "system": "Integradas",
+    "user": "Tuyas",
+    "book": "Este libro"
+  },
+  "rackLoading": "Cargando recetas…",
+  "rackEmpty": "Aún no hay recetas disponibles."
 }

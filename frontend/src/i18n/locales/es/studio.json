@@ -207,7 +207,8 @@
       "batchStop": "Detener",
       "batchDone": "Capítulos analizados: {{total}} · promesas abiertas: {{opened}} · cerradas: {{paid}}",
       "batchStopped": "Detenido: {{done}} de {{total}} capítulos analizados.",
-      "batchFailed": "Se analizaron {{done}} de {{total}} capítulos; {{failed}} fallaron. Los resultados están incompletos."
+      "batchFailed": "Se analizaron {{done}} de {{total}} capítulos; {{failed}} fallaron. Los resultados están incompletos.",
+      "elapsedSeconds": "· {{seconds}} s"
     },
     "quality-critic": {
       "title": "Crítico",
@@ -2058,5 +2059,8 @@
       "canon_rule": "Reglas del canon",
       "narrative_thread": "Hilos narrativos relacionados"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "Sinopsis"
   }
 }

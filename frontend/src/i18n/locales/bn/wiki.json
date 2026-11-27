@@ -238,5 +238,10 @@
     "pendingChip_other": "{{count}}টি প্রস্তাব",
     "pendingTitle": "অপেক্ষমান প্রস্তাব ({{count}})",
     "pendingTitle_other": "অপেক্ষমান প্রস্তাব ({{count}})"
+  },
+  "editor": {
+    "restoreTitle": "{{version}} সংস্করণে ফিরিয়ে আনবেন?",
+    "restoreDescription": "এটি বর্তমান নিবন্ধের বিষয়বস্তু প্রতিস্থাপন করবে এবং নতুন একটি রিভিশন তৈরি করবে।",
+    "restoreConfirm": "পুনরুদ্ধার"
   }
 }

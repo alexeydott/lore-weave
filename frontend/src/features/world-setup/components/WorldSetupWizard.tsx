@@ -349,7 +349,7 @@ export function WorldSetupWizard({ bookId, token, modelRef, lang, onDescriptionD
                     <li key={key} className="flex items-center gap-2 rounded border p-2">
                       <input
                         type="checkbox"
-                        aria-label={`Include ${key}`}
+                        aria-label={t('conflicts.includeAria', { key })}
                         checked={!droppedEdges.has(key)}
                         disabled={run?.status === 'done'}
                         onChange={() => setDroppedEdges((d) => toggle(d, key))}

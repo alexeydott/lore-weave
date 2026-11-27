@@ -256,5 +256,12 @@
       "user": "Anda yang mengatur ini",
       "book": "Buku ini"
     }
-  }
+  },
+  "tiers": {
+    "system": "Bawaan",
+    "user": "Milik Anda",
+    "book": "Buku ini"
+  },
+  "rackLoading": "Memuat resep…",
+  "rackEmpty": "Belum ada resep yang tersedia."
 }

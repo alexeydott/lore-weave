@@ -52,5 +52,8 @@
   "notSearchable": "⚠ {{count}} entradas salvas mas NÃO pesquisáveis: o escritor não poderá consultar esta parte do mundo enquanto redige.",
   "unresolvedCount": "{{count}} relações apontam para algo que ainda não existe no seu mundo",
   "saveRelationships": "Salvar {{count}} relações",
-  "done": "Pronto — seu mundo está configurado. {{count}} relações salvas."
+  "done": "Pronto — seu mundo está configurado. {{count}} relações salvas.",
+  "conflicts": {
+    "includeAria": "Incluir {{key}}"
+  }
 }

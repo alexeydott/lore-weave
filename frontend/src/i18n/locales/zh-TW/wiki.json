@@ -238,5 +238,10 @@
     "pendingTitle": "待審建議（{{count}}）",
     "pendingTitle_other": "待審建議（{{count}}）"
   },
-  "title": "維基"
+  "title": "維基",
+  "editor": {
+    "restoreTitle": "還原到版本 {{version}}？",
+    "restoreDescription": "這將取代目前的文章內文並建立新修訂。",
+    "restoreConfirm": "還原"
+  }
 }

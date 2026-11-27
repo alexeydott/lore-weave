@@ -52,5 +52,8 @@
   "notSearchable": "⚠ {{count}} entries saved but NOT searchable — the writer cannot look this part of your world up while drafting.",
   "unresolvedCount": "{{count}} relationships point at something not in your world yet",
   "saveRelationships": "Save {{count}} relationships",
-  "done": "Done — your world is set up. {{count}} relationships saved."
+  "done": "Done — your world is set up. {{count}} relationships saved.",
+  "conflicts": {
+    "includeAria": "Include {{key}}"
+  }
 }

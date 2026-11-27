@@ -677,5 +677,6 @@
     "nothingYet": "Belum ada yang terungkap tentang ini — teruslah membaca.",
     "search": "Cari cerita...",
     "subtitle": "Apa yang telah terungkap dalam cerita hingga bagian yang sedang Anda baca — tanpa spoiler dari bab selanjutnya."
-  }
+  },
+  "extractionConflictHint": "Ekstraksi saat ini condong ke \"{{name}}\" untuk entitas ini, tetapi belum cukup untuk mengubah jenisnya. Kedua pembacaan dipertahankan."
 }

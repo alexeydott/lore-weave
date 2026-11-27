@@ -238,5 +238,10 @@
     "pendingChip_other": "{{count}} คำแนะนำ",
     "pendingTitle": "คำแนะนำที่ค้างอยู่ ({{count}})",
     "pendingTitle_other": "คำแนะนำที่ค้างอยู่ ({{count}})"
+  },
+  "editor": {
+    "restoreTitle": "กู้คืนเป็นเวอร์ชัน {{version}}?",
+    "restoreDescription": "การทำงานนี้จะแทนที่เนื้อหาบทความปัจจุบันและสร้างรุ่นใหม่",
+    "restoreConfirm": "กู้คืน"
   }
 }

@@ -177,5 +177,9 @@
     "title": "Diese Seite konnte nicht angezeigt werden",
     "description": "Ein Schnittstellenfehler ist aufgetreten. Er wurde im Diagnoseprotokoll gespeichert; bitte versuchen Sie den Vorgang erneut.",
     "retry": "Erneut versuchen"
+  },
+  "globalProgress": {
+    "saving": "Änderungen werden gespeichert…",
+    "loading": "Wird geladen…"
   }
 }

@@ -256,5 +256,12 @@
       "user": "You set this",
       "book": "This book"
     }
-  }
+  },
+  "tiers": {
+    "system": "Built-in",
+    "user": "Yours",
+    "book": "This book"
+  },
+  "rackLoading": "Loading recipes…",
+  "rackEmpty": "No recipes available yet."
 }

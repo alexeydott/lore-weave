@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "按視窗選擇性擷取，並非窮盡。合併結果無全域上限：每視窗最多 {{maxPromises}} 個承諾，每條 {{maxPhraseChars}} 字元。",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "停止等待（分析繼續）"
+  "qualityStopWaiting": "停止等待（分析繼續）",
+  "agentMode": {
+    "moveUp": "上移",
+    "moveDown": "下移"
+  }
 }

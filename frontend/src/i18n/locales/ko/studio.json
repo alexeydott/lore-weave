@@ -207,7 +207,8 @@
       "batchStop": "중지",
       "batchDone": "분석한 챕터: {{total}} · 열린 프로미스: {{opened}} · 완료: {{paid}}",
       "batchStopped": "중지됨 — {{total}}개 중 {{done}}개 챕터 분석.",
-      "batchFailed": "{{total}}개 장 중 {{done}}개 분석, {{failed}}개 실패. 결과가 불완전합니다."
+      "batchFailed": "{{total}}개 장 중 {{done}}개 분석, {{failed}}개 실패. 결과가 불완전합니다.",
+      "elapsedSeconds": "· {{seconds}} 초"
     },
     "quality-critic": {
       "title": "비평가",
@@ -2058,5 +2059,8 @@
       "canon_rule": "정사 규칙",
       "narrative_thread": "관련 서사 흐름"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "시놉시스"
   }
 }

@@ -52,5 +52,8 @@
   "notSearchable": "⚠ {{count}} 个条目已保存但无法检索——写作时无法查询世界的这一部分。",
   "unresolvedCount": "{{count}} 个关系指向你世界中尚不存在的事物",
   "saveRelationships": "保存 {{count}} 个关系",
-  "done": "完成——世界已设置。已保存 {{count}} 个关系。"
+  "done": "完成——世界已设置。已保存 {{count}} 个关系。",
+  "conflicts": {
+    "includeAria": "包含 {{key}}"
+  }
 }

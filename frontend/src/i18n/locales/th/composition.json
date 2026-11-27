@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "สกัดแบบคัดเลือกต่อช่วง ไม่ครบถ้วน ผลรวมไม่มีเพดานรวม: {{maxPromises}} คำสัญญาต่อช่วง {{maxPhraseChars}} อักขระต่อวลี",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "หยุดรอ (การวิเคราะห์ยังดำเนินต่อ)"
+  "qualityStopWaiting": "หยุดรอ (การวิเคราะห์ยังดำเนินต่อ)",
+  "agentMode": {
+    "moveUp": "ย้ายขึ้น",
+    "moveDown": "ย้ายลง"
+  }
 }

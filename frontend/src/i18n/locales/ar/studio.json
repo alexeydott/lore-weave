@@ -207,7 +207,8 @@
       "batchStop": "إيقاف",
       "batchDone": "الفصول المحللة: {{total}} · الوعود المفتوحة: {{opened}} · المسددة: {{paid}}",
       "batchStopped": "توقف — حُلل {{done}} من {{total}} فصول.",
-      "batchFailed": "تم تحليل {{done}} من {{total}} فصلاً؛ فشل {{failed}}. النتائج غير مكتملة."
+      "batchFailed": "تم تحليل {{done}} من {{total}} فصلاً؛ فشل {{failed}}. النتائج غير مكتملة.",
+      "elapsedSeconds": "· {{seconds}} ث"
     },
     "quality-critic": {
       "title": "الناقد",
@@ -2058,5 +2059,8 @@
       "canon_rule": "قواعد العالم المعتمدة",
       "narrative_thread": "خيوط سردية ذات صلة"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "ملخص"
   }
 }

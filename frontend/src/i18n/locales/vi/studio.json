@@ -207,7 +207,8 @@
       "batchStop": "Dừng",
       "batchDone": "Đã phân tích chương: {{total}} · lời hứa mở: {{opened}} · tất toán: {{paid}}",
       "batchStopped": "Đã dừng — phân tích {{done}}/{{total}} chương.",
-      "batchFailed": "Đã phân tích {{done}}/{{total}} chương; {{failed}} chương thất bại. Kết quả chưa đầy đủ."
+      "batchFailed": "Đã phân tích {{done}}/{{total}} chương; {{failed}} chương thất bại. Kết quả chưa đầy đủ.",
+      "elapsedSeconds": "· {{seconds}} giây"
     },
     "quality-critic": {
       "title": "Chuyên gia",
@@ -2058,5 +2059,8 @@
       "canon_rule": "Quy tắc chính sử",
       "narrative_thread": "Tuyến truyện liên quan"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "Tóm tắt"
   }
 }

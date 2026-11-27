@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "Extraction sélective par fenêtre, non exhaustive. Aucun plafond global : {{maxPromises}} promesses par fenêtre, {{maxPhraseChars}} caractères par formulation.",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "Arrêter l’attente (l’analyse continue)"
+  "qualityStopWaiting": "Arrêter l’attente (l’analyse continue)",
+  "agentMode": {
+    "moveUp": "Monter",
+    "moveDown": "Descendre"
+  }
 }

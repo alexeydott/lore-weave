@@ -177,5 +177,9 @@
     "title": "無法顯示此頁面",
     "description": "發生介面錯誤。錯誤已儲存至診斷日誌；請再試一次。",
     "retry": "再試一次"
+  },
+  "globalProgress": {
+    "saving": "正在儲存變更…",
+    "loading": "載入中…"
   }
 }

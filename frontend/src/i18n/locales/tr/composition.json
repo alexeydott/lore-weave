@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "Pencere başına seçici çıkarım, kapsamlı değil. Genel birleşim sınırı yok: pencere başına {{maxPromises}} vaat, ifade başına {{maxPhraseChars}} karakter.",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "Beklemeyi bırak (analiz sürer)"
+  "qualityStopWaiting": "Beklemeyi bırak (analiz sürer)",
+  "agentMode": {
+    "moveUp": "Yukarı taşı",
+    "moveDown": "Aşağı taşı"
+  }
 }

@@ -238,5 +238,10 @@
     "pendingTitle_other": "लंबित सुझाव ({{count}})"
   },
   "title": "विकी",
-  "edit": "संपादित करें"
+  "edit": "संपादित करें",
+  "editor": {
+    "restoreTitle": "संस्करण {{version}} पर पुनर्स्थापित करें?",
+    "restoreDescription": "यह लेख की वर्तमान सामग्री को बदल देगा और एक नया रिवीजन बनाएगा।",
+    "restoreConfirm": "पुनर्स्थापित करें"
+  }
 }

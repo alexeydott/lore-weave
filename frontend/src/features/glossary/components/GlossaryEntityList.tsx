@@ -63,6 +63,7 @@ function KindFacets({ entity, resolveKind }: {
   entity: GlossaryEntitySummary;
   resolveKind: (kind: GlossaryEntitySummary['kind']) => GlossaryEntitySummary['kind'];
 }) {
+  const { t } = useTranslation('books');
   const labels = entity.kind_labels ?? [];
   const conflict = entity.kind_conflict;
   // A conflict is usually also a label; show it once, as the conflict.
@@ -77,7 +78,7 @@ function KindFacets({ entity, resolveKind }: {
         <span
           className="inline-flex items-center gap-1 rounded-full border border-dashed px-2 py-0.5 text-[10px] font-medium"
           style={{ borderColor: conflict.color + '80', color: conflict.color }}
-          title={`Extraction currently leans "${conflict.name}" for this entity, but not by enough to change its kind. Both readings are kept.`}
+          title={t('extractionConflictHint', { name: conflict.name })}
         >
           <span>{resolveKind(conflict).icon}</span>
           {resolveKind(conflict).name}?

@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "Trích xuất chọn lọc theo cửa sổ, không toàn diện. Không có giới hạn gộp chung: {{maxPromises}} lời hứa mỗi cửa sổ, {{maxPhraseChars}} ký tự mỗi câu.",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "Dừng chờ (phân tích tiếp tục)"
+  "qualityStopWaiting": "Dừng chờ (phân tích tiếp tục)",
+  "agentMode": {
+    "moveUp": "Chuyển lên",
+    "moveDown": "Chuyển xuống"
+  }
 }

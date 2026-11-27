@@ -207,7 +207,8 @@
       "batchStop": "থামান",
       "batchDone": "বিশ্লেষিত অধ্যায়: {{total}} · খোলা প্রমিস: {{opened}} · পরিশোধিত: {{paid}}",
       "batchStopped": "থামানো হয়েছে — {{total}}টির মধ্যে {{done}}টি অধ্যায় বিশ্লেষিত।",
-      "batchFailed": "{{total}}টির মধ্যে {{done}}টি অধ্যায় বিশ্লেষিত; {{failed}}টি ব্যর্থ। ফলাফল অসম্পূর্ণ।"
+      "batchFailed": "{{total}}টির মধ্যে {{done}}টি অধ্যায় বিশ্লেষিত; {{failed}}টি ব্যর্থ। ফলাফল অসম্পূর্ণ।",
+      "elapsedSeconds": "· {{seconds}} সেকেন্ড"
     },
     "quality-critic": {
       "title": "সমালোচক",
@@ -2058,5 +2059,8 @@
       "canon_rule": "ক্যাননের নিয়ম",
       "narrative_thread": "সম্পর্কিত কাহিনির সূত্র"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "সারসংক্ষেপ"
   }
 }

@@ -207,7 +207,8 @@
       "batchStop": "Arrêter",
       "batchDone": "Chapitres analysés : {{total}} · promesses ouvertes : {{opened}} · soldées : {{paid}}",
       "batchStopped": "Arrêté — {{done}} chapitres sur {{total}} analysés.",
-      "batchFailed": "{{done}} chapitres analysés sur {{total}} ; {{failed}} échecs. Résultats incomplets."
+      "batchFailed": "{{done}} chapitres analysés sur {{total}} ; {{failed}} échecs. Résultats incomplets.",
+      "elapsedSeconds": "· {{seconds}} s"
     },
     "quality-critic": {
       "title": "Critique",
@@ -2058,5 +2059,8 @@
       "canon_rule": "Règles du canon",
       "narrative_thread": "Fils narratifs associés"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "Synopsis"
   }
 }

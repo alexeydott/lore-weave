@@ -114,7 +114,7 @@ export function ScenePlanEditor({ content, busy, onSave, onCancel }: Props) {
                   />
                   <input
                     data-testid={`scene-${ci}-${si}-synopsis`}
-                    value={str(s.synopsis)} placeholder="Synopsis"
+                    value={str(s.synopsis)} placeholder={t('planForge.synopsisPlaceholder')}
                     onChange={(e) => setCell(ci, si, 'synopsis', e.target.value)}
                     className="min-w-0 flex-[2] rounded border border-border bg-background px-1 py-0.5 text-[10px]"
                   />

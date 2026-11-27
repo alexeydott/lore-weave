@@ -52,5 +52,8 @@
   "notSearchable": "⚠ {{count}} entri disimpan tetapi TIDAK boleh dicari — penulis tidak dapat merujuk bahagian dunia ini semasa menulis.",
   "unresolvedCount": "{{count}} hubungan menunjuk kepada sesuatu yang belum wujud dalam dunia anda",
   "saveRelationships": "Simpan {{count}} hubungan",
-  "done": "Selesai — dunia anda disediakan. {{count}} hubungan disimpan."
+  "done": "Selesai — dunia anda disediakan. {{count}} hubungan disimpan.",
+  "conflicts": {
+    "includeAria": "Sertakan {{key}}"
+  }
 }

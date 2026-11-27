@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "Selektive Extraktion pro Fenster, nicht vollständig. Kein globales Limit: {{maxPromises}} Versprechen pro Fenster, {{maxPhraseChars}} Zeichen pro Formulierung.",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "Warten beenden (Analyse läuft weiter)"
+  "qualityStopWaiting": "Warten beenden (Analyse läuft weiter)",
+  "agentMode": {
+    "moveUp": "Nach oben",
+    "moveDown": "Nach unten"
+  }
 }

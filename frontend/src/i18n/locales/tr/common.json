@@ -177,5 +177,9 @@
     "title": "Bu sayfa görüntülenemedi",
     "description": "Bir arayüz hatası oluştu. Hata tanılama günlüğüne kaydedildi; lütfen işlemi tekrar deneyin.",
     "retry": "Tekrar dene"
+  },
+  "globalProgress": {
+    "saving": "Değişiklikler kaydediliyor…",
+    "loading": "Yükleniyor…"
   }
 }

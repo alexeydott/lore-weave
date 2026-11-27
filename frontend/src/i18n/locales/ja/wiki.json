@@ -238,5 +238,10 @@
     "pendingTitle": "承認待ちの提案（{{count}}）",
     "pendingTitle_other": "承認待ちの提案（{{count}}）"
   },
-  "title": "Wiki"
+  "title": "Wiki",
+  "editor": {
+    "restoreTitle": "バージョン {{version}} に復元しますか？",
+    "restoreDescription": "現在の記事本文が置き換えられ、新しいリビジョンが作成されます。",
+    "restoreConfirm": "復元"
+  }
 }

@@ -256,5 +256,12 @@
       "user": "Anda tetapkan ini",
       "book": "Buku ini"
     }
-  }
+  },
+  "tiers": {
+    "system": "Terbina dalam",
+    "user": "Milik anda",
+    "book": "Buku ini"
+  },
+  "rackLoading": "Memuatkan resipi…",
+  "rackEmpty": "Tiada resipi tersedia lagi."
 }

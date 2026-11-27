@@ -238,5 +238,10 @@
     "pendingChip_other": "{{count}} đề xuất",
     "pendingTitle": "Đề xuất chờ duyệt ({{count}})",
     "pendingTitle_other": "Đề xuất chờ duyệt ({{count}})"
+  },
+  "editor": {
+    "restoreTitle": "Khôi phục về phiên bản {{version}}?",
+    "restoreDescription": "Thao tác này sẽ thay thế phần thân bài viết hiện tại và tạo một bản sửa đổi mới.",
+    "restoreConfirm": "Khôi phục"
   }
 }

@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "प्रति खंड चयनात्मक निष्कर्षण, संपूर्ण नहीं। संयुक्त परिणामों की कोई समग्र सीमा नहीं: प्रति खंड {{maxPromises}} वादे, प्रति वाक्यांश {{maxPhraseChars}} अक्षर।",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "प्रतीक्षा रोकें (विश्लेषण जारी रहेगा)"
+  "qualityStopWaiting": "प्रतीक्षा रोकें (विश्लेषण जारी रहेगा)",
+  "agentMode": {
+    "moveUp": "ऊपर ले जाएँ",
+    "moveDown": "नीचे ले जाएँ"
+  }
 }

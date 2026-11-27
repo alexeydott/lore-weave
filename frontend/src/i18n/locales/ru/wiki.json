@@ -238,5 +238,10 @@
     "pendingTitle": "Ожидающие предложения ({{count}})",
     "pendingTitle_other": "Ожидающие предложения ({{count}})"
   },
-  "title": "Вики"
+  "title": "Вики",
+  "editor": {
+    "restoreTitle": "Восстановить версию {{version}}?",
+    "restoreDescription": "Это заменит текущий текст статьи и создаст новую ревизию.",
+    "restoreConfirm": "Восстановить"
+  }
 }

@@ -52,5 +52,8 @@
   "notSearchable": "⚠ {{count}} entri disimpan tapi TIDAK dapat dicari — penulis tidak bisa melihat bagian dunia ini saat menulis.",
   "unresolvedCount": "{{count}} relasi menunjuk ke sesuatu yang belum ada di dunia Anda",
   "saveRelationships": "Simpan {{count}} relasi",
-  "done": "Selesai — dunia Anda siap. {{count}} relasi disimpan."
+  "done": "Selesai — dunia Anda siap. {{count}} relasi disimpan.",
+  "conflicts": {
+    "includeAria": "Sertakan {{key}}"
+  }
 }

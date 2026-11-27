@@ -677,5 +677,6 @@
     "nothingYet": "Bisher wurde dazu noch nichts enthüllt — lesen Sie weiter.",
     "search": "In der Geschichte suchen…",
     "subtitle": "Was die Geschichte bis zu der Stelle, an der Sie gerade lesen, enthüllt hat — keine Spoiler aus späteren Kapiteln."
-  }
+  },
+  "extractionConflictHint": "Die Extraktion neigt aktuell zu „{{name}}\" für diese Entität, aber nicht genug, um den Typ zu wechseln. Beide Lesarten bleiben erhalten."
 }

@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "按窗口选择性提取，并非穷尽。合并结果无全局上限：每窗口最多 {{maxPromises}} 个承诺，每条 {{maxPhraseChars}} 字符。",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "停止等待（分析继续）"
+  "qualityStopWaiting": "停止等待（分析继续）",
+  "agentMode": {
+    "moveUp": "上移",
+    "moveDown": "下移"
+  }
 }

@@ -677,5 +677,6 @@
     "nothingYet": "Nothing has been revealed about this yet — keep reading.",
     "search": "Search the story…",
     "subtitle": "What the story has revealed up to where you are reading — no spoilers from later chapters."
-  }
+  },
+  "extractionConflictHint": "Extraction currently leans \"{{name}}\" for this entity, but not by enough to change its kind. Both readings are kept."
 }

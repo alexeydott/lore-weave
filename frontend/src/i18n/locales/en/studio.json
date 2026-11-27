@@ -207,7 +207,8 @@
       "batchStop": "Stop",
       "batchDone": "Analyzed chapters: {{total}} · promises opened: {{opened}} · paid off: {{paid}}",
       "batchStopped": "Stopped — analyzed {{done}} of {{total}} chapters.",
-      "batchFailed": "Analyzed {{done}} of {{total}} chapters; {{failed}} failed. Results are incomplete."
+      "batchFailed": "Analyzed {{done}} of {{total}} chapters; {{failed}} failed. Results are incomplete.",
+      "elapsedSeconds": "· {{seconds}} s"
     },
     "quality-critic": {
       "title": "Critic",
@@ -2058,5 +2059,8 @@
       "canon_rule": "Canon rules",
       "narrative_thread": "Related narrative threads"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "Synopsis"
   }
 }

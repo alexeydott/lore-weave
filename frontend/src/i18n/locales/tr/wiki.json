@@ -238,5 +238,10 @@
     "pendingChip_other": "{{count}} öneri",
     "pendingTitle": "Bekleyen öneriler ({{count}})",
     "pendingTitle_other": "Bekleyen öneriler ({{count}})"
+  },
+  "editor": {
+    "restoreTitle": "Sürüm {{version}}'a geri yükleyin?",
+    "restoreDescription": "Bu, makalenin geçerli gövdesini değiştirecek ve yeni bir revizyon oluşturacak.",
+    "restoreConfirm": "Geri yükle"
   }
 }

@@ -177,5 +177,9 @@
     "title": "Cette page ne peut pas être affichée",
     "description": "Une erreur d'interface est survenue. Elle a été enregistrée dans le journal de diagnostic ; veuillez réessayer l'opération.",
     "retry": "Réessayer"
+  },
+  "globalProgress": {
+    "saving": "Enregistrement des modifications…",
+    "loading": "Chargement…"
   }
 }

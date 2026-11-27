@@ -52,5 +52,8 @@
   "notSearchable": "⚠ {{count}} kayıt saklandı ama ARANAMAZ — yazar, taslak yazarken dünyanın bu bölümüne bakamayacak.",
   "unresolvedCount": "{{count}} ilişki, dünyanızda henüz olmayan bir şeyi işaret ediyor",
   "saveRelationships": "{{count}} ilişkiyi kaydet",
-  "done": "Tamamlandı — dünyanız kuruldu. {{count}} ilişki kaydedildi."
+  "done": "Tamamlandı — dünyanız kuruldu. {{count}} ilişki kaydedildi.",
+  "conflicts": {
+    "includeAria": "{{key}} dahil et"
+  }
 }

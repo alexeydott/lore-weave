@@ -52,5 +52,8 @@
   "notSearchable": "⚠ {{count}} entrées enregistrées mais NON recherchables : le rédacteur ne pourra pas consulter cette partie du monde pendant la rédaction.",
   "unresolvedCount": "{{count}} relations pointent vers quelque chose d'absent de votre monde",
   "saveRelationships": "Enregistrer {{count}} relations",
-  "done": "Terminé — votre monde est configuré. {{count}} relations enregistrées."
+  "done": "Terminé — votre monde est configuré. {{count}} relations enregistrées.",
+  "conflicts": {
+    "includeAria": "Inclure {{key}}"
+  }
 }

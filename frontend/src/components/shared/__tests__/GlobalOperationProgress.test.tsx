@@ -29,7 +29,7 @@ describe('GlobalOperationProgress', () => {
     });
     expect(screen.getByTestId('global-operation-progress')).toHaveAttribute(
       'aria-label',
-      'Сохраняем изменения…',
+      'globalProgress.saving',
     );
     act(() => end());
     expect(screen.queryByTestId('global-operation-progress')).not.toBeInTheDocument();

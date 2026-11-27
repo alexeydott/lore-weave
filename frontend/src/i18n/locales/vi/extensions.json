@@ -256,5 +256,12 @@
       "user": "Bạn thiết lập",
       "book": "Cuốn sách này"
     }
-  }
+  },
+  "tiers": {
+    "system": "Có sẵn",
+    "user": "Của bạn",
+    "book": "Sách này"
+  },
+  "rackLoading": "Đang tải công thức…",
+  "rackEmpty": "Chưa có công thức nào."
 }

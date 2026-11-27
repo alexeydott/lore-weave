@@ -206,7 +206,8 @@
       "batchStop": "หยุด",
       "batchDone": "บทที่วิเคราะห์แล้ว: {{total}} · คำสัญญาที่เปิด: {{opened}} · ปิดแล้ว: {{paid}}",
       "batchStopped": "หยุดแล้ว — วิเคราะห์ {{done}} จาก {{total}} บท",
-      "batchFailed": "วิเคราะห์แล้ว {{done}} จาก {{total}} บท ล้มเหลว {{failed}} บท ผลลัพธ์ยังไม่ครบ"
+      "batchFailed": "วิเคราะห์แล้ว {{done}} จาก {{total}} บท ล้มเหลว {{failed}} บท ผลลัพธ์ยังไม่ครบ",
+      "elapsedSeconds": "· {{seconds}} วิ"
     },
     "quality-critic": {
       "title": "นักวิจารณ์",
@@ -2058,5 +2059,8 @@
       "canon_rule": "กฎข้อมูลหลักของเรื่อง",
       "narrative_thread": "เส้นเรื่องที่เกี่ยวข้อง"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "เรื่องย่อ"
   }
 }

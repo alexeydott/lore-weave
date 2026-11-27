@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "প্রতি খণ্ডে নির্বাচিত নিষ্কাশন, সম্পূর্ণ নয়। একত্রিত ফলাফলে সামগ্রিক সীমা নেই: প্রতি খণ্ডে {{maxPromises}} প্রতিশ্রুতি, প্রতি বাক্যাংশে {{maxPhraseChars}} অক্ষর।",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "অপেক্ষা বন্ধ করুন (বিশ্লেষণ চলবে)"
+  "qualityStopWaiting": "অপেক্ষা বন্ধ করুন (বিশ্লেষণ চলবে)",
+  "agentMode": {
+    "moveUp": "উপরে নিন",
+    "moveDown": "নিচে নিন"
+  }
 }

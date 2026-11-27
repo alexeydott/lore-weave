@@ -238,5 +238,10 @@
     "pendingChip_other": "{{count}} 个建议",
     "pendingTitle": "待处理建议 ({{count}})",
     "pendingTitle_other": "待处理建议 ({{count}})"
+  },
+  "editor": {
+    "restoreTitle": "恢复到版本 {{version}}？",
+    "restoreDescription": "这将替换当前文章正文并创建新修订。",
+    "restoreConfirm": "恢复"
   }
 }

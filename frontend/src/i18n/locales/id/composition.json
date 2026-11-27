@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "Ekstraksi selektif per jendela, tidak menyeluruh. Tanpa batas gabungan global: {{maxPromises}} janji per jendela, {{maxPhraseChars}} karakter per frasa.",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "Berhenti menunggu (analisis berlanjut)"
+  "qualityStopWaiting": "Berhenti menunggu (analisis berlanjut)",
+  "agentMode": {
+    "moveUp": "Pindah ke atas",
+    "moveDown": "Pindah ke bawah"
+  }
 }

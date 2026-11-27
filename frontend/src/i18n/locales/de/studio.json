@@ -207,7 +207,8 @@
       "batchStop": "Stoppen",
       "batchDone": "Analysierte Kapitel: {{total}} · geöffnete Versprechen: {{opened}} · beglichene: {{paid}}",
       "batchStopped": "Gestoppt — {{done}} von {{total}} Kapiteln analysiert.",
-      "batchFailed": "{{done}} von {{total}} Kapiteln analysiert; {{failed}} fehlgeschlagen. Ergebnisse unvollständig."
+      "batchFailed": "{{done}} von {{total}} Kapiteln analysiert; {{failed}} fehlgeschlagen. Ergebnisse unvollständig.",
+      "elapsedSeconds": "· {{seconds}} s"
     },
     "quality-critic": {
       "title": "Kritiker",
@@ -2058,5 +2059,8 @@
       "canon_rule": "Kanonregeln",
       "narrative_thread": "Verwandte Handlungsstränge"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "Synopsis"
   }
 }

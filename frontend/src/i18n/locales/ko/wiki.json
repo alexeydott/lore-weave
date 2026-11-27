@@ -238,5 +238,10 @@
     "pendingChip_other": "{{count}}개의 제안",
     "pendingTitle": "대기 중인 제안 ({{count}})",
     "pendingTitle_other": "대기 중인 제안 ({{count}})"
+  },
+  "editor": {
+    "restoreTitle": "버전 {{version}}(으)로 복원하시겠습니까?",
+    "restoreDescription": "현재 문서 본문이 대체되고 새 개정판이 생성됩니다.",
+    "restoreConfirm": "복원"
   }
 }

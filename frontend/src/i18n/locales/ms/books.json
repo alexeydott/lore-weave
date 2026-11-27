@@ -677,5 +677,6 @@
     "nothingYet": "Tiada apa yang telah didedahkan tentang ini lagi — teruskan membaca.",
     "search": "Cari dalam cerita...",
     "subtitle": "Apa yang telah didedahkan oleh cerita sehingga ke bahagian yang anda baca — tiada spoiler daripada bab seterusnya."
-  }
+  },
+  "extractionConflictHint": "Pengekstrakan kini condong kepada \"{{name}}\" untuk entiti ini, tetapi tidak cukup untuk menukar jenisnya. Kedua-dua bacaan dikekalkan."
 }

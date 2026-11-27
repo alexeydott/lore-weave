@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useSyncExternalStore } from 'react';
 import { useIsFetching, useIsMutating } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
@@ -21,10 +22,13 @@ export function GlobalOperationProgress() {
     getOperationSnapshot,
   );
   const active = fetching > 0 || mutating > 0 || direct.active > 0;
+  const { t } = useTranslation('common');
   if (!active) return null;
 
   const writing = mutating > 0 || direct.writes > 0;
-  const label = writing ? 'Сохраняем изменения…' : 'Загружаем…';
+  const label = writing
+    ? t('globalProgress.saving')
+    : t('globalProgress.loading');
 
   return (
     <div

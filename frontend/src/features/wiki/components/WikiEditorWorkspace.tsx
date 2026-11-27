@@ -154,9 +154,9 @@ function RevisionPanel({ bookId, articleId }: { bookId: string; articleId: strin
         <ConfirmDialog
           open
           onOpenChange={(v) => { if (!v) setRestoreTarget(null); }}
-          title={`Restore to version ${restoreTarget.version}?`}
-          description="This will replace the current article body and create a new revision."
-          confirmLabel="Restore"
+          title={t('editor.restoreTitle', { version: restoreTarget.version })}
+          description={t('editor.restoreDescription')}
+          confirmLabel={t('editor.restoreConfirm')}
           onConfirm={handleRestore}
         />
       )}

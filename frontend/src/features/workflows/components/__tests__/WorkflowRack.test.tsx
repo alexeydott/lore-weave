@@ -25,9 +25,9 @@ describe('WorkflowRack (M5 — presentational)', () => {
     expect(screen.getByTestId('workflow-card-canon-check')).toBeInTheDocument();
     expect(screen.getByTestId('workflow-card-my-recipe')).toBeInTheDocument();
 
-    // grouped: a "Built-in" section and a "Yours" section both present
-    expect(screen.getByRole('region', { name: 'Built-in' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Yours' })).toBeInTheDocument();
+    // grouped: a "tiers.system" section and a "tiers.user" section both present
+    expect(screen.getByRole('region', { name: 'tiers.system' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'tiers.user' })).toBeInTheDocument();
   });
 
   it('fires onPick with the slug when a card is clicked', () => {
@@ -52,7 +52,7 @@ describe('WorkflowRack (M5 — presentational)', () => {
 
   it('does not render an empty tier section (no orphan headings)', () => {
     render(<WorkflowRack workflows={[wf('a', 'system')]} loading={false} error={null} />);
-    expect(screen.queryByRole('region', { name: 'Yours' })).toBeNull();
-    expect(screen.queryByRole('region', { name: 'This book' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'tiers.user' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'tiers.book' })).toBeNull();
   });
 });

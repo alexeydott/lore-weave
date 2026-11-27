@@ -52,5 +52,8 @@
   "notSearchable": "⚠ {{count}} entradas guardadas pero NO buscables: el escritor no podrá consultar esta parte del mundo mientras redacta.",
   "unresolvedCount": "{{count}} relaciones apuntan a algo que aún no existe en tu mundo",
   "saveRelationships": "Guardar {{count}} relaciones",
-  "done": "Hecho: tu mundo está configurado. {{count}} relaciones guardadas."
+  "done": "Hecho: tu mundo está configurado. {{count}} relaciones guardadas.",
+  "conflicts": {
+    "includeAria": "Incluir {{key}}"
+  }
 }

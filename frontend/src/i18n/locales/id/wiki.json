@@ -238,5 +238,10 @@
     "pendingChip_other": "{{count}} saran",
     "pendingTitle": "Saran tertunda ({{count}})",
     "pendingTitle_other": "Saran tertunda ({{count}})"
+  },
+  "editor": {
+    "restoreTitle": "Pulihkan ke versi {{version}}?",
+    "restoreDescription": "Ini akan mengganti isi artikel saat ini dan membuat revisi baru.",
+    "restoreConfirm": "Pulihkan"
   }
 }

@@ -677,5 +677,6 @@
     "nothingYet": "Aún no se ha revelado nada sobre esto; sigue leyendo.",
     "search": "Buscar en la historia...",
     "subtitle": "Lo que la historia ha revelado hasta el punto en el que estás leyendo; sin spoilers de capítulos posteriores."
-  }
+  },
+  "extractionConflictHint": "La extracción actualmente se inclina por «{{name}}» para esta entidad, pero no lo suficiente para cambiar su tipo. Se mantienen ambas lecturas."
 }

@@ -256,5 +256,12 @@
       "user": "Siz ayarladınız",
       "book": "Bu kitap"
     }
-  }
+  },
+  "tiers": {
+    "system": "Yerleşik",
+    "user": "Sizinler",
+    "book": "Bu kitap"
+  },
+  "rackLoading": "Tarifler yükleniyor…",
+  "rackEmpty": "Henüz tarif yok."
 }

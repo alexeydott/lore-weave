@@ -52,5 +52,8 @@
   "notSearchable": "⚠ {{count}}개 항목이 저장되었지만 검색할 수 없습니다 — 작성 중에 이 세계 부분을 참조할 수 없습니다.",
   "unresolvedCount": "{{count}}개 관계가 세계에 아직 없는 것을 가리킵니다",
   "saveRelationships": "{{count}}개 관계 저장",
-  "done": "완료 — 세계가 설정되었습니다. {{count}}개 관계 저장."
+  "done": "완료 — 세계가 설정되었습니다. {{count}}개 관계 저장.",
+  "conflicts": {
+    "includeAria": "{{key}} 포함"
+  }
 }

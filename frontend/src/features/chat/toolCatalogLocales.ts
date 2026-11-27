@@ -34,6 +34,7 @@ const SKILL_LABELS_RU: Record<string, string> = {
   glossary: 'Глоссарий-ассистент',
   universal: 'Универсальный драйвер',
   knowledge: 'Граф знаний',
+  admin: 'Администрирование',
   plan_forge: 'PlanForge (планировщик романа)',
   co_write: 'Соавторство (черновик + материализация плана)',
   composition: 'Композиция (план, проза, канон, мотивы)',

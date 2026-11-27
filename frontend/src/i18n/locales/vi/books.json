@@ -677,5 +677,6 @@
     "nothingYet": "Chưa có thông tin nào được tiết lộ về phần này — hãy tiếp tục đọc.",
     "search": "Tìm kiếm câu chuyện…",
     "subtitle": "Những gì câu chuyện đã tiết lộ tính đến phần bạn đang đọc — không có nội dung tiết lộ trước từ các chương sau."
-  }
+  },
+  "extractionConflictHint": "Việc trích xuất hiện đang nghiêng về \"{{name}}\" cho thực thể này, nhưng chưa đủ để đổi loại. Cả hai cách đọc đều được giữ."
 }

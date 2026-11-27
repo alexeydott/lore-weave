@@ -256,5 +256,12 @@
       "user": "Von Ihnen festgelegt",
       "book": "Dieses Buch"
     }
-  }
+  },
+  "tiers": {
+    "system": "Eingebaut",
+    "user": "Deine",
+    "book": "Dieses Buch"
+  },
+  "rackLoading": "Rezepte werden geladen…",
+  "rackEmpty": "Noch keine Rezepte verfügbar."
 }

@@ -238,5 +238,10 @@
     "pendingChip_other": "{{count}} اقتراحات",
     "pendingTitle": "اقتراحات معلقة ({{count}})",
     "pendingTitle_other": "اقتراحات معلقة ({{count}})"
+  },
+  "editor": {
+    "restoreTitle": "استعادة النسخة {{version}}؟",
+    "restoreDescription": "سيستبدل هذا النص الحالي للمقالة وينشئ مراجعة جديدة.",
+    "restoreConfirm": "استعادة"
   }
 }

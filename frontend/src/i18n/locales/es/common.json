@@ -177,5 +177,9 @@
     "title": "No se pudo mostrar esta página",
     "description": "Ha ocurrido un error de interfaz. Se ha guardado en el registro de diagnóstico; por favor, inténtelo de nuevo.",
     "retry": "Reintentar"
+  },
+  "globalProgress": {
+    "saving": "Guardando cambios…",
+    "loading": "Cargando…"
   }
 }

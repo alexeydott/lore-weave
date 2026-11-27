@@ -238,5 +238,10 @@
     "pendingChip_other": "{{count}} sugestões",
     "pendingTitle": "Sugestões pendentes ({{count}})",
     "pendingTitle_other": "Sugestões pendentes ({{count}})"
+  },
+  "editor": {
+    "restoreTitle": "Restaurar para a versão {{version}}?",
+    "restoreDescription": "Isso substituirá o corpo atual do artigo e criará uma nova revisão.",
+    "restoreConfirm": "Restaurar"
   }
 }

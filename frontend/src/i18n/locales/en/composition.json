@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "Selective per-window extraction, not exhaustive. No global merged limit: up to {{maxPromises}} promises per window, {{maxPhraseChars}} characters per phrase.",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "Stop waiting (analysis continues)"
+  "qualityStopWaiting": "Stop waiting (analysis continues)",
+  "agentMode": {
+    "moveUp": "Move up",
+    "moveDown": "Move down"
+  }
 }

@@ -256,5 +256,12 @@
       "user": "由您設定",
       "book": "此書籍"
     }
-  }
+  },
+  "tiers": {
+    "system": "內建",
+    "user": "你的",
+    "book": "本書"
+  },
+  "rackLoading": "正在載入配方…",
+  "rackEmpty": "暫無可用配方。"
 }

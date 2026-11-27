@@ -394,7 +394,7 @@ export function QualityPromisesPanel(props: IDockviewPanelProps) {
             {t('panels.quality-promises.assistantRunning')}
             {/* Honest progress: the pass is one long LLM job — show elapsed seconds
                 (reasoning models commonly take 40-90s+). */}
-            {elapsed > 0 && <span className="tabular-nums">· {elapsed} с</span>}
+            {elapsed > 0 && <span className="tabular-nums">{t('panels.quality-promises.elapsedSeconds', { seconds: elapsed })}</span>}
           </div>
         )}
         {report && reportChapter === reportScope && (

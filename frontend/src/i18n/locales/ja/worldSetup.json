@@ -52,5 +52,8 @@
   "notSearchable": "⚠ {{count}} 件保存されましたが検索できません — 執筆中にこの部分の世界を参照できません。",
   "unresolvedCount": "{{count}} 件の関係性が、まだ世界に存在しないものを指しています",
   "saveRelationships": "{{count}} 件の関係性を保存",
-  "done": "完了 — 世界の設定が済みました。{{count}} 件の関係性を保存。"
+  "done": "完了 — 世界の設定が済みました。{{count}} 件の関係性を保存。",
+  "conflicts": {
+    "includeAria": "{{key}} を含める"
+  }
 }

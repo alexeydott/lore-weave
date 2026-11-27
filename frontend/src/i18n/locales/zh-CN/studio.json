@@ -207,7 +207,8 @@
       "batchStop": "停止",
       "batchDone": "已分析章节：{{total}} · 新开承诺：{{opened}} · 已回收：{{paid}}",
       "batchStopped": "已停止——共分析 {{done}}/{{total}} 章。",
-      "batchFailed": "已分析 {{done}}/{{total}} 章；{{failed}} 章失败。结果不完整。"
+      "batchFailed": "已分析 {{done}}/{{total}} 章；{{failed}} 章失败。结果不完整。",
+      "elapsedSeconds": "· {{seconds}} 秒"
     },
     "quality-critic": {
       "title": "评论",
@@ -2058,5 +2059,8 @@
       "canon_rule": "正史规则",
       "narrative_thread": "相关叙事线索"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "剧情梗概"
   }
 }

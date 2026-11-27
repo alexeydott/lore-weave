@@ -177,5 +177,9 @@
     "title": "Không thể hiển thị trang này",
     "description": "Đã xảy ra lỗi giao diện. Lỗi đã được lưu vào nhật ký chẩn đoán; vui lòng thử lại thao tác.",
     "retry": "Thử lại"
+  },
+  "globalProgress": {
+    "saving": "Đang lưu thay đổi…",
+    "loading": "Đang tải…"
   }
 }

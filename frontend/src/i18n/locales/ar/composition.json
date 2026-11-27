@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "استخراج انتقائي لكل نافذة وليس شاملاً. لا حد عام للنتائج المدمجة: {{maxPromises}} وعداً لكل نافذة و{{maxPhraseChars}} حرفاً لكل عبارة.",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "إيقاف الانتظار (يستمر التحليل)"
+  "qualityStopWaiting": "إيقاف الانتظار (يستمر التحليل)",
+  "agentMode": {
+    "moveUp": "نقل لأعلى",
+    "moveDown": "نقل لأسفل"
+  }
 }

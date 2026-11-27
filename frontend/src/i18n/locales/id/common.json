@@ -177,5 +177,9 @@
     "title": "Halaman ini tidak dapat ditampilkan",
     "description": "Terjadi kesalahan antarmuka. Kesalahan telah disimpan ke log diagnostik; silakan coba kembali operasi Anda.",
     "retry": "Coba lagi"
+  },
+  "globalProgress": {
+    "saving": "Menyimpan perubahan…",
+    "loading": "Memuat…"
   }
 }

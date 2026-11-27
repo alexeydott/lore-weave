@@ -161,7 +161,7 @@ export function NewRunView({ bookId, onCreated, onCancel }: Props) {
                 <span className="flex-1 truncate">{chapter ? chapterDisplayTitle(chapter) : id.slice(0, 8)}</span>
                 <button
                   type="button"
-                  aria-label="Move up"
+                  aria-label={t('agentMode.moveUp')}
                   data-testid={`agent-mode-move-up-${id}`}
                   disabled={idx === 0}
                   onClick={() => f.moveChapter(idx, -1)}
@@ -171,7 +171,7 @@ export function NewRunView({ bookId, onCreated, onCancel }: Props) {
                 </button>
                 <button
                   type="button"
-                  aria-label="Move down"
+                  aria-label={t('agentMode.moveDown')}
                   data-testid={`agent-mode-move-down-${id}`}
                   disabled={idx === f.scopeIds.length - 1}
                   onClick={() => f.moveChapter(idx, 1)}

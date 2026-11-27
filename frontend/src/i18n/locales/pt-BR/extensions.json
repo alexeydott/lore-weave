@@ -256,5 +256,12 @@
       "user": "Você define isso",
       "book": "Este livro"
     }
-  }
+  },
+  "tiers": {
+    "system": "Integradas",
+    "user": "Suas",
+    "book": "Este livro"
+  },
+  "rackLoading": "Carregando receitas…",
+  "rackEmpty": "Ainda não há receitas disponíveis."
 }

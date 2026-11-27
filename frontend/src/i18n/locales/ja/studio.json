@@ -207,7 +207,8 @@
       "batchStop": "停止",
       "batchDone": "分析した章: {{total}} · 開かれたプロミス: {{opened}} · 回収: {{paid}}",
       "batchStopped": "停止 — {{total}} 章中 {{done}} 章を分析。",
-      "batchFailed": "{{total}} 章中 {{done}} 章を分析、{{failed}} 章が失敗しました。結果は不完全です。"
+      "batchFailed": "{{total}} 章中 {{done}} 章を分析、{{failed}} 章が失敗しました。結果は不完全です。",
+      "elapsedSeconds": "· {{seconds}} 秒"
     },
     "quality-critic": {
       "title": "批評",
@@ -2058,5 +2059,8 @@
       "canon_rule": "正史のルール",
       "narrative_thread": "関連する物語の筋"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "あらすじ"
   }
 }

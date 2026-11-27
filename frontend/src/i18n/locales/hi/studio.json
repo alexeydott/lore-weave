@@ -207,7 +207,8 @@
       "batchStop": "रोकें",
       "batchDone": "विश्लेषित अध्याय: {{total}} · खोले गए प्रॉमिस: {{opened}} · चुकते: {{paid}}",
       "batchStopped": "रोका गया — {{total}} में से {{done}} अध्याय विश्लेषित।",
-      "batchFailed": "{{total}} में से {{done}} अध्यायों का विश्लेषण हुआ; {{failed}} विफल। परिणाम अधूरे हैं।"
+      "batchFailed": "{{total}} में से {{done}} अध्यायों का विश्लेषण हुआ; {{failed}} विफल। परिणाम अधूरे हैं।",
+      "elapsedSeconds": "· {{seconds}} से"
     },
     "quality-critic": {
       "title": "समीक्षक",
@@ -2058,5 +2059,8 @@
       "canon_rule": "कैनन के नियम",
       "narrative_thread": "संबंधित कथानक सूत्र"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "सारांश"
   }
 }

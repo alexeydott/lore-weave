@@ -1,5 +1,7 @@
 // View (MVC) — render-only skills browser. Logic lives in useSkills.
 import { useTranslation } from 'react-i18next';
+import { localizedSkillDescription } from '../skillLocales';
+import { localizedSkillLabel } from '@/features/chat/toolCatalogLocales';
 import { useSkills } from '../hooks/useExtensions';
 import type { Skill } from '../types';
 
@@ -10,7 +12,7 @@ const TIER_STYLE: Record<string, string> = {
 };
 
 export function SkillsView() {
-  const { t } = useTranslation('extensions');
+  const { t, i18n } = useTranslation('extensions');
   const s = useSkills();
   const pageCount = Math.max(1, Math.ceil(s.total / s.limit));
 
@@ -74,17 +76,17 @@ export function SkillsView() {
 }
 
 function SkillRow({ skill, onToggle, onRemove }: { skill: Skill; onToggle: (enabled: boolean) => void; onRemove: () => void }) {
-  const { t } = useTranslation('extensions');
+  const { t, i18n } = useTranslation('extensions');
   const isSystem = skill.tier === 'system';
   return (
     <li className="flex items-center gap-3 px-3 py-2" data-testid="skill-row">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="font-medium">{skill.slug}</span>
+          <span className="font-medium">{localizedSkillLabel(i18n.language, skill.slug, skill.slug)}</span>
           <span className={`rounded-full border px-1.5 text-[10px] font-bold uppercase ${TIER_STYLE[skill.tier] ?? ''}`}>{skill.tier}</span>
           {skill.status === 'draft' && <span className="text-[10px] font-semibold text-amber-400">{t('skills.draft')}</span>}
         </div>
-        <div className="truncate text-xs text-muted-foreground">{skill.description}</div>
+        <div className="truncate text-xs text-muted-foreground">{localizedSkillDescription(i18n.language, skill.slug, skill.description)}</div>
       </div>
       <label className="inline-flex cursor-pointer items-center">
         <input type="checkbox" role="switch" defaultChecked={skill.status !== 'draft'} onChange={(e) => onToggle(e.target.checked)} data-testid="skill-toggle" />

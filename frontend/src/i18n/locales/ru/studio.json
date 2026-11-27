@@ -206,7 +206,8 @@
       "batchStop": "Остановить",
       "batchDone": "Проанализировано глав: {{total}} · открыто обещаний: {{opened}} · закрыто: {{paid}}",
       "batchStopped": "Остановлено — проанализировано {{done}} из {{total}} глав.",
-      "batchFailed": "Проанализировано {{done}} из {{total}} глав; ошибок: {{failed}}. Результаты неполные."
+      "batchFailed": "Проанализировано {{done}} из {{total}} глав; ошибок: {{failed}}. Результаты неполные.",
+      "elapsedSeconds": "· {{seconds}} с"
     },
     "quality-critic": {
       "title": "Критик",
@@ -2058,5 +2059,8 @@
       "canon_rule": "Правила канона",
       "narrative_thread": "Связанные сюжетные линии"
     }
+  },
+  "planForge": {
+    "synopsisPlaceholder": "Синопсис"
   }
 }

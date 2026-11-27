@@ -52,5 +52,8 @@
   "notSearchable": "⚠ {{count}} Einträge gespeichert, aber NICHT auffindbar — der Autor kann diesen Teil der Welt beim Schreiben nicht nachschlagen.",
   "unresolvedCount": "{{count}} Beziehungen zeigen auf etwas, das noch nicht in Ihrer Welt existiert",
   "saveRelationships": "{{count}} Beziehungen speichern",
-  "done": "Fertig — Ihre Welt ist eingerichtet. {{count}} Beziehungen gespeichert."
+  "done": "Fertig — Ihre Welt ist eingerichtet. {{count}} Beziehungen gespeichert.",
+  "conflicts": {
+    "includeAria": "{{key}} einschließen"
+  }
 }

@@ -677,5 +677,6 @@
     "nothingYet": "Bununla ilgili henüz hiçbir şey ortaya çıkmadı — okumaya devam edin.",
     "search": "Hikâyede ara…",
     "subtitle": "Okuduğunuz yere kadar hikâyenin ortaya çıkardığı bilgiler — sonraki bölümlerden sürprizbozan içermez."
-  }
+  },
+  "extractionConflictHint": "Çıkartım şu an bu varlık için \"{{name}}\" tarafına eğilimli, ama türünü değiştirecek kadar değil. Her iki okuma korunur."
 }

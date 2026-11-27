@@ -238,5 +238,10 @@
     "pendingChip_other": "{{count}} cadangan",
     "pendingTitle": "Cadangan tertunda ({{count}})",
     "pendingTitle_other": "Cadangan tertunda ({{count}})"
+  },
+  "editor": {
+    "restoreTitle": "Pulihkan ke versi {{version}}?",
+    "restoreDescription": "Ini akan menggantikan badan artikel semasa dan mencipta semakan baharu.",
+    "restoreConfirm": "Pulihkan"
   }
 }

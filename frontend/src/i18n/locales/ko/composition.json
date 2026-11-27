@@ -1899,5 +1899,9 @@
   },
   "qualityThreadsSelection": "구간별 선택적 추출이며 전체 목록이 아닙니다. 병합 결과에 전역 제한은 없습니다. 구간당 {{maxPromises}}개, 문구당 {{maxPhraseChars}}자입니다.",
   "qualityProgress": "{{completed}} / {{total}}",
-  "qualityStopWaiting": "대기 중지 (분석은 계속)"
+  "qualityStopWaiting": "대기 중지 (분석은 계속)",
+  "agentMode": {
+    "moveUp": "위로 이동",
+    "moveDown": "아래로 이동"
+  }
 }

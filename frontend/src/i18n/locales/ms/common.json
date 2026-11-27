@@ -177,5 +177,9 @@
     "title": "Halaman ini tidak dapat dipaparkan",
     "description": "Ralat antara muka telah berlaku. Ia telah disimpan ke dalam log diagnostik; sila cuba semula operasi tersebut.",
     "retry": "Cuba lagi"
+  },
+  "globalProgress": {
+    "saving": "Menyimpan perubahan…",
+    "loading": "Memuatkan…"
   }
 }
