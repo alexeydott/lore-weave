@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use rand::RngExt;
 use rand_chacha::ChaCha8Rng;
 

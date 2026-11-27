@@ -20,7 +20,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use rand::RngExt;
 use rand_chacha::ChaCha8Rng;
 

@@ -67,7 +67,7 @@ fn main() {
     #[derive(Clone, Copy)]
     enum NameSource { Synthetic, Anthropic, OpenAI, Ollama, LmStudio }
     let mut name_source = NameSource::Synthetic;
-    let mut name_model: Option<String> = None;
+    let mut _name_model: Option<String> = None;
 
     // Minimal hand-rolled arg parsing (`--flag value`), to keep the sketch
     // dependency-free of the main CLI.
@@ -214,7 +214,7 @@ fn main() {
             "--name-openai" => { name_source = NameSource::OpenAI; valueless = true; }
             "--name-ollama" => { name_source = NameSource::Ollama; valueless = true; }
             "--name-lmstudio" => { name_source = NameSource::LmStudio; valueless = true; }
-            "--name-model" => name_model = Some(need()),
+            "--name-model" => _name_model = Some(need()),
             other => panic!("unknown flag: {other}"),
         }
         i += if valueless { 1 } else { 2 };

@@ -1,6 +1,6 @@
 //! TMP_003 §3.1 — the TerrainPainter modificator (Phase-1 cut, spec D7).
 
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use rand::RngExt;
 use rand_chacha::ChaCha8Rng;
 

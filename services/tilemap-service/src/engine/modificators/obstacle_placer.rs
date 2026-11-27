@@ -561,7 +561,7 @@ mod tests {
     use crate::seed::TilemapSeed;
     use crate::types::tile::TerrainKind;
     use crate::types::zone::ZoneId;
-    use rand::{Rng, SeedableRng};
+    use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
     use std::sync::OnceLock;
 

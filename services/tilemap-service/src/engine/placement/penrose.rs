@@ -20,7 +20,7 @@
 
 use std::f64::consts::{PI, TAU};
 
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use rand::RngExt;
 use rand_chacha::ChaCha8Rng;
 
@@ -535,7 +535,7 @@ mod tests {
         // the same vertex index as the naive linear scan for arbitrary query
         // points over real Penrose vertex fields. Iterates 200 query points ×
         // 3 vertex-field configurations.
-        use rand::Rng;
+        use rand::RngExt;
         use rand_chacha::ChaCha8Rng;
 
         // Targets span the production vertex-count regime — `penrose_vertices`
