@@ -1,9 +1,5 @@
 import { create } from 'zustand';
-import type {
-  TerrainCell,
-  TilemapObjectPlacement,
-  TilemapView,
-} from '@/types/tilemap';
+import type { TerrainCell, TilemapObjectPlacement, TilemapView } from '@/types/tilemap';
 
 // V1.2 Batch 2.3 viewer state — layer toggles + tile inspector.
 //
@@ -68,25 +64,25 @@ export interface ViewerState {
   showTreasureBands: boolean;
   setShowTreasureBands: (enabled: boolean) => void;
 
+  /** TMP-Q5 chunk B — zone-role overlay toggle. Default OFF: the
+   *  overlay is an at-a-glance design review aid, not a default-
+   *  visible polish. When true, WorldScene's overlay-rt paints each
+   *  zone's `assigned_tiles` mask with its role color at alpha=0.18.
+   *  Independent of L0..L7 layer toggles and the other Polish flags. */
+  showZoneRoles: boolean;
+  setShowZoneRoles: (enabled: boolean) => void;
+
   /** Last clicked tile (null = inspector closed). */
   inspector: InspectorPayload | null;
-  openInspectorFor: (
-    tile: { x: number; y: number },
-    view: TilemapView,
-  ) => void;
+  openInspectorFor: (tile: { x: number; y: number }, view: TilemapView) => void;
   closeInspector: () => void;
 }
 
-function lookupAt(
-  tile: { x: number; y: number },
-  view: TilemapView,
-): InspectorPayload {
+function lookupAt(tile: { x: number; y: number }, view: TilemapView): InspectorPayload {
   const w = view.grid_size.width;
   const idx = tile.y * w + tile.x;
   const terrainKind =
-    idx >= 0 && idx < view.terrain_layer.length
-      ? (view.terrain_layer[idx] ?? 0)
-      : 0;
+    idx >= 0 && idx < view.terrain_layer.length ? (view.terrain_layer[idx] ?? 0) : 0;
   const terrainCell =
     view.terrain_vocabulary && terrainKind >= 0 && terrainKind < view.terrain_vocabulary.length
       ? (view.terrain_vocabulary[terrainKind] ?? null)
@@ -124,9 +120,7 @@ function lookupAt(
 
   let riverHit: InspectorPayload['riverHit'] = null;
   for (const seg of view.river_segments) {
-    const c = seg.crossings.find(
-      (cr) => cr.at.x === tile.x && cr.at.y === tile.y,
-    );
+    const c = seg.crossings.find((cr) => cr.at.x === tile.x && cr.at.y === tile.y);
     if (c) {
       riverHit = { kind: c.kind };
       break;
@@ -168,9 +162,11 @@ export const useViewerStore = create<ViewerState>((set) => ({
   showTreasureBands: false,
   setShowTreasureBands: (enabled) => set({ showTreasureBands: enabled }),
 
+  showZoneRoles: false,
+  setShowZoneRoles: (enabled) => set({ showZoneRoles: enabled }),
+
   inspector: null,
-  openInspectorFor: (tile, view) =>
-    set({ inspector: lookupAt(tile, view) }),
+  openInspectorFor: (tile, view) => set({ inspector: lookupAt(tile, view) }),
   closeInspector: () => set({ inspector: null }),
 }));
 

@@ -29,6 +29,8 @@ export function LayerToggles(): JSX.Element {
   const setBlendEnabled = useViewerStore((s) => s.setBlendEnabled);
   const showTreasureBands = useViewerStore((s) => s.showTreasureBands);
   const setShowTreasureBands = useViewerStore((s) => s.setShowTreasureBands);
+  const showZoneRoles = useViewerStore((s) => s.showZoneRoles);
+  const setShowZoneRoles = useViewerStore((s) => s.setShowZoneRoles);
   return (
     <div className="bg-slate-900/90 border border-slate-700 rounded-md p-3 text-xs text-slate-200 font-mono pointer-events-auto flex flex-col gap-1.5 w-64">
       <div className="font-semibold text-sm mb-1">Layers</div>
@@ -56,9 +58,7 @@ export function LayerToggles(): JSX.Element {
           subsection from Layers with a top border + extra spacing so
           first-time users don't mistake the blend checkbox for an
           L-something layer toggle. */}
-      <div className="mt-3 pt-2 border-t border-slate-700 font-semibold text-sm mb-1">
-        Polish
-      </div>
+      <div className="mt-3 pt-2 border-t border-slate-700 font-semibold text-sm mb-1">Polish</div>
       <label
         className="flex items-center gap-2 cursor-pointer hover:bg-slate-800/60 rounded px-1"
         title="Phaser 4 Blur filter on the foundation tilemap. Disable for crisp pixel-art mode."
@@ -86,6 +86,22 @@ export function LayerToggles(): JSX.Element {
           className="accent-indigo-500"
         />
         <span>Treasure bands</span>
+      </label>
+      {/* TMP-Q5 chunk B — zone-role overlay toggle. Default OFF:
+          tints each zone with its role color for at-a-glance role
+          review. Independent of L0..L7 layer toggles and the other
+          Polish toggles ("Smooth blend", "Treasure bands"). */}
+      <label
+        className="flex items-center gap-2 cursor-pointer hover:bg-slate-800/60 rounded px-1"
+        title="Translucent tint per zone reflecting its ZoneRole (Wilderness / Hub / Forbidden / Sea)."
+      >
+        <input
+          type="checkbox"
+          checked={showZoneRoles}
+          onChange={(e) => setShowZoneRoles(e.target.checked)}
+          className="accent-indigo-500"
+        />
+        <span>Zone roles</span>
       </label>
     </div>
   );

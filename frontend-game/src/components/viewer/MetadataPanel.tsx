@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { TilemapView } from '@/types/tilemap';
 import { computeZoneBreakdown } from './zone-breakdown';
+import { computeRoleBreakdown } from './role-breakdown';
 import type { JSX } from 'react';
 
 // Compact metadata readout for the current TilemapView. Bottom-left,
@@ -40,9 +41,7 @@ export function MetadataPanel({ view }: { view: TilemapView | undefined }): JSX.
   // stale backend that silently drops biome_theme is caught.
   //
   // Excludes u8=0 (void / unpainted) since it isn't a TerrainKind.
-  const distinctTerrains = new Set(
-    view.terrain_layer.filter((v) => v !== 0),
-  ).size;
+  const distinctTerrains = new Set(view.terrain_layer.filter((v) => v !== 0)).size;
   const roads = view.road_segments.length;
   const rivers = view.river_segments.length;
   const crossings = view.river_segments.reduce((a, r) => a + r.crossings.length, 0);
@@ -64,16 +63,10 @@ export function MetadataPanel({ view }: { view: TilemapView | undefined }): JSX.
       <Row k="source" v={view.generation_source.kind} />
       <Row k="prompt_v" v={String(view.prompt_template_version)} />
       {view.registry_ref && (
-        <Row
-          k="registry"
-          v={`${view.registry_ref.id} @ ${view.registry_ref.version}`}
-        />
+        <Row k="registry" v={`${view.registry_ref.id} @ ${view.registry_ref.version}`} />
       )}
       {view.terrain_vocabulary && (
-        <Row
-          k="vocab entries"
-          v={String(view.terrain_vocabulary.length)}
-        />
+        <Row k="vocab entries" v={String(view.terrain_vocabulary.length)} />
       )}
       <details className="mt-1">
         <summary className="cursor-pointer text-slate-400 text-[10px]">zones</summary>
@@ -89,6 +82,7 @@ export function MetadataPanel({ view }: { view: TilemapView | undefined }): JSX.
         </div>
       </details>
       <TreasureBreakdown view={view} />
+      <RoleBreakdown view={view} />
     </div>
   );
 }
@@ -112,12 +106,8 @@ function TreasureBreakdown({ view }: { view: TilemapView }): JSX.Element | null 
     // a regression where the section silently failed to render.
     return (
       <details className="mt-1">
-        <summary className="cursor-pointer text-slate-400 text-[10px]">
-          treasure breakdown
-        </summary>
-        <div className="mt-1 text-[10px] text-slate-500">
-          no treasure placed in this view
-        </div>
+        <summary className="cursor-pointer text-slate-400 text-[10px]">treasure breakdown</summary>
+        <div className="mt-1 text-[10px] text-slate-500">no treasure placed in this view</div>
       </details>
     );
   }
@@ -131,10 +121,7 @@ function TreasureBreakdown({ view }: { view: TilemapView }): JSX.Element | null 
         {rows.map((row) => {
           const hex = row.color.toString(16).padStart(6, '0');
           return (
-            <div
-              key={row.zone_id}
-              className="flex items-center gap-1 text-[10px]"
-            >
+            <div key={row.zone_id} className="flex items-center gap-1 text-[10px]">
               <span
                 className="inline-block w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: `#${hex}` }}
@@ -142,12 +129,59 @@ function TreasureBreakdown({ view }: { view: TilemapView }): JSX.Element | null 
                 data-testid="breakdown-band-swatch"
               />
               <span className="text-slate-400 shrink-0">{row.zone_id}</span>
-              <span className="text-slate-500 shrink-0 text-[9px]">
-                ({row.zone_role})
-              </span>
+              <span className="text-slate-500 shrink-0 text-[9px]">({row.zone_role})</span>
               <span className="ml-auto text-right text-[10px]">
                 {row.pile_count} · Σ {row.total_value}
               </span>
+            </div>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
+// TMP-Q5 chunk B — collapsible per-role breakdown.
+//
+// Reuses the `computeRoleBreakdown` pure helper that the canvas
+// overlay also consumes for color lookup (MED-1 single-source-of-truth:
+// canvas tint, panel swatch, and inspector swatch all agree per role).
+//
+// Memoized on `view` reference per chunk-C MED-2 precedent so React
+// parent re-renders (HUD updates, viewer-store flips, etc.) don't
+// re-walk all zones × all placements.
+function RoleBreakdown({ view }: { view: TilemapView }): JSX.Element {
+  const rows = useMemo(() => computeRoleBreakdown(view), [view]);
+  if (rows.length === 0) {
+    return (
+      <details className="mt-1">
+        <summary className="cursor-pointer text-slate-400 text-[10px]">role breakdown</summary>
+        <div className="mt-1 text-[10px] text-slate-500">no zones in this view</div>
+      </details>
+    );
+  }
+  return (
+    <details className="mt-1">
+      <summary className="cursor-pointer text-slate-400 text-[10px]">
+        role breakdown ({rows.length} roles · {view.zones.length} zones)
+      </summary>
+      <div className="mt-1 max-h-32 overflow-y-auto flex flex-col gap-0.5">
+        {rows.map((row) => {
+          const hex = row.color.toString(16).padStart(6, '0');
+          return (
+            <div key={row.role} className="flex items-center gap-1 text-[10px]">
+              <span
+                className="inline-block w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: `#${hex}` }}
+                aria-label={`role ${row.label}`}
+                // LOW from chunk-B /review-impl — testid stays for
+                // chunk C's visual regression goldens + future DOM
+                // tests. No vitest assertion today (TileInspector
+                // pattern — chunk-C TMP-Q4 LOW-4 precedent).
+                data-testid="role-band-swatch"
+              />
+              <span className="text-slate-400 shrink-0">{row.label}</span>
+              <span className="ml-auto text-right text-[10px]">{row.count}</span>
             </div>
           );
         })}
