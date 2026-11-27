@@ -11,13 +11,7 @@ export type ZoneId = string;
 
 /** V2 — engine-coded terrain behavior class. Mirrors backend
  *  `crate::types::primitive::TerrainPrimitive`. */
-export type TerrainPrimitive =
-  | 'land'
-  | 'water'
-  | 'wall'
-  | 'path'
-  | 'hazard'
-  | 'void';
+export type TerrainPrimitive = 'land' | 'water' | 'wall' | 'path' | 'hazard' | 'void';
 
 /** V2 — engine-coded object behavior class. Mirrors backend
  *  `crate::types::primitive::ObjectPrimitive`. */
@@ -44,6 +38,23 @@ export interface FootprintSize {
 /** V2 — 8-way orientation. Mirrors backend `Direction`. */
 export type Direction = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
 
+/** TMP-Q5 — per-book role color override.
+ *
+ *  Each role is independently optional. When `undefined`, the
+ *  frontend falls back to `ZONE_ROLE_DEFAULTS` (chunk B) for that
+ *  role. Authors can declare only the roles they want to override
+ *  (sparse overrides) and leave the rest at default.
+ *
+ *  Each color is a 24-bit RGB packed into a u32 on the wire (alpha
+ *  bits ignored at render).
+ */
+export interface ZoneRoleColors {
+  wilderness?: number;
+  hub?: number;
+  forbidden?: number;
+  sea?: number;
+}
+
 /** V2 — registry pin. Mirrors backend `RegistryRef`. */
 export interface RegistryRef {
   id: string;
@@ -56,6 +67,11 @@ export interface RegistryRef {
    *  TS type-level validation of ascending tuples isn't possible, so
    *  fixture stubs or buggy backend builds must still be tolerated. */
   value_band_thresholds?: [number, number, number, number];
+  /** TMP-Q5 — per-book role color override.
+   *  `undefined` ⇒ frontend uses `ZONE_ROLE_DEFAULTS` for every role.
+   *  Backend validates each declared color at registry load
+   *  (`Registry::from_file`). */
+  zone_role_colors?: ZoneRoleColors;
 }
 
 /** V2 — per-tile terrain cell. Indexed by `terrain_layer` u8 values
@@ -93,16 +109,26 @@ export enum TerrainKind {
 /** Stable lowercase tag — matches backend `TerrainKind::tag()`. */
 export function terrainKindTag(kind: TerrainKind): string {
   switch (kind) {
-    case TerrainKind.Grass: return 'grass';
-    case TerrainKind.Forest: return 'forest';
-    case TerrainKind.Mountain: return 'mountain';
-    case TerrainKind.Water: return 'water';
-    case TerrainKind.Sand: return 'sand';
-    case TerrainKind.Snow: return 'snow';
-    case TerrainKind.Swamp: return 'swamp';
-    case TerrainKind.Road: return 'road';
-    case TerrainKind.Rough: return 'rough';
-    case TerrainKind.Subterranean: return 'subterranean';
+    case TerrainKind.Grass:
+      return 'grass';
+    case TerrainKind.Forest:
+      return 'forest';
+    case TerrainKind.Mountain:
+      return 'mountain';
+    case TerrainKind.Water:
+      return 'water';
+    case TerrainKind.Sand:
+      return 'sand';
+    case TerrainKind.Snow:
+      return 'snow';
+    case TerrainKind.Swamp:
+      return 'swamp';
+    case TerrainKind.Road:
+      return 'road';
+    case TerrainKind.Rough:
+      return 'rough';
+    case TerrainKind.Subterranean:
+      return 'subterranean';
   }
 }
 
@@ -124,14 +150,7 @@ export interface GridSize {
 export type MapKind = 'region' | 'locale';
 
 export type ZoneRole =
-  | 'capital'
-  | 'hub'
-  | 'wilderness'
-  | 'forbidden'
-  | 'sea'
-  | 'arena'
-  | 'mine_camp'
-  | 'town';
+  'capital' | 'hub' | 'wilderness' | 'forbidden' | 'sea' | 'arena' | 'mine_camp' | 'town';
 
 /** Backend `TileMask` (services/tilemap-service/src/types/tile_mask.rs):
  *  bits packed as u64 array; bit at index `y*width + x` indicates ownership.
@@ -188,15 +207,7 @@ export type TilemapObjectKind =
 
 /** Mirrors backend `BiomeObjectType` (9 variants — applies to `obstacle`). */
 export type BiomeObjectType =
-  | 'mountain'
-  | 'tree'
-  | 'lake'
-  | 'crater'
-  | 'rock'
-  | 'plant'
-  | 'structure'
-  | 'animal'
-  | 'other';
+  'mountain' | 'tree' | 'lake' | 'crater' | 'rock' | 'plant' | 'structure' | 'animal' | 'other';
 
 export interface TilemapObjectPlacement {
   // V1 fields (frozen)

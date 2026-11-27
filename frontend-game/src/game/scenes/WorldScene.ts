@@ -218,6 +218,10 @@ export class WorldScene extends Phaser.Scene {
     // of L0..L7 layer toggles; route the dedicated `showTreasureBands`
     // flag straight through to the overlay-rt handle.
     this.overlayRt?.setTreasureBandsVisible(state.showTreasureBands);
+    // TMP-Q5 chunk B — zone-role overlay is independent of L0..L7
+    // layer toggles; route the dedicated `showZoneRoles` flag straight
+    // through to the overlay-rt handle.
+    this.overlayRt?.setZoneRolesVisible(state.showZoneRoles);
     this.zoneBoundary?.setVisible(v.zone_boundaries);
     this.objectOverlay?.setEnabled(v.objects);
     if (this.player) {
