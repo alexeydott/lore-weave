@@ -457,10 +457,11 @@ fn decoration_skips_multi_tile_footprints_in_object_placements() {
     }
 }
 
+
 #[test]
 fn decoration_v3_default_town_pinned_hash() {
     let template = fixture(Some(DecorationDensity::TOWN));
-    let view = run(&template, 2026);
+    let view = run(&template, 7);
 
     // Plan v2 MED-7 sanity gate: BEFORE pinning the literal below, the
     // produced view must independently pass the AC-4/5/6 invariants.
@@ -562,7 +563,16 @@ fn decoration_v3_default_town_pinned_hash() {
     //    fails 40-vs-0 under the same 1.0 stub) and by the Wilderness>Hub
     //    sign check in `tmp_q5_wilderness_zones_get_more_decorations_than_hub_zones`.
     //    AC-DECO-4/5/6/10 sanity gates above this assertion still pass.
-    const PINNED: &str = "d53d18c23212ea7b6300594bb89bce60218f6eff2b9d628b8cc42d3e79bbd5ab";
+    //
+    // 3. VACUOUS-PIN fix (2026-11-28, coordinator): an 11-seed sweep of
+    //    this exact fixture proved seed 2026 places ZERO decorations on
+    //    this tree — d53d18c2… == blake3("[]") — so the pin passed
+    //    without exercising the placer at all (flagged by the P2
+    //    decoration-family integration review). Re-seeded to 7, whose
+    //    set is 17 decorations, and re-pinned to that set's hash. All
+    //    AC-4/5/6/10 sanity gates above re-ran green on the seed-7 view
+    //    before the new literal was captured.
+    const PINNED: &str = "5c92ce2f114b0f4f23bf5e5c9c862dc21354ea5b2fbfdca99f5771ac49c707ba";
     assert_eq!(
         actual.as_str(),
         PINNED,
