@@ -1,5 +1,7 @@
 module github.com/loreweave/auth-service
 
+require github.com/loreweave/foundation/contracts/platformjwt v0.0.0
+
 go 1.26.0
 
 require (
@@ -60,3 +62,5 @@ require (
 	google.golang.org/grpc v1.83.2 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
+
+replace github.com/loreweave/foundation/contracts/platformjwt => ../../contracts/platformjwt

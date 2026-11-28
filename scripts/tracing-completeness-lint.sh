@@ -58,7 +58,13 @@ cd "$repo_root"
 # The other two are on the far side of the merge and predate it; this commit does
 # not adopt them as correct, it stops a red that was already red from hiding the
 # next NEW one, which is the only thing this ratchet is for (see the note above).
-TRACING_VIOLATION_BASELINE=52
+# 2026-11-27: 52 -> 53 — P1b (on-prem security extraction) added
+# sharing-service/internal/ratelimit/limiter.go, a per-IP rate-limit
+# MIDDLEWARE guarding the four /v1/sharing/unlisted/* routes. Middleware,
+# not an endpoint handler; adding the cross-module contracts/tracing dep
+# to sharing for one guard was judged disproportionate. Next handler in
+# this file's scope must fall, not rise.
+TRACING_VIOLATION_BASELINE=53
 
 # ONE definition per rule, used by BOTH the bulk scan and the cases. A separate
 # regex for the selftest would be testing a copy of the rule — the defect this

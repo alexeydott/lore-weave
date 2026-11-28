@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/loreweave/foundation/contracts/platformjwt"
 )
 
 // From upstream 6c8b23925: only short-lived typ=stream tickets may ride in the
@@ -17,14 +18,7 @@ func TestRequireUserIDAllowQuery_streamTokenOnly(t *testing.T) {
 	uid := uuid.New()
 	srv := &Server{secret: secret}
 
-	streamTok := jwt.NewWithClaims(jwt.SigningMethodHS256, streamClaims{
-		Type: "stream",
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   uid.String(),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(2 * time.Minute)),
-		},
-	})
-	streamStr, err := streamTok.SignedString(secret)
+	streamStr, err := platformjwt.SignStreamToken(secret, uid, 2*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +73,7 @@ func TestParseStreamToken_rejectsAccessAndWrongAlg(t *testing.T) {
 	}
 
 	// alg=none must be refused (HS256 pinned).
-	noneTok := jwt.NewWithClaims(jwt.SigningMethodNone, streamClaims{
+	noneTok := jwt.NewWithClaims(jwt.SigningMethodNone, platformjwt.StreamClaims{
 		Type: "stream",
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   uid.String(),

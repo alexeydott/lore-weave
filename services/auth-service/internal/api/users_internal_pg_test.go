@@ -42,6 +42,10 @@ func byEmailServer(t *testing.T) (*api.Server, *pgxpool.Pool) {
 func getByEmail(t *testing.T, s *api.Server, email string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/internal/users/by-email?email="+email, nil)
+	// the by-email route sits behind requireInternalServiceToken (P1b) — the
+	// test server's config pins the token to "itok".
+	req.Header.Set("X-Internal-Token", "itok")
+
 	rr := httptest.NewRecorder()
 	s.Router().ServeHTTP(rr, req)
 	return rr
@@ -89,6 +93,7 @@ func TestInternalGetUserByEmail_PG(t *testing.T) {
 
 	// missing email param → 400.
 	req := httptest.NewRequest(http.MethodGet, "/internal/users/by-email", nil)
+	req.Header.Set("X-Internal-Token", "itok")
 	rr2 := httptest.NewRecorder()
 	s.Router().ServeHTTP(rr2, req)
 	if rr2.Code != http.StatusBadRequest {

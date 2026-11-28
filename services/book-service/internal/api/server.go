@@ -498,26 +498,11 @@ type accessClaims struct {
 
 // streamClaims — short-lived typ=stream tickets (from upstream 6c8b23925) so
 // <img>/<audio> tags can fetch private media without Bearer headers.
-type streamClaims struct {
-	Type string `json:"typ"`
-	jwt.RegisteredClaims
-}
-
+// P1b dedup (2026-11-27): verification moved to contracts/platformjwt
+// (SDK-tier — auth-service signs the same tickets); this keeps the boolean
+// accept/reject shape the media routes consume.
 func (s *Server) parseStreamToken(tokenStr string) (uuid.UUID, bool) {
-	tok, err := jwt.ParseWithClaims(tokenStr, &streamClaims{}, func(t *jwt.Token) (any, error) {
-		if t.Method != jwt.SigningMethodHS256 {
-			return nil, fmt.Errorf("unexpected signing method")
-		}
-		return s.secret, nil
-	})
-	if err != nil || !tok.Valid {
-		return uuid.Nil, false
-	}
-	claims, ok := tok.Claims.(*streamClaims)
-	if !ok || claims.Type != "stream" {
-		return uuid.Nil, false
-	}
-	id, err := uuid.Parse(claims.Subject)
+	id, err := platformjwt.ParseStreamUserID(s.secret, tokenStr)
 	if err != nil {
 		return uuid.Nil, false
 	}
