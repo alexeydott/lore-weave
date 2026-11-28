@@ -29,7 +29,7 @@ Real cross-process wire equality (the actual bytes flowing between the two
 live services) remains covered by D-ARCH2-MCP-LIVE-SMOKE.
 
 Patch targets mirror test_mcp_execute_tool.py: `mcp_execute_tool` binds
-`streamablehttp_client` and `ClientSession` at module level in
+`streamable_http_client` and `ClientSession` at module level in
 `app.client.knowledge_client`, so we patch those module-namespace symbols
 (patch-where-it-is-used).
 """
@@ -72,7 +72,7 @@ def _text_content(text: str) -> MagicMock:
 def _call_tool_result(*, content: list, is_error: bool = False) -> MagicMock:
     """A CallToolResult-like object: isError flag + a content list."""
     result = MagicMock()
-    result.isError = is_error
+    result.is_error = is_error
     result.content = content
     return result
 
@@ -80,7 +80,7 @@ def _call_tool_result(*, content: list, is_error: bool = False) -> MagicMock:
 def _patch_mcp(call_tool_return):
     """Wire the async-with transport + ClientSession chain to mocks so that
 
-      async with streamablehttp_client(...) as (read, write, _):
+      async with streamable_http_client(...) as (read, write):
           async with ClientSession(read, write) as mcp_session:
               await mcp_session.initialize()
               result = await mcp_session.call_tool(name, args)
@@ -89,7 +89,7 @@ def _patch_mcp(call_tool_return):
     CallToolResult-like object. Returns (transport_patch, session_patch)."""
     transport_cm = MagicMock()
     transport_cm.__aenter__ = AsyncMock(
-        return_value=(MagicMock(), MagicMock(), None)
+        return_value=(MagicMock(), MagicMock())
     )
     transport_cm.__aexit__ = AsyncMock(return_value=False)
     transport_factory = MagicMock(return_value=transport_cm)
@@ -103,7 +103,7 @@ def _patch_mcp(call_tool_return):
     session_factory = MagicMock(return_value=session_cm)
 
     return (
-        patch("app.client.knowledge_client.streamablehttp_client", transport_factory),
+        patch("app.client.knowledge_client.streamable_http_client", transport_factory),
         patch("app.client.knowledge_client.ClientSession", session_factory),
     )
 

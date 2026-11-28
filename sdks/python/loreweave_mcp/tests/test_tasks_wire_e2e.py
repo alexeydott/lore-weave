@@ -18,8 +18,9 @@ import json
 
 import mcp.types as t
 import pytest
-from mcp.server.fastmcp import FastMCP
-from mcp.shared.memory import create_connected_server_and_client_session
+from mcp import ClientSession
+from mcp.client._memory import InMemoryTransport
+from mcp.server.mcpserver import MCPServer
 
 from loreweave_mcp.tasks import InMemoryTaskStore
 from loreweave_mcp.tasks_wire import (
@@ -31,10 +32,11 @@ from loreweave_mcp.tasks_wire import (
 
 
 def _build_server(committed: list):
-    """A FastMCP server with a gate tool whose resolver records the committed write.
-    M1a: the write is a REGISTRY resolver reading the durable payload (book_id) — not a
-    per-call closure — so this same wiring works on a persistent multi-replica store."""
-    mcp = FastMCP("tasks-e2e", stateless_http=True)
+    """An MCPServer (mcp 2.x; 1.x's FastMCP) with a gate tool whose resolver records
+    the committed write. M1a: the write is a REGISTRY resolver reading the durable
+    payload (book_id) — not a per-call closure — so this same wiring works on a
+    persistent multi-replica store."""
+    mcp = MCPServer("tasks-e2e")
 
     async def _commit(owner_user_id, payload, inputs):
         committed.append({"book_id": payload["book_id"], "inputs": inputs})
@@ -57,22 +59,22 @@ def _build_server(committed: list):
 
 
 def _content_json(result) -> dict:
-    """Pull the JSON object out of a CallToolResult — from structuredContent when
-    present (a dict-returning FastMCP tool), else the text block. Robust to the
+    """Pull the JSON object out of a CallToolResult — from ``structured_content``
+    when present (a dict-returning MCP tool), else the text block. Robust to the
     kit's `patch_convert_result` global monkeypatch, which alters which form a
     tool result takes and can leak across tests in the full suite."""
-    sc = getattr(result, "structuredContent", None)
+    sc = getattr(result, "structured_content", None)
     if isinstance(sc, dict):
-        # FastMCP wraps a non-BaseModel return under a "result" key.
+        # The SDK wraps a non-BaseModel return under a "result" key.
         return sc["result"] if set(sc.keys()) == {"result"} else sc
     return json.loads(result.content[0].text)
 
 
 async def _get_task(session, task_id: str) -> t.GetTaskResult:
+    # mcp 2.x: ClientRequest is a type ALIAS (a union), not a constructible
+    # RootModel — send_request takes the request model directly.
     return await session.send_request(
-        t.ClientRequest(
-            t.GetTaskRequest(method="tasks/get", params=t.GetTaskRequestParams(taskId=task_id))
-        ),
+        t.GetTaskRequest(method="tasks/get", params=t.GetTaskRequestParams(taskId=task_id)),
         t.GetTaskResult,
     )
 
@@ -81,44 +83,56 @@ async def _get_task(session, task_id: str) -> t.GetTaskResult:
 async def test_durable_gate_full_loop():
     committed: list = []
     server = _build_server(committed)
-    async with create_connected_server_and_client_session(server._mcp_server) as session:
-        await session.initialize()
+    async with InMemoryTransport(server) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
 
-        # 1) call the gate tool → a durable task handle carrying the card payload,
-        #    input_required, nothing written yet
-        r = await session.call_tool("publish_book", {"book_id": "b-42"})
-        handle = _content_json(r)
-        assert handle["type"] == GATE_RESULT_TYPE
-        task_id = handle["taskId"]
-        assert handle["status"] == "input_required"
-        assert handle["inputRequests"] == {"title": "Publish book b-42?"}  # card payload
-        assert committed == []  # the gate is holding — no write
+            # 1) call the gate tool → a durable task handle carrying the card payload,
+            #    input_required, nothing written yet
+            r = await session.call_tool("publish_book", {"book_id": "b-42"})
+            handle = _content_json(r)
+            assert handle["type"] == GATE_RESULT_TYPE
+            task_id = handle["taskId"]
+            assert handle["status"] == "input_required"
+            assert handle["inputRequests"] == {"title": "Publish book b-42?"}  # card payload
+            assert committed == []  # the gate is holding — no write
 
-        # 2) tasks/get routes to our handler → input_required (the poll contract)
-        got = await _get_task(session, task_id)
-        assert got.status == "input_required"
+            # 2) tasks/get routes to our handler → input_required (the poll contract)
+            got = await _get_task(session, task_id)
+            assert got.status == "input_required"
 
-        # 3) provide the human's accept → the real write runs → completed
-        upd = _content_json(await session.call_tool(
-            "task_provide_input", {"task_id": task_id, "accepted": True}))
-        assert upd["status"] == "completed"
-        assert upd["result"] == {"published": True, "book_id": "b-42"}
-        assert committed == [{"book_id": "b-42", "inputs": {"accepted": True}}]
+            # 3) provide the human's accept → the real write runs → completed
+            upd = _content_json(await session.call_tool(
+                "task_provide_input", {"task_id": task_id, "accepted": True}))
+            assert upd["status"] == "completed"
+            assert upd["result"] == {"published": True, "book_id": "b-42"}
+            assert committed == [{"book_id": "b-42", "inputs": {"accepted": True}}]
 
-        # 4) tasks/get now terminal → completed (the result was delivered on the
-        #    provide_input response above; a crash-resumed client re-polls to see
-        #    this terminal status)
-        done = await _get_task(session, task_id)
-        assert done.status == "completed"
+            # 4) tasks/get now terminal → completed (the result was delivered on the
+            #    provide_input response above; a crash-resumed client re-polls to see
+            #    this terminal status)
+            done = await _get_task(session, task_id)
+            assert done.status == "completed"
 
 
 @pytest.mark.asyncio
 async def test_gate_tool_emits_create_task_result():
-    """With enable_task_results, a gate tool's tools/call response IS a wire
-    CreateTaskResult (resultType:"task") a client auto-detects — no need to read
-    the tool content to know it's a durable task."""
+    """With enable_task_results, a gate tool's tools/call handler emits the wire
+    task envelope (`resultType:"task"`) so a tasks-capable client auto-detects —
+    no need to read the tool content to know it's a durable task.
+
+    mcp 2.x era-boundary: the extension-owned shape is ONLY emitted on a
+    modern-protocol session (a legacy handshake session's server sieves every
+    tools/call result against CallToolResult, so emitting it there would fail
+    the whole call — there the handle-in-content interim form is the contract).
+    The connection-era machinery to OPEN a modern session is Phase-T1c, so this
+    asserts the wrap at its seam (handler-level, with an explicit era ctx):
+    modern ctx → task envelope; legacy ctx → the CallToolResult passes through
+    with the handle in its content."""
+    from types import SimpleNamespace
+
     committed: list = []
-    mcp = FastMCP("tasks-e2e-ctr", stateless_http=True)
+    mcp = MCPServer("tasks-e2e-ctr")
 
     async def _commit(owner_user_id, payload, inputs):
         committed.append(payload["book_id"])
@@ -135,44 +149,47 @@ async def test_gate_tool_emits_create_task_result():
 
     enable_task_results(mcp, store)  # AFTER the tools are registered
 
-    async with create_connected_server_and_client_session(mcp._mcp_server) as session:
-        await session.initialize()
-        res = await session.send_request(
-            t.ClientRequest(
-                t.CallToolRequest(
-                    method="tools/call",
-                    params=t.CallToolRequestParams(name="publish_book",
-                                                   arguments={"book_id": "b-7"}),
-                )
-            ),
-            t.CreateTaskResult,
-        )
-        assert res.task.status == "input_required"
-        assert res.task.taskId.startswith("task_")
-        assert committed == []  # the gate holds — nothing written on create
+    wrapped = mcp._lowlevel_server.get_request_handler("tools/call").handler
+    # handlers take (ctx, params) — the validated CallToolRequestParams, not the envelope
+    req = t.CallToolRequestParams(name="publish_book", arguments={"book_id": "b-7"})
+
+    modern_ctx = SimpleNamespace(protocol_version="2026-07-28")
+    res = await wrapped(modern_ctx, req)
+    assert res["resultType"] == "task"
+    assert res["task"]["status"] == "input_required"
+    assert res["task"]["taskId"].startswith("task_")
+    assert committed == []  # the gate holds — nothing written on create
+
+    legacy_ctx = SimpleNamespace(protocol_version="2025-11-25")
+    res = await wrapped(legacy_ctx, req)
+    assert isinstance(res, t.CallToolResult)
+    handle = _content_json(res)
+    assert handle["type"] == GATE_RESULT_TYPE  # handle-in-content interim form
+    assert committed == []
 
 
 @pytest.mark.asyncio
 async def test_decline_does_not_write():
     committed: list = []
     server = _build_server(committed)
-    async with create_connected_server_and_client_session(server._mcp_server) as session:
-        await session.initialize()
-        handle = _content_json(await session.call_tool("publish_book", {"book_id": "b-9"}))
-        task_id = handle["taskId"]
-        upd = _content_json(await session.call_tool(
-            "task_provide_input", {"task_id": task_id, "accepted": False}))
-        assert upd["status"] == "cancelled"
-        assert committed == []  # declined → no write
-        got = await _get_task(session, task_id)
-        assert got.status == "cancelled"
+    async with InMemoryTransport(server) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            handle = _content_json(await session.call_tool("publish_book", {"book_id": "b-9"}))
+            task_id = handle["taskId"]
+            upd = _content_json(await session.call_tool(
+                "task_provide_input", {"task_id": task_id, "accepted": False}))
+            assert upd["status"] == "cancelled"
+            assert committed == []  # declined → no write
+            got = await _get_task(session, task_id)
+            assert got.status == "cancelled"
 
 
 @pytest.mark.asyncio
 async def test_provide_input_tool_is_visibility_legacy():
     """The provide-input tool is a MECHANISM tool — tagged visibility:legacy so
     find_tools/discovery never surfaces it to the LLM (CAT-4; Go-parity)."""
-    mcp = FastMCP("vis", stateless_http=True)
+    mcp = MCPServer("vis")
     register_task_endpoints(mcp, InMemoryTaskStore(), tool_prefix="composition")
     tools = await mcp.list_tools()
     pi = next((t for t in tools if t.name == "composition_task_provide_input"), None)
@@ -190,12 +207,12 @@ async def test_provide_input_declares_an_action_tier():
     could drive a pending gate to completion, performing the write ask mode exists to
     withhold. Accepting a gate RUNS the gated action, so it must declare an action tier.
     """
-    from mcp.server.fastmcp import FastMCP
+    from mcp.server.mcpserver import MCPServer
 
     from loreweave_mcp.tasks import InMemoryTaskStore
     from loreweave_mcp.tasks_wire import register_task_endpoints
 
-    fastmcp = FastMCP("tier-probe")
+    fastmcp = MCPServer("tier-probe")
     register_task_endpoints(fastmcp, InMemoryTaskStore(), tool_prefix="smoke")
     tools = await fastmcp.list_tools()
     tool = next(t for t in tools if t.name == "smoke_task_provide_input")

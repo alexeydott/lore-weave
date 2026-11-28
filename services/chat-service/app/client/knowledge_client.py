@@ -47,18 +47,45 @@ _OVERLAY_TOOL_RE = re.compile(r"^[ubs]_[0-9a-f]{8}_")
 
 # ARCH-2 C2 — MCP client transport for the USE_MCP_TOOLS dual-run path.
 # Imported at module level (not lazily) so tests can patch these symbols at
-# their point of use (`app.client.knowledge_client.streamablehttp_client` /
+# their point of use (`app.client.knowledge_client.streamable_http_client` /
 # `.ClientSession`). Guarded so a missing `mcp` package doesn't break module
 # import for environments that never enable USE_MCP_TOOLS — mcp_execute_tool
 # raises a clear error if the package is absent and the gate is on.
+# mcp 2.x (2026-07-28): the 1.x `streamablehttp_client(url, headers=…)` entry
+# point was RENAMED `streamable_http_client` and it no longer takes headers/
+# timeouts — it takes a pre-configured `httpx2.AsyncClient` (mcp 2.x dropped
+# httpx 1.x for the `httpx2` package). `httpx2` is `mcp`'s own dependency, so
+# it imports under the same guard.
 try:
+    import httpx2
     from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
+    from mcp.client.streamable_http import streamable_http_client
 except ImportError:  # pragma: no cover - mcp is a hard requirement in prod
     ClientSession = None  # type: ignore[assignment,misc]
-    streamablehttp_client = None  # type: ignore[assignment]
+    streamable_http_client = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
+
+
+def _mcp_transport(url: str, headers: dict[str, str], timeout_s: float):
+    """Open the mcp 2.x streamable-HTTP transport bound to the tool budget.
+
+    1.x's ``streamablehttp_client(url, headers=…, timeout=…, sse_read_timeout=…)``
+    is gone: mcp 2.x takes a pre-configured ``httpx2.AsyncClient``. The budget
+    rides the client's ``Timeout(read=…)`` — the tool RESULT arrives on the SSE
+    read channel, so the read timeout IS the sse_read_timeout of the old call
+    (leaving the SDK default there let a stalled backend hang ~10x the bespoke
+    30s ceiling). Connect timeout gets the same budget, mirroring 1.x's
+    ``timeout=``. Resolved through the module global at call time so tests can
+    patch ``streamable_http_client``.
+    """
+    return streamable_http_client(
+        url,
+        http_client=httpx2.AsyncClient(
+            headers=headers,
+            timeout=httpx2.Timeout(timeout_s, read=timeout_s),
+        ),
+    )
 
 __all__ = [
     "KnowledgeContext",
@@ -633,7 +660,7 @@ class KnowledgeClient:
         cached = self._tool_defs_cache.get(cache_key)
         if cached is not None and time.monotonic() < cached[0]:
             return cached[1]
-        if streamablehttp_client is None or ClientSession is None:
+        if streamable_http_client is None or ClientSession is None:
             logger.warning(
                 "get_tool_definitions called but the 'mcp' package is not installed"
             )
@@ -650,10 +677,9 @@ class KnowledgeClient:
         if tid:
             headers["X-Trace-Id"] = tid
         try:
-            async with streamablehttp_client(
-                mcp_url, headers=headers,
-                timeout=self._tool_timeout_s, sse_read_timeout=self._tool_timeout_s,
-            ) as (read, write, _):
+            async with _mcp_transport(
+                mcp_url, headers, self._tool_timeout_s
+            ) as (read, write):
                 async with ClientSession(read, write) as mcp_session:
                     await mcp_session.initialize()
                     listed = await mcp_session.list_tools()
@@ -672,7 +698,7 @@ class KnowledgeClient:
                 # U-1, the half the first version missed: the SCHEMA carries text too, and
                 # `_tool_tokens` serialises all of it. `_nfc_text` reaches every `description`/
                 # `title`/`summary` at any depth and leaves identifiers alone.
-                "parameters": _nfc_text(_normalize_tool_parameters(t.inputSchema)),
+                "parameters": _nfc_text(_normalize_tool_parameters(t.input_schema)),
             }
             # MCP-fanout C-TOOL: preserve the per-tool `_meta` (tier / scope /
             # synonyms / undo_hint) so the consumer can drive tier-based
@@ -734,7 +760,7 @@ class KnowledgeClient:
         # made the emptiness permanent.
         if self._admin_tool_definitions:
             return self._admin_tool_definitions
-        if streamablehttp_client is None or ClientSession is None:
+        if streamable_http_client is None or ClientSession is None:
             logger.warning(
                 "get_admin_tool_definitions called but the 'mcp' package is not installed"
             )
@@ -753,10 +779,9 @@ class KnowledgeClient:
         if tid:
             headers["X-Trace-Id"] = tid
         try:
-            async with streamablehttp_client(
-                mcp_url, headers=headers,
-                timeout=self._tool_timeout_s, sse_read_timeout=self._tool_timeout_s,
-            ) as (read, write, _):
+            async with _mcp_transport(
+                mcp_url, headers, self._tool_timeout_s
+            ) as (read, write):
                 async with ClientSession(read, write) as mcp_session:
                     await mcp_session.initialize()
                     listed = await mcp_session.list_tools()
@@ -785,7 +810,7 @@ class KnowledgeClient:
                     # where the reviewer was looking and nowhere else, which is this run's most
                     # repeated shape and it repeated inside the fix for it.
                     "description": _nfc(t.description or ""),
-                    "parameters": _nfc_text(_normalize_tool_parameters(t.inputSchema)),
+                    "parameters": _nfc_text(_normalize_tool_parameters(t.input_schema)),
                 },
             }
             for t in listed.tools
@@ -891,7 +916,7 @@ class KnowledgeClient:
         DOES NOT send ``X-User-Id``: admin authority is the verified RS256 token,
         never the user id (INV-T2). The token is never logged (§6.7).
         """
-        if streamablehttp_client is None or ClientSession is None:
+        if streamable_http_client is None or ClientSession is None:
             logger.warning("mcp_execute_tool called but the 'mcp' package is not installed")
             return {
                 "success": False,
@@ -938,19 +963,13 @@ class KnowledgeClient:
             headers["X-Trace-Id"] = tid
 
         try:
-            # Bind BOTH the connect timeout and sse_read_timeout to the same
-            # tool budget execute_tool uses. sse_read_timeout MUST be set
-            # explicitly: the tool RESULT rides the SSE read channel, so the
-            # SDK default (300s) would let a stalled backend hang ~10x the
-            # bespoke 30s ceiling. If this ever migrates to the new
-            # 'streamable_http_client' (which ignores these kwargs), the budget
-            # must move to an httpx.Timeout(read=budget) on a supplied client.
-            async with streamablehttp_client(
-                mcp_url,
-                headers=headers,
-                timeout=self._tool_timeout_s,
-                sse_read_timeout=self._tool_timeout_s,
-            ) as (read, write, _):
+            # Bind BOTH the connect timeout and the SSE read timeout to the same
+            # tool budget execute_tool uses — see _mcp_transport (mcp 2.x moved
+            # the budgets onto the supplied httpx2.AsyncClient's Timeout, the
+            # exact shape this comment always prescribed).
+            async with _mcp_transport(
+                mcp_url, headers, self._tool_timeout_s
+            ) as (read, write):
                 async with ClientSession(read, write) as mcp_session:
                     await mcp_session.initialize()
                     # ext-tasks (T1c(3.f)) — the ACTIVATION switch. When enabled, declare
@@ -982,7 +1001,10 @@ class KnowledgeClient:
         # KG_ENDPOINT_NOT_NODE) and `detail` ({"missing": [...]}) reach the caller
         # — a workflow branches on the code, never on prose. Plain-text errors
         # (external/overlay tools, older services) fall back to the raw text.
-        if getattr(result, "isError", False):
+        # mcp 2.x renamed the client-side result fields to snake_case
+        # (isError→is_error, structuredContent→structured_content); the wire
+        # format itself is unchanged camelCase.
+        if getattr(result, "is_error", False):
             err_text = ""
             if result.content:
                 err_text = getattr(result.content[0], "text", "") or ""
@@ -1001,7 +1023,7 @@ class KnowledgeClient:
         # real payload in `structuredContent`. Prefer structuredContent when present — otherwise
         # json.loads() of the placeholder fails with "unparseable content" and a working tool
         # reads as broken (the measured S02 blocker once book_id was being supplied).
-        _sc = getattr(result, "structuredContent", None)
+        _sc = getattr(result, "structured_content", None)
         if isinstance(_sc, dict) and _sc:
             payload = _sc
         else:
@@ -1067,7 +1089,7 @@ class KnowledgeClient:
         Returns ``[]`` on any failure. Not cached — the listing is cheap and
         per-provider availability shifts between refreshes.
         """
-        if streamablehttp_client is None or ClientSession is None:
+        if streamable_http_client is None or ClientSession is None:
             logger.warning("list_mcp_resources called but the 'mcp' package is not installed")
             return []
 
@@ -1077,10 +1099,9 @@ class KnowledgeClient:
         if tid:
             headers["X-Trace-Id"] = tid
         try:
-            async with streamablehttp_client(
-                mcp_url, headers=headers,
-                timeout=self._tool_timeout_s, sse_read_timeout=self._tool_timeout_s,
-            ) as (read, write, _):
+            async with _mcp_transport(
+                mcp_url, headers, self._tool_timeout_s
+            ) as (read, write):
                 async with ClientSession(read, write) as mcp_session:
                     await mcp_session.initialize()
                     listed = await mcp_session.list_resources()
@@ -1101,14 +1122,14 @@ class KnowledgeClient:
                 "uri": str(r.uri),
                 "name": r.name or "",
                 "description": r.description or "",
-                "mime_type": r.mimeType or "",
+                "mime_type": r.mime_type or "",
             })
-        for t in getattr(templates, "resourceTemplates", None) or []:
+        for t in getattr(templates, "resource_templates", None) or []:
             out.append({
-                "uri_template": t.uriTemplate,
+                "uri_template": t.uri_template,
                 "name": t.name or "",
                 "description": t.description or "",
-                "mime_type": t.mimeType or "",
+                "mime_type": t.mime_type or "",
             })
         return out
 
@@ -1130,7 +1151,7 @@ class KnowledgeClient:
         on success, or ``None`` on ANY failure (transport, protocol, tenancy
         rejection, blob-only content) — never raises into the turn.
         """
-        if streamablehttp_client is None or ClientSession is None:
+        if streamable_http_client is None or ClientSession is None:
             logger.warning("read_mcp_resource called but the 'mcp' package is not installed")
             return None
 
@@ -1146,10 +1167,9 @@ class KnowledgeClient:
         if tid:
             headers["X-Trace-Id"] = tid
         try:
-            async with streamablehttp_client(
-                mcp_url, headers=headers,
-                timeout=self._tool_timeout_s, sse_read_timeout=self._tool_timeout_s,
-            ) as (read, write, _):
+            async with _mcp_transport(
+                mcp_url, headers, self._tool_timeout_s
+            ) as (read, write):
                 async with ClientSession(read, write) as mcp_session:
                     await mcp_session.initialize()
                     result = await mcp_session.read_resource(uri)
@@ -1168,7 +1188,7 @@ class KnowledgeClient:
             return None
         return {
             "uri": str(getattr(first, "uri", uri)),
-            "mime_type": getattr(first, "mimeType", "") or "",
+            "mime_type": getattr(first, "mime_type", "") or "",
             "text": text,
         }
 
@@ -1179,7 +1199,7 @@ class KnowledgeClient:
 
         Returns ``[]`` on any failure — the caller degrades prompt-free.
         """
-        if streamablehttp_client is None or ClientSession is None:
+        if streamable_http_client is None or ClientSession is None:
             logger.warning("list_mcp_prompts called but the 'mcp' package is not installed")
             return []
 
@@ -1189,10 +1209,9 @@ class KnowledgeClient:
         if tid:
             headers["X-Trace-Id"] = tid
         try:
-            async with streamablehttp_client(
-                mcp_url, headers=headers,
-                timeout=self._tool_timeout_s, sse_read_timeout=self._tool_timeout_s,
-            ) as (read, write, _):
+            async with _mcp_transport(
+                mcp_url, headers, self._tool_timeout_s
+            ) as (read, write):
                 async with ClientSession(read, write) as mcp_session:
                     await mcp_session.initialize()
                     listed = await mcp_session.list_prompts()
@@ -1225,7 +1244,7 @@ class KnowledgeClient:
         envelope identity is needed. Returns ``{"description", "messages"}``
         — messages as ``[{"role", "text"}]`` — or ``None`` on any failure.
         """
-        if streamablehttp_client is None or ClientSession is None:
+        if streamable_http_client is None or ClientSession is None:
             logger.warning("get_mcp_prompt called but the 'mcp' package is not installed")
             return None
 
@@ -1235,10 +1254,9 @@ class KnowledgeClient:
         if tid:
             headers["X-Trace-Id"] = tid
         try:
-            async with streamablehttp_client(
-                mcp_url, headers=headers,
-                timeout=self._tool_timeout_s, sse_read_timeout=self._tool_timeout_s,
-            ) as (read, write, _):
+            async with _mcp_transport(
+                mcp_url, headers, self._tool_timeout_s
+            ) as (read, write):
                 async with ClientSession(read, write) as mcp_session:
                     await mcp_session.initialize()
                     result = await mcp_session.get_prompt(name, arguments or {})

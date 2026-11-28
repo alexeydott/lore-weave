@@ -20,6 +20,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from app.auth.admin_jwt import AUDIENCE, ISSUER, SCOPE_ADMIN_WRITE, load_admin_key
 from app.mcp import admin_server
+from mcp.server.mcpserver.exceptions import ToolError
+
 from app.mcp.admin_server import kg_admin_propose_template, rs256_gate
 from app.mcp.server import mcp_server
 
@@ -180,18 +182,20 @@ async def test_propose_missing_scope_rejected(monkeypatch):
     key = load_admin_key(_spki(priv))
     monkeypatch.setattr(admin_server, "get_admin_key", lambda: key)
     tok = _admin_jwt(priv, key.kid, scopes=["admin:read"])  # no admin:write
-    with pytest.raises(ValueError, match="admin:write"):
+    # mcp 2.x: deliberate refusals raise ToolError (a bare ValueError would be
+    # treated as a crash and its message stripped before reaching the caller).
+    with pytest.raises(ToolError, match="admin:write"):
         await kg_admin_propose_template(_ctx(tok), verb="create", code="c", name="n")
 
 
 async def test_propose_no_token_rejected(monkeypatch):
     priv = _gen()
     monkeypatch.setattr(admin_server, "get_admin_key", lambda: load_admin_key(_spki(priv)))
-    with pytest.raises(ValueError, match="missing admin token"):
+    with pytest.raises(ToolError, match="missing admin token"):
         await kg_admin_propose_template(_ctx(None), verb="create", code="c", name="n")
 
 
 async def test_propose_admin_disabled_rejected(monkeypatch):
     monkeypatch.setattr(admin_server, "get_admin_key", lambda: None)
-    with pytest.raises(ValueError, match="not configured"):
+    with pytest.raises(ToolError, match="not configured"):
         await kg_admin_propose_template(_ctx("x"), verb="create", code="c", name="n")

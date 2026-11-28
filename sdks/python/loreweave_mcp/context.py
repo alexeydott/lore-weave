@@ -17,8 +17,16 @@ import secrets
 from dataclasses import dataclass
 from uuid import UUID
 
-from mcp.server.fastmcp import Context as MCPContext
-from mcp.server.fastmcp import FastMCP
+# mcp 2.0 (2026-07-28) — `mcp.server.fastmcp` moved to `mcp.server.mcpserver`
+# and `FastMCP` was renamed `MCPServer`. The stateless wiring FastMCP took in
+# its CONSTRUCTOR (``stateless_http``, ``streamable_http_path``,
+# ``transport_security``) moved to the ``streamable_http_app()`` call in 2.0;
+# `_StatelessMCPServer` below re-attaches the proven defaults there so every
+# service's ``build_mcp_app() -> mcp_server.streamable_http_app()`` keeps
+# working unchanged.
+from mcp.server.mcpserver import Context as MCPContext
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 
 from .compact_content import patch_convert_result, patch_tool_run_size_gate
@@ -78,9 +86,28 @@ class ToolContext:
     internal_token: str = ""
 
 
-def make_stateless_fastmcp(name: str) -> FastMCP:
-    """Build a stateless FastMCP server wired exactly like the proven
-    knowledge-service MCP facade:
+class _StatelessMCPServer(MCPServer):
+    """`MCPServer` whose ``streamable_http_app()`` carries the proven stateless
+    wiring. mcp 2.0 moved the three constructor knobs FastMCP 1.x took
+    (``stateless_http`` / ``streamable_http_path`` / ``transport_security``)
+    onto the app-build call; injecting them HERE — not in each service's
+    ``build_mcp_app()`` — keeps the single chokepoint promise: a service that
+    builds through this kit gets the exact ``/mcp`` facade wiring with no
+    per-service copy to drift."""
+
+    def streamable_http_app(self, **kwargs):
+        kwargs.setdefault("stateless_http", True)
+        kwargs.setdefault("streamable_http_path", "/")
+        kwargs.setdefault(
+            "transport_security",
+            TransportSecuritySettings(enable_dns_rebinding_protection=False),
+        )
+        return super().streamable_http_app(**kwargs)
+
+
+def make_stateless_fastmcp(name: str) -> MCPServer:
+    """Build a stateless MCPServer (mcp 2.0; the renamed FastMCP) wired exactly
+    like the proven knowledge-service MCP facade:
 
     - ``stateless_http=True`` — each tool call is independent; the per-call
       scope arrives in headers, so there is no MCP session state to retain.
@@ -92,9 +119,12 @@ def make_stateless_fastmcp(name: str) -> FastMCP:
       ``Host: <svc>:<port>`` header. The trust boundary here is the network +
       internal token, not the Host header.
 
+    The three settings above ride ``_StatelessMCPServer.streamable_http_app()``
+    (mcp 2.0 moved them out of the constructor) — see that class.
+
     Also applies `patch_convert_result()` (external MCP discoverability audit
     #9 — payload duplication) once per process: every service that builds its
-    FastMCP server through this one shared chokepoint gets the fix for free,
+    MCP server through this one shared chokepoint gets the fix for free,
     with no separate wiring of its own.
     """
     patch_convert_result()
@@ -106,20 +136,18 @@ def make_stateless_fastmcp(name: str) -> FastMCP:
     # K19 — promote Annotated arg docs into the schema. LAST, so it runs OUTERMOST and
     # sees the already-flattened properties from patch_flat_args.
     patch_arg_docs()
-    return FastMCP(
-        name,
-        stateless_http=True,
-        streamable_http_path="/",
-        transport_security=TransportSecuritySettings(
-            enable_dns_rebinding_protection=False
-        ),
-    )
+    return _StatelessMCPServer(name)
 
 
 def _require_header(ctx: MCPContext, header: str) -> str:
     val = ctx.request_context.request.headers.get(header)
     if not val:
-        raise ValueError(f"missing required context header: {header!r}")
+        # ToolError, not ValueError: mcp 2.x treats any non-ToolError raised by a
+        # tool as a CRASH and strips its message before the client sees it —
+        # these envelope refusals are deliberate, and their WHY (which header,
+        # what was wrong) is exactly what the calling agent must read to
+        # self-correct. (On 1.x both shapes surfaced the message verbatim.)
+        raise ToolError(f"missing required context header: {header!r}")
     return val
 
 
@@ -131,9 +159,11 @@ def build_tool_context(ctx: MCPContext, internal_token: str) -> ToolContext:
     """Validate ``X-Internal-Token`` (constant-time, SEC-1) and lift the per-call
     identity envelope from headers into a ``ToolContext``.
 
-    Raises ``ValueError`` when the token is missing/wrong or a required header is
-    absent/malformed — FastMCP surfaces this as a tool-level error (success=False),
-    not a 5xx, so the chat-service loop can tell "tool refused" from "backend down".
+    Raises ``ToolError`` when the token is missing/wrong or a required header is
+    absent/malformed — the SDK surfaces this as a tool-level error (isError=true)
+    with the reason in the text, not a 5xx, so the chat-service loop can tell
+    "tool refused" from "backend down". (Was ValueError until the mcp 2.x
+    migration: 2.x strips the message of any non-ToolError raised by a tool.)
 
     ``internal_token`` is the service's configured shared secret (from env, never
     hardcoded — CLAUDE.md "no hardcoded secrets"); the caller passes it in so the
@@ -144,13 +174,13 @@ def build_tool_context(ctx: MCPContext, internal_token: str) -> ToolContext:
     # _require_header already guarantees a non-empty str, so compare_digest never
     # receives None.
     if not internal_token or not secrets.compare_digest(raw_token, internal_token):
-        raise ValueError("invalid internal token")
+        raise ToolError("invalid internal token")
 
     raw_user_id = _require_header(ctx, "x-user-id")
     try:
         user_id = UUID(raw_user_id)
     except ValueError:
-        raise ValueError(f"x-user-id is not a valid UUID: {raw_user_id!r}")
+        raise ToolError(f"x-user-id is not a valid UUID: {raw_user_id!r}")
 
     raw_project_id = _optional_header(ctx, "x-project-id")
     project_id: UUID | None = None
@@ -158,7 +188,7 @@ def build_tool_context(ctx: MCPContext, internal_token: str) -> ToolContext:
         try:
             project_id = UUID(raw_project_id)
         except ValueError:
-            raise ValueError(f"x-project-id is not a valid UUID: {raw_project_id!r}")
+            raise ToolError(f"x-project-id is not a valid UUID: {raw_project_id!r}")
 
     raw_book_id = _optional_header(ctx, "x-book-id")
     book_id: UUID | None = None
@@ -166,7 +196,7 @@ def build_tool_context(ctx: MCPContext, internal_token: str) -> ToolContext:
         try:
             book_id = UUID(raw_book_id)
         except ValueError:
-            raise ValueError(f"x-book-id is not a valid UUID: {raw_book_id!r}")
+            raise ToolError(f"x-book-id is not a valid UUID: {raw_book_id!r}")
 
     session_id = _require_header(ctx, "x-session-id")
     trace_id = _optional_header(ctx, "x-trace-id")

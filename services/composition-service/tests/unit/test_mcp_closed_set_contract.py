@@ -68,7 +68,7 @@ async def test_the_four_repaired_args_actually_carry_their_enums():
     for (tool_name, arg), want in expected.items():
         tool = tools.get(tool_name)
         assert tool is not None, f"{tool_name} is no longer advertised"
-        prop = (tool.inputSchema.get("properties") or {}).get(arg)
+        prop = (tool.input_schema.get("properties") or {}).get(arg)
         assert prop is not None, f"{tool_name}.{arg} is gone"
         got = set(prop.get("enum") or [])
         for branch in (prop.get("anyOf") or []):

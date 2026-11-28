@@ -59,12 +59,14 @@ datasets==5.0.1
 krippendorff==0.8.2
 
 # ARCH-1 C1 (2026-06-01) — MCP server facade for the memory tools.
-# FastMCP ships inside the official `mcp` SDK; the [cli] extra adds the
-# fastmcp CLI + dev tooling. Mounted at /mcp in app/main.py. The
-# bespoke /internal/tools/* path is retained (dual-run).
-# Keep the service compatible with the shared SDK contract. MCP 2.x removes
-# mcp.server.fastmcp, so that migration still requires a dedicated adapter.
-mcp[cli]>=1.29,<2
+# Ships inside the official `mcp` SDK; mounted at /mcp (+ /mcp/admin) in
+# app/main.py. The bespoke /internal/tools/* path is retained (dual-run).
+# P3/mcp2 (2026-11-27) — on mcp 2.x: `mcp.server.fastmcp` moved to
+# `mcp.server.mcpserver` (FastMCP→MCPServer); the adapter lives in the
+# loreweave_mcp kit + this service's mcp/ modules (stateless wiring moved
+# onto the streamable_http_app() call). Floor 2.2: CVE-2026-59951 is fixed
+# only in 1.30.0/2.2.0. The [cli] extra keeps the dev tooling.
+mcp[cli]>=2.2,<3
 
 # PDF-import vision op (docs/specs/2026-07-06-pdf-book-import.md) —
 # sdks/python/loreweave_parse/pdf_walker.py. pymupdf (imports as `fitz`)

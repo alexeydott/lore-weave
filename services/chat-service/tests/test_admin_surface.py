@@ -70,7 +70,7 @@ class TestGetAdminToolDefinitions:
             out = await client.get_admin_tool_definitions(ADMIN_TOKEN)
         url = factory.call_args.args[0]
         assert url.endswith("/mcp/admin")
-        headers = factory.call_args.kwargs["headers"]
+        headers = factory.call_args.kwargs["http_client"].headers
         assert headers["X-Admin-Token"] == ADMIN_TOKEN
         assert "X-User-Id" not in headers  # admin authority is the token, not a user id
         names = [t["function"]["name"] for t in out]
@@ -146,7 +146,7 @@ class TestAdminExecRouting:
         assert out["success"] is True
         call = transport_factory.call_args
         assert call.args[0].endswith("/mcp/admin")
-        headers = call.kwargs["headers"]
+        headers = call.kwargs["http_client"].headers
         assert headers["X-Admin-Token"] == ADMIN_TOKEN
         assert "X-User-Id" not in headers
         assert "X-Project-Id" not in headers
@@ -166,7 +166,7 @@ class TestAdminExecRouting:
         call = transport_factory.call_args
         assert call.args[0].endswith("/mcp")
         assert not call.args[0].endswith("/mcp/admin")
-        headers = call.kwargs["headers"]
+        headers = call.kwargs["http_client"].headers
         assert headers["X-User-Id"] == "user-7"
         assert "X-Admin-Token" not in headers
         await client.aclose()

@@ -516,16 +516,21 @@ class TestKnowledgeClientHeaders:
         UUID"), which silently aborted the whole tool call — on the resume path it killed
         glossary_task_provide_input so an accepted adopt-standards gate never ran its write
         (book ontology kinds never created). The client must str() every id header. We
-        assert on the headers the client hands to `streamablehttp_client` (mcp_execute_tool
+        assert on the headers the client hands to `streamable_http_client` (mcp_execute_tool
         uses the MCP streamable transport, not the injected httpx MockTransport)."""
         from uuid import UUID
         from unittest.mock import patch
 
-        captured: dict = {}
+        captured = None  # the httpx2 Headers object the app handed the transport
 
         class _FakeStreamCtx:
-            def __init__(self, url, headers=None, **kw):
-                captured.update(headers or {})
+            # mcp 2.x: the app passes (url, http_client=AsyncClient(headers=...)) —
+            # capture the client's case-insensitive Headers OBJECT itself (its
+            # plain-dict view lower-cases every key, which would break the exact
+            # header-name assertions below).
+            def __init__(self, url, http_client=None, **kw):
+                nonlocal captured
+                captured = http_client.headers if http_client is not None else {}
 
             async def __aenter__(self):
                 # Short-circuit AFTER the client built its headers — every value in
@@ -536,7 +541,7 @@ class TestKnowledgeClientHeaders:
                 return False
 
         client = _make_client()
-        with patch("app.client.knowledge_client.streamablehttp_client", _FakeStreamCtx):
+        with patch("app.client.knowledge_client.streamable_http_client", _FakeStreamCtx):
             await client.mcp_execute_tool(
                 user_id=UUID("019d5e3c-7cc5-7e6a-8b27-1344e148bf7c"),
                 session_id=UUID("019f99fd-6594-7ee2-bf56-b8d167b405dd"),
@@ -779,24 +784,25 @@ def _mcp_tool(name: str, description: str = "", input_schema: dict | None = None
     t = MagicMock()
     t.name = name
     t.description = description
-    t.inputSchema = input_schema if input_schema is not None else {"type": "object"}
+    t.input_schema = input_schema if input_schema is not None else {"type": "object"}
     return t
 
 
 def _patch_list_tools(*, tools=None, list_side_effect=None, transport_side_effect=None):
     """Wire the async-with transport + ClientSession chain so that
 
-      async with streamablehttp_client(...) as (read, write, _):
+      async with streamable_http_client(...) as (read, write):
           async with ClientSession(read, write) as s:
               await s.initialize()
               listed = await s.list_tools()
 
-    runs against mocks. Returns (transport_patch, session_patch, transport_factory)."""
+    runs against mocks. Returns (transport_patch, session_patch, transport_factory).
+    mcp 2.x: the transport yields a 2-tuple (read, write) — no session-id getter."""
     transport_cm = MagicMock()
     if transport_side_effect is not None:
         transport_cm.__aenter__ = AsyncMock(side_effect=transport_side_effect)
     else:
-        transport_cm.__aenter__ = AsyncMock(return_value=(MagicMock(), MagicMock(), None))
+        transport_cm.__aenter__ = AsyncMock(return_value=(MagicMock(), MagicMock()))
     transport_cm.__aexit__ = AsyncMock(return_value=False)
     transport_factory = MagicMock(return_value=transport_cm)
 
@@ -814,7 +820,7 @@ def _patch_list_tools(*, tools=None, list_side_effect=None, transport_side_effec
     session_factory = MagicMock(return_value=session_cm)
 
     return (
-        patch("app.client.knowledge_client.streamablehttp_client", transport_factory),
+        patch("app.client.knowledge_client.streamable_http_client", transport_factory),
         patch("app.client.knowledge_client.ClientSession", session_factory),
         transport_factory,
     )
@@ -905,11 +911,11 @@ class TestGetToolDefinitions:
         tpatch, spatch, factory = _patch_list_tools(tools=[_mcp_tool("u_aaa_x")])
         with tpatch, spatch:
             await client.get_tool_definitions(user_id="user-123")
-        assert factory.call_args.kwargs["headers"]["X-User-Id"] == "user-123"
+        assert factory.call_args.kwargs["http_client"].headers["X-User-Id"] == "user-123"
         tp2, sp2, f2 = _patch_list_tools(tools=[_mcp_tool("base")])
         with tp2, sp2:
             await client.get_tool_definitions()  # no user
-        assert "X-User-Id" not in f2.call_args.kwargs["headers"]
+        assert "X-User-Id" not in f2.call_args.kwargs["http_client"].headers
         await client.aclose()
 
     @pytest.mark.asyncio
@@ -942,7 +948,7 @@ class TestGetToolDefinitions:
             await client.get_tool_definitions()
         # default tools_base_url == base_url in tests (no gateway URL passed)
         assert factory.call_args.args[0] == "http://knowledge-service:8092/mcp"
-        assert factory.call_args.kwargs["headers"]["X-Internal-Token"] == "unit-test-token"
+        assert factory.call_args.kwargs["http_client"].headers["X-Internal-Token"] == "unit-test-token"
         await client.aclose()
 
 
@@ -964,7 +970,7 @@ def _patch_mcp_session(session_methods: dict, *, transport_side_effect=None):
     if transport_side_effect is not None:
         transport_cm.__aenter__ = AsyncMock(side_effect=transport_side_effect)
     else:
-        transport_cm.__aenter__ = AsyncMock(return_value=(MagicMock(), MagicMock(), None))
+        transport_cm.__aenter__ = AsyncMock(return_value=(MagicMock(), MagicMock()))
     transport_cm.__aexit__ = AsyncMock(return_value=False)
     transport_factory = MagicMock(return_value=transport_cm)
 
@@ -978,7 +984,7 @@ def _patch_mcp_session(session_methods: dict, *, transport_side_effect=None):
     session_factory = MagicMock(return_value=session_cm)
 
     return (
-        patch("app.client.knowledge_client.streamablehttp_client", transport_factory),
+        patch("app.client.knowledge_client.streamable_http_client", transport_factory),
         patch("app.client.knowledge_client.ClientSession", session_factory),
         transport_factory,
         mock_session,
@@ -990,16 +996,16 @@ def _mcp_resource(uri: str, name: str = "", description: str = "", mime: str = "
     r.uri = uri
     r.name = name
     r.description = description
-    r.mimeType = mime
+    r.mime_type = mime
     return r
 
 
 def _mcp_template(uri_template: str, name: str = "", mime: str = "text/plain"):
     t = MagicMock()
-    t.uriTemplate = uri_template
+    t.uri_template = uri_template
     t.name = name
     t.description = ""
-    t.mimeType = mime
+    t.mime_type = mime
     return t
 
 
@@ -1017,7 +1023,7 @@ class TestListMcpResources:
         listed = MagicMock()
         listed.resources = [_mcp_resource("knowledge://static", "static", "a static one")]
         templates = MagicMock()
-        templates.resourceTemplates = [
+        templates.resource_templates = [
             _mcp_template(
                 "knowledge://project/{project_id}/summary", "project_summary", "text/plain",
             ),
@@ -1068,7 +1074,7 @@ class TestListMcpResources:
         listed = MagicMock()
         listed.resources = []
         templates = MagicMock()
-        templates.resourceTemplates = []
+        templates.resource_templates = []
         tpatch, spatch, factory, _ = _patch_mcp_session({
             "list_resources": AsyncMock(return_value=listed),
             "list_resource_templates": AsyncMock(return_value=templates),
@@ -1077,7 +1083,7 @@ class TestListMcpResources:
         with tpatch, spatch:
             await client.list_mcp_resources()
         assert factory.call_args.args[0] == "http://knowledge-service:8092/mcp"
-        assert factory.call_args.kwargs["headers"]["X-Internal-Token"] == "unit-test-token"
+        assert factory.call_args.kwargs["http_client"].headers["X-Internal-Token"] == "unit-test-token"
         await client.aclose()
 
 
@@ -1088,7 +1094,7 @@ class TestReadMcpResource:
     async def test_success_maps_first_text_contents(self):
         content = MagicMock()
         content.uri = self._URI
-        content.mimeType = "text/plain"
+        content.mime_type = "text/plain"
         content.text = "the story so far"
         result = MagicMock()
         result.contents = [content]
@@ -1103,7 +1109,7 @@ class TestReadMcpResource:
         assert out == {"uri": self._URI, "mime_type": "text/plain", "text": "the story so far"}
         session.read_resource.assert_awaited_once_with(self._URI)
         # D3 — identity rides the envelope headers, never a tool/LLM arg.
-        headers = factory.call_args.kwargs["headers"]
+        headers = factory.call_args.kwargs["http_client"].headers
         assert headers["X-User-Id"] == "u-1"
         assert headers["X-Session-Id"] == "s-1"
         assert headers["X-Project-Id"] == "p-1"
@@ -1124,7 +1130,7 @@ class TestReadMcpResource:
     @pytest.mark.asyncio
     async def test_read_error_returns_none(self):
         """A downstream tenancy rejection (e.g. 'project not found') surfaces
-        as an McpError from read_resource — degraded to None, never a raise."""
+        as an MCPError from read_resource — degraded to None, never a raise."""
         tpatch, spatch, _, _ = _patch_mcp_session({
             "read_resource": AsyncMock(side_effect=RuntimeError("project not found")),
         })
@@ -1639,7 +1645,7 @@ class TestToolTextIsNormalisedAtIngestion:
         listed = MagicMock()
         t = MagicMock()
         t.name, t.description = "u_viet_tool", nfd
-        t.inputSchema = {"type": "object",
+        t.input_schema = {"type": "object",
                          "properties": {"q": {"type": "string", "description": nfd}}}
         t.meta = {"synonyms": [nfd]}
         listed.tools, listed.meta = [t], {}
@@ -1652,9 +1658,9 @@ class TestToolTextIsNormalisedAtIngestion:
             base_url="http://knowledge-service:8092", internal_token="unit-test-token",
             timeout_s=0.5, retries=1,
         )
-        with patch("app.client.knowledge_client.streamablehttp_client") as transport, \
+        with patch("app.client.knowledge_client.streamable_http_client") as transport, \
                 patch("app.client.knowledge_client.ClientSession") as cs:
-            transport.return_value.__aenter__ = AsyncMock(return_value=(None, None, None))
+            transport.return_value.__aenter__ = AsyncMock(return_value=(None, None))
             transport.return_value.__aexit__ = AsyncMock(return_value=False)
             cs.return_value.__aenter__ = AsyncMock(return_value=session)
             cs.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -1680,7 +1686,7 @@ class TestToolTextIsNormalisedAtIngestion:
         nfd, nfc = unicodedata.normalize("NFD", self.NFD_TEXT), unicodedata.normalize("NFC", self.NFD_TEXT)
         t = MagicMock()
         t.name, t.description = "admin_tool", nfd
-        t.inputSchema = {"type": "object",
+        t.input_schema = {"type": "object",
                          "properties": {"q": {"type": "string", "description": nfd}}}
         listed = MagicMock()
         listed.tools, listed.meta = [t], {}
@@ -1692,9 +1698,9 @@ class TestToolTextIsNormalisedAtIngestion:
         client = KnowledgeClient(
             base_url="http://knowledge-service:8092", internal_token="t", timeout_s=0.5, retries=1,
         )
-        with patch("app.client.knowledge_client.streamablehttp_client") as transport, \
+        with patch("app.client.knowledge_client.streamable_http_client") as transport, \
                 patch("app.client.knowledge_client.ClientSession") as cs:
-            transport.return_value.__aenter__ = AsyncMock(return_value=(None, None, None))
+            transport.return_value.__aenter__ = AsyncMock(return_value=(None, None))
             transport.return_value.__aexit__ = AsyncMock(return_value=False)
             cs.return_value.__aenter__ = AsyncMock(return_value=session)
             cs.return_value.__aexit__ = AsyncMock(return_value=False)

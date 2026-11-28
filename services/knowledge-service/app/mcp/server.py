@@ -42,10 +42,9 @@ import secrets
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from mcp.server.fastmcp import Context as MCPContext
-from mcp.server.fastmcp import FastMCP
-from mcp.server.fastmcp.exceptions import ToolError
-from mcp.server.transport_security import TransportSecuritySettings
+from mcp.server.mcpserver import Context as MCPContext
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ResourceError, ToolError
 
 from loreweave_mcp import (
     make_stateless_fastmcp,
@@ -144,8 +143,8 @@ mcp_server = make_stateless_fastmcp("knowledge-memory")
 _validation_directive = validation_directive
 
 
-def _install_validation_error_rewriter(server: FastMCP) -> None:
-    """Wrap the FastMCP tool manager's dispatch so a ToolError caused by a
+def _install_validation_error_rewriter(server: MCPServer) -> None:
+    """Wrap the MCP server's tool manager dispatch so a ToolError caused by a
     pydantic ValidationError re-raises with the one-line directive instead of
     the raw dump. Non-validation errors pass through untouched."""
     manager = server._tool_manager
@@ -200,10 +199,13 @@ _DETAIL_ARG = Annotated[
 def _require_header(ctx: MCPContext, header: str) -> str:
     """Extract a required header from the MCP request context.
 
-    Raises ValueError (surfaces as an MCP tool error) when absent."""
+    Raises ResourceError when absent — the SDK's ANTICIPATED refusal: the
+    reason reaches the caller on BOTH paths this helper serves (tools treat
+    ResourceError like ToolError; the resource path requires it, since mcp 2.x
+    strips the message of any other error type as a crash)."""
     val = ctx.request_context.request.headers.get(header)
     if not val:
-        raise ValueError(f"missing required context header: {header!r}")
+        raise ResourceError(f"missing required context header: {header!r}")
     return val
 
 
@@ -229,8 +231,10 @@ def _require_envelope_user(ctx: MCPContext) -> UUID:
 
     Shared by the tool dispatch path (_build_tool_context) and the Wave C5
     resource read path, so both surfaces apply byte-identical auth BEFORE any
-    repo access. Raises ValueError (FastMCP surfaces it as an MCP-level error,
-    not a 500) on a missing/wrong token or a malformed user id.
+    repo access. Raises ResourceError (the SDK's ANTICIPATED refusal: it
+    surfaces as an MCP-level error with the reason intact — mcp 2.x strips the
+    message of anything else, and the resource path requires ResourceError
+    specifically) on a missing/wrong token or a malformed user id.
     """
     raw_token = _require_header(ctx, "x-internal-token")
     # Constant-time comparison — mirrors app/middleware/internal_auth.py so the
@@ -239,13 +243,16 @@ def _require_envelope_user(ctx: MCPContext) -> UUID:
     # already guarantees raw_token is a non-empty str, so compare_digest never
     # receives None.
     if not secrets.compare_digest(raw_token, settings.internal_service_token):
-        raise ValueError("invalid internal token")
+        # ResourceError, not ValueError: mcp 2.x strips the message of any
+        # non-anticipated error a resource/tool raises — these refusals are
+        # deliberate and the caller must read the reason.
+        raise ResourceError("invalid internal token")
 
     raw_user_id = _require_header(ctx, "x-user-id")
     try:
         return UUID(raw_user_id)
     except ValueError:
-        raise ValueError(f"x-user-id is not a valid UUID: {raw_user_id!r}")
+        raise ResourceError(f"x-user-id is not a valid UUID: {raw_user_id!r}")
 
 
 def _build_tool_context(ctx: MCPContext) -> ToolContext:
@@ -2425,18 +2432,19 @@ async def _require_owned_project(ctx: MCPContext, project_id: str) -> tuple[UUID
     """Envelope auth + project-ownership gate for the resource read path.
 
     Mirrors _require_project_owner_memory (app/tools/executor.py): the project
-    named in the URI must be OWNED by the envelope user. Raises ValueError —
-    FastMCP surfaces it as a resource-read error, never a 500. Anti-oracle: a
-    non-owned and a missing project raise the SAME "project not found" (H13).
+    named in the URI must be OWNED by the envelope user. Raises ResourceError —
+    the SDK surfaces it as a resource-read error (with the reason; mcp 2.x
+    strips anything else), never a 500. Anti-oracle: a non-owned and a missing
+    project raise the SAME "project not found" (H13).
     """
     user_id = _require_envelope_user(ctx)
     try:
         pid = UUID(project_id)
     except ValueError:
-        raise ValueError(f"project_id is not a valid UUID: {project_id!r}")
+        raise ResourceError(f"project_id is not a valid UUID: {project_id!r}")
     project = await ProjectsRepo(get_knowledge_pool()).get(user_id, pid)
     if project is None:
-        raise ValueError("project not found")
+        raise ResourceError("project not found")
     return user_id, pid
 
 

@@ -83,10 +83,10 @@ class TestAgainstARealFastMCPServer:
 
     @pytest.fixture
     def server(self):
-        from mcp.server.fastmcp import FastMCP
+        from mcp.server.mcpserver import MCPServer
 
         patch_error_signal()
-        mcp = FastMCP("k17-test")
+        mcp = MCPServer("k17-test")
         mcp.tool(name="failing", description="fails")(_failing_tool)
         mcp.tool(name="conflict", description="idempotent no-op")(_conflict_tool)
         mcp.tool(name="ok", description="succeeds")(_ok_tool)
@@ -94,7 +94,7 @@ class TestAgainstARealFastMCPServer:
 
     @pytest.mark.asyncio
     async def test_a_failure_raises_so_the_sdk_sets_isError(self, server):
-        from mcp.server.fastmcp.exceptions import ToolError
+        from mcp.server.mcpserver.exceptions import ToolError
 
         with pytest.raises(ToolError) as exc:
             await server.call_tool("failing", {"x": "a"})

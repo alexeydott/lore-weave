@@ -1,11 +1,12 @@
 """External MCP discoverability audit #9 — payload duplication.
 
-Every structured FastMCP tool result comes back as BOTH `structuredContent`
+Every structured MCP tool result comes back as BOTH `structuredContent`
 (the real, parsed JSON) AND `content[0].text` (the SAME payload, JSON-dumped
-again) — confirmed via ``mcp.server.fastmcp.utilities.func_metadata.
-FuncMetadata.convert_result`` (mcp 1.28.1, the version every Python MCP
-provider in this repo resolves to): when the tool has an output schema, it
-UNCONDITIONALLY builds ``unstructured_content = _convert_to_content(result)``
+again) — confirmed via ``mcp.server.mcpserver.utilities.func_metadata.
+FuncMetadata.convert_result`` (verified live on mcp 1.28.1 and re-verified on
+2.0/2.3, where the method returns a single ``CallToolResult`` instead of the
+1.x tuple): when the tool has an output schema, the SDK UNCONDITIONALLY builds
+``unstructured_content = _convert_to_content(result)``
 (a full ``pydantic_core.to_json`` dump) alongside ``structured_content`` and
 returns both. Confirmed live: ~2x tokens on every large read
 (``glossary_book_ontology_read``, ``jobs_list``, chapter bodies) — the exact
@@ -50,6 +51,15 @@ __all__ = [
 _PATCHED_ATTR = "_loreweave_compact_content_patched"
 _SIZE_PATCHED_ATTR = "_loreweave_result_size_patched"
 _PLACEHOLDER_TEXT = "ok — see structuredContent for the full result"
+
+# mcp 2.x: a tool error only reaches the caller with its message if it is a
+# ToolError (anything else is treated as a crash and stripped). Guarded so the
+# module still imports without the mcp package installed.
+try:
+    from mcp.server.mcpserver.exceptions import ToolError as _ToolError
+except Exception:  # pragma: no cover - mcp missing; keep the module importable
+    class _ToolError(Exception):
+        pass
 
 
 # ── the HARD CAP on what an MCP tool may return ──────────────────────────────
@@ -105,11 +115,14 @@ def result_max_bytes() -> int:
     return _env_int("LW_MCP_RESULT_MAX_BYTES", _DEFAULT_MAX_BYTES)
 
 
-class ResultTooLargeError(ValueError):
+class ResultTooLargeError(_ToolError, ValueError):
     """Raised when a tool's structured result exceeds the hard ceiling.
 
     The message is written for two readers at once: the agent (which must not retry) and the
-    human who has to go fix the tool."""
+    human who has to go fix the tool. Base classes: ToolError so mcp 2.x treats it as an
+    ANTICIPATED failure and delivers the message to the caller (any other exception type is
+    treated as a crash and stripped); ValueError for continuity with pre-migration callers
+    that caught this as a ValueError."""
 
     def __init__(self, tool: str, size: int, maximum: int) -> None:
         self.tool, self.size, self.maximum = tool, size, maximum
@@ -149,6 +162,13 @@ def patch_convert_result() -> bool:
     ``content`` half of a structured tool result becomes a short constant
     placeholder instead of a full duplicate JSON dump.
 
+    mcp 2.0 reshaped the contract: ``convert_result`` now returns a SINGLE
+    ``CallToolResult`` (carrying ``content`` + ``structured_content``) instead
+    of the 1.x ``(unstructured, structured)`` tuple, and passes an
+    ``InputRequiredResult`` through untouched. The patch swaps the auto-built
+    ``content`` list for the placeholder and leaves ``structured_content`` —
+    the real payload — alone.
+
     Idempotent — safe to call from multiple services/modules in the same
     process; the second+ call is a no-op (checked via a sentinel attribute
     on the class, not a module-level flag, so it holds even if this module
@@ -159,7 +179,7 @@ def patch_convert_result() -> bool:
     found (never raises — see module docstring).
     """
     try:
-        from mcp.server.fastmcp.utilities import func_metadata as _fm
+        from mcp.server.mcpserver.utilities import func_metadata as _fm
         from mcp.types import CallToolResult, TextContent
     except Exception:
         logger.warning(
@@ -184,7 +204,7 @@ def patch_convert_result() -> bool:
 
     original = cls.convert_result
 
-    def convert_result(self, result):  # noqa: ANN001 - mirrors FastMCP's own untyped signature
+    def convert_result(self, result):  # noqa: ANN001 - mirrors the SDK's own untyped signature
         # A CallToolResult the tool built itself is passed through unchanged —
         # this patch only ever touches the SDK's OWN auto-generated duplicate,
         # never a result a handler deliberately constructed.
@@ -194,12 +214,14 @@ def patch_convert_result() -> bool:
             # No structured output configured — nothing to dedupe against.
             return original(self, result)
         converted = original(self, result)
-        if not (isinstance(converted, tuple) and len(converted) == 2):
-            # Unexpected shape (a future mcp version changed the contract) —
+        if not isinstance(converted, CallToolResult):
+            # An InputRequiredResult (or a shape a future mcp version invented) —
             # return the original untouched rather than guess.
             return converted
-        _unstructured, structured = converted
-        return [TextContent(type="text", text=_PLACEHOLDER_TEXT)], structured
+        if converted.structured_content is None:
+            return converted
+        converted.content = [TextContent(type="text", text=_PLACEHOLDER_TEXT)]
+        return converted
 
     convert_result.__wrapped__ = original
     setattr(cls, _PATCHED_ATTR, True)
@@ -212,7 +234,7 @@ def patch_tool_run_size_gate() -> bool:
 
     WHY NOT convert_result (where the first cut put it): a review proved that path is a
     DEAD END for the size check. Every MCP tool in this repo is annotated ``-> dict`` (bare
-    dict, not ``dict[str, Any]``), which FastMCP routes to a branch where ``output_schema``
+    dict, not ``dict[str, Any]``), which routes to a branch where ``output_schema``
     stays ``None`` — so the convert_result gate returned early on literally every tool, in
     all 5 Python MCP services. A guard that never runs is worse than none: it reads as
     protection. (The same is true of the audit-#9 dedup on that path — separate follow-up.)
@@ -225,11 +247,11 @@ def patch_tool_run_size_gate() -> bool:
     Idempotent (sentinel on the class). Returns True if applied/already applied.
     """
     try:
-        from mcp.server.fastmcp.tools.base import Tool
+        from mcp.server.mcpserver.tools.base import Tool
     except Exception:
         logger.warning(
-            "loreweave_mcp: could not import FastMCP Tool — skipping the result-size gate; "
-            "oversized tool results will NOT be caught.",
+            "loreweave_mcp: could not import the MCP SDK Tool — skipping the result-size "
+            "gate; oversized tool results will NOT be caught.",
             exc_info=True,
         )
         return False
@@ -237,12 +259,13 @@ def patch_tool_run_size_gate() -> bool:
     if getattr(Tool, _SIZE_PATCHED_ATTR, False):
         return True
     if not hasattr(Tool, "run"):
-        logger.warning("loreweave_mcp: FastMCP Tool.run not found — result-size gate skipped.")
+        logger.warning("loreweave_mcp: MCP Tool.run not found — result-size gate skipped.")
         return False
 
     original_run = Tool.run
 
-    async def run(self, arguments, context=None, convert_result=False):  # noqa: ANN001
+    # mcp 2.0 made ``context`` a required positional on Tool.run — mirror it exactly.
+    async def run(self, arguments, context, convert_result=False):  # noqa: ANN001
         result = await original_run(self, arguments, context=context, convert_result=convert_result)
         # Check the RAW payload the tool produced. When convert_result is True the SDK has
         # wrapped it, but the structured half is still the same object graph — measuring the

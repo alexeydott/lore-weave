@@ -43,7 +43,8 @@ from contextlib import asynccontextmanager
 import pytest
 import uvicorn
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+import httpx2  # mcp 2.x client transport dep — the streamable-http client takes a pre-configured AsyncClient
+from mcp.client.streamable_http import streamable_http_client
 
 from app.mcp.server import build_mcp_app
 from app.tools.definitions import TOOL_DEFINITIONS
@@ -112,10 +113,11 @@ def mcp_base_url():
 async def _mcp_client(base_url: str, headers: dict[str, str]):
     """Open an initialized MCP ClientSession with the given context
     headers against the loopback server."""
-    async with streamablehttp_client(base_url, headers=headers) as (
+    async with streamable_http_client(
+        base_url, http_client=httpx2.AsyncClient(headers=headers)
+    ) as (
         read,
         write,
-        _get_session_id,
     ):
         async with ClientSession(read, write) as session:
             await session.initialize()
@@ -267,7 +269,7 @@ async def test_mcp_tools_list_exposes_no_scope_args(mcp_base_url):
         listing = await session.list_tools()
     forbidden = {"user_id", "session_id", "ctx"}
     for tool in listing.tools:
-        props = set(tool.inputSchema.get("properties", {}))
+        props = set(tool.input_schema.get("properties", {}))
         leaked = props & forbidden
         assert not leaked, f"tool {tool.name!r} leaks scope args: {leaked}"
 
@@ -305,7 +307,7 @@ async def test_mcp_inputschema_mirrors_bespoke_openai_schema(mcp_base_url):
         bespoke_props = params["properties"]
         bespoke_required = set(params.get("required", []))
 
-        schema = mcp_by_name[name].inputSchema
+        schema = mcp_by_name[name].input_schema
         mcp_props = schema.get("properties", {})
         mcp_required = set(schema.get("required", []))
 
@@ -441,7 +443,7 @@ async def test_mcp_server_rejects_missing_internal_token(mcp_base_url):
     check raises before any repo access."""
     async with _mcp_client(mcp_base_url, headers={}) as session:
         result = await session.call_tool("memory_search", {"query": "anything"})
-    assert result.isError is True
+    assert result.is_error is True
     assert "x-internal-token" in _error_text(result)
 
 
@@ -456,7 +458,7 @@ async def test_mcp_server_rejects_wrong_internal_token(mcp_base_url):
     }
     async with _mcp_client(mcp_base_url, headers) as session:
         result = await session.call_tool("memory_search", {"query": "anything"})
-    assert result.isError is True
+    assert result.is_error is True
     assert "invalid internal token" in _error_text(result)
 
 
@@ -471,7 +473,7 @@ async def test_mcp_server_rejects_bad_user_id_uuid(mcp_base_url):
     }
     async with _mcp_client(mcp_base_url, headers) as session:
         result = await session.call_tool("memory_search", {"query": "anything"})
-    assert result.isError is True
+    assert result.is_error is True
     assert "x-user-id" in _error_text(result)
 
 
@@ -501,13 +503,13 @@ async def test_mcp_resource_templates_list(mcp_base_url):
     headers = {"X-Internal-Token": _GOOD_TOKEN}
     async with _mcp_client(mcp_base_url, headers) as session:
         listing = await session.list_resource_templates()
-    by_uri = {t.uriTemplate: t for t in listing.resourceTemplates}
+    by_uri = {t.uri_template: t for t in listing.resource_templates}
     assert set(by_uri) == EXPECTED_RESOURCE_TEMPLATES
-    assert by_uri["knowledge://project/{project_id}/summary"].mimeType == "text/plain"
-    assert by_uri["knowledge://project/{project_id}/entities"].mimeType == "application/json"
-    for tpl in listing.resourceTemplates:
-        assert tpl.name, f"template {tpl.uriTemplate!r} is missing a name"
-        assert tpl.description, f"template {tpl.uriTemplate!r} is missing a description"
+    assert by_uri["knowledge://project/{project_id}/summary"].mime_type == "text/plain"
+    assert by_uri["knowledge://project/{project_id}/entities"].mime_type == "application/json"
+    for tpl in listing.resource_templates:
+        assert tpl.name, f"template {tpl.uri_template!r} is missing a name"
+        assert tpl.description, f"template {tpl.uri_template!r} is missing a description"
 
 
 async def test_mcp_prompts_list(mcp_base_url):
@@ -555,16 +557,16 @@ async def test_mcp_prompt_get_renders_entity_dossier(mcp_base_url):
 async def test_mcp_resource_read_rejects_missing_token(mcp_base_url):
     """A resource read without X-Internal-Token is rejected before any repo
     access — same envelope gate as the tool path (_require_envelope_user)."""
-    from mcp.shared.exceptions import McpError
+    from mcp.shared.exceptions import MCPError
 
     async with _mcp_client(mcp_base_url, headers={}) as session:
-        with pytest.raises(McpError) as exc:
+        with pytest.raises(MCPError) as exc:
             await session.read_resource(_SUMMARY_URI)
     assert "x-internal-token" in str(exc.value).lower()
 
 
 async def test_mcp_resource_read_rejects_wrong_token(mcp_base_url):
-    from mcp.shared.exceptions import McpError
+    from mcp.shared.exceptions import MCPError
 
     headers = {
         "X-Internal-Token": "not-the-real-token",
@@ -572,13 +574,13 @@ async def test_mcp_resource_read_rejects_wrong_token(mcp_base_url):
         "X-Session-Id": "sess-1",
     }
     async with _mcp_client(mcp_base_url, headers) as session:
-        with pytest.raises(McpError) as exc:
+        with pytest.raises(MCPError) as exc:
             await session.read_resource(_ENTITIES_URI)
     assert "invalid internal token" in str(exc.value).lower()
 
 
 async def test_mcp_resource_read_rejects_bad_user_id_uuid(mcp_base_url):
-    from mcp.shared.exceptions import McpError
+    from mcp.shared.exceptions import MCPError
 
     headers = {
         "X-Internal-Token": _GOOD_TOKEN,
@@ -586,7 +588,7 @@ async def test_mcp_resource_read_rejects_bad_user_id_uuid(mcp_base_url):
         "X-Session-Id": "sess-1",
     }
     async with _mcp_client(mcp_base_url, headers) as session:
-        with pytest.raises(McpError) as exc:
+        with pytest.raises(MCPError) as exc:
             await session.read_resource(_SUMMARY_URI)
     assert "x-user-id" in str(exc.value).lower()
 
@@ -595,7 +597,7 @@ async def test_mcp_resource_read_rejects_malformed_project_uuid(mcp_base_url):
     """A well-authenticated read of a malformed {project_id} is rejected by the
     UUID parse in _require_owned_project — BEFORE the ownership lookup, so no
     DB is touched (which is what makes this testable here)."""
-    from mcp.shared.exceptions import McpError
+    from mcp.shared.exceptions import MCPError
 
     headers = {
         "X-Internal-Token": _GOOD_TOKEN,
@@ -603,7 +605,7 @@ async def test_mcp_resource_read_rejects_malformed_project_uuid(mcp_base_url):
         "X-Session-Id": "sess-1",
     }
     async with _mcp_client(mcp_base_url, headers) as session:
-        with pytest.raises(McpError) as exc:
+        with pytest.raises(MCPError) as exc:
             await session.read_resource("knowledge://project/not-a-uuid/summary")
     assert "project_id" in str(exc.value).lower()
 
@@ -679,7 +681,7 @@ async def test_closed_set_args_are_enums(mcp_base_url):
         listing = await session.list_tools()
     by_name = {t.name: t for t in listing.tools}
     for tool_name, args in CLOSED_SET_ARGS.items():
-        props = by_name[tool_name].inputSchema.get("properties", {})
+        props = by_name[tool_name].input_schema.get("properties", {})
         for arg in args:
             values = _closed_set_enum(props.get(arg, {}))
             assert values, f"{tool_name}.{arg}: closed-set arg MUST declare an enum"
@@ -732,7 +734,7 @@ async def test_validation_error_reaches_model_as_one_line_directive(mcp_base_url
     }
     async with _mcp_client(mcp_base_url, headers) as session:
         result = await session.call_tool("kg_list_templates", {"scope": "bogus"})
-    assert result.isError is True
+    assert result.is_error is True
     text = result.content[0].text
     assert "errors.pydantic.dev" not in text
     assert "\n" not in text.strip(), f"directive must be one line, got: {text!r}"
@@ -770,5 +772,5 @@ async def test_kg_project_list_is_advertised_with_no_scope_leak(mcp_base_url):
         listing = await session.list_tools()
     by_name = {t.name: t for t in listing.tools}
     assert "kg_project_list" in by_name
-    props = set(by_name["kg_project_list"].inputSchema.get("properties", {}))
+    props = set(by_name["kg_project_list"].input_schema.get("properties", {}))
     assert props == {"include_archived", "limit"}

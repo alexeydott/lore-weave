@@ -77,7 +77,8 @@ def find_undeclared_closed_sets(tools) -> list[tuple[str, str, list[str]]]:
     """
     findings: list[tuple[str, str, list[str]]] = []
     for tool in tools:
-        schema = getattr(tool, "inputSchema", None) or {}
+        # mcp 2.x renamed the wire attr to input_schema; accept both spellings.
+        schema = getattr(tool, "input_schema", None) or getattr(tool, "inputSchema", None) or {}
         for name, prop in (schema.get("properties") or {}).items():
             if not isinstance(prop, dict):
                 continue
@@ -95,7 +96,8 @@ def count_enumerating_descriptions(tools) -> int:
     """
     n = 0
     for tool in tools:
-        schema = getattr(tool, "inputSchema", None) or {}
+        # mcp 2.x renamed the wire attr to input_schema; accept both spellings.
+        schema = getattr(tool, "input_schema", None) or getattr(tool, "inputSchema", None) or {}
         for prop in (schema.get("properties") or {}).values():
             if isinstance(prop, dict) and enumerated_values_in_description(
                 prop.get("description")

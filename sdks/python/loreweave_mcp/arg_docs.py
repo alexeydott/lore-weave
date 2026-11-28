@@ -103,7 +103,7 @@ def apply_arg_docs(schema: dict, model) -> int:
 def patch_arg_docs() -> bool:
     """Promote Annotated-metadata docs into the advertised schema at registration."""
     try:
-        from mcp.server.fastmcp.tools.tool_manager import ToolManager
+        from mcp.server.mcpserver.tools.tool_manager import ToolManager
     except Exception:
         logger.warning(
             "loreweave_mcp.arg_docs: could not import FastMCP's ToolManager — skipping; "

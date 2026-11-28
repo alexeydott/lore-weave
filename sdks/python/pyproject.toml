@@ -38,19 +38,15 @@ dependencies = [
   # _meta validator). It needs the MCP SDK; every Python MCP provider service that
   # `pip install /sdk`s gets the kit + its transport.
   #
-  # UPPER BOUND IS LOAD-BEARING: mcp 2.0.0 REMOVED `mcp.server.fastmcp`, which
-  # `loreweave_mcp` and every provider service's `app/mcp/server.py` import. With the
-  # bound open, a rebuild silently resolved 2.0.0 and composition-service crash-looped on
-  # `ModuleNotFoundError: No module named 'mcp.server.fastmcp'` — nothing in the repo had
-  # changed but the day. translation-service went down the same way on a routine rebuild
-  # (`context.py` imports fastmcp at module scope), which is the shape of the failure: it
-  # was latent in EVERY image and surfaced on whichever service happened to be rebuilt
-  # next, with nothing in the diff to explain it. chat-service and knowledge-service
-  # survived only because they happen to re-pin `mcp==1.28.1` in their own
-  # requirements.txt; a service that trusts the SDK's declaration (composition) got no
-  # such protection. Raise this deliberately, with the fastmcp import path migrated,
-  # never as a drive-by.
-  "mcp>=1.29,<2",
+  # MCP 2.x (p3/mcp2, 2026-11-27) — the 1.x `<2` upper bound is GONE: the kit and all
+  # six Python provider services were migrated onto mcp 2.x's renamed API
+  # (`mcp.server.fastmcp` → `mcp.server.mcpserver`, `FastMCP` → `MCPServer`; the kit's
+  # five monkey-patches were re-targeted and re-verified live). The floor is 2.2, NOT
+  # 2.0: CVE-2026-59951 is fixed only in 1.30.0/2.2.0 (see chat-service
+  # requirements.txt), so a 2.0.x resolution would reintroduce it. The `<3` bound is
+  # the new load-bearing edge: 3.x will be a new audit (this migration's mapping table
+  # lives in the p3/mcp2 commit message).
+  "mcp>=2.2,<3",
   # SDK-2 / SEC-2 (2026-07-04) — loreweave_authn is the shared platform-user JWT
   # verifier (replaces the ~6 copy-pasted jwt.decode blocks). It needs PyJWT; every
   # service that `pip install /sdk`s + imports the verifier gets it (a migrated
