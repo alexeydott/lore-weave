@@ -156,7 +156,9 @@
       "loreEnrichment": "Evren zenginleştirme"
     }
   },
-  "compact.activeCount": "{{n}} aktif",
-  "compact.failedCount": "{{n}} başarısız",
-  "compact.fullPanel": "Tam panel →"
+  "compact": {
+    "activeCount": "{{n}} aktif",
+    "failedCount": "{{n}} başarısız",
+    "fullPanel": "Tam panel →"
+  }
 }

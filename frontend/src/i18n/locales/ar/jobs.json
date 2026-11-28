@@ -156,7 +156,9 @@
       "loreEnrichment": "إثراء المحتوى"
     }
   },
-  "compact.activeCount": "{{n}} نشط",
-  "compact.failedCount": "{{n}} فاشلة",
-  "compact.fullPanel": "لوحة كاملة →"
+  "compact": {
+    "activeCount": "{{n}} نشط",
+    "failedCount": "{{n}} فاشلة",
+    "fullPanel": "لوحة كاملة →"
+  }
 }

@@ -156,7 +156,9 @@
       "loreEnrichment": "世界观丰富化"
     }
   },
-  "compact.activeCount": "{{n}} 个运行中",
-  "compact.failedCount": "{{n}} 个失败",
-  "compact.fullPanel": "完整面板 →"
+  "compact": {
+    "activeCount": "{{n}} 个运行中",
+    "failedCount": "{{n}} 个失败",
+    "fullPanel": "完整面板 →"
+  }
 }

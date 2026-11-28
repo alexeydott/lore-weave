@@ -156,7 +156,9 @@
       "loreEnrichment": "Lore সমৃদ্ধকরণ"
     }
   },
-  "compact.activeCount": "{{n}} সক্রিয়",
-  "compact.failedCount": "{{n}} ব্যর্থ",
-  "compact.fullPanel": "সম্পূর্ণ ড্যাশবোর্ড →"
+  "compact": {
+    "activeCount": "{{n}} সক্রিয়",
+    "failedCount": "{{n}} ব্যর্থ",
+    "fullPanel": "সম্পূর্ণ ড্যাশবোর্ড →"
+  }
 }

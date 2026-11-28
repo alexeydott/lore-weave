@@ -156,7 +156,9 @@
       "loreEnrichment": "Làm giàu cốt truyện"
     }
   },
-  "compact.activeCount": "{{n}} đang chạy",
-  "compact.failedCount": "{{n}} lỗi",
-  "compact.fullPanel": "Bảng điều khiển đầy đủ →"
+  "compact": {
+    "activeCount": "{{n}} đang chạy",
+    "failedCount": "{{n}} lỗi",
+    "fullPanel": "Bảng điều khiển đầy đủ →"
+  }
 }

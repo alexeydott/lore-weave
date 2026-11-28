@@ -156,7 +156,9 @@
       "loreEnrichment": "Обогащение лора"
     }
   },
-  "compact.activeCount": "{{n}} активных",
-  "compact.failedCount": "{{n}} с ошибками",
-  "compact.fullPanel": "Полная панель →"
+  "compact": {
+    "activeCount": "{{n}} активных",
+    "failedCount": "{{n}} с ошибками",
+    "fullPanel": "Полная панель →"
+  }
 }

@@ -156,7 +156,9 @@
     }
   },
   "title": "नौकरियाँ",
-  "compact.activeCount": "{{n}} सक्रिय",
-  "compact.failedCount": "{{n}} विफल",
-  "compact.fullPanel": "पूरा डैशबोर्ड →"
+  "compact": {
+    "activeCount": "{{n}} सक्रिय",
+    "failedCount": "{{n}} विफल",
+    "fullPanel": "पूरा डैशबोर्ड →"
+  }
 }

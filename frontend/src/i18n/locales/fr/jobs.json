@@ -156,7 +156,9 @@
       "loreEnrichment": "Enrichissement de lore"
     }
   },
-  "compact.activeCount": "{{n}} actives",
-  "compact.failedCount": "{{n}} échouées",
-  "compact.fullPanel": "Tableau complet →"
+  "compact": {
+    "activeCount": "{{n}} actives",
+    "failedCount": "{{n}} échouées",
+    "fullPanel": "Tableau complet →"
+  }
 }

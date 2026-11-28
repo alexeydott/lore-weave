@@ -156,7 +156,9 @@
       "loreEnrichment": "Pengayaan lore"
     }
   },
-  "compact.activeCount": "{{n}} aktif",
-  "compact.failedCount": "{{n}} gagal",
-  "compact.fullPanel": "Papan penuh →"
+  "compact": {
+    "activeCount": "{{n}} aktif",
+    "failedCount": "{{n}} gagal",
+    "fullPanel": "Papan penuh →"
+  }
 }
