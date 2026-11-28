@@ -176,26 +176,20 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - run: cargo install cargo-audit --locked
       - name: cargo audit (root workspace Cargo.lock)
-        # Three --ignore entries are advisories with NO in-range fix today
-        # (2026-10-24 for the first two, 2026-11-12 for the third), the
-        # first two reached only through jsonwebtoken v10.4.0:
-        #   RUSTSEC-2023-0071 — rsa "Marvin Attack". No fixed rsa release
-        #     exists at all; our use is JWT sign/verify, not the RSA
-        #     decryption the attack requires.
-        #   RUSTSEC-2026-0387 — crypto-bigint timing; the sole patched line
-        #     is >=0.7.6 while our copy is 0.5.5, pinned by
-        #     elliptic-curve 0.13 <- ecdsa/p256 <- jsonwebtoken.
-        #   RUSTSEC-2026-0459 — libsqlite3-sys 0.30.1, C SQLite
-        #     CVE-2026-119375. No in-range fix: the newest sqlx 0.9.0
-        #     (sqlx-sqlite 0.9.0) caps libsqlite3-sys at <0.38.0 while the
-        #     patched line is >=0.39.0 (checked 2026-11-12 on crates.io).
-        #     And the vulnerable code is not in the build at all:
-        #     sqlx-sqlite is absent from `cargo tree -p sqlx` (only the
-        #     postgres backend is enabled) and libsqlite3-sys is built
-        #     without its `bundled` feature, linking the system libsqlite3.
-        # Lift ALL THREE when the upstream bumps land (jsonwebtoken's
-        # RustCrypto stack for the first two, a sqlx release allowing
-        # libsqlite3-sys >=0.39.0 for the third — Dependabot will open
-        # those PRs); until then these three would keep this advisory
-        # leg permanently red over unfollowable findings.
-        run: cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0387 --ignore RUSTSEC-2026-0459
+        # One --ignore remains (2026-11-28): RUSTSEC-2026-0459 — libsqlite3-sys
+        # 0.30.1, C SQLite CVE-2026-119375. No in-range fix: the newest sqlx 0.9.0
+        # (sqlx-sqlite 0.9.0) caps libsqlite3-sys at <0.38.0 while the patched
+        # line is >=0.39.0 (checked 2026-11-12 on crates.io). And the vulnerable
+        # code is not in the build at all: sqlx-sqlite is absent from
+        # `cargo tree -p sqlx` (only the postgres backend is enabled) and
+        # libsqlite3-sys is built without its `bundled` feature, linking the
+        # system libsqlite3.
+        #
+        # The other two entries were LIFTED 2026-11-28: the jsonwebtoken 10 -> 11
+        # move with the aws_lc_rs backend removed the whole RustCrypto chain
+        # (rsa, elliptic-curve/ecdsa/p256, crypto-bigint) from the graph —
+        # RUSTSEC-2023-0071 and RUSTSEC-2026-0387 no longer fire at all (a
+        # no-flags `cargo audit` over the lock confirms; .cargo/audit.toml keeps
+        # its checked 0071 entry + scripts/rsa-out-of-build-gate.py as the
+        # regression tripwire for the backend feature).
+        run: cargo audit --ignore RUSTSEC-2026-0459

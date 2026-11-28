@@ -101,8 +101,52 @@ The fork's main accumulated every upstream branch carrying unmerged work:
 
 | `mmo-rpg/decoration-family-splits` (game CODE, 58-file delta / TMP-Q6 chunks A–C + CI visual-goldens + L4 smoke) | **MERGED** (`afff2da5a` true-merge, coordinator-verified: tilemap 522+13, FE-game 27 files/261, `-D warnings` clean; zone-role from P1a coexists — three breakdown panels render together; AC-DECO-7's vacuous empty-list pin re-seeded to seed 7 / 17 decorations with the 11-seed sweep as evidence). |
 
-| `feat/on-prem-single-port` (runtime code) | **NOT MERGED — deliberate** (precedent `b28f71b4c`: assets were taken, the runtime code predates the fork divergence). Its `nginx.prod.conf` + deploy-assessment doc were already taken then. |
+| `feat/on-prem-single-port` (runtime code) | **NOT MERGED — deliberate** (the single-port overlay architecture was rejected), **but its shared-code SECURITY half was extracted and merged** (2026-11-28, `2f744c253` + `21fc92a1c`: internal-endpoint auth gates, stream tickets, private-media mode, per-IP limiter, CORS allowlist, WS/SSE token hygiene — 48 files, skipped: overlay runtime, S11 mTLS machinery, the duplicate BFF limiter). The remaining unmerged delta is overlay-only by classification. |
 | everything else (`release/v0.1.0`, `feat/frontend-tools-mcp-migration`, `feat/game-logic`, `refactor/*`, `feature/human-sim-remediation`, stale dependabot) | ahead=0 of upstream/main — already on the fork via upstream syncs; the stale dependabot bases are superseded by the fork's own dep management. |
+
+## 6a · Session close 2026-11-28 — what landed, what remains
+
+Everything above is per-topic; this is the session-level balance.
+
+**Landed (all pushed, CI green — 0 blocking failures on `e5864311b` across 72 check runs):**
+
+- **Upstream accumulation is COMPLETE.** Every upstream branch is merged, superseded, or a
+  documented deliberate skip (§5): the September release-gaps program, civ-layer, zone-role-viz
+  CODE (per-file 3-way — the earlier docs-only merge had silently dropped every code hunk),
+  decoration-family-splits, the dependabot waves (pip + cargo majors + jsdom), the on-prem
+  security half, and the Nest-12 state restoration after the Nov-24 merges silently reverted it.
+- **mcp 1.x → 2.x migration** (`ed004ccd4`): fastmcp → `mcp.server.mcpserver`, all six Python
+  surfaces + the scripts layer; pins `>=2.2,<3` (floor closes CVE-2026-59951 — the dependabot
+  `==2.0.0` bumps would have reintroduced it).
+- **dep-vuln fully green at job level, all four legs**: otel 1.47.0 ×13 Go modules, url 2.5.9 +
+  quinn-udp 0.5.16, gateway overrides (multer/body-parser/ws/gaxios), the prod-only npm audit
+  policy, and — after jsonwebtoken 11 + aws_lc_rs — two of the three cargo-audit ignores lifted
+  as vacuous (rsa/crypto-bigint left the graph; 0459/sqlx-cap remains).
+- **i18n sweep + the studio bottom panel rework** (three rounds: real feeds instead of stubs, a
+  resizable sash, and the "+" picker that pins ANY catalog panel as a bottom tab).
+
+**What remains open (the honest debt list, owner-tagged):**
+
+1. **September runner evidence — T8/AC-6 + T17/AC-12** (§3): the e2e suites through
+   `scripts/e2e/run-evidence-suite.py` have not run on the fork stack; T8 needs 5 consecutive
+   clean full runs in the LEDGER. Executor: coordinator, on PO go.
+2. **spec-16 editor retirement** (§2) — blocked on `D-STUDIO-MOBILE-SHELL`, a PO decision.
+3. **Studio session leftovers** (§2): `S2-B2e` arc-templates live-browser smoke, `S4` 3b/3c
+   motif/conformance smoke evidence, `S8 §2` translation agent-parity bar — evidence work, not
+   features.
+4. **CI-visual-goldens** (DEFERRED.md, 2026-11-28): rebake the decoration-family PNG goldens
+   against THIS fork's UI via `visual-snapshots-bake.yml`, prove the canvas path in CI's
+   headless chromium, then flip `frontend-game-e2e-with-backend` back to blocking.
+5. **TS 7 ×6** (§5) — blocked on ts-jest/@nestjs/cli support; cms-frontend and poc already pilot.
+6. **Upstream PRs** (#334 consolidated, #331, #332, #315, #318–#327) — all open, upstream `main`
+   frozen at 2026-09-13; rebase waves on owner movement.
+7. **Nightly G2 latency finding** (S7/F3+F4): per-op exponent 0.606 > calibrated ceiling 0.50 on
+   the shared foundation PG; the bite check proves the gate non-vacuous. Needs an
+   infrastructure-vs-real-regression investigation before any ceiling change.
+8. **Ollama/token-spend rework** (DEFERRED 163) — unchanged, owner decision on the guardrail
+   number.
+
+---
 
 ## 6 · House rules
 
