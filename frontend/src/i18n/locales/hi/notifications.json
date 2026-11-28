@@ -56,5 +56,9 @@
     "social": "सोशल",
     "wiki": "विकी",
     "system": "सिस्टम"
+  },
+  "compact": {
+    "unreadCount": "{{n}} अपठित",
+    "fullPanel": "पूरा पैनल →"
   }
 }

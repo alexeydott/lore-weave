@@ -1156,7 +1156,8 @@
       "warn": "警告",
       "info": "資訊"
     },
-    "resizeHint": "拖曳調整大小 · 雙擊重設"
+    "resizeHint": "拖曳調整大小 · 雙擊重設",
+    "notifications": "通知"
   },
   "status": {
     "wordsPlaceholder": "— 字",

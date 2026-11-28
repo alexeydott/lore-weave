@@ -1169,7 +1169,8 @@
       "warn": "Peringatan",
       "info": "Info"
     },
-    "resizeHint": "Seret untuk mengubah ukuran · klik dua untuk reset"
+    "resizeHint": "Seret untuk mengubah ukuran · klik dua untuk reset",
+    "notifications": "Notifikasi"
   },
   "status": {
     "wordsPlaceholder": "— kata",

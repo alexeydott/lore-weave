@@ -1169,7 +1169,8 @@
       "warn": "Aviso",
       "info": "Info"
     },
-    "resizeHint": "Arraste para redimensionar · clique duplo para redefinir"
+    "resizeHint": "Arraste para redimensionar · clique duplo para redefinir",
+    "notifications": "Notificações"
   },
   "status": {
     "wordsPlaceholder": "— palavras",

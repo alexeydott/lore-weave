@@ -56,5 +56,9 @@
     "social": "Social",
     "wiki": "Wiki",
     "system": "Sistema"
+  },
+  "compact": {
+    "unreadCount": "{{n}} não lidas",
+    "fullPanel": "Painel completo →"
   }
 }

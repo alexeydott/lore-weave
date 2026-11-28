@@ -1169,7 +1169,8 @@
       "warn": "경고",
       "info": "정보"
     },
-    "resizeHint": "드래그하여 크기 조절 · 더블클릭으로 초기화"
+    "resizeHint": "드래그하여 크기 조절 · 더블클릭으로 초기화",
+    "notifications": "알림"
   },
   "status": {
     "wordsPlaceholder": "— 단어",

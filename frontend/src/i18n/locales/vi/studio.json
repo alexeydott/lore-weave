@@ -1169,7 +1169,8 @@
       "warn": "Cảnh báo",
       "info": "Thông tin"
     },
-    "resizeHint": "Kéo để đổi kích thước · nhấp đúp để đặt lại"
+    "resizeHint": "Kéo để đổi kích thước · nhấp đúp để đặt lại",
+    "notifications": "Thông báo"
   },
   "status": {
     "wordsPlaceholder": "— từ",

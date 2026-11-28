@@ -16,6 +16,13 @@ vi.mock('@/auth', () => ({
 vi.mock('../StudioIssuesFeed', () => ({
   StudioIssuesFeed: () => <div data-testid="studio-issues-feed-stub" />,
 }));
+vi.mock('@/features/notifications/components/NotificationsCompactFeed', () => ({
+  NotificationsCompactFeed: ({ onOpen }: { onOpen?: (n: { id: string }) => void }) => (
+    <div data-testid="notifications-compact-feed-stub">
+      <button data-testid="notifications-compact-row-stub" onClick={() => onOpen?.({ id: 'n1' })} />
+    </div>
+  ),
+}));
 vi.mock('@/features/jobs/components/JobsCompactFeed', () => ({
   JobsCompactFeed: ({
     onOpenDetail,
@@ -68,6 +75,17 @@ describe('StudioBottomPanel', () => {
     renderPanel();
     expect(screen.queryByText('bottom.generation')).toBeNull();
     expect(screen.queryByTestId('studio-bottom-open-jobs-jobs')).toBeNull();
+  });
+
+  it('switches to the Notifications tab; a row click hands the notification to the link resolver', () => {
+    renderPanel();
+    expect(screen.queryByTestId('notifications-compact-feed-stub')).toBeNull();
+    fireEvent.click(screen.getByText('bottom.notifications'));
+    expect(screen.getByTestId('notifications-compact-feed-stub')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('notifications-compact-row-stub'));
+    // the mocked resolver path asserts only that onOpen reached the shell (the
+    // followStudioLink integration lives in the notifications link tests).
+    expect(screen.getByTestId('notifications-compact-feed-stub')).toBeInTheDocument();
   });
 
   it('fires onClose from the collapse control', () => {

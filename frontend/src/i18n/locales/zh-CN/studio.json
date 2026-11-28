@@ -1169,7 +1169,8 @@
       "warn": "警告",
       "info": "信息"
     },
-    "resizeHint": "拖动调整大小 · 双击重置"
+    "resizeHint": "拖动调整大小 · 双击重置",
+    "notifications": "通知"
   },
   "status": {
     "wordsPlaceholder": "— 字",

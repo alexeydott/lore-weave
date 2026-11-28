@@ -14,11 +14,14 @@ import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { JobsStreamProvider } from '@/features/jobs/context/JobsStreamProvider';
 import { JobsCompactFeed } from '@/features/jobs/components/JobsCompactFeed';
+import { NotificationsCompactFeed } from '@/features/notifications/components/NotificationsCompactFeed';
+import { notificationLink } from '@/features/notifications/link';
+import { followStudioLink } from '../host/studioLinks';
 import { useStudioHost } from '../host/StudioHostProvider';
 import { StudioIssuesFeed } from './StudioIssuesFeed';
 
-type BottomTab = 'jobs' | 'issues';
-const TABS: BottomTab[] = ['jobs', 'issues'];
+type BottomTab = 'jobs' | 'notifications' | 'issues';
+const TABS: BottomTab[] = ['jobs', 'notifications', 'issues'];
 
 export function StudioBottomPanel({
   onClose,
@@ -31,7 +34,8 @@ export function StudioBottomPanel({
   onResize: (height: number, persist?: boolean) => void;
 }) {
   const { t } = useTranslation('studio');
-  const { openPanel } = useStudioHost();
+  const host = useStudioHost();
+  const { openPanel } = host;
   const [tab, setTab] = useState<BottomTab>('jobs');
   const drag = useRef<{ startY: number; startHeight: number } | null>(null);
 
@@ -110,7 +114,15 @@ export function StudioBottomPanel({
         </button>
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-        {tab === 'issues' ? (
+        {tab === 'notifications' ? (
+          <NotificationsCompactFeed
+            onOpen={(n) => {
+              const link = notificationLink(n);
+              if (link) followStudioLink(link, host, { bookId: host.bookId });
+            }}
+            onOpenFullPanel={() => openPanel('notifications', { focus: true })}
+          />
+        ) : tab === 'issues' ? (
           <StudioIssuesFeed />
         ) : (
           // Jobs — the compact projection of the same data spine the jobs-list dock panel

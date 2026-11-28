@@ -1169,7 +1169,8 @@
       "warn": "Amaran",
       "info": "Info"
     },
-    "resizeHint": "Seret untuk saiz · klik dua untuk set semula"
+    "resizeHint": "Seret untuk saiz · klik dua untuk set semula",
+    "notifications": "Notifikasi"
   },
   "status": {
     "wordsPlaceholder": "— patah perkataan",

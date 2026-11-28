@@ -56,5 +56,9 @@
     "social": "اجتماعي",
     "wiki": "ويكي",
     "system": "النظام"
+  },
+  "compact": {
+    "unreadCount": "{{n}} غير مقروءة",
+    "fullPanel": "لوحة كاملة →"
   }
 }

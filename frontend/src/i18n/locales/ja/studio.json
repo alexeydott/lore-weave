@@ -1169,7 +1169,8 @@
       "warn": "警告",
       "info": "情報"
     },
-    "resizeHint": "ドラッグでサイズ変更 · ダブルクリックでリセット"
+    "resizeHint": "ドラッグでサイズ変更 · ダブルクリックでリセット",
+    "notifications": "通知"
   },
   "status": {
     "wordsPlaceholder": "— 文字",

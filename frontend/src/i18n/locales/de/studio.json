@@ -1169,7 +1169,8 @@
       "warn": "Warnung",
       "info": "Info"
     },
-    "resizeHint": "Ziehen zum Skalieren · Doppelklick setzt zurück"
+    "resizeHint": "Ziehen zum Skalieren · Doppelklick setzt zurück",
+    "notifications": "Benachrichtigungen"
   },
   "status": {
     "wordsPlaceholder": "— Wörter",

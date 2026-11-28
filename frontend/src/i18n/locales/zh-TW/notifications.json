@@ -56,5 +56,9 @@
     "social": "社交",
     "system": "系統",
     "wiki": "維基"
+  },
+  "compact": {
+    "unreadCount": "{{n}} 條未讀",
+    "fullPanel": "完整面板 →"
   }
 }

@@ -1169,7 +1169,8 @@
       "warn": "Advertencia",
       "info": "Información"
     },
-    "resizeHint": "Arrastre para cambiar el tamaño · doble clic para restablecer"
+    "resizeHint": "Arrastre para cambiar el tamaño · doble clic para restablecer",
+    "notifications": "Notificaciones"
   },
   "status": {
     "wordsPlaceholder": "— palabras",

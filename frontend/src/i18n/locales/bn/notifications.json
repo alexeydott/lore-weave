@@ -56,5 +56,9 @@
     "social": "সোশ্যাল",
     "wiki": "উইকি",
     "system": "সিস্টেম"
+  },
+  "compact": {
+    "unreadCount": "{{n}} অপঠিত",
+    "fullPanel": "সম্পূর্ণ প্যানেল →"
   }
 }

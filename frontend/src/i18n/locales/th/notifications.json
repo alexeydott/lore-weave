@@ -56,5 +56,9 @@
     "social": "โซเชียล",
     "system": "ระบบ",
     "wiki": "วิกิ"
+  },
+  "compact": {
+    "unreadCount": "ยังไม่ได้อ่าน {{n}}",
+    "fullPanel": "แผงเต็ม →"
   }
 }

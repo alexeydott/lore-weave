@@ -56,5 +56,9 @@
     "social": "Sosyal",
     "wiki": "Wiki",
     "system": "Sistem"
+  },
+  "compact": {
+    "unreadCount": "{{n}} okunmamış",
+    "fullPanel": "Tam panel →"
   }
 }
