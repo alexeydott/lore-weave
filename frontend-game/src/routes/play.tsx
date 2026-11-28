@@ -54,22 +54,61 @@ export function PlayRoute(): JSX.Element {
   const [gridWidth, setGridWidth] = useState<number>(DEFAULT_ZONE_WIDTH);
   const [gridHeight, setGridHeight] = useState<number>(DEFAULT_ZONE_HEIGHT);
 
-  // TMP-Q4 chunk C — let the e2e select a fixture via `?template=<key>`
-  // so the visual regression goldens can exercise the badges + zone
-  // overlay against a treasure-bearing template without changing
+  // TMP-Q4 chunk C — `?template=treasure-demo` lets the e2e select a
+  // fixture so the visual regression goldens can exercise the badges +
+  // zone overlay against a treasure-bearing template without changing
   // minimal.json (which the existing AC-DECO-8 / AC-BIOME-8 smoke
   // tests depend on). Default remains minimal.json so /play loads
   // unchanged in normal usage.
-  const templateUrl =
-    typeof window !== 'undefined'
-      ? (() => {
-          const params = new URLSearchParams(window.location.search);
-          const key = params.get('template');
-          if (key === 'treasure-demo') return '/templates/treasure-demo.json';
-          return undefined;
-        })()
+  //
+  // TMP-Q6 chunk D (DEFERRED #048 follow-up) — `?fixture=NAME` +
+  // `?seed=N` let test fixtures (e.g. `decoration_dense`) inject an
+  // alternate template file from `/public/templates/{NAME}.json` and
+  // pin a known-good seed (some templates have seeds where the placer
+  // pipeline saturates or under-shoots; goldens need a deterministic
+  // productive seed). Both query params validate against closed
+  // allowlists / a 32-bit range at the query layer so an attacker
+  // can't load `?fixture=../etc/passwd`, arbitrary remote URLs, or
+  // NaN / overflow seeds — the GET stays scoped to bundled fixtures.
+  // When both `template` and `fixture` are given, `fixture` (the
+  // newer TMP-Q6 mechanism) wins.
+  const queryParams = (() => {
+    if (typeof window === 'undefined') {
+      return { template: null, fixture: null, seedOverride: null };
+    }
+    const params = new URLSearchParams(window.location.search);
+    // TMP-Q4 chunk C allowlist: exactly one keyed template.
+    const templateParam = params.get('template');
+    const template = templateParam === 'treasure-demo' ? templateParam : null;
+    const rawFixture = params.get('fixture');
+    const ALLOWED_FIXTURES = new Set<string>(['minimal', 'decoration_dense']);
+    const fixture =
+      rawFixture && ALLOWED_FIXTURES.has(rawFixture) ? rawFixture : null;
+    // `?seed=N` lets test fixtures pin a known-good seed for the
+    // requested template. Validated as a positive 32-bit integer to
+    // avoid NaN / overflow / negative values flowing into the BE.
+    const rawSeed = params.get('seed');
+    const seedOverride = (() => {
+      if (!rawSeed) return null;
+      const n = Number.parseInt(rawSeed, 10);
+      if (!Number.isFinite(n) || n < 0 || n > 0xffffffff) return null;
+      return n;
+    })();
+    return { template, fixture, seedOverride };
+  })();
+  const templateUrl = queryParams.fixture
+    ? `/templates/${queryParams.fixture}.json`
+    : queryParams.template
+      ? `/templates/${queryParams.template}.json`
       : undefined;
-  const tilemap = useZoneTilemap({ seed, tier, gridWidth, gridHeight, templateUrl });
+  const effectiveSeed = queryParams.seedOverride ?? seed;
+  const tilemap = useZoneTilemap({
+    seed: effectiveSeed,
+    tier,
+    gridWidth,
+    gridHeight,
+    templateUrl,
+  });
   const openInspectorFor = useViewerStore((s) => s.openInspectorFor);
 
   // Bridge Phaser EventBus → viewer-store: Shift-click on a tile

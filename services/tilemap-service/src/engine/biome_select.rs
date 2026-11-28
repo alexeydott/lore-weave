@@ -358,6 +358,7 @@ mod tests {
             world_zone: None,
             decoration_density: None,
             background_biome: None,
+            decoration_family_density: None,
         };
         let result = library_for_template(&template);
         let full = engine_biome_library();
@@ -390,6 +391,7 @@ mod tests {
             }),
             decoration_density: None,
             background_biome: None,
+            decoration_family_density: None,
         };
         let result = library_for_template(&template);
         let full = engine_biome_library();

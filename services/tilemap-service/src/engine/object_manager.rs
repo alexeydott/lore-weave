@@ -262,6 +262,7 @@ fn commit_placement(
         tag: Some(v2.tag),
         footprint: Some(v2.footprint),
         orientation: None,
+        family: None,
         properties: serde_json::Value::Null,
     });
     let width = grid.width;

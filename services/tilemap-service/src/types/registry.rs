@@ -7,6 +7,8 @@
 //!
 //! See ADR `docs/specs/2026-05-26-data-model-v2-registry-footprint.md` §2.2.
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
@@ -155,6 +157,17 @@ pub struct ObjectKindDef {
     #[serde(default = "default_density_weight",
             skip_serializing_if = "is_default_density_weight")]
     pub density_weight: f32,
+    /// TMP-Q6 — family classifier for decoration objects (chunk-B
+    /// per-family density bias + chunk-C FE breakdown grouping).
+    /// `None` for non-decoration kinds (towns, treasure, etc.) and
+    /// for pre-Q6 fixtures without the field. Validated at registry
+    /// load: id-format regex `^[a-z][a-z0-9_]*$`. The namespace is
+    /// flat + book-extensible — V1 default families are `rock` /
+    /// `vegetation` / `structure` / `bone` / `water` / `snow`; per-
+    /// book registries can add new family strings without code
+    /// changes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub family: Option<String>,
     /// Open property bag — see ADR §2.1.1.
     #[serde(default = "default_properties")]
     pub properties: JsonValue,
@@ -225,7 +238,15 @@ impl ZoneRoleColors {
 
 /// Registry identifier + version, embedded in TilemapView responses so
 /// frontends can detect mismatched registry assumptions.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// **Note on `Eq`:** dropped from the derive when `decoration_family_density`
+/// (TMP-Q6 chunk B) added an `Option<HashMap<String, f32>>` field —
+/// `f32` only impls `PartialEq`. No call site uses `RegistryRef` as a
+/// HashMap key or with an `Eq` bound — only `assert_eq!` (PartialEq
+/// is enough). Mirrors the same `Eq` drop on `TilemapTemplate` when
+/// `world_zone: Option<WorldZoneSnapshot>` (with f32 climate fields)
+/// landed in Phase 3.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RegistryRef {
     /// Registry identifier (e.g. `"lw"`, `"xianxia-demo"`).
     pub id: String,
@@ -246,6 +267,20 @@ pub struct RegistryRef {
     /// fields still fall back to defaults at render time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub zone_role_colors: Option<ZoneRoleColors>,
+    /// TMP-Q6 chunk B — per-book per-family decoration density baseline.
+    /// Sparse: only families the book wants to bias appear here. Keys
+    /// must match `^[a-z][a-z0-9_]*$` (same as `ObjectKindDef.family`);
+    /// values must be finite + non-negative (0.0 allowed → "no decorations
+    /// of this family in this book"). Resolution chain: template wins
+    /// per-family; absent template entries fall back to this registry
+    /// baseline; absent registry entries fall back to 1.0.
+    ///
+    /// Validated at `Registry::from_file` via `validate_decoration_family_density`.
+    /// Same validation function used at template-side check in
+    /// `DecorationPlacer::process`. Spec:
+    /// `docs/specs/2026-05-30-decoration-family-splits.md` AC-DFS-5.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decoration_family_density: Option<HashMap<String, f32>>,
 }
 
 impl RegistryRef {
@@ -255,6 +290,7 @@ impl RegistryRef {
             version: version.into(),
             value_band_thresholds: None,
             zone_role_colors: None,
+            decoration_family_density: None,
         }
     }
 
@@ -278,6 +314,25 @@ impl RegistryRef {
             }
         }
         self.value_band_thresholds = Some(thresholds);
+        Ok(self)
+    }
+
+    /// TMP-Q6 chunk B builder for tests + per-book registries that set
+    /// a per-family decoration density baseline. Returns `Result` per
+    /// `feedback_builder_validation_parity` (TMP-Q5 chunk A precedent)
+    /// — V1 calls the same `validate_decoration_family_density` helper
+    /// the loader uses at registry-load time, so an invalid map fails
+    /// HERE rather than at runtime when an HTTP consumer reads the wire.
+    ///
+    /// Semantic: REPLACE, not merge — mirrors `with_zone_role_colors`'s
+    /// REPLACE discipline. A second call discards the first call's map
+    /// entirely; build the merged map yourself if you want both layers.
+    pub fn with_decoration_family_density(
+        mut self,
+        map: HashMap<String, f32>,
+    ) -> Result<Self, DecorationFamilyDensityError> {
+        validate_decoration_family_density(&map)?;
+        self.decoration_family_density = Some(map);
         Ok(self)
     }
 
@@ -309,6 +364,81 @@ impl RegistryRef {
         Ok(self)
     }
 }
+
+/// TMP-Q6 chunk B — validation for `decoration_family_density` maps.
+/// Used at BOTH registry load (`Registry::from_file`) AND template
+/// parse-time check inside `DecorationPlacer::process`, so a malformed
+/// multiplier rejects identically regardless of which layer declared it.
+///
+/// **Rules:**
+/// - Every key must match `^[a-z][a-z0-9_]*$` (same regex as
+///   `ObjectKindDef.family`; flat ASCII namespace for V1).
+/// - Every value must be finite + non-negative. 0.0 is explicitly
+///   allowed and means "no decorations of this family" (filter).
+pub fn validate_decoration_family_density(
+    map: &HashMap<String, f32>,
+) -> Result<(), DecorationFamilyDensityError> {
+    for (family, multiplier) in map {
+        if !is_valid_family_id(family) {
+            return Err(DecorationFamilyDensityError {
+                detail: format!(
+                    "family {family:?} must match ^[a-z][a-z0-9_]*$ (same rule \
+                     as ObjectKindDef.family)"
+                ),
+            });
+        }
+        if !multiplier.is_finite() {
+            return Err(DecorationFamilyDensityError {
+                detail: format!(
+                    "family {family:?} multiplier must be finite, got {multiplier}"
+                ),
+            });
+        }
+        // Note (LOW-4 from chunk-B /review-impl): `-0.0 < 0.0` is
+        // false per IEEE 754, so a TOML value `-0.0` SLIPS THROUGH this
+        // check and is treated identically to `0.0` at runtime (family
+        // filtered from pool). Not a security issue and behaviorally
+        // benign, but documented here so a future "strict reject"
+        // change is intentional rather than accidental.
+        if *multiplier < 0.0 {
+            return Err(DecorationFamilyDensityError {
+                detail: format!(
+                    "family {family:?} multiplier must be non-negative, got \
+                     {multiplier} (0.0 is allowed and means \"no decorations of \
+                     this family\")"
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Local family-name regex check. Mirrors `registry::is_valid_family_name`
+/// but lives here so `types::registry` has no dependency on the engine
+/// `registry` module (would create a circular import).
+fn is_valid_family_id(name: &str) -> bool {
+    let mut chars = name.chars();
+    let Some(first) = chars.next() else { return false };
+    if !first.is_ascii_lowercase() {
+        return false;
+    }
+    chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+}
+
+/// TMP-Q6 chunk B — surfaced when `decoration_family_density` violates
+/// the value/key rules in `validate_decoration_family_density`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecorationFamilyDensityError {
+    pub detail: String,
+}
+
+impl std::fmt::Display for DecorationFamilyDensityError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "invalid decoration_family_density: {}", self.detail)
+    }
+}
+
+impl std::error::Error for DecorationFamilyDensityError {}
 
 /// TMP-Q5 — surfaced when a builder caller passes a malformed
 /// `ZoneRoleColors`. V1 has no constraint; the type exists so future
@@ -766,5 +896,166 @@ label = "Wall"
         let json = r#"{"id":"lw","version":"1.0.0"}"#;
         let r: RegistryRef = serde_json::from_str(json).unwrap();
         assert_eq!(r.value_band_thresholds, None);
+    }
+
+    #[test]
+    fn object_kind_def_round_trips_with_family() {
+        // TMP-Q6 AC-DFS-1 — family field serializes when set.
+        let toml_text = r#"
+id = "lw:decoration.test_rock"
+primitive = "decoration"
+label = "Test Rock"
+family = "rock"
+"#;
+        let def: ObjectKindDef = toml::from_str(toml_text).unwrap();
+        assert_eq!(def.family.as_deref(), Some("rock"));
+        let json = serde_json::to_string(&def).unwrap();
+        assert!(json.contains("\"family\":\"rock\""), "family must appear: {json}");
+    }
+
+    #[test]
+    fn object_kind_def_skip_serializes_family_when_none() {
+        // TMP-Q6 AC-DFS-1 — V2 byte-identical preservation: no family
+        // declared ⇒ no key on wire.
+        let toml_text = r#"
+id = "lw:obstacle.peak"
+primitive = "blocker"
+label = "Peak"
+"#;
+        let def: ObjectKindDef = toml::from_str(toml_text).unwrap();
+        assert_eq!(def.family, None);
+        let json = serde_json::to_string(&def).unwrap();
+        assert!(!json.contains("family"), "None family must NOT appear: {json}");
+    }
+
+    #[test]
+    fn registry_ref_round_trips_with_decoration_family_density() {
+        // TMP-Q6 chunk B AC-DFS-5 — RegistryRef carries the override
+        // through a JSON round-trip; sparse keys honored.
+        let mut bias = HashMap::new();
+        bias.insert("rock".to_string(), 1.5_f32);
+        bias.insert("bone".to_string(), 0.0_f32); // 0.0 is allowed
+        let r = RegistryRef::new("xianxia", "1.0.0")
+            .with_decoration_family_density(bias.clone())
+            .expect("V1 builder must accept valid map");
+        let s = serde_json::to_string(&r).unwrap();
+        assert!(s.contains("decoration_family_density"), "wire: {s}");
+        assert!(s.contains("rock"), "rock key must appear: {s}");
+        assert!(s.contains("bone"), "bone key must appear: {s}");
+        let back: RegistryRef = serde_json::from_str(&s).unwrap();
+        assert_eq!(back.decoration_family_density, r.decoration_family_density);
+    }
+
+    #[test]
+    fn registry_ref_skip_serializes_decoration_family_density_when_none() {
+        // TMP-Q6 chunk B AC-DFS-5 — V2 byte-identical preservation:
+        // None ⇒ no key on wire. Mirrors the
+        // registry_ref_skip_serializes_when_zone_role_colors_none discipline.
+        let r = RegistryRef::new("lw", "1.0.0");
+        assert!(r.decoration_family_density.is_none());
+        let s = serde_json::to_string(&r).unwrap();
+        assert!(
+            !s.contains("decoration_family_density"),
+            "None outer must be skipped from wire: {s}",
+        );
+    }
+
+    #[test]
+    fn registry_ref_deserializes_pre_q6_chunk_b_fixture_without_decoration_family_density() {
+        // TMP-Q6 chunk B backward compat — pre-chunk-B wire JSON loads
+        // with decoration_family_density = None.
+        let json = r#"{"id":"lw","version":"1.0.0"}"#;
+        let r: RegistryRef = serde_json::from_str(json).unwrap();
+        assert_eq!(r.decoration_family_density, None);
+    }
+
+    #[test]
+    fn registry_ref_builder_rejects_invalid_family_key() {
+        // TMP-Q6 chunk B AC-DFS-3 + AC-DFS-5 — builder runs the same
+        // validator as Registry::from_file. An invalid family name (caps,
+        // leading digit, special chars) rejects HERE, not at HTTP-consumer
+        // runtime.
+        let mut bias = HashMap::new();
+        bias.insert("Rock".to_string(), 1.0_f32); // Caps rejected
+        let result = RegistryRef::new("lw", "1.0.0")
+            .with_decoration_family_density(bias);
+        assert!(result.is_err(), "invalid family key must reject");
+        let err = result.unwrap_err();
+        assert!(
+            err.detail.contains("must match"),
+            "error must mention regex: {err}",
+        );
+    }
+
+    #[test]
+    fn registry_ref_builder_rejects_non_finite_multiplier() {
+        // TMP-Q6 chunk B AC-DFS-4 — NaN / Inf rejected. The placer's
+        // weighted-roll would silently misbehave on these.
+        let mut bias = HashMap::new();
+        bias.insert("rock".to_string(), f32::NAN);
+        assert!(RegistryRef::new("lw", "1.0.0")
+            .with_decoration_family_density(bias).is_err());
+        let mut bias2 = HashMap::new();
+        bias2.insert("rock".to_string(), f32::INFINITY);
+        assert!(RegistryRef::new("lw", "1.0.0")
+            .with_decoration_family_density(bias2).is_err());
+    }
+
+    #[test]
+    fn registry_ref_builder_rejects_negative_multiplier() {
+        // TMP-Q6 chunk B AC-DFS-4 — negative multipliers are nonsense
+        // for "density bias"; 0.0 IS allowed (filter family from pool).
+        let mut bias = HashMap::new();
+        bias.insert("rock".to_string(), -0.5_f32);
+        assert!(RegistryRef::new("lw", "1.0.0")
+            .with_decoration_family_density(bias).is_err());
+    }
+
+    #[test]
+    fn registry_ref_builder_accepts_zero_multiplier() {
+        // TMP-Q6 chunk B — 0.0 is the documented "no decorations of this
+        // family" filter. Test pins it as accepted at the builder layer.
+        let mut bias = HashMap::new();
+        bias.insert("rock".to_string(), 0.0_f32);
+        let result = RegistryRef::new("lw", "1.0.0")
+            .with_decoration_family_density(bias);
+        assert!(result.is_ok(), "0.0 must be accepted (family filter)");
+    }
+
+    #[test]
+    fn registry_ref_builder_replaces_decoration_family_density_on_second_call() {
+        // TMP-Q6 chunk B — REPLACE semantic mirrors with_zone_role_colors'
+        // discipline. Second call drops the first call's map entirely.
+        let mut first = HashMap::new();
+        first.insert("rock".to_string(), 2.0_f32);
+        let mut second = HashMap::new();
+        second.insert("bone".to_string(), 0.5_f32);
+        let r = RegistryRef::new("lw", "1.0.0")
+            .with_decoration_family_density(first).unwrap()
+            .with_decoration_family_density(second).unwrap();
+        let map = r.decoration_family_density.unwrap();
+        assert!(map.contains_key("bone"));
+        assert!(!map.contains_key("rock"), "first call's key must be dropped");
+    }
+
+    #[test]
+    fn validate_decoration_family_density_accepts_sparse_empty_map() {
+        // TMP-Q6 chunk B edge — an empty map declares no override. Same
+        // as Some({}) on wire; passes validation (nothing to validate).
+        let empty: HashMap<String, f32> = HashMap::new();
+        assert!(validate_decoration_family_density(&empty).is_ok());
+    }
+
+    #[test]
+    fn object_kind_def_deserializes_pre_q6_fixture_without_family() {
+        // TMP-Q6 backward compat — pre-Q6 TOML loads with None.
+        let toml_text = r#"
+id = "lw:decoration.legacy"
+primitive = "decoration"
+label = "Legacy Decoration"
+biomes = ["grass"]
+"#;
+        let def: ObjectKindDef = toml::from_str(toml_text).unwrap();
+        assert_eq!(def.family, None);
     }
 }
