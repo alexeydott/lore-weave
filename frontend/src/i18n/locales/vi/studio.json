@@ -1006,7 +1006,7 @@
       "showQuality": "Phê bình, lời hứa & thiết lập",
       "goToChapter": "Mở Tìm nhanh",
       "toggleSidebar": "Hiển thị hoặc ẩn thanh bên",
-      "toggleBottom": "Tiến trình · Tạo · Vấn đề",
+      "toggleBottom": "Tác vụ · Vấn đề",
       "chooseYourFocus": "Chạy lại bộ chọn vai trò",
       "startGuidedTour": "Hướng dẫn nhanh về các bảng điều khiển chính"
     }
@@ -1156,16 +1156,10 @@
   },
   "bottom": {
     "jobs": "Tiến trình",
-    "generation": "Tạo",
     "issues": "Vấn đề",
     "collapse": "Thu gọn bảng",
     "toggle": "Đóng/mở bảng dưới",
     "label": "Bảng",
-    "launch": {
-      "jobs": "Tiến trình sẽ được mở trong một bảng riêng.",
-      "generation": "Tiến trình tạo sẽ được mở trong một bảng riêng."
-    },
-    "openJobs": "Mở bảng Tiến trình",
     "issuesLoading": "Đang kiểm tra lỗi…",
     "issuesError": "Không thể tải bảng vấn đề.",
     "issuesEmpty": "Không tìm thấy vấn đề nào trong cuốn sách này.",

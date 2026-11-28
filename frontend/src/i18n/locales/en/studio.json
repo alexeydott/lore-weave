@@ -1006,7 +1006,7 @@
       "showQuality": "Critic, promises & canon",
       "goToChapter": "Open Quick Open",
       "toggleSidebar": "Show or hide the side bar",
-      "toggleBottom": "Jobs · Generation · Issues",
+      "toggleBottom": "Jobs · Issues",
       "chooseYourFocus": "Re-run the role picker",
       "startGuidedTour": "A quick tour of the core panels"
     }
@@ -1156,16 +1156,10 @@
   },
   "bottom": {
     "jobs": "Jobs",
-    "generation": "Generation",
     "issues": "Issues",
     "collapse": "Collapse panel",
     "toggle": "Toggle bottom panel",
     "label": "Panel",
-    "launch": {
-      "jobs": "The jobs feed opens in its own panel.",
-      "generation": "The generation feed opens in its own panel."
-    },
-    "openJobs": "Open the Jobs panel",
     "issuesLoading": "Checking for problems…",
     "issuesError": "Could not load the problems panel.",
     "issuesEmpty": "No problems found in this book.",

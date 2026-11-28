@@ -1006,7 +1006,7 @@
       "showQuality": "Critique, promesses et canon",
       "goToChapter": "Ouvrir la recherche rapide",
       "toggleSidebar": "Afficher ou masquer la barre latérale",
-      "toggleBottom": "Tâches · Génération · Problèmes",
+      "toggleBottom": "Tâches · Problèmes",
       "chooseYourFocus": "Relancer le sélecteur de rôle",
       "startGuidedTour": "Une visite rapide des panneaux principaux"
     }
@@ -1156,16 +1156,10 @@
   },
   "bottom": {
     "jobs": "Tâches",
-    "generation": "Génération",
     "issues": "Problèmes",
     "collapse": "Réduire le panneau",
     "toggle": "Basculer le panneau inférieur",
     "label": "Panneau",
-    "launch": {
-      "jobs": "Le flux de tâches s'ouvre dans son propre panneau.",
-      "generation": "Le flux de génération s'ouvre dans son propre panneau."
-    },
-    "openJobs": "Ouvrir le panneau des tâches",
     "issuesLoading": "Recherche de problèmes…",
     "issuesError": "Impossible de charger le panneau des problèmes.",
     "issuesEmpty": "Aucun problème trouvé dans ce livre.",

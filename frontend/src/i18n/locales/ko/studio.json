@@ -1006,7 +1006,7 @@
       "showQuality": "비평, 약속 및 설정",
       "goToChapter": "빠른 열기",
       "toggleSidebar": "사이드바 표시 또는 숨기기",
-      "toggleBottom": "작업 · 생성 · 이슈",
+      "toggleBottom": "작업 · 문제",
       "chooseYourFocus": "역할 선택기 다시 실행",
       "startGuidedTour": "핵심 패널에 대한 빠른 투어"
     }
@@ -1156,16 +1156,10 @@
   },
   "bottom": {
     "jobs": "작업",
-    "generation": "생성",
     "issues": "문제",
     "collapse": "패널 축소",
     "toggle": "하단 패널 토글",
     "label": "패널",
-    "launch": {
-      "jobs": "작업 피드가 별도의 패널에서 열립니다.",
-      "generation": "생성 피드가 별도의 패널에서 열립니다."
-    },
-    "openJobs": "작업 패널 열기",
     "issuesLoading": "문제를 확인하는 중…",
     "issuesError": "문제 패널을 불러올 수 없습니다.",
     "issuesEmpty": "이 책에서 발견된 문제가 없습니다.",

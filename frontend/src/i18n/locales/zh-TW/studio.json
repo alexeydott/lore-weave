@@ -1006,7 +1006,7 @@
       "showQuality": "評論、伏筆與 canon",
       "goToChapter": "開啟 Quick Open",
       "toggleSidebar": "顯示或隱藏側邊欄",
-      "toggleBottom": "工作 · 生成 · 問題",
+      "toggleBottom": "任務 · 問題",
       "chooseYourFocus": "重新選擇你的重點",
       "startGuidedTour": "核心面板的快速導覽"
     }
@@ -1143,16 +1143,10 @@
   },
   "bottom": {
     "jobs": "工作",
-    "generation": "生成",
     "issues": "問題",
     "collapse": "收合面板",
     "toggle": "切換底部面板",
     "label": "面板",
-    "launch": {
-      "jobs": "工作列表將在獨立面板中開啟。",
-      "generation": "生成列表將在獨立面板中開啟。"
-    },
-    "openJobs": "開啟工作面板",
     "issuesLoading": "正在檢查問題…",
     "issuesError": "無法載入問題面板。",
     "issuesEmpty": "此書中未發現任何問題。",

@@ -1006,7 +1006,7 @@
       "showQuality": "Eleştirmen, vaatler ve kanon",
       "goToChapter": "Hızlı Açılışı Aç",
       "toggleSidebar": "Yan çubuğu göster veya gizle",
-      "toggleBottom": "İşler · Üretim · Sorunlar",
+      "toggleBottom": "Görevler · Sorunlar",
       "chooseYourFocus": "Rol seçiciyi yeniden çalıştır",
       "startGuidedTour": "Temel panellerin hızlı turu"
     }
@@ -1156,16 +1156,10 @@
   },
   "bottom": {
     "jobs": "İşler",
-    "generation": "Üretim",
     "issues": "Sorunlar",
     "collapse": "Paneli daralt",
     "toggle": "Alt paneli aç/kapat",
     "label": "Panel",
-    "launch": {
-      "jobs": "İş akışı kendi panelinde açılır.",
-      "generation": "Oluşturma akışı kendi panelinde açılır."
-    },
-    "openJobs": "İşler panelini aç",
     "issuesLoading": "Sorunlar kontrol ediliyor…",
     "issuesError": "Sorunlar paneli yüklenemedi.",
     "issuesEmpty": "Bu kitapta sorun bulunamadı.",

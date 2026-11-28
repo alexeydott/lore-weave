@@ -99,7 +99,7 @@ describe('buildStudioCommands', () => {
 
   it('chrome commands carry a description (the palette sublabel)', () => {
     const cmds = buildStudioCommands({ chrome: chrome(), panels: [], ...baseOpts() });
-    expect(cmds.find((x) => x.id === 'view.toggleBottom')?.description).toBe('Jobs · Generation · Issues');
+    expect(cmds.find((x) => x.id === 'view.toggleBottom')?.description).toBe('Jobs · Issues');
   });
 
   it('command run() dispatches the right chrome action', () => {

@@ -1,15 +1,21 @@
-// Bottom panel (toggle) — the VS Code "panel" analogue: Jobs / Generation / Issues.
-// S-10 O3: Issues is now a real ranked problems feed (StudioIssuesFeed); Jobs / Generation launch the
-// existing jobs feed (jobs-list panel) instead of a dead stub.
+// Bottom panel (toggle) — the VS Code "panel" analogue: Jobs / Issues.
+// S-10 O3: Issues is a real ranked problems feed (StudioIssuesFeed). Jobs embeds the
+// real jobs feed inline — the SAME JobsStreamProvider/JobsList the jobs-list dock
+// panel and the /jobs page render (DOCK-2, no fork). The old stub tabs (two identical
+// pointer buttons to the same dock panel, one labelled "Generation" with no distinct
+// content anywhere) were removed as atavism #user-report 2026-11-28: the bottom
+// panel must hold CONTENT, not launchers.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { JobsStreamProvider } from '@/features/jobs/context/JobsStreamProvider';
+import { JobsList } from '@/features/jobs/components/JobsList';
 import { useStudioHost } from '../host/StudioHostProvider';
 import { StudioIssuesFeed } from './StudioIssuesFeed';
 
-type BottomTab = 'jobs' | 'generation' | 'issues';
-const TABS: BottomTab[] = ['jobs', 'generation', 'issues'];
+type BottomTab = 'jobs' | 'issues';
+const TABS: BottomTab[] = ['jobs', 'issues'];
 
 export function StudioBottomPanel({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation('studio');
@@ -44,23 +50,20 @@ export function StudioBottomPanel({ onClose }: { onClose: () => void }) {
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         {tab === 'issues' ? (
           <StudioIssuesFeed />
         ) : (
-          // Jobs / Generation — the existing jobs feed lives in its own dock panel; launch it rather
-          // than fork a second feed here (the stub said "wired later"; this wires it).
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4 text-center text-[11px] text-muted-foreground">
-            <p>{t(`bottom.launch.${tab}`, { defaultValue: 'The jobs feed opens in its own panel.' })}</p>
-            <button
-              type="button"
-              data-testid={`studio-bottom-open-jobs-${tab}`}
-              onClick={() => openPanel('jobs-list', { focus: true })}
-              className="rounded border px-3 py-1 text-[11px] text-foreground/80 hover:bg-secondary hover:text-foreground"
-            >
-              {t('bottom.openJobs', { defaultValue: 'Open the Jobs panel' })}
-            </button>
-          </div>
+          // Jobs — the real feed inline. Both the bottom panel and the jobs-list dock panel
+          // mount JobsStreamProvider only while visible, so a second live stream exists only
+          // when the user deliberately holds both open (same cost as /jobs → studio).
+          <JobsStreamProvider>
+            <div data-testid="studio-bottom-jobs-feed" className="min-h-0 flex-1 p-2">
+              <JobsList
+                onOpenDetail={(service, jobId) => openPanel('job-detail', { params: { service, jobId } })}
+              />
+            </div>
+          </JobsStreamProvider>
         )}
       </div>
     </div>

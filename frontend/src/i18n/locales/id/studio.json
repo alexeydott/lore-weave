@@ -1006,7 +1006,7 @@
       "showQuality": "Kritik, janji & kanon",
       "goToChapter": "Buka Quick Open",
       "toggleSidebar": "Tampilkan atau sembunyikan bilah samping",
-      "toggleBottom": "Tugas · Generasi · Masalah",
+      "toggleBottom": "Tugas · Masalah",
       "chooseYourFocus": "Jalankan ulang pemilih peran",
       "startGuidedTour": "Tur singkat panel utama"
     }
@@ -1156,16 +1156,10 @@
   },
   "bottom": {
     "jobs": "Tugas",
-    "generation": "Generasi",
     "issues": "Masalah",
     "collapse": "Sembunyikan panel",
     "toggle": "Toggle panel bawah",
     "label": "Panel",
-    "launch": {
-      "jobs": "Umpan pekerjaan terbuka di panel tersendiri.",
-      "generation": "Umpan pembuatan terbuka di panel tersendiri."
-    },
-    "openJobs": "Buka panel Pekerjaan",
     "issuesLoading": "Memeriksa masalah…",
     "issuesError": "Tidak dapat memuat panel masalah.",
     "issuesEmpty": "Tidak ada masalah yang ditemukan dalam buku ini.",

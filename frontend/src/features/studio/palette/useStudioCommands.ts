@@ -97,7 +97,7 @@ export function buildStudioCommands(opts: {
   // Layout — chrome toggles.
   const layout = group('layout', 'Layout');
   cmds.push({ id: 'view.toggleSidebar', label: cmd('toggleSidebar', 'View: Toggle Side Bar'), description: desc('toggleSidebar', 'Show or hide the side bar'), group: layout, run: chrome.toggleSidebar });
-  cmds.push({ id: 'view.toggleBottom', label: cmd('toggleBottom', 'View: Toggle Bottom Panel'), description: desc('toggleBottom', 'Jobs · Generation · Issues'), group: layout, run: chrome.toggleBottom });
+  cmds.push({ id: 'view.toggleBottom', label: cmd('toggleBottom', 'View: Toggle Bottom Panel'), description: desc('toggleBottom', 'Jobs · Issues'), group: layout, run: chrome.toggleBottom });
 
   // #19 — Help: re-run the role picker or start the guided tour on demand. Last group so it
   // never disrupts the #18 category header ordering above.

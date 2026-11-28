@@ -1006,7 +1006,7 @@
       "showQuality": "Kritik, Versprechen & Kanon",
       "goToChapter": "Quick Open öffnen",
       "toggleSidebar": "Seitenleiste ein- oder ausblenden",
-      "toggleBottom": "Jobs · Generierung · Probleme",
+      "toggleBottom": "Aufgaben · Probleme",
       "chooseYourFocus": "Rollen-Auswahl erneut ausführen",
       "startGuidedTour": "Eine kurze Tour durch die Kern-Panels"
     }
@@ -1156,16 +1156,10 @@
   },
   "bottom": {
     "jobs": "Jobs",
-    "generation": "Generierung",
     "issues": "Probleme",
     "collapse": "Panel einklappen",
     "toggle": "Unteres Panel umschalten",
     "label": "Panel",
-    "launch": {
-      "jobs": "Der Jobs-Feed öffnet sich in einem eigenen Panel.",
-      "generation": "Der Generierungs-Feed öffnet sich in einem eigenen Panel."
-    },
-    "openJobs": "Jobs-Panel öffnen",
     "issuesLoading": "Suche nach Problemen…",
     "issuesError": "Das Problem-Panel konnte nicht geladen werden.",
     "issuesEmpty": "In diesem Buch wurden keine Probleme gefunden.",

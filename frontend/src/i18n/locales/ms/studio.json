@@ -1006,7 +1006,7 @@
       "showQuality": "Kritik, janji & kanon",
       "goToChapter": "Buka Carian Pantas",
       "toggleSidebar": "Tunjukkan atau sembunyikan bar sisi",
-      "toggleBottom": "Tugasan · Penjanaan · Isu",
+      "toggleBottom": "Tugas · Isu",
       "chooseYourFocus": "Jalankan semula pemilih peranan",
       "startGuidedTour": "Lawatan ringkas tentang panel teras"
     }
@@ -1156,16 +1156,10 @@
   },
   "bottom": {
     "jobs": "Tugasan",
-    "generation": "Penjanaan",
     "issues": "Isu",
     "collapse": "Kecilkan panel",
     "toggle": "Tukar panel bawah",
     "label": "Panel",
-    "launch": {
-      "jobs": "Suapan kerja dibuka dalam panel tersendiri.",
-      "generation": "Suapan penjanaan dibuka dalam panel tersendiri."
-    },
-    "openJobs": "Buka panel Kerja",
     "issuesLoading": "Menyemak masalah…",
     "issuesError": "Tidak dapat memuatkan panel masalah.",
     "issuesEmpty": "Tiada masalah ditemui dalam buku ini.",

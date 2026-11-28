@@ -1006,7 +1006,7 @@
       "showQuality": "Crítico, promessas e cânone",
       "goToChapter": "Abrir Busca Rápida",
       "toggleSidebar": "Mostrar ou ocultar a barra lateral",
-      "toggleBottom": "Tarefas · Geração · Problemas",
+      "toggleBottom": "Tarefas · Problemas",
       "chooseYourFocus": "Reiniciar o seletor de funções",
       "startGuidedTour": "Um tour rápido pelos painéis principais"
     }
@@ -1156,16 +1156,10 @@
   },
   "bottom": {
     "jobs": "Tarefas",
-    "generation": "Geração",
     "issues": "Problemas",
     "collapse": "Recolher painel",
     "toggle": "Alternar painel inferior",
     "label": "Painel",
-    "launch": {
-      "jobs": "O feed de tarefas abre em um painel próprio.",
-      "generation": "O feed de geração abre em um painel próprio."
-    },
-    "openJobs": "Abrir o painel de Tarefas",
     "issuesLoading": "Verificando problemas...",
     "issuesError": "Não foi possível carregar o painel de problemas.",
     "issuesEmpty": "Nenhum problema encontrado neste livro.",

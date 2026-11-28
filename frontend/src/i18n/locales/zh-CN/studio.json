@@ -1006,7 +1006,7 @@
       "showQuality": "评论、承诺与设定",
       "goToChapter": "打开快速打开",
       "toggleSidebar": "显示或隐藏侧边栏",
-      "toggleBottom": "任务 · 生成 · 问题",
+      "toggleBottom": "任务 · 问题",
       "chooseYourFocus": "重新运行角色选择器",
       "startGuidedTour": "核心面板快速导览"
     }
@@ -1156,16 +1156,10 @@
   },
   "bottom": {
     "jobs": "任务",
-    "generation": "生成",
     "issues": "问题",
     "collapse": "折叠面板",
     "toggle": "切换底部面板",
     "label": "面板",
-    "launch": {
-      "jobs": "任务信息流将在独立面板中打开。",
-      "generation": "生成信息流将在独立面板中打开。"
-    },
-    "openJobs": "打开任务面板",
     "issuesLoading": "正在检查问题…",
     "issuesError": "无法加载问题面板。",
     "issuesEmpty": "本书未发现任何问题。",

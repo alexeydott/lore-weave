@@ -1006,7 +1006,7 @@
       "showQuality": "Crítica, promesas y canon",
       "goToChapter": "Abrir búsqueda rápida",
       "toggleSidebar": "Mostrar u ocultar la barra lateral",
-      "toggleBottom": "Tareas · Generación · Problemas",
+      "toggleBottom": "Tareas · Problemas",
       "chooseYourFocus": "Reiniciar selector de rol",
       "startGuidedTour": "Un recorrido rápido por los paneles principales"
     }
@@ -1156,16 +1156,10 @@
   },
   "bottom": {
     "jobs": "Tareas",
-    "generation": "Generación",
     "issues": "Problemas",
     "collapse": "Contraer panel",
     "toggle": "Alternar panel inferior",
     "label": "Panel",
-    "launch": {
-      "jobs": "El feed de tareas se abre en su propio panel.",
-      "generation": "El feed de generación se abre en su propio panel."
-    },
-    "openJobs": "Abrir el panel de tareas",
     "issuesLoading": "Comprobando si hay problemas…",
     "issuesError": "No se pudo cargar el panel de problemas.",
     "issuesEmpty": "No se encontraron problemas en este libro.",
