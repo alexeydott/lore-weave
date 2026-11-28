@@ -81,6 +81,9 @@ fn fixture() -> TilemapTemplate {
         world_zone: None,
         decoration_density: None,
         background_biome: None,
+        // P2 (decoration-family-splits) — per-family density bias; the sim
+        // fixture exercises the UNBIASED default path, so None.
+        decoration_family_density: None,
     };
     for z in &mut template.zones {
         if z.zone_role == ZoneRole::Wilderness {

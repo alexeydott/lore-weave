@@ -80,7 +80,7 @@ export function isDecorationPlacement(p: TilemapObjectPlacement): boolean {
  */
 export function computeDecorationFamilyBreakdown(
   view: TilemapView,
-  _registry: { decoration_family_density?: Record<string, number> } | null = null,
+  _registry: { decoration_family_density?: Partial<Record<string, number>> } | null = null,
 ): DecorationFamilyRow[] {
   // Bucket by family. Filter by SEMANTIC kind via the shared
   // `isDecorationPlacement` predicate (MED-1 from chunk-C /review-impl)
