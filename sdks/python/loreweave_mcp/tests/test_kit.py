@@ -15,7 +15,7 @@ import json
 import uuid
 
 import pytest
-from mcp.server.fastmcp.exceptions import ToolError
+from mcp.server.mcpserver.exceptions import ToolError
 
 from loreweave_mcp import (
     ConfirmTokenExpired,
@@ -86,8 +86,13 @@ def _ctx(**overrides) -> _FakeMCPContext:
 
 def test_make_stateless_fastmcp_wiring():
     srv = make_stateless_fastmcp("test-kit")
-    assert srv.settings.stateless_http is True
-    assert srv.settings.streamable_http_path == "/"
+    # mcp 2.x moved the stateless wiring (stateless_http / streamable_http_path /
+    # transport_security) from the constructor onto streamable_http_app(); the kit's
+    # _StatelessMCPServer injects the proven defaults THERE. The observable contract
+    # is the endpoint path: "/" so mounting at /mcp yields exactly /mcp.
+    app = srv.streamable_http_app()
+    paths = {getattr(r, "path", None) for r in app.routes}
+    assert "/" in paths, f"expected the streamable-http endpoint at '/', got {sorted(p for p in paths if p)}"
 
 
 # ── build_tool_context (SEC-1) ─────────────────────────────────────────
@@ -205,35 +210,35 @@ def test_is_owner_only_duck_typed_on_foreign_ctx():
 
 def test_build_tool_context_missing_token_rejected():
     ctx = _FakeMCPContext({"x-user-id": str(uuid.uuid4()), "x-session-id": "s"})
-    with pytest.raises(ValueError, match="missing required context header"):
+    with pytest.raises(ToolError, match="missing required context header"):
         build_tool_context(ctx, SECRET)
 
 
 def test_build_tool_context_bad_token_rejected():
-    with pytest.raises(ValueError, match="invalid internal token"):
+    with pytest.raises(ToolError, match="invalid internal token"):
         build_tool_context(_ctx(**{"x-internal-token": "wrong"}), SECRET)
 
 
 def test_build_tool_context_empty_configured_secret_rejected():
     # An empty server-side secret must never accept ANY caller token (fail closed):
     # even a caller that sends a non-empty token is rejected.
-    with pytest.raises(ValueError, match="invalid internal token"):
+    with pytest.raises(ToolError, match="invalid internal token"):
         build_tool_context(_ctx(**{"x-internal-token": "anything"}), "")
 
 
 def test_build_tool_context_missing_user_id_rejected():
     ctx = _FakeMCPContext({"x-internal-token": SECRET, "x-session-id": "s"})
-    with pytest.raises(ValueError, match="x-user-id"):
+    with pytest.raises(ToolError, match="x-user-id"):
         build_tool_context(ctx, SECRET)
 
 
 def test_build_tool_context_bad_user_uuid_rejected():
-    with pytest.raises(ValueError, match="not a valid UUID"):
+    with pytest.raises(ToolError, match="not a valid UUID"):
         build_tool_context(_ctx(**{"x-user-id": "not-a-uuid"}), SECRET)
 
 
 def test_build_tool_context_bad_project_uuid_rejected():
-    with pytest.raises(ValueError, match="x-project-id is not a valid UUID"):
+    with pytest.raises(ToolError, match="x-project-id is not a valid UUID"):
         build_tool_context(_ctx(**{"x-project-id": "nope"}), SECRET)
 
 

@@ -14,7 +14,7 @@ Two surfaces are exercised:
    `mcp_execute_tool` — the only tool transport after the ai-gateway hard
    cutover (the bespoke `execute_tool` path was retired).
 
-`mcp_execute_tool` binds `streamablehttp_client` and `ClientSession` at
+`mcp_execute_tool` binds `streamable_http_client` and `ClientSession` at
 module level in `app.client.knowledge_client`, so the patch targets are
 those module-namespace symbols (patch-where-it-is-used) — this is the
 reliable interception point for a function-local `from mcp import ...`.
@@ -58,7 +58,7 @@ def _text_content(text: str) -> MagicMock:
 
 def _call_tool_result(*, content: list, is_error: bool = False) -> MagicMock:
     result = MagicMock()
-    result.isError = is_error
+    result.is_error = is_error
     result.content = content
     return result
 
@@ -67,19 +67,21 @@ def _patch_mcp(call_tool_return=None, call_tool_side_effect=None,
                transport_side_effect=None):
     """Return (transport_patch, session_patch) configured so that
 
-      async with streamablehttp_client(...) as (read, write, _):
+      async with streamable_http_client(...) as (read, write):
           async with ClientSession(read, write) as mcp_session:
               await mcp_session.initialize()
               result = await mcp_session.call_tool(name, args)
 
     runs against mocks. `call_tool_return` is the CallToolResult to hand
     back; `call_tool_side_effect` raises instead; `transport_side_effect`
-    makes the transport __aenter__ raise (simulating connect failure)."""
+    makes the transport __aenter__ raise (simulating connect failure).
+    mcp 2.x: the transport yields a 2-tuple (read, write) — the 1.x third
+    element (get_session_id) is gone."""
     transport_cm = MagicMock()
     if transport_side_effect is not None:
         transport_cm.__aenter__ = AsyncMock(side_effect=transport_side_effect)
     else:
-        transport_cm.__aenter__ = AsyncMock(return_value=(MagicMock(), MagicMock(), None))
+        transport_cm.__aenter__ = AsyncMock(return_value=(MagicMock(), MagicMock()))
     transport_cm.__aexit__ = AsyncMock(return_value=False)
     transport_factory = MagicMock(return_value=transport_cm)
 
@@ -95,7 +97,7 @@ def _patch_mcp(call_tool_return=None, call_tool_side_effect=None,
     session_factory = MagicMock(return_value=session_cm)
 
     return (
-        patch("app.client.knowledge_client.streamablehttp_client", transport_factory),
+        patch("app.client.knowledge_client.streamable_http_client", transport_factory),
         patch("app.client.knowledge_client.ClientSession", session_factory),
         transport_factory,
         session_factory,
@@ -143,7 +145,7 @@ class TestMcpExecuteToolResultFormatting:
         handle = {"type": GATE_RESULT_TYPE, "taskId": "task_x", "status": "input_required",
                   "inputRequests": {"title": "Spawn dị bản?"}}
         result = _call_tool_result(content=[_text_content("ok — see structuredContent")])
-        result.structuredContent = handle
+        result.structured_content = handle
         tpatch, spatch, *_ = _patch_mcp(call_tool_return=result)
         with tpatch, spatch:
             out = await client.mcp_execute_tool(
@@ -164,7 +166,7 @@ class TestMcpExecuteToolResultFormatting:
         client = _make_client()
         handle = {"type": GATE_RESULT_TYPE, "taskId": "task_y", "status": "input_required"}
         result = _call_tool_result(content=[_text_content("ok")])
-        result.structuredContent = {"result": handle}
+        result.structured_content = {"result": handle}
         tpatch, spatch, *_ = _patch_mcp(call_tool_return=result)
         with tpatch, spatch:
             out = await client.mcp_execute_tool(
@@ -215,7 +217,7 @@ class TestMcpExecuteToolResultFormatting:
         client = _make_client()
         real = {"ontology": {"kinds": ["character", "location"]}}
         result = _call_tool_result(content=[_text_content("ok — see structuredContent")])
-        result.structuredContent = real
+        result.structured_content = real
         tpatch, spatch, *_ = _patch_mcp(call_tool_return=result)
         with tpatch, spatch:
             out = await client.mcp_execute_tool(
@@ -249,7 +251,7 @@ class TestMcpExecuteToolResultFormatting:
         # Transport was constructed with the /mcp URL + the scope headers.
         call = transport_factory.call_args
         assert call.args[0] == "http://knowledge-service:8092/mcp"
-        headers = call.kwargs["headers"]
+        headers = call.kwargs["http_client"].headers
         assert headers["X-Internal-Token"] == "unit-test-token"
         assert headers["X-User-Id"] == "user-9"
         assert headers["X-Session-Id"] == "sess-9"
@@ -276,7 +278,7 @@ class TestMcpExecuteToolResultFormatting:
                 tool_args={},
                 project_id=None,
             )
-        headers = transport_factory.call_args.kwargs["headers"]
+        headers = transport_factory.call_args.kwargs["http_client"].headers
         assert "X-Project-Id" not in headers
         await client.aclose()
 
@@ -293,7 +295,7 @@ class TestMcpExecuteToolResultFormatting:
                 book_id="book-7",
                 tool_name="book_structure_read", tool_args={},
             )
-        headers = transport_factory.call_args.kwargs["headers"]
+        headers = transport_factory.call_args.kwargs["http_client"].headers
         assert headers["X-Book-Id"] == "book-7"
         assert "book_id" not in mock_session.call_tool.await_args.args[1]
         await client.aclose()
@@ -309,7 +311,7 @@ class TestMcpExecuteToolResultFormatting:
                 user_id="u", session_id="s", tool_name="memory_search", tool_args={},
                 book_id=None,
             )
-        assert "X-Book-Id" not in transport_factory.call_args.kwargs["headers"]
+        assert "X-Book-Id" not in transport_factory.call_args.kwargs["http_client"].headers
         await client.aclose()
 
     @pytest.mark.asyncio
@@ -492,16 +494,17 @@ class TestMcpExecuteToolResultFormatting:
 # ════════════════════════════════════════════════════════════════════════════
 #
 # These guard the just-applied fixes to mcp_execute_tool:
-#   1. timeout=sse_read_timeout=self._tool_timeout_s is passed to
-#      streamablehttp_client — the ONLY guard against silent re-drift to the
-#      SDK's 300s sse_read_timeout default (a stalled backend would hang ~10x
-#      the bespoke tool ceiling).
+#   1. the tool budget is bound to BOTH the connect and the SSE read timeout on
+#      the httpx2.AsyncClient handed to streamable_http_client (mcp 2.x moved
+#      the budgets off the transport's kwargs) — the ONLY guard against silent
+#      re-drift to the SDK's ~300s read default (a stalled backend would hang
+#      ~10x the bespoke tool ceiling).
 #   2. X-Trace-Id rides the MCP context headers when current_trace_id() is set,
 #      and is OMITTED when the contextvar is empty — same K7e contract as the
 #      bespoke execute_tool / build_context paths.
 #
 # The transport_factory captured by _patch_mcp records the exact kwargs the
-# production code passed to streamablehttp_client, so we assert on them
+# production code passed to streamable_http_client, so we assert on them
 # directly (no real network call happens).
 
 
@@ -509,7 +512,7 @@ class TestMcpTransportTimeoutAndTraceId:
     @pytest.mark.asyncio
     async def test_mcp_timeout_kwargs_bound_to_tool_budget(self):
         """Both `timeout` (connect) and `sse_read_timeout` passed to
-        streamablehttp_client MUST equal the client's _tool_timeout_s. The
+        streamable_http_client MUST equal the client's _tool_timeout_s. The
         tool RESULT rides the SSE read channel, so leaving sse_read_timeout at
         the SDK default (300s) would let a stalled backend hang ~10x the 30s
         ceiling. This assertion is the only regression guard against that drift."""
@@ -529,10 +532,14 @@ class TestMcpTransportTimeoutAndTraceId:
                 tool_name="memory_search",
                 tool_args={"query": "Kai"},
             )
+        # mcp 2.x: the budgets ride the supplied httpx2.AsyncClient's Timeout —
+        # read IS the old sse_read_timeout (the tool RESULT arrives on the SSE
+        # read channel), connect IS the old connect timeout.
         call_kwargs = transport_factory.call_args.kwargs
-        assert call_kwargs["timeout"] == 17.0
-        assert call_kwargs["sse_read_timeout"] == 17.0
-        assert call_kwargs["timeout"] == call_kwargs["sse_read_timeout"] == client._tool_timeout_s
+        http_client = call_kwargs["http_client"]
+        assert http_client.timeout.read == 17.0
+        assert http_client.timeout.connect == 17.0
+        assert http_client.timeout.read == client._tool_timeout_s
         await client.aclose()
 
     @pytest.mark.asyncio
@@ -556,7 +563,7 @@ class TestMcpTransportTimeoutAndTraceId:
                 )
         finally:
             trace_id_var.reset(token)
-        headers = transport_factory.call_args.kwargs["headers"]
+        headers = transport_factory.call_args.kwargs["http_client"].headers
         assert headers["X-Trace-Id"] == "trace-abc123"
         await client.aclose()
 
@@ -581,7 +588,7 @@ class TestMcpTransportTimeoutAndTraceId:
                 )
         finally:
             trace_id_var.reset(token)
-        headers = transport_factory.call_args.kwargs["headers"]
+        headers = transport_factory.call_args.kwargs["http_client"].headers
         assert "X-Trace-Id" not in headers
         await client.aclose()
 

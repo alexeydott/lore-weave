@@ -38,7 +38,8 @@ from uuid import UUID
 import pytest
 import uvicorn
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+import httpx2  # mcp 2.x client transport dep — the streamable-http client takes a pre-configured AsyncClient
+from mcp.client.streamable_http import streamable_http_client
 
 _GOOD_TOKEN = "test_internal_token"  # matches conftest INTERNAL_SERVICE_TOKEN
 TEST_USER = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
@@ -106,7 +107,9 @@ def mcp_base_url():
 
 @asynccontextmanager
 async def _mcp_client(base_url: str, headers: dict[str, str]):
-    async with streamablehttp_client(base_url, headers=headers) as (read, write, _sid):
+    async with streamable_http_client(
+        base_url, http_client=httpx2.AsyncClient(headers=headers)
+    ) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             yield session
@@ -164,7 +167,7 @@ async def test_no_tool_leaks_a_scope_arg(mcp_base_url):
         listing = await session.list_tools()
     forbidden = {"user_id", "owner_user_id", "session_id", "ctx"}
     for tool in listing.tools:
-        props = set(tool.inputSchema.get("properties", {}))
+        props = set(tool.input_schema.get("properties", {}))
         leaked = props & forbidden
         assert not leaked, f"tool {tool.name!r} leaks scope args: {leaked}"
 
@@ -175,7 +178,7 @@ async def test_no_tool_leaks_a_scope_arg(mcp_base_url):
 async def test_rejects_missing_internal_token(mcp_base_url):
     async with _mcp_client(mcp_base_url, headers={}) as session:
         result = await session.call_tool("translation_coverage", {"book_id": BOOK})
-    assert result.isError is True
+    assert result.is_error is True
     assert "x-internal-token" in _error_text(result)
 
 
@@ -183,7 +186,7 @@ async def test_rejects_wrong_internal_token(mcp_base_url):
     headers = {"X-Internal-Token": "nope", "X-User-Id": TEST_USER, "X-Session-Id": "s"}
     async with _mcp_client(mcp_base_url, headers) as session:
         result = await session.call_tool("translation_coverage", {"book_id": BOOK})
-    assert result.isError is True
+    assert result.is_error is True
     assert "invalid internal token" in _error_text(result)
 
 
@@ -191,7 +194,7 @@ async def test_rejects_bad_user_id(mcp_base_url):
     headers = {"X-Internal-Token": _GOOD_TOKEN, "X-User-Id": "nope", "X-Session-Id": "s"}
     async with _mcp_client(mcp_base_url, headers) as session:
         result = await session.call_tool("translation_coverage", {"book_id": BOOK})
-    assert result.isError is True
+    assert result.is_error is True
     assert "x-user-id" in _error_text(result)
 
 
@@ -969,7 +972,7 @@ async def test_closed_set_args_are_enums(mcp_base_url):
         listing = await session.list_tools()
     by_name = {t.name: t for t in listing.tools}
     for tool_name, args in CLOSED_SET_ARGS.items():
-        props = by_name[tool_name].inputSchema.get("properties", {})
+        props = by_name[tool_name].input_schema.get("properties", {})
         for arg in args:
             values = _closed_set_enum(props.get(arg, {}))
             assert values, f"{tool_name}.{arg}: closed-set arg MUST declare an enum"
@@ -987,7 +990,7 @@ async def test_model_ref_args_accept_the_list_shape(mcp_base_url):
         listing = await session.list_tools()
     by_name = {t.name: t for t in listing.tools}
     for tool_name, args in LIST_TOLERANT_ARGS.items():
-        props = by_name[tool_name].inputSchema.get("properties", {})
+        props = by_name[tool_name].input_schema.get("properties", {})
         for arg in args:
             assert _accepts_list_of_strings(props.get(arg, {})), (
                 f"{tool_name}.{arg}: must accept str | list[str]"
@@ -1019,7 +1022,7 @@ async def test_validation_error_reaches_model_as_one_line_directive(mcp_base_url
             "translation_job_control",
             {"job_id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", "action": "bogus"},
         )
-    assert result.isError is True
+    assert result.is_error is True
     text = result.content[0].text
     assert "errors.pydantic.dev" not in text
     assert "\n" not in text.strip(), f"directive must be one line, got: {text!r}"

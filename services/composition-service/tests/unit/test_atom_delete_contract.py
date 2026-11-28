@@ -200,7 +200,7 @@ def _declared_families() -> dict[str, set[str]]:
     """{tool_name: {op, …}} for every unified op-dispatch tool, read from its published schema."""
     out: dict[str, set[str]] = {}
     for t in _live_tools():
-        enum = (t.inputSchema.get("properties", {}).get("op") or {}).get("enum")
+        enum = (t.input_schema.get("properties", {}).get("op") or {}).get("enum")
         if enum:
             out[t.name] = set(enum)
     return out

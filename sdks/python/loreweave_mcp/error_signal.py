@@ -77,8 +77,8 @@ def patch_error_signal() -> bool:
     it is an error.
     """
     try:
-        from mcp.server.fastmcp.exceptions import ToolError
-        from mcp.server.fastmcp.tools.tool_manager import ToolManager
+        from mcp.server.mcpserver.exceptions import ToolError
+        from mcp.server.mcpserver.tools.tool_manager import ToolManager
     except Exception:
         logger.warning(
             "loreweave_mcp.error_signal: could not import FastMCP internals — skipping; "

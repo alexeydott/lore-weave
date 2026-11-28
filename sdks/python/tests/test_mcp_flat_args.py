@@ -158,10 +158,10 @@ class TestAgainstARealFastMCPServer:
 
     @pytest.fixture
     def server(self):
-        from mcp.server.fastmcp import FastMCP
+        from mcp.server.mcpserver import MCPServer
 
         patch_flat_args()
-        mcp = FastMCP("k16-test")
+        mcp = MCPServer("k16-test")
         # NB: the arg model must be MODULE-level (see _LiveLinkArgs). FastMCP resolves
         # annotations with `inspect.signature(eval_str=True)`, which cannot see a class
         # defined inside this fixture — the first draft did that and every live test
@@ -173,7 +173,7 @@ class TestAgainstARealFastMCPServer:
     @pytest.mark.asyncio
     async def test_the_advertised_schema_is_flat(self, server):
         tools = {t.name: t for t in await server.list_tools()}
-        props = tools["wrapped_tool"].inputSchema["properties"]
+        props = tools["wrapped_tool"].input_schema["properties"]
         assert set(props) >= {"from_id", "to_id", "kind"}
         assert "args" not in props, (
             "the wrapper still reaches the model — this is the exact schema a weak model "
@@ -201,7 +201,7 @@ class TestAgainstARealFastMCPServer:
     @pytest.mark.asyncio
     async def test_a_flat_tool_is_unaffected(self, server):
         tools = {t.name: t for t in await server.list_tools()}
-        assert set(tools["flat_tool"].inputSchema["properties"]) == {"book_id"}
+        assert set(tools["flat_tool"].input_schema["properties"]) == {"book_id"}
         out = await server.call_tool("flat_tool", {"book_id": "b1"})
         assert "b1" in str(out)
 

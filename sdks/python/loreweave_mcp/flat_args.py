@@ -132,7 +132,7 @@ def patch_flat_args() -> bool:
     """Apply both halves. Idempotent; returns False (with a warning) if the SDK's shape
     changed, leaving the default behaviour in place."""
     try:
-        from mcp.server.fastmcp.tools.tool_manager import ToolManager
+        from mcp.server.mcpserver.tools.tool_manager import ToolManager
     except Exception:
         logger.warning(
             "loreweave_mcp.flat_args: could not import FastMCP's ToolManager — skipping "

@@ -77,7 +77,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_the_gate_fires_on_a_real_dict_tool_through_Tool_run(monkeypatch):
-    from mcp.server.fastmcp.tools.base import Tool
+    from mcp.server.mcpserver.tools.base import Tool
 
     from loreweave_mcp.compact_content import ResultTooLargeError, patch_tool_run_size_gate
 
@@ -90,7 +90,7 @@ async def test_the_gate_fires_on_a_real_dict_tool_through_Tool_run(monkeypatch):
 
     tool = Tool.from_function(big_tool)
     with pytest.raises((ResultTooLargeError, Exception)) as ei:
-        await tool.run({})
+        await tool.run({}, None)  # mcp 2.x: context is a required positional
     # the tool NAME must be in the failure (the whole WARN/ERROR tier is unactionable
     # otherwise — the first cut logged tool=unknown_tool for everything)
     assert "big_tool" in str(ei.value)
@@ -98,7 +98,7 @@ async def test_the_gate_fires_on_a_real_dict_tool_through_Tool_run(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_a_normal_dict_tool_still_works_through_Tool_run():
-    from mcp.server.fastmcp.tools.base import Tool
+    from mcp.server.mcpserver.tools.base import Tool
 
     from loreweave_mcp.compact_content import patch_tool_run_size_gate
 
@@ -108,5 +108,5 @@ async def test_a_normal_dict_tool_still_works_through_Tool_run():
         return {"ok": True, "answer": "a reasonable size"}
 
     tool = Tool.from_function(small_tool)
-    result = await tool.run({})
+    result = await tool.run({}, None)  # mcp 2.x: context is a required positional
     assert result == {"ok": True, "answer": "a reasonable size"}

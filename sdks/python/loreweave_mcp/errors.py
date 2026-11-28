@@ -21,7 +21,7 @@ identical, so the agent can't probe which book ids exist by watching the error.
 
 from __future__ import annotations
 
-from mcp.server.fastmcp.exceptions import ToolError
+from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 __all__ = ["ForbidExtra", "TolerantArgs", "NotAccessibleError", "uniform_not_accessible"]

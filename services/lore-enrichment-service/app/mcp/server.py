@@ -31,7 +31,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from mcp.server.fastmcp import Context as MCPContext
+from mcp.server.mcpserver import Context as MCPContext
 from pydantic import Field
 
 from loreweave_mcp import (

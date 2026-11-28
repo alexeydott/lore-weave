@@ -33,8 +33,8 @@ from typing import Annotated, Any, Literal, get_args
 
 from loreweave_jobs import JobStatus as _SdkJobStatus
 
-from mcp.server.fastmcp import Context as MCPContext
-from mcp.server.fastmcp.exceptions import ToolError
+from mcp.server.mcpserver import Context as MCPContext
+from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field, ValidationError
 
 from loreweave_mcp import (

@@ -105,7 +105,7 @@ async def _wrapped_tool(args: _Inner) -> dict:
 class TestAgainstARealFastMCPServer:
     @pytest.fixture
     def server(self):
-        from mcp.server.fastmcp import FastMCP
+        from mcp.server.mcpserver import MCPServer
 
         from loreweave_mcp.flat_args import patch_flat_args
 
@@ -113,7 +113,7 @@ class TestAgainstARealFastMCPServer:
         # outermost and sees the already-flattened properties.
         patch_flat_args()
         patch_arg_docs()
-        mcp = FastMCP("k19-test")
+        mcp = MCPServer("k19-test")
         mcp.tool(name="flat_tool", description="d")(_flat_tool)
         mcp.tool(name="wrapped_tool", description="d")(_wrapped_tool)
         return mcp
@@ -121,7 +121,7 @@ class TestAgainstARealFastMCPServer:
     @pytest.mark.asyncio
     async def test_a_flat_tool_advertises_its_docs(self, server):
         tools = {t.name: t for t in await server.list_tools()}
-        props = tools["flat_tool"].inputSchema["properties"]
+        props = tools["flat_tool"].input_schema["properties"]
         assert props["scope"]["description"] == "mine | system | all"
         assert props["limit"]["description"] == "1..100"
 
@@ -130,7 +130,7 @@ class TestAgainstARealFastMCPServer:
         # The composition case: K16 hoists the inner model's properties, K19 must then find
         # the docs on that inner model. Getting the patch ORDER wrong makes this red.
         tools = {t.name: t for t in await server.list_tools()}
-        props = tools["wrapped_tool"].inputSchema["properties"]
+        props = tools["wrapped_tool"].input_schema["properties"]
         assert "args" not in props
         assert props["from_id"]["description"] == "the source motif id"
         assert props["kind"]["description"] == "composed_of | precedes | variant_of"

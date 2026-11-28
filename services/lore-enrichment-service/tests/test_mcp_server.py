@@ -25,7 +25,8 @@ import pytest
 import uvicorn
 from fastapi import HTTPException
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+import httpx2  # mcp 2.x client transport dep — the streamable-http client takes a pre-configured AsyncClient
+from mcp.client.streamable_http import streamable_http_client
 
 # conftest.py sets the required env BEFORE app import.
 
@@ -86,7 +87,9 @@ def mcp_base_url():
 
 @asynccontextmanager
 async def _mcp_client(base_url: str, headers: dict[str, str]):
-    async with streamablehttp_client(base_url, headers=headers) as (read, write, _sid):
+    async with streamable_http_client(
+        base_url, http_client=httpx2.AsyncClient(headers=headers)
+    ) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             yield session
@@ -123,7 +126,7 @@ async def test_no_tool_leaks_a_scope_arg(mcp_base_url):
         listing = await session.list_tools()
     forbidden = {"user_id", "owner_user_id", "session_id", "ctx", "internal_token"}
     for tool in listing.tools:
-        schema = tool.inputSchema
+        schema = tool.input_schema
         names: set[str] = set(schema.get("properties", {}))
         for definition in (schema.get("$defs") or {}).values():
             names |= set(definition.get("properties", {}))
@@ -138,7 +141,7 @@ async def test_rejects_missing_internal_token(mcp_base_url):
              "args": {"book_id": str(BOOK), "embedding_model_ref": str(EMB),
                       "generation_model_ref": str(GEN)}},
         )
-    assert result.isError is True
+    assert result.is_error is True
     assert "x-internal-token" in _error_text(result)
 
 
@@ -151,7 +154,7 @@ async def test_rejects_wrong_internal_token(mcp_base_url):
              "args": {"book_id": str(BOOK), "embedding_model_ref": str(EMB),
                       "generation_model_ref": str(GEN)}},
         )
-    assert result.isError is True
+    assert result.is_error is True
     assert "invalid internal token" in _error_text(result)
 
 

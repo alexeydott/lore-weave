@@ -1,4 +1,5 @@
-"""ext-tasks durable-gate WIRE (T1b) — bind the task store onto a FastMCP server.
+"""ext-tasks durable-gate WIRE (T1b) — bind the task store onto an MCP server
+(mcp 2.0 ``MCPServer``; 1.x's ``FastMCP``).
 
 Wires the transport-free lifecycle (``tasks.py``) onto a real MCP server so a
 client drives the gate over the standard protocol:
@@ -12,10 +13,13 @@ client drives the gate over the standard protocol:
     input step is an INTERIM TOOL; swap to the ``tasks/update`` method once a
     stable SDK ships its type — the store + lifecycle are unchanged.)
 
-Integration seam: FastMCP exposes the lowlevel ``Server`` at ``fastmcp._mcp_server``;
-we register typed request handlers on its ``request_handlers`` map. The wire TYPES
+Integration seam: MCPServer (mcp 2.0; the renamed FastMCP) exposes the lowlevel
+``Server`` at ``_lowlevel_server``; we register typed request handlers via its
+``add_request_handler(method, params_type, handler)`` API (mcp 2.0 replaced 1.x's
+``request_handlers[RequestType]`` map — handlers now take ``(ctx, params)`` and
+return the wire model directly). The wire TYPES
 (``GetTaskRequest``/``GetTaskResult``/…) are the SDK's — necessary because the Server
-routes by known request type — and are the only SDK surface here that changes when
+routes by known method string — and are the only SDK surface here that changes when
 Tasks moves to the standalone ``ext-tasks`` extension; the durable-gate LOGIC
 (``tasks.py``) depends on nothing experimental.
 
@@ -33,7 +37,7 @@ from typing import Annotated, Any, Callable
 from pydantic import Field
 
 import mcp.types as t
-from mcp.server.fastmcp import Context as MCPContext
+from mcp.server.mcpserver import Context as MCPContext
 
 from .tasks import COMPLETED, FAILED, Task, TaskStore
 
@@ -91,8 +95,11 @@ def client_supports_tasks(ctx: Any) -> bool:
 GATE_RESULT_TYPE = "io.loreweave/task-handle"
 
 
-def _dt(ts: float) -> datetime:
-    return datetime.fromtimestamp(ts, tz=timezone.utc)
+def _dt(ts: float) -> str:
+    """A wire timestamp. mcp 2.0's task models type createdAt/lastUpdatedAt as
+    ISO-8601 STRINGS (1.x accepted datetimes and serialized them itself), so
+    format here."""
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
 
 
 def _get_result(task: Task) -> t.GetTaskResult:
@@ -188,11 +195,11 @@ def _create_task_result(task: Task) -> t.CreateTaskResult:
 
 def _handle_of(call_tool_result: Any) -> dict[str, Any] | None:
     """Extract a gate HANDLE dict from a CallToolResult, or None if this tool
-    result is not a gate. Reads structuredContent (FastMCP's dict return, possibly
-    wrapped under a lone ``result`` key) or a single JSON text block."""
+    result is not a gate. Reads ``structured_content`` (the SDK's dict return,
+    possibly wrapped under a lone ``result`` key) or a single JSON text block."""
     import json
 
-    sc = getattr(call_tool_result, "structuredContent", None)
+    sc = getattr(call_tool_result, "structured_content", None)
     if isinstance(sc, dict):
         cand = sc["result"] if set(sc.keys()) == {"result"} else sc
         if isinstance(cand, dict) and cand.get("type") == GATE_RESULT_TYPE:
@@ -215,25 +222,49 @@ def enable_task_results(fastmcp: Any, store: TaskStore) -> None:
     tool result passes through unchanged. Call once, after the tools are registered.
 
     Non-gate tools are untouched; a gate tool whose handle can't be resolved back to
-    a live task also passes through as-is (fail-open — never breaks a tool call)."""
-    srv = fastmcp._mcp_server
-    inner = srv.request_handlers.get(t.CallToolRequest)
-    if inner is None:  # no tools registered yet — nothing to wrap
-        return
+    a live task also passes through as-is (fail-open — never breaks a tool call).
 
-    async def _wrapped(req: t.CallToolRequest) -> t.ServerResult:
-        result = await inner(req)
+    mcp 2.0: handlers are registered by METHOD STRING with a ``(ctx, params)``
+    signature and return the wire model directly (no ``ServerResult`` root
+    wrapper), so this wraps the ``tools/call`` HandlerEntry in place. A task
+    result is emitted as the spec's extension-owned shape — a plain mapping
+    with ``resultType: "task"`` — which the server's result sieve leaves alone
+    (only core resultTypes are validated) and a tasks-capable client parses via
+    its ``CreateTaskResult`` claim.
+    """
+    srv = fastmcp._lowlevel_server
+    entry = srv.get_request_handler("tools/call")
+    if entry is None:  # no tools registered yet — nothing to wrap
+        return
+    inner = entry.handler
+
+    async def _wrapped(ctx: Any, req: t.CallToolRequest) -> Any:
+        result = await inner(ctx, req)
         try:
-            inner_result = result.root if isinstance(result, t.ServerResult) else result
-            handle = _handle_of(inner_result)
-            if handle and handle.get("taskId"):
-                task = await store.get(handle["taskId"])
-                return t.ServerResult(_create_task_result(task))
+            # The extension-owned result shape can only ride a MODERN-protocol
+            # session: on the legacy handshake versions (which mcp 2.x's
+            # ClientSession.initialize() deliberately negotiates) the server
+            # sieves EVERY tools/call result against CallToolResult and would
+            # fail the whole call. There the handle-in-content interim form is
+            # the contract — pass the result through unchanged.
+            from mcp_types.version import MODERN_PROTOCOL_VERSIONS
+
+            modern = getattr(ctx, "protocol_version", None) in MODERN_PROTOCOL_VERSIONS
+            if modern:
+                handle = _handle_of(result)
+                if handle and handle.get("taskId"):
+                    task = await store.get(handle["taskId"])
+                    return {
+                        "resultType": "task",
+                        **_create_task_result(task).model_dump(
+                            by_alias=True, mode="json", exclude_none=True
+                        ),
+                    }
         except Exception:  # noqa: BLE001 — a wrap failure must never break tools/call
             pass
         return result
 
-    srv.request_handlers[t.CallToolRequest] = _wrapped
+    srv.add_request_handler("tools/call", entry.params_type, _wrapped)
 
 
 async def _owner_check(
@@ -280,27 +311,27 @@ def register_task_endpoints(
     can't let another user trigger someone else's pending gate. Pass the domain's
     ``settings.internal_service_token`` in production; omit for in-process/kit tests
     (no envelope). The Go book domain enforces the same invariant in its resolver."""
-    srv = fastmcp._mcp_server
+    srv = fastmcp._lowlevel_server
     provide_input_name = f"{tool_prefix}_task_provide_input" if tool_prefix else "task_provide_input"
 
-    async def _get(req: t.GetTaskRequest) -> t.ServerResult:
-        task_id = req.params.taskId or getattr(req.params, "task", None)
-        task = await store.get(task_id)
-        return t.ServerResult(_get_result(task))
+    async def _get(ctx: Any, params: t.GetTaskRequestParams) -> t.GetTaskResult:
+        task = await store.get(params.task_id)
+        return _get_result(task)
 
-    async def _cancel(req: t.CancelTaskRequest) -> t.ServerResult:
-        task_id = req.params.taskId or getattr(req.params, "task", None)
-        task = await store.cancel(task_id)
-        return t.ServerResult(
-            t.CancelTaskResult(
-                taskId=task.task_id, status=task.status,
-                createdAt=_dt(task.created_at), lastUpdatedAt=_dt(task.updated_at),
-                ttl=task.ttl_ms, pollInterval=task.poll_interval_ms,
-            )
+    async def _cancel(ctx: Any, params: t.CancelTaskRequestParams) -> t.CancelTaskResult:
+        task = await store.cancel(params.task_id)
+        return t.CancelTaskResult(
+            taskId=task.task_id, status=task.status,
+            createdAt=_dt(task.created_at), lastUpdatedAt=_dt(task.updated_at),
+            ttl=task.ttl_ms, pollInterval=task.poll_interval_ms,
         )
 
-    srv.request_handlers[t.GetTaskRequest] = _get
-    srv.request_handlers[t.CancelTaskRequest] = _cancel
+    # mcp 2.0: typed handlers registered by METHOD STRING (1.x keyed the
+    # request_handlers map by request class); params_type is the PARAMS model
+    # (the dispatcher validates+deserializes inbound params into it) and each
+    # handler takes (ctx, params).
+    srv.add_request_handler("tasks/get", t.GetTaskRequestParams, _get)
+    srv.add_request_handler("tasks/cancel", t.CancelTaskRequestParams, _cancel)
 
     # CAT-4 visibility:legacy — a MECHANISM tool the client (chat-service's resume
     # driver) calls by NAME; the LLM must never discover it via find_tools. Legacy ⇒

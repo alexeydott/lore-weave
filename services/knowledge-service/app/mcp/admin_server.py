@@ -27,8 +27,9 @@ import time
 from typing import Annotated, Literal
 from uuid import uuid4
 
-from mcp.server.fastmcp import Context as MCPContext
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import Context as MCPContext
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import Field
 from starlette.responses import JSONResponse
@@ -54,32 +55,31 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["mcp_admin_server", "build_admin_mcp_app", "rs256_gate"]
 
-mcp_admin_server = FastMCP(
+mcp_admin_server = MCPServer(
     "knowledge-admin",
-    stateless_http=True,
-    streamable_http_path="/",
-    # Same rationale as the /mcp server: internal service-to-service transport on
-    # the private network; the trust boundary is the RS256 admin token, not the
-    # Host header. (DNS-rebinding protection matters for browser-facing servers.)
-    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
 
 
 def _admin_claims(ctx: MCPContext) -> AdminClaims:
     """Re-verify the RS256 admin token from the MCP request → claims. Raises
-    ValueError (surfaced as an MCP tool error) on any failure. The transport gate
+    ToolError (surfaced as an MCP tool error) on any failure. The transport gate
     already proved a valid token to enumerate; this recovers the claims (sub for
     the asub bind, scopes for the write gate)."""
     key = get_admin_key()
     if key is None:
-        raise ValueError("system-tier administration is not configured")
+        raise ToolError("system-tier administration is not configured")
     token = ctx.request_context.request.headers.get("x-admin-token")
     if not token:
-        raise ValueError("missing admin token")
+        # ToolError, not ValueError: mcp 2.x strips the message of any non-ToolError
+        # a tool raises (treated as a crash) — these refusals are deliberate and the
+        # caller must read the reason.
+        raise ToolError("missing admin token")
     try:
         return verify_admin_token(token, key)
-    except AdminTokenInvalid:
-        raise ValueError("invalid admin token")
+    except AdminTokenInvalid as exc:
+        # Preserve the verifier's own reason (e.g. which scope was missing) —
+        # mcp 2.x delivers ToolError messages to the caller verbatim.
+        raise ToolError(str(exc))
 
 
 def _summary(s) -> dict:
@@ -137,9 +137,12 @@ async def kg_admin_propose_template(
 ) -> dict:
     claims = _admin_claims(ctx)
     if not claims.has_scope(SCOPE_ADMIN_WRITE):
-        raise ValueError("missing required admin scope (admin:write)")
+        # ToolError, not ValueError: mcp 2.x strips the message of any
+        # non-ToolError a tool raises (treated as a crash) — these refusals
+        # are deliberate and the caller must read the reason.
+        raise ToolError("missing required admin scope (admin:write)")
     if not claims.sub.strip():
-        raise ValueError("admin token has no subject")
+        raise ToolError("admin token has no subject")
 
     try:
         params = SystemTemplateParams(
@@ -172,8 +175,25 @@ async def kg_admin_propose_template(
 def build_admin_mcp_app():
     """Wrap the admin MCP ASGI app with an RS256 gate that runs on EVERY request
     (including `tools/list`), so the admin surface cannot be enumerated without a
-    verified `X-Admin-Token` (INV-T6). 503 if admin is disabled, 401 otherwise."""
-    return rs256_gate(mcp_admin_server.streamable_http_app())
+    verified `X-Admin-Token` (INV-T6). 503 if admin is disabled, 401 otherwise.
+
+    mcp 2.0 moved the stateless wiring (``stateless_http`` / ``streamable_http_path``
+    / ``transport_security``) from the MCPServer constructor onto THIS call — the
+    same settings the 1.x constructor carried, verbatim:
+    - ``stateless_http=True`` + ``streamable_http_path="/"`` — the endpoint lands at
+      exactly ``/mcp/admin`` (not ``/mcp/admin/mcp``) with no session state.
+    - DNS-rebinding protection DISABLED — internal service-to-service transport on
+      the private network; the trust boundary is the RS256 admin token, not the
+      Host header. (DNS-rebinding protection matters for browser-facing servers.)"""
+    return rs256_gate(
+        mcp_admin_server.streamable_http_app(
+            stateless_http=True,
+            streamable_http_path="/",
+            transport_security=TransportSecuritySettings(
+                enable_dns_rebinding_protection=False
+            ),
+        )
+    )
 
 
 def rs256_gate(inner):

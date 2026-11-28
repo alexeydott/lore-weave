@@ -1468,13 +1468,13 @@ class TestU2ACatalogueOutageIsRegistered:
         async def run():
             sink = _inst.arm_turn_surface()
             if break_it == "transport":
-                with patch("app.client.knowledge_client.streamablehttp_client",
+                with patch("app.client.knowledge_client.streamable_http_client",
                            side_effect=RuntimeError("gateway down")):
                     out = await getattr(client, method)(**args)
             elif break_it == "no_mcp":
                 # The dependency-missing branch. Deleting its registration left the suite green in
                 # BOTH doors — a coverage gap round 8 named and round 9 walked past.
-                with patch("app.client.knowledge_client.streamablehttp_client", None), \
+                with patch("app.client.knowledge_client.streamable_http_client", None), \
                         patch("app.client.knowledge_client.ClientSession", None):
                     out = await getattr(client, method)(**args)
             else:                                              # no_token
@@ -1929,9 +1929,9 @@ class TestU2ACatalogueOutageIsRegistered:
 
         async def run():
             _inst.arm_turn_surface()
-            with patch("app.client.knowledge_client.streamablehttp_client") as transport, \
+            with patch("app.client.knowledge_client.streamable_http_client") as transport, \
                     patch("app.client.knowledge_client.ClientSession") as cs:
-                transport.return_value.__aenter__ = AsyncMock(return_value=(None, None, None))
+                transport.return_value.__aenter__ = AsyncMock(return_value=(None, None))
                 transport.return_value.__aexit__ = AsyncMock(return_value=False)
                 cs.return_value.__aenter__ = AsyncMock(return_value=session)
                 cs.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -1959,7 +1959,7 @@ class TestU2ACatalogueOutageIsRegistered:
 
         def _listed(n):
             t = MagicMock()
-            t.name, t.description, t.inputSchema = f"admin_{n}", "d", {"type": "object"}
+            t.name, t.description, t.input_schema = f"admin_{n}", "d", {"type": "object"}
             out = MagicMock()
             out.tools, out.meta = ([] if n == 0 else [t]), {}
             return out
@@ -1975,9 +1975,9 @@ class TestU2ACatalogueOutageIsRegistered:
         client = KnowledgeClient(
             base_url="http://knowledge-service:8092", internal_token="t", timeout_s=0.5, retries=1)
 
-        with patch("app.client.knowledge_client.streamablehttp_client") as transport, \
+        with patch("app.client.knowledge_client.streamable_http_client") as transport, \
                 patch("app.client.knowledge_client.ClientSession") as cs:
-            transport.return_value.__aenter__ = AsyncMock(return_value=(None, None, None))
+            transport.return_value.__aenter__ = AsyncMock(return_value=(None, None))
             transport.return_value.__aexit__ = AsyncMock(return_value=False)
             cs.return_value.__aenter__ = AsyncMock(return_value=session)
             cs.return_value.__aexit__ = AsyncMock(return_value=False)

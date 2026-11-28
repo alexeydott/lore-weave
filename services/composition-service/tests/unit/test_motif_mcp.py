@@ -130,7 +130,7 @@ async def test_no_motif_tool_leaks_scope_arg(motif_tool_listing):
     """S2 (echo): identity ids are NEVER motif-tool params — owner from envelope."""
     forbidden = {"user_id", "owner_user_id", "session_id", "ctx", "internal_token"}
     for name in MOTIF_TOOLS:
-        schema = motif_tool_listing[name].inputSchema
+        schema = motif_tool_listing[name].input_schema
         names: set[str] = set(schema.get("properties", {}))
         for definition in (schema.get("$defs") or {}).values():
             names |= set(definition.get("properties", {}))

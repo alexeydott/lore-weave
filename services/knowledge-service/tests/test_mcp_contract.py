@@ -187,7 +187,7 @@ async def test_dispatch_failure_raises_tool_error_with_c4_json(
     as a success — the silent-success bug class."""
     import json as _json
 
-    from mcp.server.fastmcp.exceptions import ToolError
+    from mcp.server.mcpserver.exceptions import ToolError
 
     async def _fail_execute(
         context: ToolContext, tool_name: str, tool_args: dict[str, Any]
@@ -210,7 +210,7 @@ async def test_dispatch_failure_preserves_code_and_detail(
     workflow branches on KG_ENDPOINT_NOT_NODE instead of pattern-matching prose."""
     import json as _json
 
-    from mcp.server.fastmcp.exceptions import ToolError
+    from mcp.server.mcpserver.exceptions import ToolError
 
     async def _fail_execute(
         context: ToolContext, tool_name: str, tool_args: dict[str, Any]
