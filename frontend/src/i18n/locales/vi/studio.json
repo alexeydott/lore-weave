@@ -1170,7 +1170,13 @@
       "info": "Thông tin"
     },
     "resizeHint": "Kéo để đổi kích thước · nhấp đúp để đặt lại",
-    "notifications": "Thông báo"
+    "notifications": "Thông báo",
+    "addPanel": "Ghim bảng vào đây",
+    "unpin": "Xóa khỏi bảng dưới",
+    "pickerTitle": "Ghim bảng xuống dưới",
+    "pickerSearch": "Tìm bảng…",
+    "pickerHint": "Bảng nằm ở đây như một tab riêng; × sẽ trả nó về bộ chọn không gian làm việc. Được lưu với không gian làm việc này.",
+    "pickerEmpty": "Không có bảng nào khớp."
   },
   "status": {
     "wordsPlaceholder": "— từ",

@@ -1170,7 +1170,13 @@
       "info": "情報"
     },
     "resizeHint": "ドラッグでサイズ変更 · ダブルクリックでリセット",
-    "notifications": "通知"
+    "notifications": "通知",
+    "addPanel": "ここにパネルをピン留め",
+    "unpin": "下部パネルから外す",
+    "pickerTitle": "下部にパネルをピン留め",
+    "pickerSearch": "パネルを検索…",
+    "pickerHint": "パネルはここに専用タブとして置かれます。× でワークスペースのピッカーに戻ります。このワークスペースに保存されます。",
+    "pickerEmpty": "該当するパネルはありません。"
   },
   "status": {
     "wordsPlaceholder": "— 文字",

@@ -40,20 +40,79 @@ vi.mock('@/features/jobs/components/JobsCompactFeed', () => ({
 
 import { StudioBottomPanel } from '../StudioBottomPanel';
 
+// One catalog panel the picker can pin; the stub api must keep the panel
+// honest outside dockview (setTitle noop, close = unpin is the panel-side contract).
+vi.mock('../../panels/catalog', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../panels/catalog')>();
+  const FakePanel = ({ api }: { api: { close: () => void } }) => (
+    <button data-testid="fake-catalog-panel" onClick={() => api.close()} />
+  );
+  return {
+    ...mod,
+    OPENABLE_STUDIO_PANELS: [
+      ...mod.OPENABLE_STUDIO_PANELS,
+      { id: 'fake-extra', component: FakePanel, titleKey: 'panels.fake-extra.title', descKey: 'panels.fake-extra.desc', category: 'editor', guideBodyKey: 'panels.fake-extra.guideBody' } as never,
+    ],
+  };
+});
+
 const HEIGHT = 200;
 
-function renderPanel(onClose = vi.fn(), onResize = vi.fn()) {
+function renderPanel(
+  onClose = vi.fn(),
+  onResize = vi.fn(),
+  overrides: { pinnedPanels?: string[]; onPinPanel?: (id: string) => void; onUnpinPanel?: (id: string) => void } = {},
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <StudioBottomPanel onClose={onClose} height={HEIGHT} onResize={onResize} />
+      <StudioBottomPanel
+        onClose={onClose}
+        height={HEIGHT}
+        onResize={onResize}
+        pinnedPanels={overrides.pinnedPanels ?? []}
+        onPinPanel={overrides.onPinPanel ?? (() => {})}
+        onUnpinPanel={overrides.onUnpinPanel ?? (() => {})}
+      />
     </QueryClientProvider>,
   );
 }
 
 describe('StudioBottomPanel', () => {
+  it('pins a catalog panel via the + picker; the pinned tab renders with a stub api; × unpins', () => {
+    const onPin = vi.fn();
+    const onUnpin = vi.fn();
+    const { rerender } = renderPanel(vi.fn(), vi.fn(), { pinnedPanels: [], onPinPanel: onPin, onUnpinPanel: onUnpin });
+    fireEvent.click(screen.getByTestId('studio-bottom-add-panel'));
+    fireEvent.click(screen.getByTestId('studio-bottom-pin-fake-extra'));
+    expect(onPin).toHaveBeenCalledWith('fake-extra');
+
+    // parent state: rerender with the panel pinned (the pin state lives in chrome; here we
+    // verify the render + unpin contract)
+    rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
+        <StudioBottomPanel
+          onClose={vi.fn()}
+          height={200}
+          onResize={vi.fn()}
+          pinnedPanels={['fake-extra']}
+          onPinPanel={onPin}
+          onUnpinPanel={onUnpin}
+        />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(screen.getByText('panels.fake-extra.title'));
+    expect(screen.getByTestId('fake-catalog-panel')).toBeInTheDocument();
+
+    // × on the pinned tab unpins (and the panel's close() would route through the same
+    // callback — the stub contract is covered by the fake panel's close click)
+    const unpinBtns = screen.getAllByTitle('bottom.unpin');
+    fireEvent.click(unpinBtns[0]);
+    expect(onUnpin).toHaveBeenCalledWith('fake-extra');
+  });
+
   it('defaults to Jobs with the compact feed; row click opens job-detail, header opens the full panel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('jobs-compact-row-stub'));

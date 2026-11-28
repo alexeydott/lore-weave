@@ -19,6 +19,10 @@ export interface StudioChromeState {
   /** Bottom panel height in px (per-device UI state → localStorage). Draggable sash on the
    *  panel's top edge, VS Code "panel" behaviour (#user-report 2026-11-28). */
   bottomHeight: number;
+  /** Catalog panel ids pinned as extra bottom-panel tabs (per-device UI state → localStorage).
+   *  Beyond the three built-in feeds: any workspace panel can live down here (#user-report:
+   *  "туда ничего нельзя перенести" — the picker makes every panel bottom-hostable). */
+  bottomTabs: string[];
 }
 
 /** Side Bar width bounds. Min keeps the navigator readable; max stops it eating an ultrawide
@@ -50,4 +54,5 @@ export const DEFAULT_CHROME: StudioChromeState = {
   bottomOpen: false,
   sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
   bottomHeight: BOTTOM_HEIGHT_DEFAULT,
+  bottomTabs: [],
 };

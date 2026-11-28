@@ -1170,7 +1170,13 @@
       "info": "Info"
     },
     "resizeHint": "Seret untuk saiz · klik dua untuk set semula",
-    "notifications": "Notifikasi"
+    "notifications": "Notifikasi",
+    "addPanel": "Semat panel di sini",
+    "unpin": "Buang dari panel bawah",
+    "pickerTitle": "Semat panel di bawah",
+    "pickerSearch": "Cari panel…",
+    "pickerHint": "Panel tinggal di sini sebagai tabnya sendiri; × mengembalikannya ke pemilih ruang kerja. Disimpan bersama ruang kerja ini.",
+    "pickerEmpty": "Tiada panel sepadan."
   },
   "status": {
     "wordsPlaceholder": "— patah perkataan",

@@ -1170,7 +1170,13 @@
       "info": "信息"
     },
     "resizeHint": "拖动调整大小 · 双击重置",
-    "notifications": "通知"
+    "notifications": "通知",
+    "addPanel": "在此固定面板",
+    "unpin": "从底部面板移除",
+    "pickerTitle": "将面板固定到底部",
+    "pickerSearch": "查找面板…",
+    "pickerHint": "面板在这里作为独立标签页存在；× 会将其返回工作区选择器。随此工作区保存。",
+    "pickerEmpty": "没有匹配的面板。"
   },
   "status": {
     "wordsPlaceholder": "— 字",

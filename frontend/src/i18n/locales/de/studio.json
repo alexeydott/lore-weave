@@ -1170,7 +1170,13 @@
       "info": "Info"
     },
     "resizeHint": "Ziehen zum Skalieren · Doppelklick setzt zurück",
-    "notifications": "Benachrichtigungen"
+    "notifications": "Benachrichtigungen",
+    "addPanel": "Panel hier anpinnen",
+    "unpin": "Aus dem unteren Panel entfernen",
+    "pickerTitle": "Panel unten anpinnen",
+    "pickerSearch": "Panel suchen…",
+    "pickerHint": "Das Panel lebt hier als eigener Tab; × gibt es an die Arbeitsbereichs-Auswahl zurück. Mit diesem Arbeitsbereich gespeichert.",
+    "pickerEmpty": "Keine Panels gefunden."
   },
   "status": {
     "wordsPlaceholder": "— Wörter",

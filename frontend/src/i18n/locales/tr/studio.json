@@ -1170,7 +1170,13 @@
       "info": "Bilgi"
     },
     "resizeHint": "Boyutlandırmak için sürükleyin · sıfırlamak için çift tıklayın",
-    "notifications": "Bildirimler"
+    "notifications": "Bildirimler",
+    "addPanel": "Paneli buraya sabitle",
+    "unpin": "Alt panelden çıkar",
+    "pickerTitle": "Alta panel sabitle",
+    "pickerSearch": "Panel bul…",
+    "pickerHint": "Panel buraya kendi sekmesi olarak yerleşir; × onu çalışma alanı seçicine döndürür. Bu çalışma alanıyla kaydedilir.",
+    "pickerEmpty": "Eşleşen panel yok."
   },
   "status": {
     "wordsPlaceholder": "— kelime",

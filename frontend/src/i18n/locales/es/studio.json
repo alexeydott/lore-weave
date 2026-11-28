@@ -1170,7 +1170,13 @@
       "info": "Información"
     },
     "resizeHint": "Arrastre para cambiar el tamaño · doble clic para restablecer",
-    "notifications": "Notificaciones"
+    "notifications": "Notificaciones",
+    "addPanel": "Anclar panel aquí",
+    "unpin": "Quitar del panel inferior",
+    "pickerTitle": "Anclar un panel abajo",
+    "pickerSearch": "Buscar panel…",
+    "pickerHint": "El panel vive aquí como pestaña propia; × lo devuelve al selector del espacio de trabajo. Se guarda con este espacio de trabajo.",
+    "pickerEmpty": "Ningún panel coincide."
   },
   "status": {
     "wordsPlaceholder": "— palabras",

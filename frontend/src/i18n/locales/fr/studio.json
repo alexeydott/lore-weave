@@ -1170,7 +1170,13 @@
       "info": "Info"
     },
     "resizeHint": "Glissez pour redimensionner · double-clic pour réinitialiser",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "addPanel": "Épingler un panneau ici",
+    "unpin": "Retirer du panneau inférieur",
+    "pickerTitle": "Épingler un panneau en bas",
+    "pickerSearch": "Rechercher un panneau…",
+    "pickerHint": "Le panneau vit ici comme onglet dédié ; × le renvoie au sélecteur d'espace de travail. Enregistré avec cet espace de travail.",
+    "pickerEmpty": "Aucun panneau ne correspond."
   },
   "status": {
     "wordsPlaceholder": "— mots",

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { ACTIVITY_VIEWS, DEFAULT_CHROME, clampBottomHeight, clampSidebarWidth, type ActivityView, type StudioChromeState } from '../types';
+import { OPENABLE_STUDIO_PANELS } from '../panels/catalog';
 
 /**
  * The Writing Studio's frame UI state — which navigator is active, and whether the side bar
@@ -30,6 +31,9 @@ function load(bookId: string, mobileDefault: boolean): StudioChromeState {
       bottomHeight: typeof parsed.bottomHeight === 'number'
         ? clampBottomHeight(parsed.bottomHeight)
         : DEFAULT_CHROME.bottomHeight,
+      bottomTabs: Array.isArray(parsed.bottomTabs)
+        ? parsed.bottomTabs.filter((id) => OPENABLE_STUDIO_PANELS.some((p) => p.id === id))
+        : DEFAULT_CHROME.bottomTabs,
     };
   } catch {
     return { ...DEFAULT_CHROME, sidebarCollapsed: mobileDefault };
@@ -89,6 +93,24 @@ export function useStudioChrome(bookId: string) {
     });
   }, [bookId]);
 
+  const pinBottomPanel = useCallback((panelId: string) => {
+    setState((s) => {
+      if (s.bottomTabs.includes(panelId)) return s;
+      const next = { ...s, bottomTabs: [...s.bottomTabs, panelId] };
+      try { localStorage.setItem(chromeKey(bookId), JSON.stringify(next)); } catch { /* quota */ }
+      return next;
+    });
+  }, [bookId]);
+
+  const unpinBottomPanel = useCallback((panelId: string) => {
+    setState((s) => {
+      if (!s.bottomTabs.includes(panelId)) return s;
+      const next = { ...s, bottomTabs: s.bottomTabs.filter((id) => id !== panelId) };
+      try { localStorage.setItem(chromeKey(bookId), JSON.stringify(next)); } catch { /* quota */ }
+      return next;
+    });
+  }, [bookId]);
+
   return {
     ...state,
     setActiveView,
@@ -96,5 +118,7 @@ export function useStudioChrome(bookId: string) {
     toggleBottom,
     setSidebarWidth,
     setBottomHeight,
+    pinBottomPanel,
+    unpinBottomPanel,
   };
 }

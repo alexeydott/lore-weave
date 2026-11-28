@@ -1170,7 +1170,13 @@
       "info": "Info"
     },
     "resizeHint": "Drag to resize · double-click to reset",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "addPanel": "Pin a panel here",
+    "unpin": "Remove from the bottom panel",
+    "pickerTitle": "Pin a panel to the bottom",
+    "pickerSearch": "Find a panel…",
+    "pickerHint": "The panel lives here as its own tab; × returns it to the workspace picker. Saved with this workspace.",
+    "pickerEmpty": "No panels match."
   },
   "status": {
     "wordsPlaceholder": "— words",

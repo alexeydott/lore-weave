@@ -1157,7 +1157,13 @@
       "info": "資訊"
     },
     "resizeHint": "拖曳調整大小 · 雙擊重設",
-    "notifications": "通知"
+    "notifications": "通知",
+    "addPanel": "在此釘選面板",
+    "unpin": "從底部面板移除",
+    "pickerTitle": "將面板釘選到底部",
+    "pickerSearch": "尋找面板…",
+    "pickerHint": "面板在這裡作為獨立標籤頁存在；× 會將其返回工作區選擇器。隨此工作區儲存。",
+    "pickerEmpty": "沒有符合的面板。"
   },
   "status": {
     "wordsPlaceholder": "— 字",

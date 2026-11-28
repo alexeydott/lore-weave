@@ -1170,7 +1170,13 @@
       "info": "Info"
     },
     "resizeHint": "Arraste para redimensionar · clique duplo para redefinir",
-    "notifications": "Notificações"
+    "notifications": "Notificações",
+    "addPanel": "Fixar painel aqui",
+    "unpin": "Remover do painel inferior",
+    "pickerTitle": "Fixar um painel abaixo",
+    "pickerSearch": "Encontrar painel…",
+    "pickerHint": "O painel vive aqui como sua própria aba; × o devolve ao seletor do espaço de trabalho. Salvo com este espaço de trabalho.",
+    "pickerEmpty": "Nenhum painel corresponde."
   },
   "status": {
     "wordsPlaceholder": "— palavras",

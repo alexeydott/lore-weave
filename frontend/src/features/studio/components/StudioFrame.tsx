@@ -182,6 +182,9 @@ function StudioFrameInner({ bookId, initialChapterId }: { bookId: string; initia
                 onClose={chrome.toggleBottom}
                 height={chrome.bottomHeight}
                 onResize={chrome.setBottomHeight}
+                pinnedPanels={chrome.bottomTabs}
+                onPinPanel={chrome.pinBottomPanel}
+                onUnpinPanel={chrome.unpinBottomPanel}
               />
             )}
           </div>

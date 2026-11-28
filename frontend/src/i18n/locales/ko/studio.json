@@ -1170,7 +1170,13 @@
       "info": "정보"
     },
     "resizeHint": "드래그하여 크기 조절 · 더블클릭으로 초기화",
-    "notifications": "알림"
+    "notifications": "알림",
+    "addPanel": "여기에 패널 고정",
+    "unpin": "하단 패널에서 제거",
+    "pickerTitle": "하단에 패널 고정",
+    "pickerSearch": "패널 찾기…",
+    "pickerHint": "패널이 여기에 별도 탭으로 놓입니다; ×를 누르면 작업 공간 선택기로 돌아갑니다. 이 작업 공간과 함께 저장됩니다.",
+    "pickerEmpty": "일치하는 패널이 없습니다."
   },
   "status": {
     "wordsPlaceholder": "— 단어",
