@@ -1168,7 +1168,8 @@
       "error": "Fehler",
       "warn": "Warnung",
       "info": "Info"
-    }
+    },
+    "resizeHint": "Ziehen zum Skalieren · Doppelklick setzt zurück"
   },
   "status": {
     "wordsPlaceholder": "— Wörter",

@@ -155,5 +155,8 @@
       "knowledge": "Pengetahuan",
       "loreEnrichment": "Pengayaan lore"
     }
-  }
+  },
+  "compact.activeCount": "{{n}} aktif",
+  "compact.failedCount": "{{n}} gagal",
+  "compact.fullPanel": "Dasbor lengkap →"
 }

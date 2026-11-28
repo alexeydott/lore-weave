@@ -155,5 +155,8 @@
       "knowledge": "معرفة",
       "loreEnrichment": "إثراء المحتوى"
     }
-  }
+  },
+  "compact.activeCount": "{{n}} نشط",
+  "compact.failedCount": "{{n}} فاشلة",
+  "compact.fullPanel": "لوحة كاملة →"
 }

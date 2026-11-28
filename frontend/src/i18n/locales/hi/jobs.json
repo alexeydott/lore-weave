@@ -155,5 +155,8 @@
       "loreEnrichment": "कथा विस्तार"
     }
   },
-  "title": "नौकरियाँ"
+  "title": "नौकरियाँ",
+  "compact.activeCount": "{{n}} सक्रिय",
+  "compact.failedCount": "{{n}} विफल",
+  "compact.fullPanel": "पूरा डैशबोर्ड →"
 }

@@ -155,5 +155,8 @@
       "knowledge": "Knowledge",
       "loreEnrichment": "Lore enrichment"
     }
-  }
+  },
+  "compact.activeCount": "{{n}} active",
+  "compact.failedCount": "{{n}} failed",
+  "compact.fullPanel": "Full dashboard →"
 }

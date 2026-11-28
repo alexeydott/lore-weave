@@ -155,5 +155,8 @@
       "knowledge": "知識",
       "loreEnrichment": "世界觀豐富化"
     }
-  }
+  },
+  "compact.activeCount": "{{n}} 個執行中",
+  "compact.failedCount": "{{n}} 個失敗",
+  "compact.fullPanel": "完整面板 →"
 }

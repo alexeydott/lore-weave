@@ -155,5 +155,8 @@
       "knowledge": "知識抽出",
       "loreEnrichment": "設定の拡充"
     }
-  }
+  },
+  "compact.activeCount": "実行中 {{n}}",
+  "compact.failedCount": "失敗 {{n}}",
+  "compact.fullPanel": "全ダッシュボード →"
 }

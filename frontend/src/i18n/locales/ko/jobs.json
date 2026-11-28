@@ -155,5 +155,8 @@
       "knowledge": "지식 추출",
       "loreEnrichment": "세계관 보강"
     }
-  }
+  },
+  "compact.activeCount": "실행 중 {{n}}",
+  "compact.failedCount": "실패 {{n}}",
+  "compact.fullPanel": "전체 대시보드 →"
 }

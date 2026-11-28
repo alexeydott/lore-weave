@@ -177,7 +177,13 @@ function StudioFrameInner({ bookId, initialChapterId }: { bookId: string; initia
             {/* The dock stays mounted regardless of the bottom panel / sidebar (D4 no-remount:
                 in-flight panels must never be dropped by a chrome toggle). */}
             <StudioDock bookId={bookId} apiRef={host._dockApiRef} />
-            {chrome.bottomOpen && <StudioBottomPanel onClose={chrome.toggleBottom} />}
+            {chrome.bottomOpen && (
+              <StudioBottomPanel
+                onClose={chrome.toggleBottom}
+                height={chrome.bottomHeight}
+                onResize={chrome.setBottomHeight}
+              />
+            )}
           </div>
         </div>
 

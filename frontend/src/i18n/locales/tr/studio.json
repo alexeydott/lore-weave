@@ -1168,7 +1168,8 @@
       "error": "Hata",
       "warn": "Uyarı",
       "info": "Bilgi"
-    }
+    },
+    "resizeHint": "Boyutlandırmak için sürükleyin · sıfırlamak için çift tıklayın"
   },
   "status": {
     "wordsPlaceholder": "— kelime",

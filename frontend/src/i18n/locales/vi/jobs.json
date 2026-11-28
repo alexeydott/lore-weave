@@ -155,5 +155,8 @@
       "knowledge": "Kiến thức",
       "loreEnrichment": "Làm giàu cốt truyện"
     }
-  }
+  },
+  "compact.activeCount": "{{n}} đang chạy",
+  "compact.failedCount": "{{n}} lỗi",
+  "compact.fullPanel": "Bảng điều khiển đầy đủ →"
 }

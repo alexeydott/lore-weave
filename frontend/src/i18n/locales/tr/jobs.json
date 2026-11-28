@@ -155,5 +155,8 @@
       "knowledge": "Bilgi",
       "loreEnrichment": "Evren zenginleştirme"
     }
-  }
+  },
+  "compact.activeCount": "{{n}} aktif",
+  "compact.failedCount": "{{n}} başarısız",
+  "compact.fullPanel": "Tam panel →"
 }

@@ -1168,7 +1168,8 @@
       "error": "Lỗi",
       "warn": "Cảnh báo",
       "info": "Thông tin"
-    }
+    },
+    "resizeHint": "Kéo để đổi kích thước · nhấp đúp để đặt lại"
   },
   "status": {
     "wordsPlaceholder": "— từ",

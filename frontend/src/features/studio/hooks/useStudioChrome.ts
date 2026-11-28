@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { ACTIVITY_VIEWS, DEFAULT_CHROME, clampSidebarWidth, type ActivityView, type StudioChromeState } from '../types';
+import { ACTIVITY_VIEWS, DEFAULT_CHROME, clampBottomHeight, clampSidebarWidth, type ActivityView, type StudioChromeState } from '../types';
 
 /**
  * The Writing Studio's frame UI state — which navigator is active, and whether the side bar
@@ -27,6 +27,9 @@ function load(bookId: string, mobileDefault: boolean): StudioChromeState {
       sidebarWidth: typeof parsed.sidebarWidth === 'number'
         ? clampSidebarWidth(parsed.sidebarWidth)
         : DEFAULT_CHROME.sidebarWidth,
+      bottomHeight: typeof parsed.bottomHeight === 'number'
+        ? clampBottomHeight(parsed.bottomHeight)
+        : DEFAULT_CHROME.bottomHeight,
     };
   } catch {
     return { ...DEFAULT_CHROME, sidebarCollapsed: mobileDefault };
@@ -76,11 +79,22 @@ export function useStudioChrome(bookId: string) {
     });
   }, [bookId]);
 
+  // Bottom panel resize: same live/persist split as the sidebar sash.
+  const setBottomHeight = useCallback((height: number, persist = true) => {
+    setState((s) => {
+      const next = { ...s, bottomHeight: clampBottomHeight(height) };
+      if (next.bottomHeight === s.bottomHeight) return persist === false ? s : next;
+      if (persist) { try { localStorage.setItem(chromeKey(bookId), JSON.stringify(next)); } catch { /* quota */ } }
+      return next;
+    });
+  }, [bookId]);
+
   return {
     ...state,
     setActiveView,
     toggleSidebar,
     toggleBottom,
     setSidebarWidth,
+    setBottomHeight,
   };
 }

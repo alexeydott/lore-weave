@@ -1168,7 +1168,8 @@
       "error": "Error",
       "warn": "Warning",
       "info": "Info"
-    }
+    },
+    "resizeHint": "Drag to resize · double-click to reset"
   },
   "status": {
     "wordsPlaceholder": "— words",

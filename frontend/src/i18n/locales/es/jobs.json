@@ -155,5 +155,8 @@
       "knowledge": "Conocimiento",
       "loreEnrichment": "Enriquecimiento de lore"
     }
-  }
+  },
+  "compact.activeCount": "{{n}} activas",
+  "compact.failedCount": "{{n}} fallidas",
+  "compact.fullPanel": "Panel completo →"
 }

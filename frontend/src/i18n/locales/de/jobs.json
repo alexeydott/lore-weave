@@ -155,5 +155,8 @@
       "knowledge": "Wissen",
       "loreEnrichment": "Lore-Anreicherung"
     }
-  }
+  },
+  "compact.activeCount": "{{n}} aktiv",
+  "compact.failedCount": "{{n}} fehlgeschlagen",
+  "compact.fullPanel": "Vollständiges Dashboard →"
 }

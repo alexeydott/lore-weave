@@ -1168,7 +1168,8 @@
       "error": "Kesalahan",
       "warn": "Peringatan",
       "info": "Info"
-    }
+    },
+    "resizeHint": "Seret untuk mengubah ukuran · klik dua untuk reset"
   },
   "status": {
     "wordsPlaceholder": "— kata",

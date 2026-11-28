@@ -1168,7 +1168,8 @@
       "error": "Ralat",
       "warn": "Amaran",
       "info": "Info"
-    }
+    },
+    "resizeHint": "Seret untuk saiz · klik dua untuk set semula"
   },
   "status": {
     "wordsPlaceholder": "— patah perkataan",

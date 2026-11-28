@@ -155,5 +155,8 @@
       "knowledge": "ความรู้",
       "loreEnrichment": "การเสริมข้อมูล Lore"
     }
-  }
+  },
+  "compact.activeCount": "กำลังทำ {{n}}",
+  "compact.failedCount": "ล้มเหลว {{n}}",
+  "compact.fullPanel": "แดชบอร์ดเต็ม →"
 }

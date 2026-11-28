@@ -16,6 +16,9 @@ export interface StudioChromeState {
   bottomOpen: boolean;
   /** Side Bar width in px (per-device UI state → localStorage). Resizable like a dock panel. */
   sidebarWidth: number;
+  /** Bottom panel height in px (per-device UI state → localStorage). Draggable sash on the
+   *  panel's top edge, VS Code "panel" behaviour (#user-report 2026-11-28). */
+  bottomHeight: number;
 }
 
 /** Side Bar width bounds. Min keeps the navigator readable; max stops it eating an ultrawide
@@ -30,9 +33,21 @@ export function clampSidebarWidth(w: number): number {
   return Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, Math.round(w)));
 }
 
+/** Bottom panel height bounds + default (the old fixed 168px, one notch taller now that
+ *  the panel carries a real feed). */
+export const BOTTOM_HEIGHT_DEFAULT = 200;
+export const BOTTOM_HEIGHT_MIN = 120;
+export const BOTTOM_HEIGHT_MAX = 520;
+
+/** Clamp + round a proposed bottom-panel height to the allowed range. Pure — unit-tested. */
+export function clampBottomHeight(height: number): number {
+  return Math.min(BOTTOM_HEIGHT_MAX, Math.max(BOTTOM_HEIGHT_MIN, Math.round(height)));
+}
+
 export const DEFAULT_CHROME: StudioChromeState = {
   activeView: 'manuscript',
   sidebarCollapsed: false,
   bottomOpen: false,
   sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
+  bottomHeight: BOTTOM_HEIGHT_DEFAULT,
 };
