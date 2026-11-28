@@ -56,15 +56,15 @@ def canonical_hash(payload: object) -> str:
 
 async def fetch_catalog(gateway: str, user_id: str | None) -> list[dict]:
     from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
+    from mcp.client.streamable_http import streamable_http_client
 
     headers = {"X-Internal-Token": INTERNAL_TOKEN}
     if user_id:
         # The per-user external-MCP overlay is keyed on this header. Captured deliberately: the
         # baseline must include what a REAL turn saw, and a real turn carries a user.
         headers["X-User-Id"] = user_id
-    async with streamablehttp_client(f"{gateway}/mcp", headers=headers,
-                                     timeout=60, sse_read_timeout=60) as (read, write, _):
+    async with streamable_http_client(f"{gateway}/mcp", headers=headers,
+                                     timeout=60, sse_read_timeout=60) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             listed = await session.list_tools()

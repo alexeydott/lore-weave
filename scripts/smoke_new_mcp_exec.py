@@ -14,7 +14,7 @@ import uuid
 
 import httpx
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 TOKEN = os.environ["INTERNAL_SERVICE_TOKEN"]
 USER = "019d5e3c-7cc5-7e6a-8b27-1344e148bf7c"  # claude-test
@@ -31,7 +31,7 @@ def _payload(res):
 
 
 async def main():
-    async with streamablehttp_client(GW, headers=H) as (r, w, _):
+    async with streamable_http_client(GW, headers=H) as (r, w):
         async with ClientSession(r, w) as s:
             await s.initialize()
 

@@ -9,7 +9,7 @@ import time
 import httpx
 import jwt
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 TOKEN = os.environ["INTERNAL_SERVICE_TOKEN"]
 SECRET = os.environ["JWT_SECRET"]
@@ -46,7 +46,7 @@ async def main():
     chapter_id = cr.json()["chapter_id"]
     print("new chapter_id:", chapter_id)
 
-    async with streamablehttp_client(GW, headers=H) as (r, w, _):
+    async with streamable_http_client(GW, headers=H) as (r, w):
         async with ClientSession(r, w) as s:
             await s.initialize()
             await s.call_tool("composition_create_work", {"project_id": proj, "book_id": book})

@@ -22,7 +22,7 @@ import os
 import sys
 
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 # The T0 funnel — measure the bytes the model actually receives.
 sys.path.insert(0, "/app")
@@ -48,7 +48,7 @@ def _bytes(payload) -> int:
 
 
 async def main() -> int:
-    async with streamablehttp_client(GW, headers=H) as (r, w, _):
+    async with streamable_http_client(GW, headers=H) as (r, w):
         async with ClientSession(r, w) as s:
             await s.initialize()
 

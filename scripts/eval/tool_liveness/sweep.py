@@ -46,7 +46,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 from . import config
 from .mcp_direct import _flatten
@@ -241,7 +241,7 @@ def fill_args(schema: dict, fx: dict) -> dict | None:
 
 
 async def _list_tools() -> list[dict]:
-    async with streamablehttp_client(config.AI_GATEWAY_MCP, headers=_HEADERS) as (r, w, _):
+    async with streamable_http_client(config.AI_GATEWAY_MCP, headers=_HEADERS) as (r, w):
         async with ClientSession(r, w) as s:
             await s.initialize()
             res = await s.list_tools()
@@ -286,7 +286,7 @@ async def _sweep(targets: list[dict], fx: dict, headers: dict | None = None,
     """
     rows: list[dict] = []
     state: dict[str, Any] = {}
-    async with streamablehttp_client(config.AI_GATEWAY_MCP, headers=headers or _HEADERS) as (r, w, _):
+    async with streamable_http_client(config.AI_GATEWAY_MCP, headers=headers or _HEADERS) as (r, w):
         async with ClientSession(r, w) as s:
             await s.initialize()
             for t in targets:

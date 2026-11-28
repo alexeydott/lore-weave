@@ -17,7 +17,7 @@ import time
 import httpx
 import jwt
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 TOKEN = os.environ["INTERNAL_SERVICE_TOKEN"]
 SECRET = os.environ["JWT_SECRET"]
@@ -124,7 +124,7 @@ async def poll_job(session, job_id, label, tries=90, delay=10):
 
 async def main():
     st = load()
-    async with streamablehttp_client(GW, headers=H) as (r, w, _):
+    async with streamable_http_client(GW, headers=H) as (r, w):
         async with ClientSession(r, w) as s:
             await s.initialize()
 

@@ -25,7 +25,7 @@ import json
 from typing import Any
 
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 from . import config, oracle
 from .confirm import find_confirm_token
@@ -106,7 +106,7 @@ async def verify(ids: dict) -> list[dict]:
     if not crit:
         return []
     rows: list[dict] = []
-    async with streamablehttp_client(config.AI_GATEWAY_MCP, headers=_HEADERS) as (r, w, _):
+    async with streamable_http_client(config.AI_GATEWAY_MCP, headers=_HEADERS) as (r, w):
         async with ClientSession(r, w) as s:
             await s.initialize()
             for tool in sorted(crit):

@@ -33,7 +33,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from mcp import ClientSession  # noqa: E402
-from mcp.client.streamable_http import streamablehttp_client  # noqa: E402
+from mcp.client.streamable_http import streamable_http_client  # noqa: E402
 
 from scripts.eval.tool_liveness import config  # noqa: E402
 
@@ -48,7 +48,7 @@ _HEADERS = {
 
 async def _fetch() -> dict:
     out: dict = {}
-    async with streamablehttp_client(config.AI_GATEWAY_MCP, headers=_HEADERS) as (r, w, _):
+    async with streamable_http_client(config.AI_GATEWAY_MCP, headers=_HEADERS) as (r, w):
         async with ClientSession(r, w) as s:
             await s.initialize()
             listing = await s.list_tools()

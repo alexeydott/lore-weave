@@ -9,7 +9,7 @@ import time
 import httpx
 import jwt
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 TOKEN = os.environ["INTERNAL_SERVICE_TOKEN"]
 SECRET = os.environ["JWT_SECRET"]
@@ -45,7 +45,7 @@ async def kg_confirm(token):
 async def main():
     st = load(); proj = st["kg_project"]
     H = {"X-Internal-Token": TOKEN, "X-User-Id": USER, "X-Session-Id": "s2c", "X-Project-Id": proj}
-    async with streamablehttp_client(KG_MCP, headers=H) as (r, w, _):
+    async with streamable_http_client(KG_MCP, headers=H) as (r, w):
         async with ClientSession(r, w) as s:
             await s.initialize()
             if not st.get("kg_done"):

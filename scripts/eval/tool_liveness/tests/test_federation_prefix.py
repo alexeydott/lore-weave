@@ -22,7 +22,7 @@ import pytest
 
 try:
     from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
+    from mcp.client.streamable_http import streamable_http_client
 
     from tool_liveness import config
     from tool_liveness.sweep import _HEADERS
@@ -32,7 +32,7 @@ except Exception:  # pragma: no cover - environment without the MCP SDK
 
 
 async def _tools_at(url: str) -> list[dict]:
-    async with streamablehttp_client(url, headers=_HEADERS) as (r, w, _):
+    async with streamable_http_client(url, headers=_HEADERS) as (r, w):
         async with ClientSession(r, w) as s:
             await s.initialize()
             res = await s.list_tools()

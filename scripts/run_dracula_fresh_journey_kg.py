@@ -13,7 +13,7 @@ import time
 import httpx
 import jwt
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 TOKEN = os.environ["INTERNAL_SERVICE_TOKEN"]
 SECRET = os.environ["JWT_SECRET"]
@@ -73,7 +73,7 @@ async def main():
     # ── 6a — create the KG project bound to the book (no X-Project-Id needed) ──
     if not st.get("project_id"):
         print("== 6a: create KG project ==")
-        async with streamablehttp_client(GW, headers=hdrs()) as (r, w, _):
+        async with streamable_http_client(GW, headers=hdrs()) as (r, w, _):
             async with ClientSession(r, w) as s:
                 await s.initialize()
                 res = _p(await s.call_tool("kg_project_create", {
@@ -95,7 +95,7 @@ async def main():
         st["embed_set"] = True
         save(st)
 
-    async with streamablehttp_client(GW, headers=hdrs(project)) as (r, w, _):
+    async with streamable_http_client(GW, headers=hdrs(project)) as (r, w, _):
         async with ClientSession(r, w) as s:
             await s.initialize()
 

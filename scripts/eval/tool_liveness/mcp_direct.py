@@ -13,7 +13,7 @@ import asyncio
 import json
 
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 import uuid
 
@@ -48,7 +48,7 @@ class MCPToolError(RuntimeError):
 def _flatten(exc: BaseException) -> BaseException:
     """Unwrap an anyio/asyncio ExceptionGroup down to its single real cause.
 
-    `streamablehttp_client` and `ClientSession` are anyio task groups. Any exception
+    `streamable_http_client` and `ClientSession` are anyio task groups. Any exception
     that escapes their `async with` bodies is re-raised as an ExceptionGroup, so the
     caller sees `unhandled errors in a TaskGroup (1 sub-exception)` and the ACTUAL
     message is buried. That is exactly how F6 presented for a whole eval cycle: the
@@ -74,7 +74,7 @@ class MCPDirect:
         # ExceptionGroup and destroy the message. Capture, exit cleanly, raise after.
         tool_error: str | None = None
         payload: dict = {}
-        async with streamablehttp_client(config.AI_GATEWAY_MCP, headers=_HEADERS) as (r, w, _):
+        async with streamable_http_client(config.AI_GATEWAY_MCP, headers=_HEADERS) as (r, w):
             async with ClientSession(r, w) as s:
                 await s.initialize()
                 res = await s.call_tool(tool, args)

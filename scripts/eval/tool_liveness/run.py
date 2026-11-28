@@ -35,13 +35,13 @@ from .sse import create_session, send_turn
 def load_inventory() -> dict:
     """Map tool_name -> {required:[...], meta:{...}} from the live ai-gateway."""
     from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
+    from mcp.client.streamable_http import streamable_http_client
     H = {"X-Internal-Token": config.INTERNAL_TOKEN, "X-User-Id": config.USER_ID,
          "X-Session-Id": "tle-inv"}
 
     async def _go():
         out = {}
-        async with streamablehttp_client(config.AI_GATEWAY_MCP, headers=H) as (r, w, _):
+        async with streamable_http_client(config.AI_GATEWAY_MCP, headers=H) as (r, w):
             async with ClientSession(r, w) as s:
                 await s.initialize()
                 tl = await s.list_tools()
